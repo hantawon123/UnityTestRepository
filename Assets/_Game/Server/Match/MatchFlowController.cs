@@ -1,12 +1,14 @@
 using Game.Core.Match;
 using Game.SOAP.Config;
 using UnityEngine;
+using Game.SOAP.Events;
 
 namespace Game.Server.Match
 {
     public sealed class MatchFlowController : MonoBehaviour
     {
         [SerializeField] private MatchRulesSO rules;
+        [SerializeField] private MatchPhaseEventSO phaseChangedEvent;
         [SerializeField] private MatchPhase currentPhase = MatchPhase.Waiting;
         [SerializeField] private float remainingTime;
 
@@ -51,6 +53,8 @@ namespace Game.Server.Match
                 MatchPhase.Searching => rules.SearchingDuration,
                 _ => 0f
             };
+
+            phaseChangedEvent?.Raise(currentPhase);
         }
     }
 }
