@@ -35,14 +35,17 @@
   - 재생 구간: 1~24 / 30fps
   - 비고: 전진 이동 포함. 사이클당 약 0.545 유닛
 - [x] 제자리 달리기
-  - 파일명: `PlayerCapsule_CuteJump.blend`
-  - 액션명: `Run_InPlace`
+  - 파일명: `PlayerCapsule_Run_SideArms.blend`
+  - 액션명: `Run_SideArms`
   - 반복: O
-  - 재생 구간: 1~21 / 30fps
+  - 재생 구간: 1~20 / 30fps
+  - 비고: 21프레임 클로저. 팔을 옆으로 벌린 달리기
 - [x] 전진 달리기
-  - 파일명: `PlayerCapsule_CuteJump.blend`
-  - 액션명: `Run_Forward`
-  - 비고: 전진 이동 포함
+  - 파일명: `PlayerCapsule_Run_SideArms.blend`
+  - 액션명: `Run_SideArms_Forward`
+  - 반복: O
+  - 재생 구간: 1~20 / 30fps
+  - 비고: 전진 이동 포함. 사이클당 약 0.9 유닛
 
 
 
