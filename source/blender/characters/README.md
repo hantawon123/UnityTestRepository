@@ -14,5 +14,8 @@
 ## 목록
 
 - `PlayerCapsule_CuteJump.blend` — 현재 통합 파일. 걷기·달리기·점프 액션 포함. 기본 액션 `Jump_Cute`
+- `PlayerCapsule_Idle_Breathing_2s.blend` — 기본 대기. 액션 `Idle_Breathing`
+- `PlayerCapsule_Fall_Flutter.blend` — 공중 유지·낙하. 액션 `Fall_Flutter`
+- `PlayerCapsule_Land_Matched.blend` — 착지. 액션 `Land_Matched`
 - `PlayerCapsule_Walk_Run.blend` — 걷기·달리기 작업본
 - `PlayerCapsule_Walking_Smooth.blend` — 걷기 다듬기 작업본
