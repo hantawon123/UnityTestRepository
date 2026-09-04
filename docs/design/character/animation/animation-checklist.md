@@ -23,14 +23,17 @@
   - 반복: O
   - 재생 구간: 약 2초
 - [x] 제자리 걷기
-  - 파일명: `PlayerCapsule_CuteJump.blend`
-  - 액션명: `Walk_InPlace_Smooth`
+  - 파일명: `PlayerCapsule_Walk_Wide_Clean.blend`
+  - 액션명: `Walk_Wide_Clean`
   - 반복: O
-  - 재생 구간: 1~29 / 30fps
+  - 재생 구간: 1~24 / 30fps
+  - 비고: 25프레임 클로저. 보폭 넓힘
 - [x] 전진 걷기
-  - 파일명: `PlayerCapsule_CuteJump.blend`
-  - 액션명: `Walk_Forward_Smooth`
-  - 비고: 전진 이동 포함
+  - 파일명: `PlayerCapsule_Walk_Wide_Clean.blend`
+  - 액션명: `Walk_Wide_Clean_Forward`
+  - 반복: O
+  - 재생 구간: 1~24 / 30fps
+  - 비고: 전진 이동 포함. 사이클당 약 0.545 유닛
 - [x] 제자리 달리기
   - 파일명: `PlayerCapsule_CuteJump.blend`
   - 액션명: `Run_InPlace`
