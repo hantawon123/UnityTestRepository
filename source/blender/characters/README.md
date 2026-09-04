@@ -1,0 +1,18 @@
+# 캐릭터 블렌더 원본
+
+플레이어 캐릭터의 리깅·리타겟·액션 작업 파일(`.blend`)을 둡니다.
+
+- 파일명은 영문과 언더스코어. 예: `PlayerCapsule_CuteJump.blend`
+- `*.blend1` 백업은 커밋하지 않습니다.
+- 액션 제작 현황은 `docs/design/character/animation/animation-checklist.md`에 적습니다.
+
+## 게임 적용
+
+- 메시·리그: `Assets/_Game/Content/Models/`
+- 애니메이션 클립: `Assets/_Game/Content/Animations/`
+
+## 목록
+
+- `PlayerCapsule_CuteJump.blend` — 현재 통합 파일. 걷기·달리기·점프 액션 포함. 기본 액션 `Jump_Cute`
+- `PlayerCapsule_Walk_Run.blend` — 걷기·달리기 작업본
+- `PlayerCapsule_Walking_Smooth.blend` — 걷기 다듬기 작업본
