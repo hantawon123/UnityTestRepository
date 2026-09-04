@@ -17,5 +17,5 @@
 - `PlayerCapsule_Idle_Breathing_2s.blend` — 기본 대기. 액션 `Idle_Breathing`
 - `PlayerCapsule_Fall_Flutter.blend` — 공중 유지·낙하. 액션 `Fall_Flutter`
 - `PlayerCapsule_Land_Matched.blend` — 착지. 액션 `Land_Matched`
-- `PlayerCapsule_Walk_Run.blend` — 걷기·달리기 작업본
+- `PlayerCapsule_Run_SideArms.blend` — 팔을 옆으로 벌린 달리기. 액션 `Run_SideArms`, `Run_SideArms_Forward`
 - `PlayerCapsule_Walk_Wide_Clean.blend` — 보폭 넓힌 걷기. 액션 `Walk_Wide_Clean`, `Walk_Wide_Clean_Forward`
