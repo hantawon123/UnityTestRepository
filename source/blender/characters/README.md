@@ -19,3 +19,4 @@
 - `PlayerCapsule_Land_Matched.blend` — 착지. 액션 `Land_Matched`
 - `PlayerCapsule_Run_SideArms.blend` — 팔을 옆으로 벌린 달리기. 액션 `Run_SideArms`, `Run_SideArms_Forward`
 - `PlayerCapsule_Walk_Wide_Clean.blend` — 보폭 넓힌 걷기. 액션 `Walk_Wide_Clean`, `Walk_Wide_Clean_Forward`
+- `PlayerCapsule_Crouch_KneesUp_Only.blend` — 무릎 든 웅크리기 세트. Idle·4방향 이동·일어서기/앉기 전환
