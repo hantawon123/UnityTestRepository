@@ -27,7 +27,8 @@ namespace Game.Client.Match
             int completedCount,
             int totalCount,
             string hidingPlayerName,
-            IReadOnlyList<HidingWaitPlayer> players);
+            IReadOnlyList<HidingWaitPlayer> players,
+            bool showNextTurnNotice);
         void Hide();
     }
 
@@ -40,6 +41,8 @@ namespace Game.Client.Match
     {
         public const float CountFontSize = 45f;
         public const float StatusFontSize = 28f;
+        public const float NextTurnFontSize = 40f;
+        public const string NextTurnText = "다음 숨길 차례입니다";
         public const float NameFontSize = 18f;
         public const float TopPadding = 20f;
         public const float PersonIconSize = 40f;
@@ -56,6 +59,9 @@ namespace Game.Client.Match
 
         [SerializeField]
         private TMP_Text statusText;
+
+        [SerializeField]
+        private TMP_Text nextTurnText;
 
         [SerializeField]
         private GameObject topPrompt;
@@ -106,7 +112,8 @@ namespace Game.Client.Match
                         new HidingWaitPlayer("플레이어4", false, false),
                         new HidingWaitPlayer("플레이어5", false, false),
                         new HidingWaitPlayer("플레이어6", false, false)
-                    });
+                    },
+                    true);
                 return;
             }
 
@@ -120,7 +127,8 @@ namespace Game.Client.Match
             int completedCount,
             int totalCount,
             string hidingPlayerName,
-            IReadOnlyList<HidingWaitPlayer> players)
+            IReadOnlyList<HidingWaitPlayer> players,
+            bool showNextTurnNotice)
         {
             shown = true;
             if (!gameObject.activeSelf)
@@ -130,7 +138,7 @@ namespace Game.Client.Match
 
             EnsureLayout();
             ApplyFonts();
-            ApplyProgress(completedCount, totalCount, hidingPlayerName);
+            ApplyProgress(completedCount, totalCount, hidingPlayerName, showNextTurnNotice);
             ApplyPlayers(players);
             SetContentVisible(true);
         }
@@ -172,9 +180,22 @@ namespace Game.Client.Match
                 statusText.fontStyle = FontStyles.Normal;
                 statusText.color = Color.white;
             }
+
+            if (nextTurnText != null)
+            {
+                nextTurnText.font = font;
+                nextTurnText.fontSize = NextTurnFontSize;
+                nextTurnText.fontStyle = FontStyles.Normal;
+                nextTurnText.color = AccentColor;
+                nextTurnText.text = NextTurnText;
+            }
         }
 
-        private void ApplyProgress(int completedCount, int totalCount, string hidingPlayerName)
+        private void ApplyProgress(
+            int completedCount,
+            int totalCount,
+            string hidingPlayerName,
+            bool showNextTurnNotice)
         {
             if (countText != null)
             {
@@ -184,6 +205,11 @@ namespace Game.Client.Match
             if (statusText != null)
             {
                 statusText.text = FormatStatus(hidingPlayerName);
+            }
+
+            if (nextTurnText != null)
+            {
+                nextTurnText.gameObject.SetActive(showNextTurnNotice);
             }
         }
 
@@ -277,6 +303,11 @@ namespace Game.Client.Match
                 statusText = transform.Find("TopPrompt/Status")?.GetComponent<TMP_Text>();
             }
 
+            if (nextTurnText == null)
+            {
+                nextTurnText = transform.Find("TopPrompt/NextTurn")?.GetComponent<TMP_Text>();
+            }
+
             if (topPrompt == null)
             {
                 topPrompt = transform.Find("TopPrompt")?.gameObject;
@@ -286,6 +317,38 @@ namespace Game.Client.Match
             {
                 playerList = transform.Find("PlayerList")?.gameObject;
             }
+
+            EnsureNextTurn();
+        }
+
+        private void EnsureNextTurn()
+        {
+            if (topPrompt == null)
+            {
+                return;
+            }
+
+            Place(
+                topPrompt.GetComponent<RectTransform>(),
+                new Vector2(0.5f, 1f),
+                new Vector2(0f, -TopPadding),
+                new Vector2(980f, 160f),
+                new Vector2(0.5f, 1f));
+
+            if (nextTurnText != null)
+            {
+                return;
+            }
+
+            nextTurnText = CreateText(topPrompt.transform, "NextTurn", NextTurnText, NextTurnFontSize);
+            nextTurnText.color = AccentColor;
+            Place(
+                nextTurnText.rectTransform,
+                new Vector2(0.5f, 1f),
+                new Vector2(0f, -104f),
+                new Vector2(920f, 48f),
+                new Vector2(0.5f, 1f));
+            nextTurnText.gameObject.SetActive(false);
         }
 
         private void BuildLayout()
@@ -295,7 +358,7 @@ namespace Game.Client.Match
                 topPrompt.GetComponent<RectTransform>(),
                 new Vector2(0.5f, 1f),
                 new Vector2(0f, -TopPadding),
-                new Vector2(980f, 110f),
+                new Vector2(980f, 160f),
                 new Vector2(0.5f, 1f));
 
             var icon = CreateImage(
@@ -326,6 +389,16 @@ namespace Game.Client.Match
                 new Vector2(0f, -56f),
                 new Vector2(920f, 40f),
                 new Vector2(0.5f, 1f));
+
+            nextTurnText = CreateText(topPrompt.transform, "NextTurn", NextTurnText, NextTurnFontSize);
+            nextTurnText.color = AccentColor;
+            Place(
+                nextTurnText.rectTransform,
+                new Vector2(0.5f, 1f),
+                new Vector2(0f, -104f),
+                new Vector2(920f, 48f),
+                new Vector2(0.5f, 1f));
+            nextTurnText.gameObject.SetActive(false);
 
             playerList = CreateRect(transform, "PlayerList").gameObject;
             Place(

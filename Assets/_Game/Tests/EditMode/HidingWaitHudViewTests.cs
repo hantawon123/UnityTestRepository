@@ -23,7 +23,8 @@ namespace Game.Architecture.Tests
                         new HidingWaitPlayer("하나", true, false),
                         new HidingWaitPlayer("민수", false, true),
                         new HidingWaitPlayer("지연", false, false)
-                    });
+                    },
+                    true);
 
                 var count = view.transform.Find("TopPrompt/Count")?.GetComponent<TMPro.TMP_Text>();
                 Assert.That(count, Is.Not.Null);
@@ -38,6 +39,13 @@ namespace Game.Architecture.Tests
                     view.transform.Find("TopPrompt").GetComponent<RectTransform>().anchoredPosition.y,
                     Is.EqualTo(-HidingWaitHudView.TopPadding));
                 Assert.That(view.transform.Find("TopPrompt/Person"), Is.Not.Null);
+
+                var nextTurn = view.transform.Find("TopPrompt/NextTurn")?.GetComponent<TMPro.TMP_Text>();
+                Assert.That(nextTurn, Is.Not.Null);
+                Assert.That(nextTurn.text, Is.EqualTo(HidingWaitHudView.NextTurnText));
+                Assert.That(nextTurn.fontSize, Is.EqualTo(HidingWaitHudView.NextTurnFontSize));
+                Assert.That(nextTurn.color, Is.EqualTo(HidingWaitHudView.AccentColor));
+                Assert.That(nextTurn.gameObject.activeSelf, Is.True);
 
                 var currentName = view.transform.Find("PlayerList/Row2/Name")?.GetComponent<TMPro.TMP_Text>();
                 Assert.That(currentName.text, Is.EqualTo("민수"));

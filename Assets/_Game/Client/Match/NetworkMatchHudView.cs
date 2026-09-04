@@ -36,7 +36,8 @@ namespace Game.Client.Match
             int completedCount,
             int totalCount,
             string hidingPlayerName,
-            IReadOnlyList<HidingWaitPlayer> players);
+            IReadOnlyList<HidingWaitPlayer> players,
+            bool showNextTurnNotice);
         void HideHidingWaitHud();
         void SetTopHudVisible(bool visible);
         void SetMatchChatVisible(bool visible);
@@ -338,10 +339,16 @@ namespace Game.Client.Match
             int completedCount,
             int totalCount,
             string hidingPlayerName,
-            IReadOnlyList<HidingWaitPlayer> players)
+            IReadOnlyList<HidingWaitPlayer> players,
+            bool showNextTurnNotice)
         {
             EnsureHidingWaitHud();
-            hidingWaitHudView?.Show(completedCount, totalCount, hidingPlayerName, players);
+            hidingWaitHudView?.Show(
+                completedCount,
+                totalCount,
+                hidingPlayerName,
+                players,
+                showNextTurnNotice);
         }
 
         public void HideHidingWaitHud()

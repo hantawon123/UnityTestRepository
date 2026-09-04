@@ -582,6 +582,7 @@ namespace Game.Architecture.Tests
                 Assert.That(view.HidingWaitPlayers.Count, Is.EqualTo(2));
                 Assert.That(view.HidingWaitPlayers[0].Current, Is.True);
                 Assert.That(view.HidingWaitPlayers[1].Completed, Is.False);
+                Assert.That(view.HidingWaitNextTurn, Is.True);
                 Assert.That(view.MatchChatVisible, Is.True);
                 Assert.That(view.HidingActiveTopPromptVisible, Is.False);
                 Assert.That(view.TopHudVisible, Is.False);
@@ -620,6 +621,7 @@ namespace Game.Architecture.Tests
                 Assert.That(view.HidingWaitHudVisible, Is.True);
                 Assert.That(view.HidingWaitCompleted, Is.EqualTo(1));
                 Assert.That(view.HidingWaitTotal, Is.EqualTo(2));
+                Assert.That(view.HidingWaitNextTurn, Is.False);
                 Assert.That(view.TopHudVisible, Is.False);
                 Assert.That(view.MatchChatVisible, Is.True);
             }
@@ -794,6 +796,7 @@ namespace Game.Architecture.Tests
             public int HidingWaitCompleted { get; private set; }
             public int HidingWaitTotal { get; private set; }
             public string HidingWaitName { get; private set; }
+            public bool HidingWaitNextTurn { get; private set; }
             public IReadOnlyList<HidingWaitPlayer> HidingWaitPlayers { get; private set; } =
                 Array.Empty<HidingWaitPlayer>();
 
@@ -801,18 +804,21 @@ namespace Game.Architecture.Tests
                 int completedCount,
                 int totalCount,
                 string hidingPlayerName,
-                IReadOnlyList<HidingWaitPlayer> players)
+                IReadOnlyList<HidingWaitPlayer> players,
+                bool showNextTurnNotice)
             {
                 HidingWaitHudVisible = true;
                 HidingWaitCompleted = completedCount;
                 HidingWaitTotal = totalCount;
                 HidingWaitName = hidingPlayerName;
+                HidingWaitNextTurn = showNextTurnNotice;
                 HidingWaitPlayers = players ?? Array.Empty<HidingWaitPlayer>();
             }
 
             public void HideHidingWaitHud()
             {
                 HidingWaitHudVisible = false;
+                HidingWaitNextTurn = false;
             }
 
             public void SetTopHudVisible(bool visible) => TopHudVisible = visible;

@@ -475,14 +475,16 @@ namespace Game.Bootstrap
             }
 
             var completed = turnIndex == HidingTurns.NoTurn ? 0 : turnIndex;
+            var showNextTurn = turnIndex != HidingTurns.NoTurn &&
+                               room.LocalPlayerIndex == turnIndex + 1;
             if (!hidingWaitHudVisible)
             {
                 hidingWaitHudVisible = true;
-                view.ShowHidingWaitHud(completed, playing.Count, hidingName, players);
+                view.ShowHidingWaitHud(completed, playing.Count, hidingName, players, showNextTurn);
                 return;
             }
 
-            view.ShowHidingWaitHud(completed, playing.Count, hidingName, players);
+            view.ShowHidingWaitHud(completed, playing.Count, hidingName, players, showNextTurn);
         }
 
         private void HideHidingWaitHud()
