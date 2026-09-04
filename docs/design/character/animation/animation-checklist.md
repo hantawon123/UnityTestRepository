@@ -81,21 +81,44 @@
 
 > 이동 중 몸을 낮추는 행동 기준.
 > 바닥에 앉는 행동이 필요하면 Sit 계열을 별도로 추가.
+> 한 blend에 같은 계열 액션을 모아 둔다. 자세·가중치가 맞고 Unity에서 클립만 나누면 된다.
 
-- [ ] 웅크리기 진입
-  - 파일명:
-  - 액션명: `Crouch_Start`
-- [ ] 웅크린 대기
-  - 파일명:
-  - 액션명: `Crouch_Idle`
+- [x] 웅크리기 진입
+  - 파일명: `PlayerCapsule_Crouch_KneesUp_Only.blend`
+  - 액션명: `Stand_To_Crouch_KneesUp`
+  - 반복: X
+  - 재생 구간: 24프레임 / 30fps
+- [x] 웅크린 대기
+  - 파일명: `PlayerCapsule_Crouch_KneesUp_Only.blend`
+  - 액션명: `Crouch_Idle_KneesUp`
   - 반복: O
-- [ ] 웅크린 이동
-  - 파일명:
-  - 액션명: `Crouch_Walk`
+- [x] 웅크린 전진
+  - 파일명: `PlayerCapsule_Crouch_KneesUp_Only.blend`
+  - 액션명: `Crouch_Walk_Forward_KneesUp`
   - 반복: O
-- [ ] 웅크린 상태에서 일어서기
-  - 파일명:
-  - 액션명: `Crouch_End`
+  - 재생 구간: 1~36 / 30fps
+  - 비고: 제자리 루프. 이동은 코드에서 처리
+- [x] 웅크린 후진
+  - 파일명: `PlayerCapsule_Crouch_KneesUp_Only.blend`
+  - 액션명: `Crouch_Walk_Back_KneesUp`
+  - 반복: O
+  - 재생 구간: 1~36 / 30fps
+- [x] 웅크린 좌측 이동
+  - 파일명: `PlayerCapsule_Crouch_KneesUp_Only.blend`
+  - 액션명: `Crouch_Walk_Left_KneesUp`
+  - 반복: O
+  - 재생 구간: 1~36 / 30fps
+  - 비고: 캐릭터 기준 Left = +localX
+- [x] 웅크린 우측 이동
+  - 파일명: `PlayerCapsule_Crouch_KneesUp_Only.blend`
+  - 액션명: `Crouch_Walk_Right_KneesUp`
+  - 반복: O
+  - 재생 구간: 1~36 / 30fps
+- [x] 웅크린 상태에서 일어서기
+  - 파일명: `PlayerCapsule_Crouch_KneesUp_Only.blend`
+  - 액션명: `Crouch_To_Stand_KneesUp`
+  - 반복: X
+  - 재생 구간: 24프레임 / 30fps
 
 
 
