@@ -576,13 +576,14 @@ namespace Game.Architecture.Tests
                 network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
                 presenter.Tick();
                 Assert.That(view.HidingWaitHudVisible, Is.True);
-                Assert.That(view.HidingWaitCompleted, Is.EqualTo(0));
+                Assert.That(view.HidingWaitCompleted, Is.EqualTo(1));
                 Assert.That(view.HidingWaitTotal, Is.EqualTo(2));
                 Assert.That(view.HidingWaitName, Is.EqualTo("방장"));
                 Assert.That(view.HidingWaitPlayers.Count, Is.EqualTo(2));
                 Assert.That(view.HidingWaitPlayers[0].Current, Is.True);
                 Assert.That(view.HidingWaitPlayers[1].Completed, Is.False);
                 Assert.That(view.HidingWaitNextTurn, Is.True);
+                Assert.That(view.HidingWaitRemaining, Is.EqualTo(20d).Within(0.001d));
                 Assert.That(view.MatchChatVisible, Is.True);
                 Assert.That(view.HidingActiveTopPromptVisible, Is.False);
                 Assert.That(view.TopHudVisible, Is.False);
@@ -619,7 +620,7 @@ namespace Game.Architecture.Tests
                 Assert.That(view.HidingCompleteGuideVisible, Is.False);
                 Assert.That(view.HidingActiveTopPromptVisible, Is.False);
                 Assert.That(view.HidingWaitHudVisible, Is.True);
-                Assert.That(view.HidingWaitCompleted, Is.EqualTo(1));
+                Assert.That(view.HidingWaitCompleted, Is.EqualTo(2));
                 Assert.That(view.HidingWaitTotal, Is.EqualTo(2));
                 Assert.That(view.HidingWaitNextTurn, Is.False);
                 Assert.That(view.TopHudVisible, Is.False);
@@ -797,6 +798,7 @@ namespace Game.Architecture.Tests
             public int HidingWaitTotal { get; private set; }
             public string HidingWaitName { get; private set; }
             public bool HidingWaitNextTurn { get; private set; }
+            public double HidingWaitRemaining { get; private set; }
             public IReadOnlyList<HidingWaitPlayer> HidingWaitPlayers { get; private set; } =
                 Array.Empty<HidingWaitPlayer>();
 
@@ -805,13 +807,16 @@ namespace Game.Architecture.Tests
                 int totalCount,
                 string hidingPlayerName,
                 IReadOnlyList<HidingWaitPlayer> players,
-                bool showNextTurnNotice)
+                bool showNextTurnNotice,
+                double remainingSeconds,
+                double turnDurationSeconds)
             {
                 HidingWaitHudVisible = true;
                 HidingWaitCompleted = completedCount;
                 HidingWaitTotal = totalCount;
                 HidingWaitName = hidingPlayerName;
                 HidingWaitNextTurn = showNextTurnNotice;
+                HidingWaitRemaining = remainingSeconds;
                 HidingWaitPlayers = players ?? Array.Empty<HidingWaitPlayer>();
             }
 

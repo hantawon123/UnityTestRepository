@@ -417,7 +417,7 @@ namespace Game.Bootstrap
                 return;
             }
 
-            ShowHidingWaitHud(turnIndex, playing);
+            ShowHidingWaitHud(turnIndex, playing, remaining);
             view.SetMatchChatVisible(true);
         }
 
@@ -456,7 +456,10 @@ namespace Game.Bootstrap
             view.HideHidingActiveHud();
         }
 
-        private void ShowHidingWaitHud(int turnIndex, IReadOnlyList<MatchParticipant> playing)
+        private void ShowHidingWaitHud(
+            int turnIndex,
+            IReadOnlyList<MatchParticipant> playing,
+            double remainingSeconds)
         {
             var players = new HidingWaitPlayer[playing.Count];
             var hidingName = string.Empty;
@@ -474,17 +477,31 @@ namespace Game.Bootstrap
                 }
             }
 
-            var completed = turnIndex == HidingTurns.NoTurn ? 0 : turnIndex;
+            var completed = turnIndex == HidingTurns.NoTurn ? 0 : turnIndex + 1;
             var showNextTurn = turnIndex != HidingTurns.NoTurn &&
                                room.LocalPlayerIndex == turnIndex + 1;
             if (!hidingWaitHudVisible)
             {
                 hidingWaitHudVisible = true;
-                view.ShowHidingWaitHud(completed, playing.Count, hidingName, players, showNextTurn);
+                view.ShowHidingWaitHud(
+                    completed,
+                    playing.Count,
+                    hidingName,
+                    players,
+                    showNextTurn,
+                    remainingSeconds,
+                    HidingTurnDurationSeconds);
                 return;
             }
 
-            view.ShowHidingWaitHud(completed, playing.Count, hidingName, players, showNextTurn);
+            view.ShowHidingWaitHud(
+                completed,
+                playing.Count,
+                hidingName,
+                players,
+                showNextTurn,
+                remainingSeconds,
+                HidingTurnDurationSeconds);
         }
 
         private void HideHidingWaitHud()

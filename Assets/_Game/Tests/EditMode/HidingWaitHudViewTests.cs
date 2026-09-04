@@ -24,7 +24,9 @@ namespace Game.Architecture.Tests
                         new HidingWaitPlayer("민수", false, true),
                         new HidingWaitPlayer("지연", false, false)
                     },
-                    true);
+                    true,
+                    15d,
+                    30d);
 
                 var count = view.transform.Find("TopPrompt/Count")?.GetComponent<TMPro.TMP_Text>();
                 Assert.That(count, Is.Not.Null);
@@ -49,13 +51,53 @@ namespace Game.Architecture.Tests
 
                 var currentName = view.transform.Find("PlayerList/Row2/Name")?.GetComponent<TMPro.TMP_Text>();
                 Assert.That(currentName.text, Is.EqualTo("민수"));
+                Assert.That(currentName.fontSize, Is.EqualTo(HidingWaitHudView.NameFontSize));
                 Assert.That(currentName.color, Is.EqualTo(HidingWaitHudView.AccentColor));
                 Assert.That(
-                    view.transform.Find("PlayerList/Row0/Avatar/Check").gameObject.activeSelf,
+                    (view.transform.Find("PlayerList/Row0/Avatar/Face") as RectTransform).sizeDelta,
+                    Is.EqualTo(new Vector2(
+                        HidingWaitHudView.AvatarSize,
+                        HidingWaitHudView.AvatarSize)));
+                Assert.That(
+                    view.transform.Find("PlayerList/Row0/Avatar/CheckIcon").gameObject.activeSelf,
                     Is.True);
+                Assert.That(
+                    (view.transform.Find("PlayerList/Row0/Avatar/CheckIcon") as RectTransform).sizeDelta.x,
+                    Is.EqualTo(HidingWaitHudView.CheckIconWidth));
+                Assert.That(
+                    view.transform.Find("PlayerList/Row0/Avatar/Dim").gameObject.activeSelf,
+                    Is.True);
+                Assert.That(
+                    view.transform.Find("PlayerList/Row0/Avatar/Face").GetComponent<UnityEngine.UI.Image>().color,
+                    Is.EqualTo(HidingWaitHudView.DoneAvatarColor));
                 Assert.That(
                     view.transform.Find("PlayerList/Row2/Avatar/Ring").GetComponent<UnityEngine.UI.Image>().enabled,
                     Is.True);
+                var currentRing = view.transform.Find("PlayerList/Row2/Avatar/Ring")
+                    .GetComponent<UnityEngine.UI.Image>();
+                Assert.That(currentRing.type, Is.EqualTo(UnityEngine.UI.Image.Type.Filled));
+                Assert.That(currentRing.fillAmount, Is.EqualTo(0.5f).Within(0.001f));
+                Assert.That(
+                    (currentRing.transform as RectTransform).sizeDelta,
+                    Is.EqualTo(new Vector2(
+                        HidingWaitHudView.RingOuterSize,
+                        HidingWaitHudView.RingOuterSize)));
+                Assert.That(
+                    (view.transform.Find("PlayerList/Row2/Avatar/Face") as RectTransform).sizeDelta.x
+                    + (HidingWaitHudView.RingGap * 2f)
+                    + (HidingWaitHudView.RingThickness * 2f),
+                    Is.EqualTo(HidingWaitHudView.RingOuterSize));
+                var track = view.transform.Find("PlayerList/Row2/Avatar/RingTrack")
+                    .GetComponent<UnityEngine.UI.Image>();
+                Assert.That(track.enabled, Is.True);
+                Assert.That(track.color, Is.EqualTo(HidingWaitHudView.RingTrackColor));
+                Assert.That(
+                    view.transform.Find("PlayerList/Row0/Avatar/Ring").GetComponent<UnityEngine.UI.Image>().enabled,
+                    Is.False);
+                Assert.That(
+                    view.transform.Find("PlayerList/Row0/Avatar/RingTrack")
+                        .GetComponent<UnityEngine.UI.Image>().enabled,
+                    Is.False);
                 Assert.That(view.transform.Find("PlayerList/Row4").gameObject.activeSelf, Is.False);
             }
             finally
@@ -71,6 +113,12 @@ namespace Game.Architecture.Tests
             Assert.That(
                 HidingWaitHudView.FormatStatus("금오산남냥이"),
                 Is.EqualTo("금오산남냥이님이 물건을 숨기는 중"));
+            Assert.That(HidingWaitHudView.RingFillAmount(30d, 30d), Is.EqualTo(0f));
+            Assert.That(HidingWaitHudView.RingFillAmount(15d, 30d), Is.EqualTo(0.5f));
+            Assert.That(HidingWaitHudView.RingFillAmount(0d, 30d), Is.EqualTo(1f));
+            Assert.That(HidingWaitHudView.RingGap, Is.EqualTo(2f));
+            Assert.That(HidingWaitHudView.NameFontSize, Is.EqualTo(16f));
+            Assert.That(HidingWaitHudView.AvatarSize, Is.EqualTo(36f));
         }
     }
 }

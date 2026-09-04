@@ -166,7 +166,9 @@ namespace Game.Client.Home
 
         private const string SemiBoldResource = "Fonts/Paperlogy-6SemiBold";
         private const string LightResource = "Fonts/Paperlogy-3Light";
+        private const string RegularResource = "Fonts/Paperlogy-4Regular";
         private static TMP_FontAsset koreanLightFont;
+        private static TMP_FontAsset koreanRegularFont;
 
         public static TMP_FontAsset Apply(TMP_FontAsset fontAsset = null)
         {
@@ -176,6 +178,11 @@ namespace Game.Client.Home
         public static TMP_FontAsset ApplyLight(TMP_FontAsset fontAsset = null)
         {
             return koreanLightFont ??= LoadKorean(LightResource, fontAsset);
+        }
+
+        public static TMP_FontAsset ApplyRegular(TMP_FontAsset fontAsset = null)
+        {
+            return koreanRegularFont ??= LoadKorean(RegularResource, fontAsset);
         }
 
         private static TMP_FontAsset LoadKorean(string resourcePath, TMP_FontAsset fontAsset)

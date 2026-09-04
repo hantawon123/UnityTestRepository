@@ -28,7 +28,9 @@ namespace Game.Client.Match
             int totalCount,
             string hidingPlayerName,
             IReadOnlyList<HidingWaitPlayer> players,
-            bool showNextTurnNotice);
+            bool showNextTurnNotice,
+            double remainingSeconds,
+            double turnDurationSeconds);
         void Hide();
     }
 
@@ -43,16 +45,26 @@ namespace Game.Client.Match
         public const float StatusFontSize = 28f;
         public const float NextTurnFontSize = 40f;
         public const string NextTurnText = "다음 숨길 차례입니다";
-        public const float NameFontSize = 18f;
+        public const float NameFontSize = 16f;
         public const float TopPadding = 20f;
         public const float PersonIconSize = 40f;
-        public const float AvatarSize = 40f;
+        public const float AvatarSize = 36f;
+        public const float RingGap = 2f;
+        public const float RingThickness = 2f;
+        public const float RowHeight = 56f;
+        public const float RowPitch = 60f;
+        public const float CheckIconWidth = 14f;
         public const int MaxPlayers = 6;
         public static readonly Color AccentColor = new Color(1f, 0.54f, 0.24f, 1f);
         public static readonly Color DoneNameColor = new Color(0.72f, 0.72f, 0.72f, 1f);
         public static readonly Color PendingColor = new Color(1f, 1f, 1f, 0.42f);
+        public static readonly Color DoneAvatarColor = new Color(0.42f, 0.42f, 0.42f, 1f);
+        public static readonly Color RingTrackColor = new Color(0.72f, 0.72f, 0.72f, 1f);
+        public static float RingOuterSize =>
+            AvatarSize + (RingGap * 2f) + (RingThickness * 2f);
         private const string PersonIconResource = "UI/ic_person";
-        private const string CheckMark = "✓";
+        private const string CheckIconResource = "UI/ic_check";
+        private static Sprite ringSprite;
 
         [SerializeField]
         private TMP_Text countText;
@@ -74,6 +86,9 @@ namespace Game.Client.Match
         private bool previewOnAwake;
 
         private bool shown;
+        private bool previewing;
+        private double remainingSeconds;
+        private double turnDurationSeconds = 30d;
 
         public static HidingWaitHudView Create(Transform parent)
         {
@@ -86,6 +101,17 @@ namespace Game.Client.Match
         public static string FormatCount(int completedCount, int totalCount)
         {
             return $"{Mathf.Max(0, completedCount)} / {Mathf.Max(0, totalCount)}";
+        }
+
+        public static float RingFillAmount(double remainingSeconds, double durationSeconds)
+        {
+            if (durationSeconds <= 0d)
+            {
+                return 1f;
+            }
+
+            var clampedRemaining = Math.Min(Math.Max(0d, remainingSeconds), durationSeconds);
+            return Mathf.Clamp01((float)(1d - (clampedRemaining / durationSeconds)));
         }
 
         public static string FormatStatus(string hidingPlayerName)
@@ -101,7 +127,7 @@ namespace Game.Client.Match
             if (previewOnAwake && !shown)
             {
                 Show(
-                    2,
+                    3,
                     6,
                     "이거언바로열두글자랍니다",
                     new[]
@@ -113,7 +139,10 @@ namespace Game.Client.Match
                         new HidingWaitPlayer("플레이어5", false, false),
                         new HidingWaitPlayer("플레이어6", false, false)
                     },
-                    true);
+                    true,
+                    30d,
+                    30d);
+                previewing = true;
                 return;
             }
 
@@ -128,9 +157,14 @@ namespace Game.Client.Match
             int totalCount,
             string hidingPlayerName,
             IReadOnlyList<HidingWaitPlayer> players,
-            bool showNextTurnNotice)
+            bool showNextTurnNotice,
+            double remainingSeconds,
+            double turnDurationSeconds)
         {
             shown = true;
+            previewing = false;
+            this.remainingSeconds = remainingSeconds;
+            this.turnDurationSeconds = turnDurationSeconds > 0d ? turnDurationSeconds : 30d;
             if (!gameObject.activeSelf)
             {
                 gameObject.SetActive(true);
@@ -143,9 +177,26 @@ namespace Game.Client.Match
             SetContentVisible(true);
         }
 
+        private void Update()
+        {
+            if (!previewing || !shown)
+            {
+                return;
+            }
+
+            remainingSeconds -= Time.unscaledDeltaTime;
+            if (remainingSeconds < 0d)
+            {
+                remainingSeconds = turnDurationSeconds;
+            }
+
+            ApplyRingProgress(RingFillAmount(remainingSeconds, turnDurationSeconds));
+        }
+
         public void Hide()
         {
             shown = false;
+            previewing = false;
             SetContentVisible(false);
         }
 
@@ -236,17 +287,43 @@ namespace Game.Client.Match
                 }
 
                 row.SetActive(true);
-                PaintRow(row.transform, list[index]);
+                PaintRow(row.transform, list[index], RingFillAmount(remainingSeconds, turnDurationSeconds));
             }
         }
 
-        private static void PaintRow(Transform row, HidingWaitPlayer player)
+        private void ApplyRingProgress(float fillAmount)
         {
+            if (playerList == null)
+            {
+                return;
+            }
+
+            for (var index = 0; index < MaxPlayers; index++)
+            {
+                var ring = playerList.transform.Find($"Row{index}/Avatar/Ring")?.GetComponent<Image>();
+                if (ring != null && ring.enabled)
+                {
+                    ring.fillAmount = fillAmount;
+                }
+            }
+        }
+
+        private static void PaintRow(Transform row, HidingWaitPlayer player, float ringFill)
+        {
+            FitAvatar(row);
+            var track = row.Find("Avatar/RingTrack")?.GetComponent<Image>();
+            if (track != null)
+            {
+                track.enabled = player.Current;
+                track.color = RingTrackColor;
+            }
+
             var ring = row.Find("Avatar/Ring")?.GetComponent<Image>();
             if (ring != null)
             {
                 ring.enabled = player.Current;
                 ring.color = AccentColor;
+                ring.fillAmount = player.Current ? ringFill : 0f;
             }
 
             var avatar = row.Find("Avatar/Face")?.GetComponent<Image>();
@@ -255,29 +332,241 @@ namespace Game.Client.Match
                 avatar.color = player.Current
                     ? Color.white
                     : player.Completed
-                        ? new Color(0.82f, 0.82f, 0.82f, 1f)
+                        ? DoneAvatarColor
                         : PendingColor;
             }
 
-            var check = row.Find("Avatar/Check")?.GetComponent<TMP_Text>();
+            var dim = row.Find("Avatar/Dim")?.GetComponent<Image>();
+            if (dim != null)
+            {
+                dim.gameObject.SetActive(player.Completed);
+            }
+
+            var check = EnsureCheckIcon(row.Find("Avatar"));
             if (check != null)
             {
                 check.gameObject.SetActive(player.Completed);
-                check.color = AccentColor;
             }
 
             var name = row.Find("Name")?.GetComponent<TMP_Text>();
             if (name != null)
             {
                 name.text = player.Name;
-                name.font = HomeUiFonts.Apply();
+                name.font = HomeUiFonts.ApplyRegular();
                 name.fontSize = NameFontSize;
+                name.fontStyle = FontStyles.Normal;
                 name.color = player.Current
                     ? AccentColor
                     : player.Completed
                         ? DoneNameColor
                         : PendingColor;
             }
+        }
+
+        private static void FitAvatar(Transform row)
+        {
+            var rowRect = row as RectTransform;
+            if (rowRect != null)
+            {
+                Place(
+                    rowRect,
+                    new Vector2(0f, 1f),
+                    new Vector2(0f, -row.GetSiblingIndex() * RowPitch),
+                    new Vector2(420f, RowHeight),
+                    new Vector2(0f, 1f));
+            }
+
+            var avatar = row.Find("Avatar") as RectTransform;
+            if (avatar == null)
+            {
+                return;
+            }
+
+            Place(
+                avatar,
+                new Vector2(0f, 0.5f),
+                new Vector2(0f, 0f),
+                new Vector2(RingOuterSize, RingOuterSize),
+                new Vector2(0f, 0.5f));
+
+            EnsureRing(avatar);
+
+            var face = avatar.Find("Face") as RectTransform;
+            if (face != null)
+            {
+                Place(
+                    face,
+                    new Vector2(0.5f, 0.5f),
+                    Vector2.zero,
+                    new Vector2(AvatarSize, AvatarSize));
+            }
+
+            var dim = avatar.Find("Dim") as RectTransform;
+            if (dim == null)
+            {
+                var dimImage = CreateImage(
+                    avatar,
+                    "Dim",
+                    new Color(0f, 0f, 0f, 0.4f),
+                    HomeUiFonts.CircleSprite);
+                dim = dimImage.rectTransform;
+            }
+
+            Place(
+                dim,
+                new Vector2(0.5f, 0.5f),
+                Vector2.zero,
+                new Vector2(AvatarSize, AvatarSize));
+
+            var name = row.Find("Name") as RectTransform;
+            if (name != null)
+            {
+                Place(
+                    name,
+                    new Vector2(0f, 0.5f),
+                    new Vector2(RingOuterSize + 8f, 0f),
+                    new Vector2(320f, 40f),
+                    new Vector2(0f, 0.5f));
+            }
+        }
+
+        private static void EnsureRing(RectTransform avatar)
+        {
+            if (avatar == null)
+            {
+                return;
+            }
+
+            var track = avatar.Find("RingTrack")?.GetComponent<Image>();
+            if (track == null)
+            {
+                track = CreateImage(avatar, "RingTrack", RingTrackColor, RingSprite);
+            }
+
+            track.sprite = RingSprite;
+            ConfigureRingImage(track, RingTrackColor, false);
+            track.transform.SetSiblingIndex(0);
+            Place(
+                track.rectTransform,
+                new Vector2(0.5f, 0.5f),
+                Vector2.zero,
+                new Vector2(RingOuterSize, RingOuterSize));
+
+            var ring = avatar.Find("Ring")?.GetComponent<Image>();
+            if (ring == null)
+            {
+                ring = CreateImage(avatar, "Ring", AccentColor, RingSprite);
+            }
+
+            ring.sprite = RingSprite;
+            ConfigureRingImage(ring, AccentColor, true);
+            ring.transform.SetSiblingIndex(1);
+            Place(
+                ring.rectTransform,
+                new Vector2(0.5f, 0.5f),
+                Vector2.zero,
+                new Vector2(RingOuterSize, RingOuterSize));
+        }
+
+        private static void ConfigureRingImage(Image image, Color color, bool filled)
+        {
+            image.color = color;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+            if (filled)
+            {
+                image.type = Image.Type.Filled;
+                image.fillMethod = Image.FillMethod.Radial360;
+                image.fillOrigin = (int)Image.Origin360.Top;
+                image.fillClockwise = true;
+            }
+            else
+            {
+                image.type = Image.Type.Simple;
+            }
+        }
+
+        private static Sprite RingSprite
+        {
+            get
+            {
+                if (ringSprite != null)
+                {
+                    return ringSprite;
+                }
+
+                const int size = 128;
+                var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+                {
+                    hideFlags = HideFlags.HideAndDontSave,
+                    filterMode = FilterMode.Bilinear
+                };
+
+                var center = (size - 1) * 0.5f;
+                var outer = center - 1f;
+                var inner = outer * ((RingOuterSize - (RingThickness * 2f)) / RingOuterSize);
+                for (var y = 0; y < size; y++)
+                {
+                    for (var x = 0; x < size; x++)
+                    {
+                        var dx = x - center;
+                        var dy = y - center;
+                        var distance = Mathf.Sqrt((dx * dx) + (dy * dy));
+                        var outerAlpha = Mathf.Clamp01(outer - distance + 0.5f);
+                        var innerAlpha = Mathf.Clamp01(distance - inner + 0.5f);
+                        var alpha = Mathf.Min(outerAlpha, innerAlpha);
+                        texture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                    }
+                }
+
+                texture.Apply(false, false);
+                ringSprite = Sprite.Create(
+                    texture,
+                    new Rect(0f, 0f, size, size),
+                    new Vector2(0.5f, 0.5f),
+                    100f,
+                    0,
+                    SpriteMeshType.FullRect);
+                ringSprite.hideFlags = HideFlags.HideAndDontSave;
+                return ringSprite;
+            }
+        }
+
+        private static Image EnsureCheckIcon(Transform avatar)
+        {
+            if (avatar == null)
+            {
+                return null;
+            }
+
+            var oldLabel = avatar.Find("Check")?.GetComponent<TMP_Text>();
+            if (oldLabel != null)
+            {
+                oldLabel.gameObject.SetActive(false);
+            }
+
+            var check = avatar.Find("CheckIcon")?.GetComponent<Image>();
+            if (check == null)
+            {
+                check = CreateImage(
+                    avatar,
+                    "CheckIcon",
+                    Color.white,
+                    Resources.Load<Sprite>(CheckIconResource));
+                check.preserveAspect = true;
+            }
+            else if (check.sprite == null)
+            {
+                check.sprite = Resources.Load<Sprite>(CheckIconResource);
+            }
+
+            Place(
+                check.rectTransform,
+                new Vector2(0.5f, 0.5f),
+                Vector2.zero,
+                new Vector2(CheckIconWidth, CheckIconWidth));
+            check.transform.SetAsLastSibling();
+            return check;
         }
 
         private void EnsureLayout()
@@ -420,19 +709,34 @@ namespace Game.Client.Match
             Place(
                 row,
                 new Vector2(0f, 1f),
-                new Vector2(0f, -index * 56f),
-                new Vector2(420f, 52f),
+                new Vector2(0f, -index * RowPitch),
+                new Vector2(420f, RowHeight),
                 new Vector2(0f, 1f));
 
             var avatar = CreateRect(row, "Avatar");
             Place(
                 avatar,
                 new Vector2(0f, 0.5f),
-                new Vector2(24f, 0f),
-                new Vector2(AvatarSize + 6f, AvatarSize + 6f));
+                new Vector2(0f, 0f),
+                new Vector2(RingOuterSize, RingOuterSize),
+                new Vector2(0f, 0.5f));
 
-            var ring = CreateImage(avatar, "Ring", AccentColor, HomeUiFonts.CircleSprite);
-            Stretch(ring.rectTransform);
+            var track = CreateImage(avatar, "RingTrack", RingTrackColor, RingSprite);
+            Place(
+                track.rectTransform,
+                new Vector2(0.5f, 0.5f),
+                Vector2.zero,
+                new Vector2(RingOuterSize, RingOuterSize));
+            ConfigureRingImage(track, RingTrackColor, false);
+            track.enabled = false;
+
+            var ring = CreateImage(avatar, "Ring", AccentColor, RingSprite);
+            Place(
+                ring.rectTransform,
+                new Vector2(0.5f, 0.5f),
+                Vector2.zero,
+                new Vector2(RingOuterSize, RingOuterSize));
+            ConfigureRingImage(ring, AccentColor, true);
             ring.enabled = false;
 
             var face = CreateImage(
@@ -446,18 +750,43 @@ namespace Game.Client.Match
                 Vector2.zero,
                 new Vector2(AvatarSize, AvatarSize));
 
-            var check = CreateText(avatar, "Check", CheckMark, 22f);
-            check.color = AccentColor;
-            Stretch(check.rectTransform);
+            var dim = CreateImage(
+                avatar,
+                "Dim",
+                new Color(0f, 0f, 0f, 0.4f),
+                HomeUiFonts.CircleSprite);
+            Place(
+                dim.rectTransform,
+                new Vector2(0.5f, 0.5f),
+                Vector2.zero,
+                new Vector2(AvatarSize, AvatarSize));
+            dim.gameObject.SetActive(false);
+
+            var check = CreateImage(
+                avatar,
+                "CheckIcon",
+                Color.white,
+                Resources.Load<Sprite>(CheckIconResource));
+            check.preserveAspect = true;
+            Place(
+                check.rectTransform,
+                new Vector2(0.5f, 0.5f),
+                Vector2.zero,
+                new Vector2(CheckIconWidth, CheckIconWidth));
             check.gameObject.SetActive(false);
 
-            var name = CreateText(row, "Name", string.Empty, NameFontSize);
+            var name = CreateText(
+                row,
+                "Name",
+                string.Empty,
+                NameFontSize,
+                HomeUiFonts.ApplyRegular());
             name.alignment = TextAlignmentOptions.MidlineLeft;
             name.overflowMode = TextOverflowModes.Ellipsis;
             Place(
                 name.rectTransform,
                 new Vector2(0f, 0.5f),
-                new Vector2(78f, 0f),
+                new Vector2(RingOuterSize + 8f, 0f),
                 new Vector2(320f, 40f),
                 new Vector2(0f, 0.5f));
         }
@@ -488,7 +817,8 @@ namespace Game.Client.Match
             Transform parent,
             string name,
             string content,
-            float fontSize)
+            float fontSize,
+            TMP_FontAsset font = null)
         {
             var gameObject = new GameObject(
                 name,
@@ -506,7 +836,7 @@ namespace Game.Client.Match
             text.richText = true;
             text.enableWordWrapping = false;
             text.overflowMode = TextOverflowModes.Overflow;
-            text.font = HomeUiFonts.Apply();
+            text.font = font != null ? font : HomeUiFonts.Apply();
             text.fontStyle = FontStyles.Normal;
             return text;
         }
