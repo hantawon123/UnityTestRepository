@@ -18,15 +18,16 @@ namespace Game.Client.Match
     /// <summary>Shows the latest match chat message above each player.</summary>
     public sealed class MatchChatBubbleView : MonoBehaviour, IMatchChatBubbleView
     {
+        public const float FontSize = 10f;
+        public const float MinBubbleWidth = 40f;
+        public const float MaxBubbleWidth = 210f;
+        public const float MinBubbleHeight = 24f;
+        public const float MaxBubbleHeight = 80f;
         private const float HeightOffset = 2f;
         private const float VisibleSeconds = 3.5f;
         private const float CanvasScale = 0.01f;
-        private const float MinBubbleWidth = 80f;
-        private const float MaxBubbleWidth = 420f;
-        private const float MinBubbleHeight = 48f;
-        private const float MaxBubbleHeight = 160f;
-        private const float HorizontalPadding = 36f;
-        private const float VerticalPadding = 20f;
+        private const float HorizontalPadding = 18f;
+        private const float VerticalPadding = 10f;
 
         private readonly Dictionary<string, Bubble> bubbles = new(StringComparer.Ordinal);
         private readonly Dictionary<string, LobbyChatMessage> pending =
@@ -90,7 +91,7 @@ namespace Game.Client.Match
 
         private void Awake()
         {
-            font = HomeUiFonts.Apply();
+            font = HomeUiFonts.ApplyRegular();
         }
 
         private void LateUpdate()
@@ -126,7 +127,7 @@ namespace Game.Client.Match
             var scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
             scaler.scaleFactor = 1f;
-            scaler.dynamicPixelsPerUnit = 100f;
+            scaler.dynamicPixelsPerUnit = 200f;
 
             var panelObject = new GameObject(
                 "Panel",
@@ -140,6 +141,8 @@ namespace Game.Client.Match
             panelRect.offsetMax = Vector2.zero;
             var panel = panelObject.GetComponent<Image>();
             panel.sprite = HomeUiFonts.RoundedSprite;
+            panel.type = Image.Type.Sliced;
+            panel.pixelsPerUnitMultiplier = 1.2f;
             panel.color = new Color(0.06f, 0.07f, 0.09f, 0.92f);
             panel.raycastTarget = false;
 
@@ -151,11 +154,11 @@ namespace Game.Client.Match
             var textRect = textObject.GetComponent<RectTransform>();
             textRect.anchorMin = Vector2.zero;
             textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = new Vector2(18f, 10f);
-            textRect.offsetMax = new Vector2(-18f, -10f);
+            textRect.offsetMin = new Vector2(9f, 5f);
+            textRect.offsetMax = new Vector2(-9f, -5f);
             var text = textObject.GetComponent<TextMeshProUGUI>();
             text.font = font;
-            text.fontSize = 20f;
+            text.fontSize = FontSize;
             text.color = Color.white;
             text.alignment = TextAlignmentOptions.Center;
             text.textWrappingMode = TextWrappingModes.Normal;

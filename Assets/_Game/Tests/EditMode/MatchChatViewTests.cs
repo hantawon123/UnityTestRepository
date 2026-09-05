@@ -74,6 +74,8 @@ namespace Game.Architecture.Tests
                 Assert.That(body.font.name, Does.Contain("Paperlogy").IgnoreCase);
                 var input = view.transform.Find("InputPanel").GetComponent<TMP_InputField>();
                 Assert.That(input.fontAsset.name, Does.Contain("Paperlogy").IgnoreCase);
+                Assert.That(input.textComponent.overflowMode, Is.EqualTo(TextOverflowModes.Overflow));
+                Assert.That(input.textComponent.textWrappingMode, Is.EqualTo(TextWrappingModes.NoWrap));
                 Assert.That(
                     view.transform.Find("InputPanel/Placeholder").GetComponent<TMP_Text>().text,
                     Is.EqualTo(MatchChatView.PlaceholderText));
@@ -126,7 +128,8 @@ namespace Game.Architecture.Tests
                 Assert.That(MatchChatView.ShowsInput(MatchChatHudMode.Searching, false), Is.False);
                 Assert.That(MatchChatView.ShowsInput(MatchChatHudMode.Searching, true), Is.True);
                 Assert.That(MatchChatView.ShowsHistory(MatchChatHudMode.Full), Is.True);
-                Assert.That(MatchChatView.ShowsInput(MatchChatHudMode.Full, false), Is.True);
+                Assert.That(MatchChatView.ShowsInput(MatchChatHudMode.Full, false), Is.False);
+                Assert.That(MatchChatView.ShowsInput(MatchChatHudMode.Full, true), Is.True);
 
                 view.SetMode(MatchChatHudMode.Full);
                 Assert.That(
@@ -134,7 +137,12 @@ namespace Game.Architecture.Tests
                     Is.True);
                 Assert.That(
                     view.transform.Find("InputPanel").gameObject.activeSelf,
-                    Is.True);
+                    Is.False);
+                view.ClearInput();
+                Assert.That(view.IsActivated, Is.False);
+                Assert.That(
+                    view.transform.Find("InputPanel").gameObject.activeSelf,
+                    Is.False);
             }
             finally
             {

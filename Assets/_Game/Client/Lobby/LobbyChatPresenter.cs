@@ -47,6 +47,7 @@ namespace Game.Client.Lobby
             if (string.IsNullOrWhiteSpace(text) || transport.TrySendChat(text))
             {
                 chatView.ClearInput();
+                chatView.Deactivate();
             }
         }
 

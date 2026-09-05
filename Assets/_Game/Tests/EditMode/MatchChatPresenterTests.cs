@@ -56,6 +56,7 @@ namespace Game.Tests.EditMode
 
             Assert.That(transport.Sent, Is.EqualTo(new[] { "테스트" }));
             Assert.That(view.ClearCount, Is.EqualTo(1));
+            Assert.That(view.DeactivateCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -79,7 +80,15 @@ namespace Game.Tests.EditMode
                     "이 메시지는 짧은 메시지보다 훨씬 길어서 말풍선 너비가 더 넓어져야 합니다."));
 
                 Assert.That(bubble.sizeDelta.x, Is.GreaterThan(shortWidth));
-                Assert.That(bubble.sizeDelta.x, Is.LessThanOrEqualTo(420f));
+                Assert.That(
+                    bubble.sizeDelta.x,
+                    Is.LessThanOrEqualTo(MatchChatBubbleView.MaxBubbleWidth));
+                var bubbleText = bubble.GetComponentInChildren<TMPro.TMP_Text>();
+                Assert.That(bubbleText.fontSize, Is.EqualTo(MatchChatBubbleView.FontSize));
+                Assert.That(bubbleText.font.name, Does.Contain("Regular").IgnoreCase);
+                var panel = bubble.Find("Panel")?.GetComponent<UnityEngine.UI.Image>();
+                Assert.That(panel, Is.Not.Null);
+                Assert.That(panel.type, Is.EqualTo(UnityEngine.UI.Image.Type.Sliced));
             }
             finally
             {
@@ -94,10 +103,13 @@ namespace Game.Tests.EditMode
             public IReadOnlyList<LobbyChatMessage> LastMessages { get; private set; }
                 = Array.Empty<LobbyChatMessage>();
             public int ClearCount { get; private set; }
+            public int DeactivateCount { get; private set; }
 
             public void SetMessages(IReadOnlyList<LobbyChatMessage> messages) => LastMessages = messages;
 
             public void ClearInput() => ClearCount++;
+
+            public void Deactivate() => DeactivateCount++;
 
             public void EmitSend(string text) => SendRequested?.Invoke(text);
         }

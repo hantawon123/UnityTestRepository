@@ -24,6 +24,7 @@ namespace Game.Client.Match
 
         void SetMessages(IReadOnlyList<LobbyChatMessage> messages);
         void ClearInput();
+        void Deactivate();
     }
 
     /// <summary>한 줄 입력과 최근 메시지만 표시하는 인게임 채팅 View.</summary>
@@ -158,8 +159,7 @@ namespace Game.Client.Match
 
         public static bool ShowsInput(MatchChatHudMode hudMode, bool isActivated)
         {
-            return hudMode == MatchChatHudMode.Full ||
-                   (hudMode == MatchChatHudMode.Searching && isActivated);
+            return hudMode != MatchChatHudMode.Hidden && isActivated;
         }
 
         public void SetMode(MatchChatHudMode value)
@@ -203,13 +203,7 @@ namespace Game.Client.Match
                 gameObject.SetActive(true);
             }
 
-            if (value == MatchChatHudMode.Searching)
-            {
-                SetActivated(false);
-                return;
-            }
-
-            ApplyPresentation();
+            SetActivated(false);
         }
 
         private void Awake()
@@ -397,9 +391,10 @@ namespace Game.Client.Match
                 return;
             }
 
+            Deactivate();
             if (!isActiveAndEnabled)
             {
-                ApplyClearedInput(keepFocus: activated);
+                ApplyClearedInput(keepFocus: false);
                 return;
             }
 
@@ -409,6 +404,11 @@ namespace Game.Client.Match
             }
 
             clearRoutine = StartCoroutine(ClearInputNextFrame());
+        }
+
+        public void Deactivate()
+        {
+            SetActivated(false);
         }
 
         private IEnumerator FocusInputNextFrame()
@@ -421,7 +421,7 @@ namespace Game.Client.Match
         private IEnumerator ClearInputNextFrame()
         {
             yield return null;
-            ApplyClearedInput(keepFocus: activated);
+            ApplyClearedInput(keepFocus: false);
             clearRoutine = null;
         }
 
@@ -467,6 +467,7 @@ namespace Game.Client.Match
             }
 
             SendRequested?.Invoke(text.Trim());
+            Deactivate();
         }
 
         private void SetActivated(bool value)
@@ -526,11 +527,25 @@ namespace Game.Client.Match
                 return;
             }
 
-            root.sizeDelta = new Vector2(
-                InputWidth,
-                ShowsHistory(mode)
-                    ? HistoryHeight + PanelGap + InputHeight
-                    : ShowsInput(mode, activated) ? InputHeight : 0f);
+            var showHistory = ShowsHistory(mode);
+            var showInput = ShowsInput(mode, activated);
+            var height = 0f;
+            if (showHistory)
+            {
+                height += HistoryHeight;
+            }
+
+            if (showHistory && showInput)
+            {
+                height += PanelGap;
+            }
+
+            if (showInput)
+            {
+                height += InputHeight;
+            }
+
+            root.sizeDelta = new Vector2(InputWidth, height);
         }
 
         private void RefreshSendIcon()
@@ -554,6 +569,7 @@ namespace Game.Client.Match
         {
             if (layoutReady && itemRoot != null && inputField != null)
             {
+                ApplyInputOverflow();
                 return;
             }
 
@@ -573,6 +589,7 @@ namespace Game.Client.Match
             EnsureHistoryFade();
             ApplyFonts();
             layoutReady = true;
+            ApplyInputOverflow();
             ApplyPresentation();
         }
 
@@ -811,6 +828,25 @@ namespace Game.Client.Match
             viewport.offsetMax = new Vector2(-(SendIconSize + ContentPadding), 0f);
             FitInputLabel(viewport.Find("Text") as RectTransform);
             FitInputLabel(viewport.Find("Placeholder") as RectTransform);
+            ApplyInputOverflow();
+        }
+
+        private void ApplyInputOverflow()
+        {
+            var text = inputField != null
+                ? inputField.textComponent
+                : transform.Find("InputPanel/TextViewport/Text")?.GetComponent<TMP_Text>();
+            if (text == null)
+            {
+                return;
+            }
+
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Overflow;
+            if (inputField != null)
+            {
+                inputField.lineType = TMP_InputField.LineType.SingleLine;
+            }
         }
 
         private void ApplyRowFade()
@@ -1031,7 +1067,7 @@ namespace Game.Client.Match
                 Color.white);
             text.alignment = TextAlignmentOptions.MidlineLeft;
             text.textWrappingMode = TextWrappingModes.NoWrap;
-            text.overflowMode = TextOverflowModes.Truncate;
+            text.overflowMode = TextOverflowModes.Overflow;
             FitInputLabel(text.rectTransform);
 
             var placeholder = CreateText(
