@@ -70,6 +70,7 @@ namespace Game.Editor
                 EnsureHidingTurnStart(hud);
                 EnsureHidingActiveHud(hud);
                 EnsureHidingWaitHud(hud);
+                EnsureVitalsHud(hud);
                 EnsureVoiceButton(hud);
                 EnsureWaitingSpawnPoints(scene);
 
@@ -403,6 +404,30 @@ namespace Game.Editor
             if (view == null)
             {
                 view = HidingWaitHudView.Create(hud.transform);
+            }
+
+            property.objectReferenceValue = view;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var viewSerialized = new SerializedObject(view);
+            viewSerialized.FindProperty("previewOnAwake").boolValue = false;
+            viewSerialized.ApplyModifiedPropertiesWithoutUndo();
+            view.Hide();
+        }
+
+        private static void EnsureVitalsHud(NetworkMatchHudView hud)
+        {
+            var serialized = new SerializedObject(hud);
+            var property = serialized.FindProperty("vitalsHudView");
+            var view = property.objectReferenceValue as MatchVitalsHudView;
+            if (view == null)
+            {
+                view = hud.GetComponentInChildren<MatchVitalsHudView>(true);
+            }
+
+            if (view == null)
+            {
+                view = MatchVitalsHudView.Create(hud.transform);
             }
 
             property.objectReferenceValue = view;

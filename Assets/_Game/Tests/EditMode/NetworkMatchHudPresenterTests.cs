@@ -936,6 +936,15 @@ namespace Game.Architecture.Tests
                 HidingWaitNextTurn = false;
             }
 
+            public bool VitalsVisible { get; private set; }
+
+            public void ShowVitals(int stamina, int maxStamina, int hits, int maxHits)
+            {
+                VitalsVisible = true;
+            }
+
+            public void HideVitals() => VitalsVisible = false;
+
             public void SetTopHudVisible(bool visible) => TopHudVisible = visible;
 
             public void SetMatchChatVisible(bool visible) => MatchChatVisible = visible;

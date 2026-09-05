@@ -43,6 +43,8 @@ namespace Game.Client.Match
             double remainingSeconds,
             double turnDurationSeconds);
         void HideHidingWaitHud();
+        void ShowVitals(int stamina, int maxStamina, int hits, int maxHits);
+        void HideVitals();
         void SetTopHudVisible(bool visible);
         void SetMatchChatVisible(bool visible);
         void SetPlayerStatusVisible(bool visible);
@@ -96,6 +98,9 @@ namespace Game.Client.Match
         [SerializeField]
         private HidingWaitHudView hidingWaitHudView;
 
+        [SerializeField]
+        private MatchVitalsHudView vitalsHudView;
+
         private string assignedItemDisplayName;
         private int remainingDestructionUses = -1;
         private bool playerStatusVisible = true;
@@ -126,6 +131,8 @@ namespace Game.Client.Match
             HideHidingActiveHud();
             EnsureHidingWaitHud();
             HideHidingWaitHud();
+            EnsureVitalsHud();
+            HideVitals();
             HideVoiceButton();
         }
 
@@ -155,7 +162,8 @@ namespace Game.Client.Match
                     (searchingIntroView != null && graphic.transform.IsChildOf(searchingIntroView.transform)) ||
                     (hidingTurnStartView != null && graphic.transform.IsChildOf(hidingTurnStartView.transform)) ||
                     (hidingActiveHudView != null && graphic.transform.IsChildOf(hidingActiveHudView.transform)) ||
-                    (hidingWaitHudView != null && graphic.transform.IsChildOf(hidingWaitHudView.transform)))
+                    (hidingWaitHudView != null && graphic.transform.IsChildOf(hidingWaitHudView.transform)) ||
+                    (vitalsHudView != null && graphic.transform.IsChildOf(vitalsHudView.transform)))
                     continue;
                 hiddenGraphics[graphic] = graphic.enabled;
                 graphic.enabled = false;
@@ -388,6 +396,17 @@ namespace Game.Client.Match
             hidingWaitHudView?.Hide();
         }
 
+        public void ShowVitals(int stamina, int maxStamina, int hits, int maxHits)
+        {
+            EnsureVitalsHud();
+            vitalsHudView?.Show(stamina, maxStamina, hits, maxHits);
+        }
+
+        public void HideVitals()
+        {
+            vitalsHudView?.Hide();
+        }
+
         public void SetTopHudVisible(bool visible)
         {
             if (phaseView != null)
@@ -483,6 +502,19 @@ namespace Game.Client.Match
             if (hidingWaitHudView == null)
             {
                 hidingWaitHudView = HidingWaitHudView.Create(transform);
+            }
+        }
+
+        private void EnsureVitalsHud()
+        {
+            if (vitalsHudView == null)
+            {
+                vitalsHudView = GetComponentInChildren<MatchVitalsHudView>(true);
+            }
+
+            if (vitalsHudView == null)
+            {
+                vitalsHudView = MatchVitalsHudView.Create(transform);
             }
         }
 

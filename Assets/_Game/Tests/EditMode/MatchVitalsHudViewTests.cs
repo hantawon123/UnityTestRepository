@@ -1,0 +1,115 @@
+using Game.Client.Match;
+using NUnit.Framework;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace Game.Architecture.Tests
+{
+    public sealed class MatchVitalsHudViewTests
+    {
+        [Test]
+        public void Show_BuildsBottomPanelWithStaminaAndThreeHitSegments()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchVitalsHudView.Create(canvas.transform);
+                view.Show(5, 5, 3, 3);
+
+                var panel = view.transform.Find("Panel")?.GetComponent<Image>();
+                Assert.That(panel, Is.Not.Null);
+                Assert.That(panel.color, Is.EqualTo(MatchVitalsHudView.PanelColor));
+                Assert.That(panel.rectTransform.anchorMin.x, Is.EqualTo(0.5f));
+                Assert.That(panel.rectTransform.anchorMax.x, Is.EqualTo(0.5f));
+                Assert.That(panel.rectTransform.sizeDelta.x, Is.EqualTo(MatchVitalsHudView.PanelWidth));
+                Assert.That(MatchVitalsHudView.PanelWidth, Is.EqualTo(380f));
+
+                var staminaBar = view.transform.Find("Panel/Stamina/Bar")?.GetComponent<Image>();
+                Assert.That(staminaBar, Is.Not.Null);
+                Assert.That(staminaBar.color, Is.EqualTo(MatchVitalsHudView.StaminaColor));
+                Assert.That(
+                    view.transform.Find("Panel/Stamina/Value")?.GetComponent<TMP_Text>()?.text,
+                    Is.EqualTo("5/5"));
+
+                Assert.That(view.transform.Find("Panel/Health/BarTrack/Segment0"), Is.Not.Null);
+                Assert.That(view.transform.Find("Panel/Health/BarTrack/Segment1"), Is.Not.Null);
+                Assert.That(view.transform.Find("Panel/Health/BarTrack/Segment2"), Is.Not.Null);
+                Assert.That(
+                    view.transform.Find("Panel/Health/BarTrack/Segment0").GetComponent<Image>().color,
+                    Is.EqualTo(MatchVitalsHudView.HealthStartColor));
+                Assert.That(
+                    view.transform.Find("Panel/Health/BarTrack/Segment2").GetComponent<Image>().color,
+                    Is.EqualTo(MatchVitalsHudView.HealthEndColor));
+                Assert.That(
+                    view.transform.Find("Panel/Health/Value")?.GetComponent<TMP_Text>()?.text,
+                    Is.EqualTo("3/3"));
+
+                var staminaRect = view.transform.Find("Panel/Stamina/Bar") as RectTransform;
+                var track = view.transform.Find("Panel/Health/BarTrack") as RectTransform;
+                Assert.That(staminaRect.anchorMin.x, Is.EqualTo(0f));
+                Assert.That(staminaRect.anchorMax.x, Is.EqualTo(1f));
+                Assert.That(staminaRect.offsetMin.x, Is.EqualTo(MatchVitalsHudView.BarStart));
+                Assert.That(staminaRect.offsetMax.x, Is.EqualTo(-MatchVitalsHudView.BarRightInset));
+                Assert.That(track.offsetMin.x, Is.EqualTo(MatchVitalsHudView.BarStart));
+                Assert.That(track.offsetMax.x, Is.EqualTo(-MatchVitalsHudView.BarRightInset));
+                Assert.That(
+                    track.GetComponent<HorizontalLayoutGroup>().spacing,
+                    Is.EqualTo(MatchVitalsHudView.SegmentGap));
+                Assert.That(staminaBar.GetComponent<ParallelogramShear>(), Is.Not.Null);
+                Assert.That(
+                    view.transform.Find("Panel/Health/BarTrack/Segment0")
+                        .GetComponent<ParallelogramShear>(),
+                    Is.Not.Null);
+                Assert.That(
+                    view.transform.Find("Panel/Health/BarTrack/Segment1")
+                        .GetComponent<ParallelogramShear>(),
+                    Is.Not.Null);
+                Assert.That(
+                    view.transform.Find("Panel/Health/BarTrack/Segment2")
+                        .GetComponent<ParallelogramShear>(),
+                    Is.Not.Null);
+                Assert.That(ParallelogramShear.AngleDegrees, Is.EqualTo(60f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void ParallelogramShear_UsesSixtyDegreeSlant()
+        {
+            Assert.That(ParallelogramShear.AngleDegrees, Is.EqualTo(60f));
+            Assert.That(
+                ParallelogramShear.SlantForHeight(Mathf.Sqrt(3f)),
+                Is.EqualTo(1f).Within(0.001f));
+        }
+
+        [Test]
+        public void SetValues_HidesLostHitSegments()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchVitalsHudView.Create(canvas.transform);
+                view.Show(5, 5, 3, 3);
+                view.SetValues(2, 5, 1, 3);
+
+                Assert.That(
+                    view.transform.Find("Panel/Stamina/Value").GetComponent<TMP_Text>().text,
+                    Is.EqualTo("2/5"));
+                Assert.That(
+                    view.transform.Find("Panel/Health/Value").GetComponent<TMP_Text>().text,
+                    Is.EqualTo("1/3"));
+                Assert.That(view.transform.Find("Panel/Health/BarTrack/Segment0").gameObject.activeSelf, Is.True);
+                Assert.That(view.transform.Find("Panel/Health/BarTrack/Segment1").gameObject.activeSelf, Is.False);
+                Assert.That(view.transform.Find("Panel/Health/BarTrack/Segment2").gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+    }
+}

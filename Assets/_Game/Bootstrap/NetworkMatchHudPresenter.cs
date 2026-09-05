@@ -86,6 +86,7 @@ namespace Game.Bootstrap
             view.HideHidingTurnStart();
             view.HideHidingActiveHud();
             view.HideHidingWaitHud();
+            view.HideVitals();
             view.SetMatchChatVisible(false);
             view.SetPlayerStatusVisible(false);
             FindSceneReferences();
@@ -107,6 +108,7 @@ namespace Game.Bootstrap
             HideHidingTurnStart();
             HideHidingActiveHud();
             HideHidingWaitHud();
+            HideVitals();
         }
 
         public void Tick()
@@ -190,6 +192,7 @@ namespace Game.Bootstrap
             TryShowHidingIntro();
             TryShowSearchingIntro();
             UpdateHidingTurnStart(clock.IsRuntimeReady ? clock.ServerTime : 0d);
+            UpdateVitals();
         }
 
         private void OnMatchResultReceived(MatchResult result)
@@ -413,6 +416,26 @@ namespace Game.Bootstrap
 
             searchingIntroVisible = false;
             view.HideSearchingIntro();
+        }
+
+        private void UpdateVitals()
+        {
+            if (!hasSnapshot || snapshot.Phase != MatchPhase.Searching)
+            {
+                HideVitals();
+                return;
+            }
+
+            view.ShowVitals(
+                MatchVitalsHudView.DefaultStamina,
+                MatchVitalsHudView.DefaultStamina,
+                MatchVitalsHudView.DefaultHits,
+                MatchVitalsHudView.DefaultHits);
+        }
+
+        private void HideVitals()
+        {
+            view.HideVitals();
         }
 
         private void UpdateHidingTurnStart(double now)
