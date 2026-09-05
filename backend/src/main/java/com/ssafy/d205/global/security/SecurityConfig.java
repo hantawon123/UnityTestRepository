@@ -90,7 +90,8 @@ public class SecurityConfig {
                             // 찔러 볼 수 있는데, 최소한 흔적은 남아야 나중에 알아챌 수
                             // 있습니다. 비밀번호는 남기지 않습니다.
                             log.warn("관리자 로그인 실패: username={}, from={}",
-                                    request.getParameter("username"), request.getRemoteAddr());
+                                    LoginAttempt.forLog(request.getParameter("username")),
+                                    request.getRemoteAddr());
 
                             write(mapper, response, HttpStatus.UNAUTHORIZED,
                                     "BAD_CREDENTIALS", "아이디 또는 비밀번호가 맞지 않습니다.");
