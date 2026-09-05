@@ -78,6 +78,11 @@ namespace Game.Architecture.Tests
                     view.transform.Find("InputPanel/Placeholder").GetComponent<TMP_Text>().text,
                     Is.EqualTo(MatchChatView.PlaceholderText));
                 Assert.That(view.transform.Find("InputPanel/Send"), Is.Not.Null);
+                Assert.That(view.GetComponent<Canvas>(), Is.Not.Null);
+                Assert.That(view.GetComponent<Canvas>().overrideSorting, Is.True);
+                Assert.That(
+                    view.transform.Find("InputPanel").GetComponent<Canvas>(),
+                    Is.Not.Null);
                 Assert.That(
                     (view.transform.Find("InputPanel") as RectTransform).sizeDelta.x,
                     Is.EqualTo(MatchChatView.InputWidth));
@@ -113,6 +118,20 @@ namespace Game.Architecture.Tests
             Assert.That(
                 MatchChatView.ShouldOpenOnEnter(true, false, true, 10f, 0f),
                 Is.False);
+        }
+
+        [Test]
+        public void ChatFont_PrefersBakedStaticRegularWhenPresent()
+        {
+            var font = MatchChatView.ChatFont();
+            Assert.That(font, Is.Not.Null);
+            Assert.That(font.name, Does.Contain("Paperlogy").IgnoreCase);
+            var baked = Resources.Load<TMP_FontAsset>("Fonts/Paperlogy-4Regular SDF");
+            if (baked != null)
+            {
+                Assert.That(font, Is.SameAs(baked));
+                Assert.That(font.atlasPopulationMode, Is.EqualTo(AtlasPopulationMode.Static));
+            }
         }
 
         [Test]

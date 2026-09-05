@@ -1,3 +1,4 @@
+using Game.Client.Home;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -346,10 +347,16 @@ namespace Game.Client.Match
                 return paperlogySemiBold;
             }
 
+            paperlogySemiBold = HomeUiFonts.Apply();
+            if (paperlogySemiBold != null)
+            {
+                return paperlogySemiBold;
+            }
+
             var source = Resources.Load<Font>(SemiBoldResource);
             if (source != null)
             {
-                paperlogySemiBold = TMP_FontAsset.CreateFontAsset(source);
+                paperlogySemiBold = HomeUiFonts.CreateRuntimeKorean(source);
             }
 
             if (paperlogySemiBold == null)

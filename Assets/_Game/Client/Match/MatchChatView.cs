@@ -46,12 +46,22 @@ namespace Game.Client.Match
         private Sprite sendGray;
         private Button sendButton;
         private Transform itemRoot;
+        private RectTransform historyRect;
+        private readonly RectTransform[] rows = new RectTransform[VisibleMessageCount];
+        private readonly TMP_Text[] nameTexts = new TMP_Text[VisibleMessageCount];
+        private readonly TMP_Text[] bodyTexts = new TMP_Text[VisibleMessageCount];
+        private readonly CanvasGroup[] rowFades = new CanvasGroup[VisibleMessageCount];
         private static Sprite verticalFadeSprite;
+        private TMP_FontAsset cachedFont;
+        private Sprite lastSendIcon;
         private Coroutine focusRoutine;
         private Coroutine clearRoutine;
         private float lastSendUnscaledTime = -1f;
         private float lastDeactivateUnscaledTime = -1f;
         private bool activated;
+        private bool layoutReady;
+        private bool fontPrewarmed;
+        private Coroutine prewarmRoutine;
 
         public event Action<string> SendRequested;
         public static bool BlocksPlayerInput { get; private set; }
@@ -70,20 +80,26 @@ namespace Game.Client.Match
             return HomeUiFonts.Apply();
         }
 
+        private TMP_FontAsset ResolveFont() => cachedFont ??= ChatFont();
+
         public static MatchChatView Create(Transform canvasParent)
         {
-            var root = new GameObject("Match Chat", typeof(RectTransform));
+            var root = new GameObject(
+                "Match Chat",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(GraphicRaycaster));
             if (canvasParent != null)
             {
                 root.transform.SetParent(canvasParent, false);
             }
             else
             {
-                var canvas = root.AddComponent<Canvas>();
+                var canvas = root.GetComponent<Canvas>();
                 canvas.renderMode = RenderMode.ScreenSpaceOverlay;
                 canvas.sortingOrder = 20;
-                root.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-                root.AddComponent<GraphicRaycaster>();
+                root.AddComponent<CanvasScaler>().uiScaleMode =
+                    CanvasScaler.ScaleMode.ScaleWithScreenSize;
             }
 
             return root.AddComponent<MatchChatView>();
@@ -144,6 +160,11 @@ namespace Game.Client.Match
             {
                 sendButton.onClick.AddListener(HandleSendClicked);
             }
+
+            if (!fontPrewarmed && prewarmRoutine == null)
+            {
+                prewarmRoutine = StartCoroutine(PrewarmChatFont());
+            }
         }
 
         private void OnDisable()
@@ -170,12 +191,17 @@ namespace Game.Client.Match
                 clearRoutine = null;
             }
 
+            if (prewarmRoutine != null)
+            {
+                StopCoroutine(prewarmRoutine);
+                prewarmRoutine = null;
+            }
+
             SetActivated(false);
         }
 
         private void Update()
         {
-            RefreshSendIcon();
             if (!WasEnterPressedThisFrame())
             {
                 return;
@@ -205,6 +231,49 @@ namespace Game.Client.Match
             focusRoutine = StartCoroutine(FocusInputNextFrame());
         }
 
+        private IEnumerator PrewarmChatFont()
+        {
+            var font = ResolveFont();
+            if (font != null && font.atlasPopulationMode == AtlasPopulationMode.Static)
+            {
+                fontPrewarmed = true;
+                prewarmRoutine = null;
+                yield break;
+            }
+
+            var glyphs = LoadKoreanGlyphs();
+            if (font == null || glyphs == null || string.IsNullOrEmpty(glyphs.text))
+            {
+                fontPrewarmed = true;
+                prewarmRoutine = null;
+                yield break;
+            }
+
+            var set = glyphs.text.Replace("\r", string.Empty).Replace("\n", string.Empty);
+            const int chunk = 160;
+            for (var index = 0; index < set.Length; index += chunk)
+            {
+                font.TryAddCharacters(set.Substring(index, Mathf.Min(chunk, set.Length - index)));
+                yield return null;
+            }
+
+            fontPrewarmed = true;
+            prewarmRoutine = null;
+        }
+
+        private static TextAsset LoadKoreanGlyphs()
+        {
+            var glyphs = Resources.Load<TextAsset>("Fonts/KoreanGlyphs");
+#if UNITY_EDITOR
+            if (glyphs == null)
+            {
+                glyphs = UnityEditor.AssetDatabase.LoadAssetAtPath<TextAsset>(
+                    "Assets/_Game/Editor/FontAtlasCharacterSet.txt");
+            }
+#endif
+            return glyphs;
+        }
+
         private static bool WasEnterPressedThisFrame()
         {
             var keyboard = Keyboard.current;
@@ -216,43 +285,36 @@ namespace Game.Client.Match
         public void SetMessages(IReadOnlyList<LobbyChatMessage> messages)
         {
             EnsureLayout();
-            ApplyFonts();
-            var visible = VisibleMessages(messages);
+            var list = messages ?? Array.Empty<LobbyChatMessage>();
+            var first = Mathf.Max(0, list.Count - VisibleMessageCount);
+            var visibleCount = list.Count - first;
+            var font = ResolveFont();
             for (var index = 0; index < VisibleMessageCount; index++)
             {
-                var row = itemRoot.Find($"Row{index}");
+                var row = rows[index];
                 if (row == null)
                 {
                     continue;
                 }
 
-                if (index >= visible.Count)
+                if (index >= visibleCount)
                 {
-                    row.gameObject.SetActive(false);
+                    if (row.gameObject.activeSelf)
+                    {
+                        row.gameObject.SetActive(false);
+                    }
+
                     continue;
                 }
 
-                row.gameObject.SetActive(true);
-                var message = visible[index];
-                var name = row.Find("Name")?.GetComponent<TMP_Text>();
-                var body = row.Find("Body")?.GetComponent<TMP_Text>();
-                if (name != null)
+                if (!row.gameObject.activeSelf)
                 {
-                    name.text = message.SenderName;
-                    name.font = ChatFont();
-                    name.fontSize = NameFontSize;
-                    name.color = NameColor;
-                    ApplyWrap(name);
+                    row.gameObject.SetActive(true);
                 }
 
-                if (body != null)
-                {
-                    body.text = message.Text;
-                    body.font = ChatFont();
-                    body.fontSize = BodyFontSize;
-                    body.color = Color.white;
-                    ApplyWrap(body);
-                }
+                var message = list[first + index];
+                ApplyLine(nameTexts[index], message.SenderName, font, NameFontSize, NameColor);
+                ApplyLine(bodyTexts[index], message.Text, font, BodyFontSize, Color.white);
             }
 
             ApplyRowFade();
@@ -375,14 +437,22 @@ namespace Game.Client.Match
             }
 
             var icon = activated ? sendOrange : sendGray;
-            if (icon != null)
+            if (icon == null || lastSendIcon == icon)
             {
-                sendImage.sprite = icon;
+                return;
             }
+
+            lastSendIcon = icon;
+            sendImage.sprite = icon;
         }
 
         private void EnsureLayout()
         {
+            if (layoutReady && itemRoot != null && inputField != null)
+            {
+                return;
+            }
+
             sendOrange ??= Resources.Load<Sprite>(SendOrangeResource);
             sendGray ??= Resources.Load<Sprite>(SendGrayResource);
             if (transform.Find("HistoryPanel") == null)
@@ -392,21 +462,104 @@ namespace Game.Client.Match
             }
 
             BindRefs();
+            BindRows();
             FitPanels();
             FitTextViewport();
+            IsolateCanvases();
             EnsureHistoryFade();
             ApplyFonts();
+            layoutReady = true;
+        }
+
+        private void IsolateCanvases()
+        {
+            var rootCanvas = GetComponent<Canvas>();
+            if (rootCanvas == null)
+            {
+                rootCanvas = gameObject.AddComponent<Canvas>();
+            }
+
+            if (GetComponent<GraphicRaycaster>() == null)
+            {
+                gameObject.AddComponent<GraphicRaycaster>();
+            }
+
+            rootCanvas.overrideSorting = true;
+            if (rootCanvas.sortingOrder < 25)
+            {
+                rootCanvas.sortingOrder = 25;
+            }
+
+            var input = transform.Find("InputPanel");
+            if (input == null)
+            {
+                return;
+            }
+
+            var inputCanvas = input.GetComponent<Canvas>();
+            if (inputCanvas == null)
+            {
+                inputCanvas = input.gameObject.AddComponent<Canvas>();
+            }
+
+            if (input.GetComponent<GraphicRaycaster>() == null)
+            {
+                input.gameObject.AddComponent<GraphicRaycaster>();
+            }
+
+            inputCanvas.overrideSorting = true;
+            inputCanvas.sortingOrder = rootCanvas.sortingOrder + 1;
+        }
+
+        private static void ApplyLine(
+            TMP_Text text,
+            string value,
+            TMP_FontAsset font,
+            float fontSize,
+            Color color)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            if (text.text != value)
+            {
+                text.text = value;
+            }
+
+            if (text.font != font)
+            {
+                text.font = font;
+            }
+
+            if (!Mathf.Approximately(text.fontSize, fontSize))
+            {
+                text.fontSize = fontSize;
+            }
+
+            if (text.color != color)
+            {
+                text.color = color;
+            }
+
+            ApplyWrap(text);
         }
 
         private void ApplyFonts()
         {
-            var font = ChatFont();
+            var font = ResolveFont();
             var texts = GetComponentsInChildren<TMP_Text>(true);
             for (var index = 0; index < texts.Length; index++)
             {
-                texts[index].font = font;
-                texts[index].fontStyle = FontStyles.Normal;
-                texts[index].richText = false;
+                var text = texts[index];
+                if (text.font != font)
+                {
+                    text.font = font;
+                }
+
+                text.fontStyle = FontStyles.Normal;
+                text.richText = false;
             }
 
             if (inputField != null)
@@ -415,13 +568,21 @@ namespace Game.Client.Match
                 inputField.richText = false;
                 if (inputField.textComponent != null)
                 {
-                    inputField.textComponent.font = font;
+                    if (inputField.textComponent.font != font)
+                    {
+                        inputField.textComponent.font = font;
+                    }
+
                     inputField.textComponent.richText = false;
                 }
 
                 if (inputField.placeholder is TMP_Text placeholder)
                 {
-                    placeholder.font = font;
+                    if (placeholder.font != font)
+                    {
+                        placeholder.font = font;
+                    }
+
                     placeholder.richText = false;
                 }
             }
@@ -440,6 +601,11 @@ namespace Game.Client.Match
 
         private void BindRefs()
         {
+            if (historyRect == null)
+            {
+                historyRect = transform.Find("HistoryPanel") as RectTransform;
+            }
+
             if (itemRoot == null)
             {
                 itemRoot = transform.Find("HistoryPanel/Items");
@@ -462,6 +628,36 @@ namespace Game.Client.Match
 
             sendOrange ??= Resources.Load<Sprite>(SendOrangeResource);
             sendGray ??= Resources.Load<Sprite>(SendGrayResource);
+        }
+
+        private void BindRows()
+        {
+            if (itemRoot == null)
+            {
+                return;
+            }
+
+            for (var index = 0; index < VisibleMessageCount; index++)
+            {
+                var row = itemRoot.Find($"Row{index}") as RectTransform;
+                rows[index] = row;
+                nameTexts[index] = row != null ? row.Find("Name")?.GetComponent<TMP_Text>() : null;
+                bodyTexts[index] = row != null ? row.Find("Body")?.GetComponent<TMP_Text>() : null;
+                if (row == null)
+                {
+                    rowFades[index] = null;
+                    continue;
+                }
+
+                var group = row.GetComponent<CanvasGroup>();
+                if (group == null)
+                {
+                    group = row.gameObject.AddComponent<CanvasGroup>();
+                    group.blocksRaycasts = false;
+                }
+
+                rowFades[index] = group;
+            }
         }
 
         private void FitPanels()
@@ -514,14 +710,18 @@ namespace Game.Client.Match
 
         private void ApplyRowFade()
         {
-            var history = transform.Find("HistoryPanel") as RectTransform;
-            if (history == null || itemRoot == null)
+            if (historyRect == null || itemRoot == null)
             {
                 return;
             }
 
-            Canvas.ForceUpdateCanvases();
-            var panelRect = history.rect;
+            var itemsRect = itemRoot as RectTransform;
+            if (itemsRect != null)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(itemsRect);
+            }
+
+            var panelRect = historyRect.rect;
             var height = panelRect.height;
             if (height <= 1f)
             {
@@ -530,25 +730,14 @@ namespace Game.Client.Match
 
             for (var index = 0; index < VisibleMessageCount; index++)
             {
-                var row = itemRoot.Find($"Row{index}") as RectTransform;
-                if (row == null)
+                var row = rows[index];
+                var group = rowFades[index];
+                if (row == null || group == null || !row.gameObject.activeSelf)
                 {
                     continue;
                 }
 
-                var group = row.GetComponent<CanvasGroup>();
-                if (group == null)
-                {
-                    group = row.gameObject.AddComponent<CanvasGroup>();
-                    group.blocksRaycasts = false;
-                }
-
-                if (!row.gameObject.activeSelf)
-                {
-                    continue;
-                }
-
-                var local = (Vector2)history.InverseTransformPoint(
+                var local = (Vector2)historyRect.InverseTransformPoint(
                     row.TransformPoint(row.rect.center));
                 var fromTop = (panelRect.yMax - local.y) / height;
                 group.alpha = HistoryFadeAlpha(fromTop);
@@ -558,6 +747,13 @@ namespace Game.Client.Match
         private static void ApplyWrap(TMP_Text text)
         {
             if (text == null)
+            {
+                return;
+            }
+
+            if (text.textWrappingMode == TextWrappingModes.Normal &&
+                text.overflowMode == TextOverflowModes.Overflow &&
+                !text.enableAutoSizing)
             {
                 return;
             }
@@ -768,9 +964,14 @@ namespace Game.Client.Match
             inputField.navigation = new Navigation { mode = Navigation.Mode.None };
             inputField.interactable = true;
             inputField.richText = false;
+            inputField.onFocusSelectAll = false;
+            inputField.restoreOriginalTextOnEscape = false;
+            inputField.shouldHideSoftKeyboard = true;
             text.richText = false;
+            text.parseCtrlCharacters = false;
             text.margin = Vector4.zero;
             placeholder.richText = false;
+            placeholder.parseCtrlCharacters = false;
             placeholder.margin = Vector4.zero;
         }
 

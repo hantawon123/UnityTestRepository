@@ -1,6 +1,7 @@
 using System;
 using TMPro;
 using UnityEngine;
+using UnityEngine.TextCore.LowLevel;
 
 namespace Game.Client.Home
 {
@@ -192,8 +193,14 @@ namespace Game.Client.Home
                 return fontAsset;
             }
 
+            var baked = Resources.Load<TMP_FontAsset>(resourcePath + " SDF");
+            if (baked != null)
+            {
+                return baked;
+            }
+
             var source = Resources.Load<Font>(resourcePath);
-            var loaded = source != null ? TMP_FontAsset.CreateFontAsset(source) : null;
+            var loaded = CreateRuntimeKorean(source);
             if (loaded != null)
             {
                 return loaded;
@@ -208,6 +215,50 @@ namespace Game.Client.Home
             throw new InvalidOperationException(
                 "Korean TMP font is missing. Add Paperlogy under " +
                 "Assets/_Game/Content/Resources/Fonts.");
+        }
+
+        public static TMP_FontAsset CreateRuntimeKorean(Font source, bool prewarmKorean = false)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var loaded = TMP_FontAsset.CreateFontAsset(
+                source,
+                36,
+                5,
+                GlyphRenderMode.SDFAA,
+                2048,
+                2048,
+                AtlasPopulationMode.Dynamic,
+                enableMultiAtlasSupport: true);
+            if (loaded == null)
+            {
+                return null;
+            }
+
+            loaded.hideFlags = HideFlags.HideAndDontSave;
+            loaded.TryAddCharacters(
+                "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ .,!?:;-_~/()[]");
+            if (prewarmKorean)
+            {
+                var glyphs = Resources.Load<TextAsset>("Fonts/KoreanGlyphs");
+#if UNITY_EDITOR
+                if (glyphs == null)
+                {
+                    glyphs = UnityEditor.AssetDatabase.LoadAssetAtPath<TextAsset>(
+                        "Assets/_Game/Editor/FontAtlasCharacterSet.txt");
+                }
+#endif
+                if (glyphs != null && !string.IsNullOrEmpty(glyphs.text))
+                {
+                    loaded.TryAddCharacters(
+                        glyphs.text.Replace("\r", string.Empty).Replace("\n", string.Empty));
+                }
+            }
+
+            return loaded;
         }
 
         private static bool IsInsideRoundedRect(int x, int y, int size, int radius)
