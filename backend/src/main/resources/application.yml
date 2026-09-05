@@ -53,3 +53,12 @@ springdoc:
     enabled: false
   swagger-ui:
     enabled: false
+
+# 관리자 계정. 값이 없으면 계정을 등록하지 않고 관리 API 만 쓸 수 없게 됩니다.
+# 게임 API 는 영향을 받지 않습니다.
+#
+# 기본값을 심어두지 않는 이유는 위 springdoc 과 같습니다. 설정을 잊은 서버가
+# 아는 비밀번호로 열려 있는 것보다, 관리 화면을 못 쓰는 편이 안전합니다.
+admin:
+  username: ${ADMIN_USERNAME:}
+  password: ${ADMIN_PASSWORD:}
