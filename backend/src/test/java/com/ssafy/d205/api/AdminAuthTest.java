@@ -70,7 +70,21 @@ class AdminAuthTest extends IntegrationTest {
         // 필터가 안 붙어 있으면 여기서 401 이 아니라 200 이나 500 이 난다.
         mvc.perform(get(SESSION))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+                // 문구까지 보는 이유는 인코딩 때문이다. 응답을 손으로 쓰고 있어서
+                // 문자셋을 빠뜨리면 한글이 깨지는데, code 만 확인하면 그것을 못 잡는다.
+                .andExpect(jsonPath("$.message").value("로그인이 필요합니다."));
+    }
+
+    @Test
+    @DisplayName("거부된 요청이 세션을 만들지 않는다")
+    void arefusedRequestCreatesNoSession() throws Exception {
+        // 기본 동작은 "로그인 뒤 원래 가려던 곳으로 보내주려고" 요청을 세션에 담는
+        // 것이다. 우리는 리다이렉트를 하지 않으므로 쓸 곳이 없는데, 관리자 경로를
+        // 훑는 요청마다 세션이 하나씩 생긴다.
+        MvcResult result = mvc.perform(get(SESSION)).andReturn();
+
+        assertThat(result.getRequest().getSession(false)).isNull();
     }
 
     @Test
@@ -91,7 +105,8 @@ class AdminAuthTest extends IntegrationTest {
                         .param("username", USERNAME)
                         .param("password", "not-the-password"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("BAD_CREDENTIALS"));
+                .andExpect(jsonPath("$.code").value("BAD_CREDENTIALS"))
+                .andExpect(jsonPath("$.message").value("아이디 또는 비밀번호가 맞지 않습니다."));
     }
 
     @Test

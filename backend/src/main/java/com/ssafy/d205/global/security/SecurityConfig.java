@@ -16,6 +16,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.savedrequest.NullRequestCache;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import tools.jackson.databind.ObjectMapper;
@@ -84,13 +85,27 @@ public class SecurityConfig {
                         // 주지 않고 상태 코드만 답합니다.
                         .successHandler((request, response, authentication) ->
                                 response.setStatus(HttpStatus.NO_CONTENT.value()))
-                        .failureHandler((request, response, exception) -> write(
-                                mapper, response, HttpStatus.UNAUTHORIZED,
-                                "BAD_CREDENTIALS", "아이디 또는 비밀번호가 맞지 않습니다.")))
+                        .failureHandler((request, response, exception) -> {
+                            // 속도 제한이 없습니다. 계정이 하나뿐이라 비밀번호를 계속
+                            // 찔러 볼 수 있는데, 최소한 흔적은 남아야 나중에 알아챌 수
+                            // 있습니다. 비밀번호는 남기지 않습니다.
+                            log.warn("관리자 로그인 실패: username={}, from={}",
+                                    request.getParameter("username"), request.getRemoteAddr());
+
+                            write(mapper, response, HttpStatus.UNAUTHORIZED,
+                                    "BAD_CREDENTIALS", "아이디 또는 비밀번호가 맞지 않습니다.");
+                        }))
                 .logout(logout -> logout
                         .logoutUrl(LOGOUT_PATH)
                         .logoutSuccessHandler((request, response, authentication) ->
                                 response.setStatus(HttpStatus.NO_CONTENT.value())))
+                // 401 을 낼 때 요청을 저장하지 않습니다. 기본 동작은 "로그인 뒤에 원래
+                // 가려던 곳으로 보내주려고" 요청을 세션에 담아 두는 것인데, 그러려면
+                // 세션을 만들어야 합니다. 로그인하지 않은 요청 하나가 세션 하나를
+                // 만드는 셈이라, 관리자 경로를 훑는 스캐너에 메모리가 쌓입니다.
+                //
+                // 우리는 리다이렉트를 하지 않으므로 저장해도 쓸 곳이 없습니다.
+                .requestCache(cache -> cache.requestCache(new NullRequestCache()))
                 // 기본값은 로그인 페이지로 302 입니다. API 를 부르는 쪽에는 리다이렉트가
                 // 성공처럼 보이므로 401 로 답합니다.
                 .exceptionHandling(handling -> handling
