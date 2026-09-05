@@ -24,13 +24,15 @@ namespace Game.Architecture.Tests
                 Assert.That(panel.rectTransform.anchorMax.x, Is.EqualTo(0.5f));
                 Assert.That(panel.rectTransform.sizeDelta.x, Is.EqualTo(MatchVitalsHudView.PanelWidth));
                 Assert.That(MatchVitalsHudView.PanelWidth, Is.EqualTo(380f));
+                Assert.That(panel.rectTransform.anchoredPosition.y, Is.EqualTo(MatchChatView.Margin));
+                Assert.That(MatchVitalsHudView.BottomPadding, Is.EqualTo(MatchChatView.Margin));
 
                 var staminaBar = view.transform.Find("Panel/Stamina/Bar")?.GetComponent<Image>();
                 Assert.That(staminaBar, Is.Not.Null);
                 Assert.That(staminaBar.color, Is.EqualTo(MatchVitalsHudView.StaminaColor));
                 Assert.That(
                     view.transform.Find("Panel/Stamina/Value")?.GetComponent<TMP_Text>()?.text,
-                    Is.EqualTo("5/5"));
+                    Is.EqualTo("5"));
 
                 Assert.That(view.transform.Find("Panel/Health/BarTrack/Segment0"), Is.Not.Null);
                 Assert.That(view.transform.Find("Panel/Health/BarTrack/Segment1"), Is.Not.Null);
@@ -98,7 +100,7 @@ namespace Game.Architecture.Tests
 
                 Assert.That(
                     view.transform.Find("Panel/Stamina/Value").GetComponent<TMP_Text>().text,
-                    Is.EqualTo("2/5"));
+                    Is.EqualTo("2"));
                 Assert.That(
                     view.transform.Find("Panel/Health/Value").GetComponent<TMP_Text>().text,
                     Is.EqualTo("1/3"));
@@ -110,6 +112,113 @@ namespace Game.Architecture.Tests
             {
                 Object.DestroyImmediate(canvas);
             }
+        }
+
+        [Test]
+        public void SetValues_FillsStaminaBarToCurrentRatio()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchVitalsHudView.Create(canvas.transform);
+                view.Show(100, 100, 3, 3);
+                view.SetValues(40, 100, 3, 3);
+
+                Assert.That(
+                    view.transform.Find("Panel/Stamina/Value").GetComponent<TMP_Text>().text,
+                    Is.EqualTo("40"));
+                Assert.That(
+                    view.transform.Find("Panel/Stamina/Bar").GetComponent<Image>().fillAmount,
+                    Is.EqualTo(0.4f).Within(0.001f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void SetValues_UsesDisabledColorWhileExhausted()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchVitalsHudView.Create(canvas.transform);
+                view.Show(0, 100, 3, 3, true);
+                view.SetValues(35, 100, 3, 3, true);
+
+                Assert.That(
+                    view.transform.Find("Panel/Stamina/Bar").GetComponent<Image>().color,
+                    Is.EqualTo(MatchVitalsHudView.StaminaDisabledColor));
+                Assert.That(
+                    view.transform.Find("Panel/Stamina/Value").GetComponent<TMP_Text>().color,
+                    Is.EqualTo(MatchVitalsHudView.StaminaDisabledColor));
+                Assert.That(
+                    view.transform.Find("Panel/Stamina/Icon").GetComponent<Image>().color,
+                    Is.EqualTo(MatchVitalsHudView.StaminaDisabledColor));
+
+                view.SetValues(100, 100, 3, 3, false);
+                Assert.That(
+                    view.transform.Find("Panel/Stamina/Bar").GetComponent<Image>().color,
+                    Is.EqualTo(MatchVitalsHudView.StaminaColor));
+                Assert.That(
+                    view.transform.Find("Panel/Stamina/Value").GetComponent<TMP_Text>().color,
+                    Is.EqualTo(Color.white));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void SetValues_UsesLowColorAndStartsShakeWhenStaminaIsTwentyOrBelow()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchVitalsHudView.Create(canvas.transform);
+                view.Show(20, 100, 3, 3);
+
+                Assert.That(
+                    view.transform.Find("Panel/Stamina/Bar").GetComponent<Image>().color,
+                    Is.EqualTo(MatchVitalsHudView.StaminaLowColor));
+                Assert.That(
+                    view.transform.Find("Panel/Stamina/Value").GetComponent<TMP_Text>().color,
+                    Is.EqualTo(MatchVitalsHudView.StaminaLowColor));
+                Assert.That(
+                    view.transform.Find("Panel/Stamina/Icon").GetComponent<Image>().color,
+                    Is.EqualTo(MatchVitalsHudView.StaminaLowColor));
+
+                view.SetValues(21, 100, 3, 3);
+                Assert.That(
+                    view.transform.Find("Panel/Stamina/Bar").GetComponent<Image>().color,
+                    Is.EqualTo(MatchVitalsHudView.StaminaColor));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void FormatStamina_ShowsCurrentValueOnly()
+        {
+            Assert.That(MatchVitalsHudView.FormatStamina(49.6f), Is.EqualTo("50"));
+            Assert.That(MatchVitalsHudView.FillAmount(25f, 100f), Is.EqualTo(0.25f));
+            Assert.That(MatchVitalsHudView.FillAmount(10f, 0f), Is.EqualTo(0f));
+            Assert.That(MatchVitalsHudView.IsLowStamina(20f), Is.True);
+            Assert.That(MatchVitalsHudView.IsLowStamina(21f), Is.False);
+            Assert.That(
+                MatchVitalsHudView.StaminaColorFor(true),
+                Is.EqualTo(MatchVitalsHudView.StaminaDisabledColor));
+            Assert.That(
+                MatchVitalsHudView.StaminaColorFor(12f, false),
+                Is.EqualTo(MatchVitalsHudView.StaminaLowColor));
+            Assert.That(
+                MatchVitalsHudView.StaminaColorFor(12f, true),
+                Is.EqualTo(MatchVitalsHudView.StaminaDisabledColor));
+            Assert.That(MatchVitalsHudView.ShakeOffset(0.03f).sqrMagnitude, Is.GreaterThan(0f));
         }
     }
 }

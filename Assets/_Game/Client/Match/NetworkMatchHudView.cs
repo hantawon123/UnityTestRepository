@@ -43,7 +43,7 @@ namespace Game.Client.Match
             double remainingSeconds,
             double turnDurationSeconds);
         void HideHidingWaitHud();
-        void ShowVitals(int stamina, int maxStamina, int hits, int maxHits);
+        void ShowVitals(float stamina, float maxStamina, int hits, int maxHits, bool exhausted);
         void HideVitals();
         void SetTopHudVisible(bool visible);
         void SetMatchChatVisible(bool visible);
@@ -396,10 +396,10 @@ namespace Game.Client.Match
             hidingWaitHudView?.Hide();
         }
 
-        public void ShowVitals(int stamina, int maxStamina, int hits, int maxHits)
+        public void ShowVitals(float stamina, float maxStamina, int hits, int maxHits, bool exhausted)
         {
             EnsureVitalsHud();
-            vitalsHudView?.Show(stamina, maxStamina, hits, maxHits);
+            vitalsHudView?.Show(stamina, maxStamina, hits, maxHits, exhausted);
         }
 
         public void HideVitals()

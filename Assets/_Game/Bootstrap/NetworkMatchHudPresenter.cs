@@ -150,6 +150,7 @@ namespace Game.Bootstrap
             UpdateSearchingIntro(now);
             UpdateHidingTurnStart(now);
             UpdateShredderMarker();
+            UpdateVitals();
         }
 
         private void OnMatchStateReceived(MatchStateSnapshot received)
@@ -426,11 +427,20 @@ namespace Game.Bootstrap
                 return;
             }
 
+            if (!clock.TryGetLocalStamina(out var stamina, out var maxStamina, out var exhausted) ||
+                maxStamina <= 0f)
+            {
+                stamina = MatchVitalsHudView.DefaultStamina;
+                maxStamina = MatchVitalsHudView.DefaultStamina;
+                exhausted = false;
+            }
+
             view.ShowVitals(
-                MatchVitalsHudView.DefaultStamina,
-                MatchVitalsHudView.DefaultStamina,
+                stamina,
+                maxStamina,
                 MatchVitalsHudView.DefaultHits,
-                MatchVitalsHudView.DefaultHits);
+                MatchVitalsHudView.DefaultHits,
+                exhausted);
         }
 
         private void HideVitals()

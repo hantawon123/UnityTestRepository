@@ -40,6 +40,13 @@ namespace Game.Network.Players
         [Networked]
         public float CurrentStamina { get; private set; }
 
+        private float configuredMaxStamina;
+
+        public float MaxStamina =>
+            inputSource != null
+                ? inputSource.MovementSettings.MaxStamina
+                : configuredMaxStamina;
+
         [Networked]
         public NetworkBool IsSprintExhausted { get; private set; }
 
@@ -99,7 +106,10 @@ namespace Game.Network.Players
                 Debug.LogError(
                     "[Movement] NetworkedPlayer has no IPlayerInputIntentSource.",
                     this);
+                return;
             }
+
+            configuredMaxStamina = inputSource.MovementSettings.MaxStamina;
         }
 
         public override void Spawned()
@@ -110,6 +120,7 @@ namespace Game.Network.Players
             }
 
             var settings = inputSource.MovementSettings;
+            configuredMaxStamina = settings.MaxStamina;
             movementProcessor.ConfigureGravity(settings.GravityMultiplier);
 
             if (Object.HasStateAuthority)

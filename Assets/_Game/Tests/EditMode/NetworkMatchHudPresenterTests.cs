@@ -733,6 +733,54 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void Searching_RefreshesStaminaBarFromLocalPlayer()
+        {
+            var network = new FakeNetwork
+            {
+                ServerTime = 100d,
+                HasLocalStamina = true,
+                LocalStamina = 100f,
+                LocalMaxStamina = 100f,
+            };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+                Assert.That(view.VitalsVisible, Is.False);
+
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 460d));
+                Assert.That(view.VitalsVisible, Is.True);
+                Assert.That(view.VitalsStamina, Is.EqualTo(100f));
+                Assert.That(view.VitalsMaxStamina, Is.EqualTo(100f));
+
+                network.LocalStamina = 40f;
+                presenter.Tick();
+                Assert.That(view.VitalsStamina, Is.EqualTo(40f));
+
+                network.LocalStamina = 75f;
+                presenter.Tick();
+                Assert.That(view.VitalsStamina, Is.EqualTo(75f));
+                Assert.That(view.VitalsExhausted, Is.False);
+
+                network.LocalStamina = 12f;
+                network.LocalStaminaExhausted = true;
+                presenter.Tick();
+                Assert.That(view.VitalsExhausted, Is.True);
+
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 520d));
+                Assert.That(view.VitalsVisible, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
         public void MatchChat_ReturnsWhenSearchingStarts()
         {
             var network = new FakeNetwork { ServerTime = 100d };
@@ -937,10 +985,16 @@ namespace Game.Architecture.Tests
             }
 
             public bool VitalsVisible { get; private set; }
+            public float VitalsStamina { get; private set; }
+            public float VitalsMaxStamina { get; private set; }
+            public bool VitalsExhausted { get; private set; }
 
-            public void ShowVitals(int stamina, int maxStamina, int hits, int maxHits)
+            public void ShowVitals(float stamina, float maxStamina, int hits, int maxHits, bool exhausted)
             {
                 VitalsVisible = true;
+                VitalsStamina = stamina;
+                VitalsMaxStamina = maxStamina;
+                VitalsExhausted = exhausted;
             }
 
             public void HideVitals() => VitalsVisible = false;
@@ -982,10 +1036,23 @@ namespace Game.Architecture.Tests
                 PlayerInteractionStatesReceived;
             public event Action<IReadOnlyList<HighlightReplayData>> HighlightReplayReceived;
             public event Action<MatchResult> MatchResultReceived;
+            public float LocalStamina { get; set; } = MatchVitalsHudView.DefaultStamina;
+            public float LocalMaxStamina { get; set; } = MatchVitalsHudView.DefaultStamina;
+            public bool LocalStaminaExhausted { get; set; }
+            public bool HasLocalStamina { get; set; }
+
             public bool TryGetPlayerPose(string playerId, out Pose pose)
             {
                 pose = default;
                 return false;
+            }
+
+            public bool TryGetLocalStamina(out float current, out float max, out bool exhausted)
+            {
+                current = LocalStamina;
+                max = LocalMaxStamina;
+                exhausted = LocalStaminaExhausted;
+                return HasLocalStamina;
             }
             public bool EnterResultScene() => true;
             public bool PrepareLobbyForHighlights() => true;

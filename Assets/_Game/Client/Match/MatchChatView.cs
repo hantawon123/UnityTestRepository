@@ -35,7 +35,7 @@ namespace Game.Client.Match
         private const float HistoryHeight = 248f;
         private const float InputHeight = 48f;
         private const float PanelGap = 10f;
-        private const float Margin = 24f;
+        public const float Margin = 24f;
         private const float SendIconSize = 24f;
         private const string SendOrangeResource = "UI/ic_send_orange";
         private const string SendGrayResource = "UI/ic_send_gray";

@@ -7,25 +7,28 @@ namespace Game.Client.Match
 {
     public interface IMatchVitalsHudView
     {
-        void Show(int stamina, int maxStamina, int hits, int maxHits);
+        void Show(float stamina, float maxStamina, int hits, int maxHits, bool exhausted = false);
         void Hide();
-        void SetValues(int stamina, int maxStamina, int hits, int maxHits);
+        void SetValues(float stamina, float maxStamina, int hits, int maxHits, bool exhausted = false);
     }
 
     /// <summary>
-    /// Bottom-center stamina and hit bars. Values can be wired later; this view paints.
+    /// Bottom-center stamina and hit bars. Stamina fill follows the local motor each frame.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class MatchVitalsHudView : MonoBehaviour, IMatchVitalsHudView
     {
-        public const int DefaultStamina = 5;
+        public const float DefaultStamina = 100f;
+        public const float LowStaminaThreshold = 20f;
+        public const float ShakeAmplitude = 2.5f;
+        public const float ShakeCyclesPerSecond = 18f;
         public const int DefaultHits = 3;
         public const float ValueFontSize = 22f;
         public const float IconSize = 22f;
         public const float IconPadding = 12f;
         public const float BarIconGap = 8f;
         public const float BarValueGap = 8f;
-        public const float ValueWidth = 56f;
+        public const float ValueWidth = 72f;
         public const float ValuePadding = 8f;
         public const float RowInset = 16f;
         public const float BarHeight = 14f;
@@ -33,7 +36,7 @@ namespace Game.Client.Match
         public const float SegmentGap = 10f;
         public const float PanelWidth = 380f;
         public const float PanelHeight = 88f;
-        public const float BottomPadding = 48f;
+        public const float BottomPadding = MatchChatView.Margin;
 
         public static float BarStart => IconPadding + IconSize + BarIconGap;
         public static float BarRightInset => ValuePadding + ValueWidth + BarValueGap;
@@ -42,11 +45,16 @@ namespace Game.Client.Match
 
         public static readonly Color PanelColor = new Color(11f / 255f, 16f / 255f, 24f / 255f, 0.7f);
         public static readonly Color StaminaColor = new Color(245f / 255f, 243f / 255f, 241f / 255f, 1f);
+        public static readonly Color StaminaDisabledColor = new Color(136f / 255f, 136f / 255f, 136f / 255f, 1f);
+        public static readonly Color StaminaLowColor = new Color(1f, 51f / 255f, 51f / 255f, 1f);
         public static readonly Color HealthStartColor = new Color(1f, 154f / 255f, 106f / 255f, 1f);
         public static readonly Color HealthEndColor = new Color(1f, 112f / 255f, 50f / 255f, 1f);
 
         [SerializeField]
         private GameObject panel;
+
+        [SerializeField]
+        private Image staminaIcon;
 
         [SerializeField]
         private TMP_Text staminaText;
@@ -65,10 +73,61 @@ namespace Game.Client.Match
         private bool previewOnAwake;
 
         private bool shown;
+        private bool shakeStaminaNumber;
+        private float shakeElapsed;
+        private Vector2 staminaTextRest = new Vector2(-ValuePadding, 0f);
 
         public static string FormatValue(int current, int max)
         {
             return $"{Mathf.Max(0, current)}/{Mathf.Max(0, max)}";
+        }
+
+        public static string FormatStamina(float current)
+        {
+            return Mathf.RoundToInt(Mathf.Max(0f, current)).ToString();
+        }
+
+        public static bool IsLowStamina(float current)
+        {
+            return current <= LowStaminaThreshold;
+        }
+
+        public static Color StaminaColorFor(bool exhausted)
+        {
+            return StaminaColorFor(DefaultStamina, exhausted);
+        }
+
+        public static Color StaminaColorFor(float current, bool exhausted)
+        {
+            if (exhausted)
+            {
+                return StaminaDisabledColor;
+            }
+
+            return IsLowStamina(current) ? StaminaLowColor : StaminaColor;
+        }
+
+        public static Color StaminaAccentFor(float current, bool exhausted)
+        {
+            if (exhausted)
+            {
+                return StaminaDisabledColor;
+            }
+
+            return IsLowStamina(current) ? StaminaLowColor : Color.white;
+        }
+
+        public static Vector2 ShakeOffset(float elapsedSeconds)
+        {
+            var radians = elapsedSeconds * ShakeCyclesPerSecond * Mathf.PI * 2f;
+            return new Vector2(
+                Mathf.Sin(radians) * ShakeAmplitude,
+                Mathf.Cos(radians * 1.3f) * (ShakeAmplitude * 0.7f));
+        }
+
+        public static float FillAmount(float current, float max)
+        {
+            return max <= 0f ? 0f : Mathf.Clamp01(current / max);
         }
 
         public static Color HealthColorAt(int index, int count)
@@ -104,7 +163,7 @@ namespace Game.Client.Match
             }
         }
 
-        public void Show(int stamina, int maxStamina, int hits, int maxHits)
+        public void Show(float stamina, float maxStamina, int hits, int maxHits, bool exhausted = false)
         {
             shown = true;
             if (!gameObject.activeSelf)
@@ -113,7 +172,7 @@ namespace Game.Client.Match
             }
 
             EnsureLayout();
-            SetValues(stamina, maxStamina, hits, maxHits);
+            SetValues(stamina, maxStamina, hits, maxHits, exhausted);
             if (panel != null)
             {
                 panel.SetActive(true);
@@ -123,18 +182,27 @@ namespace Game.Client.Match
         public void Hide()
         {
             shown = false;
+            StopStaminaShake();
             if (panel != null)
             {
                 panel.SetActive(false);
             }
         }
 
-        public void SetValues(int stamina, int maxStamina, int hits, int maxHits)
+        public void SetValues(float stamina, float maxStamina, int hits, int maxHits, bool exhausted = false)
         {
             EnsureLayout();
+            var staminaColor = StaminaColorFor(stamina, exhausted);
+            var staminaAccent = StaminaAccentFor(stamina, exhausted);
             if (staminaText != null)
             {
-                staminaText.text = FormatValue(stamina, maxStamina);
+                staminaText.text = FormatStamina(stamina);
+                staminaText.color = staminaAccent;
+            }
+
+            if (staminaIcon != null)
+            {
+                staminaIcon.color = staminaAccent;
             }
 
             if (healthText != null)
@@ -149,10 +217,18 @@ namespace Game.Client.Match
                 {
                     fill.type = Image.Type.Filled;
                     fill.fillMethod = Image.FillMethod.Horizontal;
-                    fill.fillAmount = maxStamina <= 0
-                        ? 0f
-                        : Mathf.Clamp01(stamina / (float)maxStamina);
+                    fill.fillAmount = FillAmount(stamina, maxStamina);
+                    fill.color = staminaColor;
                 }
+            }
+
+            if (shown && IsLowStamina(stamina))
+            {
+                shakeStaminaNumber = true;
+            }
+            else
+            {
+                StopStaminaShake();
             }
 
             if (healthSegments == null)
@@ -170,6 +246,38 @@ namespace Game.Client.Match
             }
         }
 
+        private void Update()
+        {
+            if (staminaText == null)
+            {
+                return;
+            }
+
+            if (!shown || !shakeStaminaNumber)
+            {
+                ResetStaminaTextPosition();
+                return;
+            }
+
+            shakeElapsed += Time.unscaledDeltaTime;
+            staminaText.rectTransform.anchoredPosition = staminaTextRest + ShakeOffset(shakeElapsed);
+        }
+
+        private void StopStaminaShake()
+        {
+            shakeStaminaNumber = false;
+            shakeElapsed = 0f;
+            ResetStaminaTextPosition();
+        }
+
+        private void ResetStaminaTextPosition()
+        {
+            if (staminaText != null)
+            {
+                staminaText.rectTransform.anchoredPosition = staminaTextRest;
+            }
+        }
+
         private void EnsureLayout()
         {
             var rect = transform as RectTransform;
@@ -182,6 +290,7 @@ namespace Game.Client.Match
             {
                 DestroyChild("Panel");
                 panel = null;
+                staminaIcon = null;
                 staminaText = null;
                 healthText = null;
                 staminaFill = null;
@@ -194,9 +303,18 @@ namespace Game.Client.Match
                 panel = transform.Find("Panel")?.gameObject;
             }
 
+            if (staminaIcon == null)
+            {
+                staminaIcon = transform.Find("Panel/Stamina/Icon")?.GetComponent<Image>();
+            }
+
             if (staminaText == null)
             {
                 staminaText = transform.Find("Panel/Stamina/Value")?.GetComponent<TMP_Text>();
+                if (staminaText != null)
+                {
+                    staminaTextRest = staminaText.rectTransform.anchoredPosition;
+                }
             }
 
             if (healthText == null)
@@ -298,8 +416,10 @@ namespace Game.Client.Match
 
             var stamina = CreateRow(panelRect, "Stamina", FlashIconResource, Color.white);
             StretchRow(stamina, 16f);
+            staminaIcon = stamina.Find("Icon")?.GetComponent<Image>();
             staminaFill = CreateFillBar(stamina, "Bar", StaminaColor);
-            staminaText = CreateValue(stamina, FormatValue(DefaultStamina, DefaultStamina));
+            staminaText = CreateValue(stamina, FormatStamina(DefaultStamina));
+            staminaTextRest = staminaText.rectTransform.anchoredPosition;
 
             var health = CreateRow(panelRect, "Health", HeartIconResource, Color.white);
             StretchRow(health, -16f);
