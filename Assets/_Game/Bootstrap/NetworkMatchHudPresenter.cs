@@ -46,6 +46,9 @@ namespace Game.Bootstrap
         private bool hidingIntroVisible;
         private bool hidingIntroOpenedThisPhase;
         private double hidingIntroEndsAt;
+        private bool searchingIntroVisible;
+        private bool searchingIntroOpenedThisPhase;
+        private double searchingIntroEndsAt;
         private bool hidingTurnStartVisible;
         private bool hidingActiveHudVisible;
         private bool hidingWaitHudVisible;
@@ -79,6 +82,7 @@ namespace Game.Bootstrap
             view.SetPlayerItemStatuses(events.LatestPlayerItemStatuses);
             view.SetShredderMarker(default, false);
             view.HideHidingIntro();
+            view.HideSearchingIntro();
             view.HideHidingTurnStart();
             view.HideHidingActiveHud();
             view.HideHidingWaitHud();
@@ -99,6 +103,7 @@ namespace Game.Bootstrap
             view.SetPlayerItemStatuses(Array.Empty<PlayerItemStatusSnapshot>());
             view.SetShredderMarker(default, false);
             HideHidingIntro();
+            HideSearchingIntro();
             HideHidingTurnStart();
             HideHidingActiveHud();
             HideHidingWaitHud();
@@ -140,6 +145,7 @@ namespace Game.Bootstrap
             }
 
             UpdateHidingIntro(now);
+            UpdateSearchingIntro(now);
             UpdateHidingTurnStart(now);
             UpdateShredderMarker();
         }
@@ -168,6 +174,12 @@ namespace Game.Bootstrap
                 HideHidingWaitHud();
             }
 
+            if (received.Phase != MatchPhase.Searching)
+            {
+                searchingIntroOpenedThisPhase = false;
+                HideSearchingIntro();
+            }
+
             snapshot = received;
             hasSnapshot = true;
             var extrasVisible = received.Phase != MatchPhase.Hiding;
@@ -176,6 +188,7 @@ namespace Game.Bootstrap
             ReportPhase();
             UpdateGameEndNotice();
             TryShowHidingIntro();
+            TryShowSearchingIntro();
             UpdateHidingTurnStart(clock.IsRuntimeReady ? clock.ServerTime : 0d);
         }
 
@@ -253,6 +266,11 @@ namespace Game.Bootstrap
                 ? clock.MatchRules.HidingDurationSeconds
                 : rules.HidingTurnDurationSeconds;
 
+        private double SearchingDurationSeconds =>
+            clock.MatchRules.SearchingDurationSeconds > 0
+                ? clock.MatchRules.SearchingDurationSeconds
+                : rules.SearchingDurationSeconds;
+
         private void OnItemDestroyedReceived(PlayerItemDestroyedEvent confirmed)
         {
             destructions.Add(confirmed);
@@ -293,7 +311,14 @@ namespace Game.Bootstrap
                 return;
             }
 
+            if (searchingIntroVisible)
+            {
+                view.ShowSearchingIntro(assignedItemDisplayName, assignedItemId);
+                return;
+            }
+
             TryShowHidingIntro();
+            TryShowSearchingIntro();
         }
 
         private void UpdateHidingIntro(double now)
@@ -344,6 +369,50 @@ namespace Game.Bootstrap
 
             hidingIntroVisible = false;
             view.HideHidingIntro();
+        }
+
+        private void UpdateSearchingIntro(double now)
+        {
+            TryShowSearchingIntro();
+            if (searchingIntroVisible && now >= searchingIntroEndsAt)
+            {
+                HideSearchingIntro();
+            }
+        }
+
+        private void TryShowSearchingIntro()
+        {
+            if (searchingIntroOpenedThisPhase ||
+                !hasSnapshot ||
+                snapshot.Phase != MatchPhase.Searching ||
+                string.IsNullOrEmpty(assignedItemDisplayName) ||
+                !clock.IsRuntimeReady)
+            {
+                return;
+            }
+
+            var startedAt = snapshot.PhaseEndsAt - SearchingDurationSeconds;
+            var endsAt = startedAt + SearchingIntroView.VisibleSeconds;
+            if (clock.ServerTime >= endsAt)
+            {
+                return;
+            }
+
+            searchingIntroEndsAt = endsAt;
+            searchingIntroOpenedThisPhase = true;
+            searchingIntroVisible = true;
+            view.ShowSearchingIntro(assignedItemDisplayName, assignedItemId);
+        }
+
+        private void HideSearchingIntro()
+        {
+            if (!searchingIntroVisible)
+            {
+                return;
+            }
+
+            searchingIntroVisible = false;
+            view.HideSearchingIntro();
         }
 
         private void UpdateHidingTurnStart(double now)

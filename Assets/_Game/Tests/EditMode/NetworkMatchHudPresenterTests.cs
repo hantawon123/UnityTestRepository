@@ -633,6 +633,106 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void SearchingStart_ShowsEachPlayersAssignedItemThenHides()
+        {
+            var network = new FakeNetwork { ServerTime = 100d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+
+                network.PublishItemAssignment("Soda_01");
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 400d));
+                presenter.Tick();
+                Assert.That(view.SearchingIntroVisible, Is.True);
+                Assert.That(view.SearchingIntroItem, Is.EqualTo("탄산음료"));
+
+                network.ServerTime = 102.9d;
+                presenter.Tick();
+                Assert.That(view.SearchingIntroVisible, Is.True);
+
+                network.ServerTime = 103d;
+                presenter.Tick();
+                Assert.That(view.SearchingIntroVisible, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void SearchingIntro_WaitsForAssignmentInsideTheOpeningWindow()
+        {
+            var network = new FakeNetwork { ServerTime = 101d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 400d));
+                presenter.Tick();
+                Assert.That(view.SearchingIntroVisible, Is.False);
+
+                network.PublishItemAssignment("Burger_01");
+                presenter.Tick();
+                Assert.That(view.SearchingIntroVisible, Is.True);
+                Assert.That(view.SearchingIntroItem, Is.EqualTo("햄버거"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void SearchingIntro_DoesNotOpenAfterTheOpeningWindow()
+        {
+            var network = new FakeNetwork { ServerTime = 104d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+
+                network.PublishItemAssignment("Soda_01");
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 400d));
+                presenter.Tick();
+                Assert.That(view.SearchingIntroVisible, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
         public void MatchChat_ReturnsWhenSearchingStarts()
         {
             var network = new FakeNetwork { ServerTime = 100d };
@@ -748,6 +848,16 @@ namespace Game.Architecture.Tests
             }
 
             public void HideHidingIntro() => HidingIntroVisible = false;
+            public string SearchingIntroItem { get; private set; }
+            public bool SearchingIntroVisible { get; private set; }
+
+            public void ShowSearchingIntro(string itemDisplayName, string itemId)
+            {
+                SearchingIntroItem = itemDisplayName;
+                SearchingIntroVisible = true;
+            }
+
+            public void HideSearchingIntro() => SearchingIntroVisible = false;
             public bool HidingTurnStartVisible { get; private set; }
             public double HidingTurnStartSeconds { get; private set; }
             public bool TopHudVisible { get; private set; } = true;

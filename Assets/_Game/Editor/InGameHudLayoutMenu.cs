@@ -66,6 +66,7 @@ namespace Game.Editor
                 EnsureAssignedItem(hud);
                 EnsureHighlightTitle(hud);
                 EnsureHidingIntro(hud);
+                EnsureSearchingIntro(hud);
                 EnsureHidingTurnStart(hud);
                 EnsureHidingActiveHud(hud);
                 EnsureHidingWaitHud(hud);
@@ -304,6 +305,30 @@ namespace Game.Editor
             if (view == null)
             {
                 view = HidingIntroView.Create(hud.transform);
+            }
+
+            property.objectReferenceValue = view;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var viewSerialized = new SerializedObject(view);
+            viewSerialized.FindProperty("previewOnAwake").boolValue = false;
+            viewSerialized.ApplyModifiedPropertiesWithoutUndo();
+            view.Hide();
+        }
+
+        private static void EnsureSearchingIntro(NetworkMatchHudView hud)
+        {
+            var serialized = new SerializedObject(hud);
+            var property = serialized.FindProperty("searchingIntroView");
+            var view = property.objectReferenceValue as SearchingIntroView;
+            if (view == null)
+            {
+                view = hud.GetComponentInChildren<SearchingIntroView>(true);
+            }
+
+            if (view == null)
+            {
+                view = SearchingIntroView.Create(hud.transform);
             }
 
             property.objectReferenceValue = view;

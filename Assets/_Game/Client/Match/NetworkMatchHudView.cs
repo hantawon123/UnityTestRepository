@@ -26,6 +26,8 @@ namespace Game.Client.Match
         void SetShredderMarker(Vector2 screenPosition, bool visible);
         void ShowHidingIntro(string itemDisplayName, string itemId);
         void HideHidingIntro();
+        void ShowSearchingIntro(string itemDisplayName, string itemId);
+        void HideSearchingIntro();
         void ShowHidingTurnStart(double remainingSeconds);
         void HideHidingTurnStart();
         void SetHidingTurnStartSeconds(double remainingSeconds);
@@ -83,6 +85,9 @@ namespace Game.Client.Match
         private HidingIntroView hidingIntroView;
 
         [SerializeField]
+        private SearchingIntroView searchingIntroView;
+
+        [SerializeField]
         private HidingTurnStartView hidingTurnStartView;
 
         [SerializeField]
@@ -113,6 +118,8 @@ namespace Game.Client.Match
             SetPlayerItemStatuses(Array.Empty<PlayerItemStatusSnapshot>());
             EnsureHidingIntro();
             HideHidingIntro();
+            EnsureSearchingIntro();
+            HideSearchingIntro();
             EnsureHidingTurnStart();
             HideHidingTurnStart();
             EnsureHidingActiveHud();
@@ -145,6 +152,7 @@ namespace Game.Client.Match
                     (highlightTitleText != null && graphic.transform.IsChildOf(highlightTitleText.transform)) ||
                     (destructionNoticeRoot != null && graphic.transform.IsChildOf(destructionNoticeRoot.transform)) ||
                     (hidingIntroView != null && graphic.transform.IsChildOf(hidingIntroView.transform)) ||
+                    (searchingIntroView != null && graphic.transform.IsChildOf(searchingIntroView.transform)) ||
                     (hidingTurnStartView != null && graphic.transform.IsChildOf(hidingTurnStartView.transform)) ||
                     (hidingActiveHudView != null && graphic.transform.IsChildOf(hidingActiveHudView.transform)) ||
                     (hidingWaitHudView != null && graphic.transform.IsChildOf(hidingWaitHudView.transform)))
@@ -309,6 +317,17 @@ namespace Game.Client.Match
             hidingIntroView?.Hide();
         }
 
+        public void ShowSearchingIntro(string itemDisplayName, string itemId)
+        {
+            EnsureSearchingIntro();
+            searchingIntroView?.Show(itemDisplayName, itemId);
+        }
+
+        public void HideSearchingIntro()
+        {
+            searchingIntroView?.Hide();
+        }
+
         public void ShowHidingTurnStart(double remainingSeconds)
         {
             EnsureHidingTurnStart();
@@ -405,6 +424,19 @@ namespace Game.Client.Match
             if (hidingIntroView == null)
             {
                 hidingIntroView = HidingIntroView.Create(transform);
+            }
+        }
+
+        private void EnsureSearchingIntro()
+        {
+            if (searchingIntroView == null)
+            {
+                searchingIntroView = GetComponentInChildren<SearchingIntroView>(true);
+            }
+
+            if (searchingIntroView == null)
+            {
+                searchingIntroView = SearchingIntroView.Create(transform);
             }
         }
 
