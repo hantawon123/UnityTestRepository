@@ -40,6 +40,9 @@ namespace Game.Client.Match
 
         public static float BarStart => IconPadding + IconSize + BarIconGap;
         public static float BarRightInset => ValuePadding + ValueWidth + BarValueGap;
+        public static float TrackWidth => PanelWidth - BarStart - BarRightInset;
+        public static float SegmentWidth =>
+            (TrackWidth - (SegmentGap * (DefaultHits - 1))) / DefaultHits;
         public const string FlashIconResource = "UI/ic_flash";
         public const string HeartIconResource = "UI/ic_heart";
 
@@ -348,12 +351,17 @@ namespace Game.Client.Match
         private bool HasCurrentLayout()
         {
             var panelRect = transform.Find("Panel") as RectTransform;
+            var segment = transform.Find("Panel/Health/BarTrack/Segment0")
+                ?.GetComponent<LayoutElement>();
             return panelRect != null &&
                    Mathf.Approximately(panelRect.anchorMin.x, 0.5f) &&
                    Mathf.Approximately(panelRect.anchorMax.x, 0.5f) &&
                    Mathf.Approximately(panelRect.sizeDelta.x, PanelWidth) &&
                    transform.Find("Panel/Health/BarTrack") != null &&
-                   transform.Find("Panel/Stamina/Bar")?.GetComponent<ParallelogramShear>() != null;
+                   transform.Find("Panel/Stamina/Bar")?.GetComponent<ParallelogramShear>() != null &&
+                   segment != null &&
+                   Mathf.Approximately(segment.preferredWidth, SegmentWidth) &&
+                   Mathf.Approximately(segment.flexibleWidth, 0f);
         }
 
         private void DestroyChild(string childName)
@@ -468,10 +476,10 @@ namespace Game.Client.Match
             StretchBetween(track, BarStart, BarRightInset, BarHeight);
             var layout = track.gameObject.AddComponent<HorizontalLayoutGroup>();
             layout.spacing = SegmentGap;
-            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childAlignment = TextAnchor.MiddleLeft;
             layout.childControlWidth = true;
             layout.childControlHeight = true;
-            layout.childForceExpandWidth = true;
+            layout.childForceExpandWidth = false;
             layout.childForceExpandHeight = true;
             layout.padding = new RectOffset(0, 0, 0, 0);
 
@@ -486,8 +494,10 @@ namespace Game.Client.Match
                 bar.preserveAspect = false;
                 bar.gameObject.AddComponent<ParallelogramShear>();
                 var element = bar.gameObject.AddComponent<LayoutElement>();
-                element.flexibleWidth = 1f;
-                element.minWidth = 0f;
+                element.minWidth = SegmentWidth;
+                element.preferredWidth = SegmentWidth;
+                element.flexibleWidth = 0f;
+                element.preferredHeight = BarHeight;
                 segments[index] = bar.rectTransform;
             }
 

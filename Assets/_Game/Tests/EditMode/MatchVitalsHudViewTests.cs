@@ -55,9 +55,21 @@ namespace Game.Architecture.Tests
                 Assert.That(staminaRect.offsetMax.x, Is.EqualTo(-MatchVitalsHudView.BarRightInset));
                 Assert.That(track.offsetMin.x, Is.EqualTo(MatchVitalsHudView.BarStart));
                 Assert.That(track.offsetMax.x, Is.EqualTo(-MatchVitalsHudView.BarRightInset));
+                var group = track.GetComponent<HorizontalLayoutGroup>();
+                Assert.That(group.spacing, Is.EqualTo(MatchVitalsHudView.SegmentGap));
+                Assert.That(group.childForceExpandWidth, Is.False);
                 Assert.That(
-                    track.GetComponent<HorizontalLayoutGroup>().spacing,
-                    Is.EqualTo(MatchVitalsHudView.SegmentGap));
+                    view.transform.Find("Panel/Health/BarTrack/Segment0")
+                        .GetComponent<LayoutElement>().preferredWidth,
+                    Is.EqualTo(MatchVitalsHudView.SegmentWidth));
+                Assert.That(
+                    view.transform.Find("Panel/Health/BarTrack/Segment1")
+                        .GetComponent<LayoutElement>().preferredWidth,
+                    Is.EqualTo(MatchVitalsHudView.SegmentWidth));
+                Assert.That(
+                    view.transform.Find("Panel/Health/BarTrack/Segment2")
+                        .GetComponent<LayoutElement>().preferredWidth,
+                    Is.EqualTo(MatchVitalsHudView.SegmentWidth));
                 Assert.That(staminaBar.GetComponent<ParallelogramShear>(), Is.Not.Null);
                 Assert.That(
                     view.transform.Find("Panel/Health/BarTrack/Segment0")
@@ -107,6 +119,10 @@ namespace Game.Architecture.Tests
                 Assert.That(view.transform.Find("Panel/Health/BarTrack/Segment0").gameObject.activeSelf, Is.True);
                 Assert.That(view.transform.Find("Panel/Health/BarTrack/Segment1").gameObject.activeSelf, Is.False);
                 Assert.That(view.transform.Find("Panel/Health/BarTrack/Segment2").gameObject.activeSelf, Is.False);
+                Assert.That(
+                    view.transform.Find("Panel/Health/BarTrack/Segment0")
+                        .GetComponent<LayoutElement>().preferredWidth,
+                    Is.EqualTo(MatchVitalsHudView.SegmentWidth));
             }
             finally
             {
