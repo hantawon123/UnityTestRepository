@@ -82,6 +82,11 @@ namespace Game.Client.Match
             return $"{Mathf.Max(0, current)}/{Mathf.Max(0, max)}";
         }
 
+        public static int RemainingHits(int hitCount, int maxHits)
+        {
+            return Mathf.Max(0, maxHits - Mathf.Max(0, hitCount));
+        }
+
         public static string FormatStamina(float current)
         {
             return Mathf.RoundToInt(Mathf.Max(0f, current)).ToString();

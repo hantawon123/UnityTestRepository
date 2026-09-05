@@ -757,6 +757,8 @@ namespace Game.Architecture.Tests
                 Assert.That(view.VitalsVisible, Is.True);
                 Assert.That(view.VitalsStamina, Is.EqualTo(100f));
                 Assert.That(view.VitalsMaxStamina, Is.EqualTo(100f));
+                Assert.That(view.VitalsHits, Is.EqualTo(3));
+                Assert.That(view.VitalsMaxHits, Is.EqualTo(3));
 
                 network.LocalStamina = 40f;
                 presenter.Tick();
@@ -774,6 +776,62 @@ namespace Game.Architecture.Tests
 
                 network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 520d));
                 Assert.That(view.VitalsVisible, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void Searching_RefreshesHitBarFromLocalHitCount()
+        {
+            var network = new FakeNetwork
+            {
+                ServerTime = 100d,
+                HasLocalStamina = true,
+                LocalStamina = 100f,
+                LocalMaxStamina = 100f,
+            };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            room.SetLocalPlayer("client");
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 460d));
+                Assert.That(view.VitalsHits, Is.EqualTo(3));
+                Assert.That(view.VitalsMaxHits, Is.EqualTo(3));
+
+                network.Publish(new[]
+                {
+                    new PlayerInteractionStateSnapshot(0, 0d, 5, 0),
+                    new PlayerInteractionStateSnapshot(1, 0d, 5, 1),
+                });
+                Assert.That(view.VitalsHits, Is.EqualTo(2));
+                Assert.That(view.VitalsMaxHits, Is.EqualTo(3));
+
+                network.Publish(new[]
+                {
+                    new PlayerInteractionStateSnapshot(0, 0d, 5, 0),
+                    new PlayerInteractionStateSnapshot(1, 0d, 5, 2),
+                });
+                Assert.That(view.VitalsHits, Is.EqualTo(1));
+
+                network.Publish(new[]
+                {
+                    new PlayerInteractionStateSnapshot(0, 0d, 5, 0),
+                    new PlayerInteractionStateSnapshot(1, 202d, 5, 0),
+                });
+                Assert.That(view.VitalsHits, Is.EqualTo(3));
             }
             finally
             {
@@ -1005,6 +1063,8 @@ namespace Game.Architecture.Tests
             public bool VitalsVisible { get; private set; }
             public float VitalsStamina { get; private set; }
             public float VitalsMaxStamina { get; private set; }
+            public int VitalsHits { get; private set; }
+            public int VitalsMaxHits { get; private set; }
             public bool VitalsExhausted { get; private set; }
 
             public void ShowVitals(float stamina, float maxStamina, int hits, int maxHits, bool exhausted)
@@ -1012,6 +1072,8 @@ namespace Game.Architecture.Tests
                 VitalsVisible = true;
                 VitalsStamina = stamina;
                 VitalsMaxStamina = maxStamina;
+                VitalsHits = hits;
+                VitalsMaxHits = maxHits;
                 VitalsExhausted = exhausted;
             }
 

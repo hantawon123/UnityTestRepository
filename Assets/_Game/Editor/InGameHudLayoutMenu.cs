@@ -29,8 +29,6 @@ namespace Game.Editor
         private const string RequestPath =
             "Assets/_Game/Editor/InGameHudInstallRequest.txt";
         private const string HudName = "InGameHud";
-        private const string FontPath =
-            "Assets/_Game/Content/Fonts/Cafe24Ssurround SDF.asset";
 
         static InGameHudLayoutMenu()
         {
@@ -564,7 +562,7 @@ namespace Game.Editor
             text.alignment = alignment;
             text.color = Color.white;
             text.raycastTarget = false;
-            text.font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
+            text.font = HomeUiFonts.Apply();
             return text;
         }
 

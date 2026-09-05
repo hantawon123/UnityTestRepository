@@ -219,6 +219,9 @@ namespace Game.Architecture.Tests
                 MatchVitalsHudView.StaminaColorFor(12f, true),
                 Is.EqualTo(MatchVitalsHudView.StaminaDisabledColor));
             Assert.That(MatchVitalsHudView.ShakeOffset(0.03f).sqrMagnitude, Is.GreaterThan(0f));
+            Assert.That(MatchVitalsHudView.RemainingHits(0, 3), Is.EqualTo(3));
+            Assert.That(MatchVitalsHudView.RemainingHits(1, 3), Is.EqualTo(2));
+            Assert.That(MatchVitalsHudView.RemainingHits(3, 3), Is.Zero);
         }
     }
 }

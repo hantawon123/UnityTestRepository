@@ -52,6 +52,7 @@ namespace Game.Bootstrap
         private bool hidingTurnStartVisible;
         private bool hidingActiveHudVisible;
         private bool hidingWaitHudVisible;
+        private int localHitCount;
 
         public NetworkMatchHudPresenter(
             INetworkMatchEvents events,
@@ -157,7 +158,10 @@ namespace Game.Bootstrap
         {
             if ((!hasSnapshot || snapshot.Phase != received.Phase) &&
                 (received.Phase == MatchPhase.Hiding || received.Phase == MatchPhase.Waiting))
+            {
                 destructions.Clear();
+                localHitCount = 0;
+            }
             if (received.Phase == MatchPhase.Hiding || received.Phase == MatchPhase.Waiting)
             {
                 gameEndNoticeEndsAt = -1d;
@@ -275,6 +279,11 @@ namespace Game.Bootstrap
             clock.MatchRules.SearchingDurationSeconds > 0
                 ? clock.MatchRules.SearchingDurationSeconds
                 : rules.SearchingDurationSeconds;
+
+        private int HitsRequiredToStun =>
+            clock.MatchRules.StunHitCount > 0
+                ? clock.MatchRules.StunHitCount
+                : rules.HitsRequiredToStun;
 
         private void OnItemDestroyedReceived(PlayerItemDestroyedEvent confirmed)
         {
@@ -436,11 +445,12 @@ namespace Game.Bootstrap
                 exhausted = false;
             }
 
+            var maxHits = HitsRequiredToStun;
             view.ShowVitals(
                 stamina,
                 maxStamina,
-                MatchVitalsHudView.DefaultHits,
-                MatchVitalsHudView.DefaultHits,
+                MatchVitalsHudView.RemainingHits(localHitCount, maxHits),
+                maxHits,
                 exhausted);
         }
 
@@ -668,8 +678,10 @@ namespace Game.Bootstrap
             {
                 if (states[index].PlayerIndex == localPlayerIndex)
                 {
+                    localHitCount = states[index].HitCount;
                     view.SetRemainingDestructionUses(
                         states[index].RemainingDestructionUses);
+                    UpdateVitals();
                     return;
                 }
             }
