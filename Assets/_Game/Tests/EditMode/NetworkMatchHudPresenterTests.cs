@@ -364,6 +364,301 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void HidingStart_ShowsEachPlayersAssignedItemThenHides()
+        {
+            var network = new FakeNetwork { ServerTime = 40d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+
+                network.PublishItemAssignment("Soda_01");
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+                presenter.Tick();
+                Assert.That(view.HidingIntroVisible, Is.True);
+                Assert.That(view.HidingIntroItem, Is.EqualTo("탄산음료"));
+
+                network.ServerTime = 42.9d;
+                presenter.Tick();
+                Assert.That(view.HidingIntroVisible, Is.True);
+
+                network.ServerTime = 43d;
+                presenter.Tick();
+                Assert.That(view.HidingIntroVisible, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void HidingIntro_WaitsForAssignmentInsideTheOpeningWindow()
+        {
+            var network = new FakeNetwork { ServerTime = 41d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+                presenter.Tick();
+                Assert.That(view.HidingIntroVisible, Is.False);
+
+                network.PublishItemAssignment("Burger_01");
+                presenter.Tick();
+                Assert.That(view.HidingIntroVisible, Is.True);
+                Assert.That(view.HidingIntroItem, Is.EqualTo("햄버거"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void HidingIntro_DoesNotOpenAfterTheOpeningWindow()
+        {
+            var network = new FakeNetwork { ServerTime = 44d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+
+                network.PublishItemAssignment("Soda_01");
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+                presenter.Tick();
+                Assert.That(view.HidingIntroVisible, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void HidingTurnStart_ShowsForLocalPlayerThenRevealsTopHud()
+        {
+            var network = new FakeNetwork { ServerTime = 70d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            room.SetLocalPlayer("client");
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+                presenter.Tick();
+                Assert.That(view.HidingTurnStartVisible, Is.True);
+                Assert.That(view.HidingWaitHudVisible, Is.False);
+                Assert.That(view.TopHudVisible, Is.False);
+                Assert.That(view.MatchChatVisible, Is.False);
+                Assert.That(view.PlayerStatusVisible, Is.False);
+                Assert.That(view.HidingTurnStartSeconds, Is.EqualTo(30d));
+
+                network.ServerTime = 70.9d;
+                presenter.Tick();
+                Assert.That(view.HidingTurnStartVisible, Is.True);
+                Assert.That(view.TopHudVisible, Is.False);
+
+                network.ServerTime = 71d;
+                presenter.Tick();
+                Assert.That(view.HidingTurnStartVisible, Is.False);
+                Assert.That(view.HidingActiveHudVisible, Is.True);
+                Assert.That(view.HidingActiveTopPromptVisible, Is.True);
+                Assert.That(view.HidingCompleteGuideVisible, Is.True);
+                Assert.That(view.TopHudVisible, Is.False);
+                Assert.That(view.MatchChatVisible, Is.False);
+                Assert.That(view.PlayerStatusVisible, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void HidingTurnStart_ShowsAfterIntroForFirstPlayer()
+        {
+            var network = new FakeNetwork { ServerTime = 43d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            room.SetLocalPlayer("host");
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+                presenter.Tick();
+                Assert.That(view.HidingTurnStartVisible, Is.True);
+                Assert.That(view.TopHudVisible, Is.False);
+
+                network.ServerTime = 44d;
+                presenter.Tick();
+                Assert.That(view.HidingTurnStartVisible, Is.False);
+                Assert.That(view.HidingActiveHudVisible, Is.True);
+                Assert.That(view.HidingActiveTopPromptVisible, Is.True);
+                Assert.That(view.TopHudVisible, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void HidingWaitHud_ShowsOrderAndChatForWaitingPlayer()
+        {
+            var network = new FakeNetwork { ServerTime = 50d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.SetParticipants(new[]
+            {
+                new RoomParticipant("host", 0, true, "방장"),
+                new RoomParticipant("client", 1, false, "민수"),
+            });
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            room.SetLocalPlayer("client");
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+                presenter.Tick();
+                Assert.That(view.HidingWaitHudVisible, Is.True);
+                Assert.That(view.HidingWaitCompleted, Is.EqualTo(1));
+                Assert.That(view.HidingWaitTotal, Is.EqualTo(2));
+                Assert.That(view.HidingWaitName, Is.EqualTo("방장"));
+                Assert.That(view.HidingWaitPlayers.Count, Is.EqualTo(2));
+                Assert.That(view.HidingWaitPlayers[0].Current, Is.True);
+                Assert.That(view.HidingWaitPlayers[1].Completed, Is.False);
+                Assert.That(view.HidingWaitNextTurn, Is.True);
+                Assert.That(view.HidingWaitRemaining, Is.EqualTo(20d).Within(0.001d));
+                Assert.That(view.MatchChatVisible, Is.True);
+                Assert.That(view.HidingActiveTopPromptVisible, Is.False);
+                Assert.That(view.TopHudVisible, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void HidingTurnStart_DoesNotShowForOtherPlayers()
+        {
+            var network = new FakeNetwork { ServerTime = 70d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            room.SetLocalPlayer("host");
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+                presenter.Tick();
+                Assert.That(view.HidingTurnStartVisible, Is.False);
+                Assert.That(view.HidingActiveHudVisible, Is.True);
+                Assert.That(view.HidingCompleteGuideVisible, Is.False);
+                Assert.That(view.HidingActiveTopPromptVisible, Is.False);
+                Assert.That(view.HidingWaitHudVisible, Is.True);
+                Assert.That(view.HidingWaitCompleted, Is.EqualTo(2));
+                Assert.That(view.HidingWaitTotal, Is.EqualTo(2));
+                Assert.That(view.HidingWaitNextTurn, Is.False);
+                Assert.That(view.TopHudVisible, Is.False);
+                Assert.That(view.MatchChatVisible, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void MatchChat_ReturnsWhenSearchingStarts()
+        {
+            var network = new FakeNetwork { ServerTime = 100d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+                Assert.That(view.MatchChatVisible, Is.False);
+                Assert.That(view.PlayerStatusVisible, Is.False);
+
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 460d));
+                presenter.Tick();
+                Assert.That(view.MatchChatVisible, Is.True);
+                Assert.That(view.PlayerStatusVisible, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
         public void Start_UsesCachedItemStatuses_AndDisposeUnsubscribes()
         {
             var network = new FakeNetwork
@@ -443,6 +738,99 @@ namespace Game.Architecture.Tests
 
             public void HideDestructionNotice() => NoticeVisible = false;
             public void SetShredderMarker(Vector2 screenPosition, bool visible) { }
+            public string HidingIntroItem { get; private set; }
+            public bool HidingIntroVisible { get; private set; }
+
+            public void ShowHidingIntro(string itemDisplayName, string itemId)
+            {
+                HidingIntroItem = itemDisplayName;
+                HidingIntroVisible = true;
+            }
+
+            public void HideHidingIntro() => HidingIntroVisible = false;
+            public bool HidingTurnStartVisible { get; private set; }
+            public double HidingTurnStartSeconds { get; private set; }
+            public bool TopHudVisible { get; private set; } = true;
+            public bool MatchChatVisible { get; private set; } = true;
+
+            public void ShowHidingTurnStart(double remainingSeconds)
+            {
+                HidingTurnStartVisible = true;
+                HidingTurnStartSeconds = remainingSeconds;
+                TopHudVisible = false;
+            }
+
+            public void HideHidingTurnStart()
+            {
+                HidingTurnStartVisible = false;
+            }
+
+            public void SetHidingTurnStartSeconds(double remainingSeconds) =>
+                HidingTurnStartSeconds = remainingSeconds;
+
+            public bool HidingActiveHudVisible { get; private set; }
+            public bool HidingActiveTopPromptVisible { get; private set; }
+            public bool HidingCompleteGuideVisible { get; private set; }
+
+            public void ShowHidingActiveHud(
+                double remainingSeconds,
+                bool showTopPrompt,
+                bool showCompleteGuide)
+            {
+                HidingActiveHudVisible = true;
+                HidingActiveTopPromptVisible = showTopPrompt;
+                HidingCompleteGuideVisible = showCompleteGuide;
+                HidingTurnStartSeconds = remainingSeconds;
+            }
+
+            public void HideHidingActiveHud()
+            {
+                HidingActiveHudVisible = false;
+                HidingActiveTopPromptVisible = false;
+                HidingCompleteGuideVisible = false;
+            }
+
+            public void SetHidingActiveHudSeconds(double remainingSeconds) =>
+                HidingTurnStartSeconds = remainingSeconds;
+
+            public bool HidingWaitHudVisible { get; private set; }
+            public int HidingWaitCompleted { get; private set; }
+            public int HidingWaitTotal { get; private set; }
+            public string HidingWaitName { get; private set; }
+            public bool HidingWaitNextTurn { get; private set; }
+            public double HidingWaitRemaining { get; private set; }
+            public IReadOnlyList<HidingWaitPlayer> HidingWaitPlayers { get; private set; } =
+                Array.Empty<HidingWaitPlayer>();
+
+            public void ShowHidingWaitHud(
+                int completedCount,
+                int totalCount,
+                string hidingPlayerName,
+                IReadOnlyList<HidingWaitPlayer> players,
+                bool showNextTurnNotice,
+                double remainingSeconds,
+                double turnDurationSeconds)
+            {
+                HidingWaitHudVisible = true;
+                HidingWaitCompleted = completedCount;
+                HidingWaitTotal = totalCount;
+                HidingWaitName = hidingPlayerName;
+                HidingWaitNextTurn = showNextTurnNotice;
+                HidingWaitRemaining = remainingSeconds;
+                HidingWaitPlayers = players ?? Array.Empty<HidingWaitPlayer>();
+            }
+
+            public void HideHidingWaitHud()
+            {
+                HidingWaitHudVisible = false;
+                HidingWaitNextTurn = false;
+            }
+
+            public void SetTopHudVisible(bool visible) => TopHudVisible = visible;
+
+            public void SetMatchChatVisible(bool visible) => MatchChatVisible = visible;
+            public bool PlayerStatusVisible { get; private set; } = true;
+            public void SetPlayerStatusVisible(bool visible) => PlayerStatusVisible = visible;
         }
 
         private sealed class FakeNetwork :

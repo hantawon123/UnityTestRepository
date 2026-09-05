@@ -32,6 +32,7 @@ namespace Game.Client.Match
         private readonly Dictionary<string, LobbyChatMessage> pending =
             new(StringComparer.Ordinal);
         private TMP_FontAsset font;
+        private Camera followCamera;
 
         public static MatchChatBubbleView Create(Transform parent)
         {
@@ -94,9 +95,14 @@ namespace Game.Client.Match
 
         private void LateUpdate()
         {
+            if (followCamera == null || !followCamera.isActiveAndEnabled)
+            {
+                followCamera = Camera.main;
+            }
+
             foreach (var bubble in bubbles.Values)
             {
-                bubble?.Tick(font);
+                bubble?.Tick(font, followCamera);
             }
         }
 
@@ -164,8 +170,10 @@ namespace Game.Client.Match
         private sealed class Bubble
         {
             private readonly RectTransform canvas;
+            private readonly Canvas canvasComponent;
             private readonly TMP_Text text;
             private Transform playerRoot;
+            private Transform follow;
             private float hideAt = -1f;
 
             public bool IsDestroyed => canvas == null;
@@ -173,11 +181,16 @@ namespace Game.Client.Match
             public Bubble(RectTransform canvas, TMP_Text text, Transform playerRoot)
             {
                 this.canvas = canvas;
+                canvasComponent = canvas.GetComponent<Canvas>();
                 this.text = text;
-                this.playerRoot = playerRoot;
+                SetPlayerRoot(playerRoot);
             }
 
-            public void SetPlayerRoot(Transform value) => playerRoot = value;
+            public void SetPlayerRoot(Transform value)
+            {
+                playerRoot = value;
+                follow = value == null ? null : value.Find("Visual") ?? value;
+            }
 
             public void Show(string value)
             {
@@ -203,9 +216,9 @@ namespace Game.Client.Match
                 }
             }
 
-            public void Tick(TMP_FontAsset currentFont)
+            public void Tick(TMP_FontAsset currentFont, Camera camera)
             {
-                if (canvas == null || playerRoot == null)
+                if (canvas == null || follow == null)
                 {
                     return;
                 }
@@ -215,13 +228,14 @@ namespace Game.Client.Match
                     text.font = currentFont;
                 }
 
-                var follow = playerRoot.Find("Visual") ?? playerRoot;
                 canvas.position = follow.position + Vector3.up * HeightOffset;
-                var camera = Camera.main;
                 if (camera != null)
                 {
                     canvas.rotation = camera.transform.rotation;
-                    canvas.GetComponent<Canvas>().worldCamera = camera;
+                    if (canvasComponent != null)
+                    {
+                        canvasComponent.worldCamera = camera;
+                    }
                 }
 
                 if (hideAt >= 0f && Time.unscaledTime >= hideAt)

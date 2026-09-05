@@ -1272,11 +1272,13 @@ namespace Game.Editor
 
         private static Font ResolveLobbyFont()
         {
-            var korean = AssetDatabase.LoadAssetAtPath<Font>(
-                "Assets/_Game/Content/Fonts/Cafe24Ssurround-v2.0.ttf");
-            if (korean != null)
+            var paperlogy = AssetDatabase.LoadAssetAtPath<Font>(
+                "Assets/_Game/Content/Resources/Fonts/Paperlogy-6SemiBold.ttf")
+                ?? AssetDatabase.LoadAssetAtPath<Font>(
+                    "Assets/_Game/Content/Fonts/Paperlogy-6SemiBold.ttf");
+            if (paperlogy != null)
             {
-                return korean;
+                return paperlogy;
             }
 
             return Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Game.Client.Home;
 using Game.Core.Lobby;
 using UnityEngine;
 using UnityEngine.UI;
@@ -46,6 +47,7 @@ namespace Game.Client.Lobby
         private void OnEnable()
         {
             RestoreTextOnlyPanel();
+            HomeUiFonts.ApplyLegacy(panel != null ? panel.transform : transform);
 
             if (openButton != null)
             {

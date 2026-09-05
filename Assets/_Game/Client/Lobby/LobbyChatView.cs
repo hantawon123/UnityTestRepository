@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Game.Client.Home;
 using Game.Core.Lobby;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -47,6 +48,7 @@ namespace Game.Client.Lobby
 
         private void OnEnable()
         {
+            HomeUiFonts.ApplyLegacy(transform);
             if (sendButton != null)
             {
                 sendButton.onClick.AddListener(HandleSendClicked);
@@ -423,10 +425,10 @@ namespace Game.Client.Lobby
                 return cachedFont;
             }
 
-            cachedFont = uiFont != null
-                ? uiFont
-                : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")
-                  ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+            cachedFont = HomeUiFonts.Legacy()
+                ?? uiFont
+                ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")
+                ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
             return cachedFont;
         }
     }

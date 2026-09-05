@@ -1,4 +1,5 @@
 using System;
+using Game.Client.Home;
 using Game.Core.Rooms;
 using TMPro;
 using UnityEngine;
@@ -45,6 +46,7 @@ namespace Game.Client.Rooms
 
         private void Awake()
         {
+            HomeUiFonts.ApplyTmp(transform);
             closeButton.onClick.AddListener(OnCloseButtonClicked);
             passwordInputField.onValueChanged.AddListener(OnPasswordTextChanged);
             passwordInputField.onSubmit.AddListener(OnPasswordSubmitted);

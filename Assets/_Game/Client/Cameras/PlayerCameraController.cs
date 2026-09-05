@@ -68,6 +68,7 @@ namespace Game.Client.Cameras
         private bool replayBrainEnabled;
         private bool replayRigEnabled;
         private Pose replayCameraPose;
+        private bool releasedCursorForTextInput;
 
         public Transform BeginReplay()
         {
@@ -150,7 +151,17 @@ namespace Game.Client.Cameras
             if (PlayerMovement.IsTextInputFocused())
             {
                 SetCursorLocked(false);
+                releasedCursorForTextInput = true;
                 return;
+            }
+
+            if (releasedCursorForTextInput)
+            {
+                releasedCursorForTextInput = false;
+                if (cursorCaptureEnabled)
+                {
+                    SetCursorLocked(true);
+                }
             }
 
             if (toggleViewAction.WasPressedThisFrame())

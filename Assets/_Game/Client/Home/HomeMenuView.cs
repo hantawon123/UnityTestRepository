@@ -1486,7 +1486,7 @@ namespace Game.Client.Home
         {
             if (koreanFont == null)
             {
-                throw new InvalidOperationException("Cafe24 Ssurround TMP font is missing.");
+                throw new InvalidOperationException("Korean TMP font is missing.");
             }
 
             target.gameObject.SetActive(false);

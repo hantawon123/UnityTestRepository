@@ -83,6 +83,15 @@ namespace Game.Editor
         /// </summary>
         private const int MissingCharacterLimit = 200;
 
+        private const string PaperlogyRegularMenuPath =
+            "Game/Fonts/Bake Paperlogy Regular Atlas";
+
+        private const string PaperlogyRegularSourcePath =
+            "Assets/_Game/Content/Resources/Fonts/Paperlogy-4Regular.ttf";
+
+        private const string PaperlogyRegularAssetPath =
+            "Assets/_Game/Content/Resources/Fonts/Paperlogy-4Regular SDF.asset";
+
         [MenuItem(MenuPath)]
         public static void BakeStaticAtlas()
         {
@@ -132,6 +141,141 @@ namespace Game.Editor
             {
                 DiscardBakedAsset(baked);
             }
+        }
+
+        [InitializeOnLoadMethod]
+        private static void QueuePaperlogyRegularBakeIfMissing()
+        {
+            EditorApplication.playModeStateChanged -= BakePaperlogyRegularWhenEditMode;
+            EditorApplication.playModeStateChanged += BakePaperlogyRegularWhenEditMode;
+            EditorApplication.delayCall += BakePaperlogyRegularIfMissing;
+        }
+
+        private static void BakePaperlogyRegularWhenEditMode(PlayModeStateChange state)
+        {
+            if (state == PlayModeStateChange.EnteredEditMode)
+            {
+                EditorApplication.delayCall += BakePaperlogyRegularIfMissing;
+            }
+        }
+
+        private static void BakePaperlogyRegularIfMissing()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode ||
+                EditorApplication.isCompiling ||
+                EditorApplication.isUpdating)
+            {
+                return;
+            }
+
+            if (AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(PaperlogyRegularAssetPath) != null)
+            {
+                return;
+            }
+
+            Debug.Log("[Fonts] Paperlogy Regular SDF가 없어 Static 아틀라스를 굽습니다.");
+            BakePaperlogyRegular();
+        }
+
+        [MenuItem(PaperlogyRegularMenuPath)]
+        public static void BakePaperlogyRegular()
+        {
+            var sourceFont = AssetDatabase.LoadAssetAtPath<Font>(PaperlogyRegularSourcePath);
+            if (sourceFont == null)
+            {
+                throw new InvalidOperationException(
+                    $"No source font at '{PaperlogyRegularSourcePath}'.");
+            }
+
+            var characters = ReadCharacterSet();
+            var baked = TMP_FontAsset.CreateFontAsset(
+                sourceFont,
+                SamplingPointSize,
+                Padding,
+                GlyphRenderMode.SDFAA,
+                AtlasSize,
+                AtlasSize,
+                AtlasPopulationMode.Dynamic,
+                enableMultiAtlasSupport: false);
+
+            if (baked == null)
+            {
+                throw new InvalidOperationException(
+                    $"Could not read '{sourceFont.name}'. Enable Include Font " +
+                    "Data in its import settings.");
+            }
+
+            try
+            {
+                baked.TryAddCharacters(
+                    characters,
+                    out var missing,
+                    includeFontFeatures: true);
+                RejectOverfilledAtlas(missing);
+
+                baked.name = "Paperlogy-4Regular SDF";
+                baked.atlasPopulationMode = AtlasPopulationMode.Static;
+                baked.ReadFontAssetDefinition();
+
+                var existing = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+                    PaperlogyRegularAssetPath);
+                if (existing != null)
+                {
+                    TransferInto(existing, baked);
+                    ReportResult(existing, characters, missing);
+                    return;
+                }
+
+                SaveNewFontAsset(baked, PaperlogyRegularAssetPath);
+                ReportResult(baked, characters, missing);
+                baked = null;
+            }
+            finally
+            {
+                if (baked != null)
+                {
+                    DiscardBakedAsset(baked);
+                }
+            }
+        }
+
+        private static void SaveNewFontAsset(TMP_FontAsset fontAsset, string assetPath)
+        {
+            AssetDatabase.CreateAsset(fontAsset, assetPath);
+            if (fontAsset.atlasTextures != null)
+            {
+                for (var index = 0; index < fontAsset.atlasTextures.Length; index++)
+                {
+                    var atlas = fontAsset.atlasTextures[index];
+                    if (atlas == null)
+                    {
+                        continue;
+                    }
+
+                    atlas.name = fontAsset.name + (index == 0 ? " Atlas" : $" Atlas {index}");
+                    AssetDatabase.AddObjectToAsset(atlas, fontAsset);
+                }
+            }
+
+            if (fontAsset.material != null)
+            {
+                fontAsset.material.name = fontAsset.name + " Material";
+                AssetDatabase.AddObjectToAsset(fontAsset.material, fontAsset);
+                if (fontAsset.atlasTextures is { Length: > 0 } &&
+                    fontAsset.atlasTextures[0] != null)
+                {
+                    RefreshMaterial(
+                        fontAsset.material,
+                        fontAsset,
+                        fontAsset.atlasTextures[0]);
+                }
+            }
+
+            fontAsset.atlasPopulationMode = AtlasPopulationMode.Static;
+            fontAsset.ReadFontAssetDefinition();
+            EditorUtility.SetDirty(fontAsset);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
         }
 
         /// <summary>

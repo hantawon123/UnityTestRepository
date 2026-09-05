@@ -1,4 +1,5 @@
 using System;
+using Game.Client.Home;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -70,6 +71,7 @@ namespace Game.Client.Lobby
 
         private void OnEnable()
         {
+            HomeUiFonts.ApplyLegacy(panel != null ? panel.transform : transform);
             if (panel == null || startButton == null ||
                 leaveButton == null || resumeButton == null)
             {
