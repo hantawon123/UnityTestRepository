@@ -87,7 +87,7 @@ namespace Game.Bootstrap
             view.HideHidingActiveHud();
             view.HideHidingWaitHud();
             view.HideVitals();
-            view.SetMatchChatVisible(false);
+            view.SetMatchChatMode(MatchChatHudMode.Hidden);
             view.SetPlayerStatusVisible(false);
             FindSceneReferences();
         }
@@ -186,7 +186,7 @@ namespace Game.Bootstrap
             snapshot = received;
             hasSnapshot = true;
             var extrasVisible = received.Phase != MatchPhase.Hiding;
-            view.SetMatchChatVisible(extrasVisible);
+            ApplyMatchChat();
             view.SetPlayerStatusVisible(extrasVisible);
             ReportPhase();
             UpdateGameEndNotice();
@@ -448,6 +448,30 @@ namespace Game.Bootstrap
             view.HideVitals();
         }
 
+        private void ApplyMatchChat(bool showHidingWaitChat = false)
+        {
+            if (!hasSnapshot)
+            {
+                view.SetMatchChatMode(MatchChatHudMode.Hidden);
+                return;
+            }
+
+            if (snapshot.Phase == MatchPhase.Hiding)
+            {
+                view.SetMatchChatMode(
+                    showHidingWaitChat ? MatchChatHudMode.Full : MatchChatHudMode.Hidden);
+                return;
+            }
+
+            if (snapshot.Phase == MatchPhase.Searching)
+            {
+                view.SetMatchChatMode(MatchChatHudMode.Searching);
+                return;
+            }
+
+            view.SetMatchChatMode(MatchChatHudMode.Full);
+        }
+
         private void UpdateHidingTurnStart(double now)
         {
             if (hidingIntroVisible ||
@@ -461,7 +485,7 @@ namespace Game.Bootstrap
                 if (hasSnapshot && snapshot.Phase != MatchPhase.Hiding)
                 {
                     view.SetTopHudVisible(true);
-                    view.SetMatchChatVisible(true);
+                    ApplyMatchChat();
                 }
 
                 return;
@@ -515,12 +539,12 @@ namespace Game.Bootstrap
             if (isLocalTurn)
             {
                 HideHidingWaitHud();
-                view.SetMatchChatVisible(false);
+                ApplyMatchChat();
                 return;
             }
 
             ShowHidingWaitHud(turnIndex, playing, remaining);
-            view.SetMatchChatVisible(true);
+            ApplyMatchChat(showHidingWaitChat: true);
         }
 
         private void HideHidingTurnStart()

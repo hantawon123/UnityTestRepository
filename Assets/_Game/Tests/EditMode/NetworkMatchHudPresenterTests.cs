@@ -585,6 +585,7 @@ namespace Game.Architecture.Tests
                 Assert.That(view.HidingWaitNextTurn, Is.True);
                 Assert.That(view.HidingWaitRemaining, Is.EqualTo(20d).Within(0.001d));
                 Assert.That(view.MatchChatVisible, Is.True);
+                Assert.That(view.MatchChatMode, Is.EqualTo(MatchChatHudMode.Full));
                 Assert.That(view.HidingActiveTopPromptVisible, Is.False);
                 Assert.That(view.TopHudVisible, Is.False);
             }
@@ -798,6 +799,7 @@ namespace Game.Architecture.Tests
                 network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 460d));
                 presenter.Tick();
                 Assert.That(view.MatchChatVisible, Is.True);
+                Assert.That(view.MatchChatMode, Is.EqualTo(MatchChatHudMode.Searching));
                 Assert.That(view.PlayerStatusVisible, Is.True);
             }
             finally
@@ -1001,7 +1003,16 @@ namespace Game.Architecture.Tests
 
             public void SetTopHudVisible(bool visible) => TopHudVisible = visible;
 
-            public void SetMatchChatVisible(bool visible) => MatchChatVisible = visible;
+            public void SetMatchChatVisible(bool visible) =>
+                SetMatchChatMode(visible ? MatchChatHudMode.Full : MatchChatHudMode.Hidden);
+
+            public MatchChatHudMode MatchChatMode { get; private set; }
+
+            public void SetMatchChatMode(MatchChatHudMode mode)
+            {
+                MatchChatMode = mode;
+                MatchChatVisible = mode != MatchChatHudMode.Hidden;
+            }
             public bool PlayerStatusVisible { get; private set; } = true;
             public void SetPlayerStatusVisible(bool visible) => PlayerStatusVisible = visible;
         }

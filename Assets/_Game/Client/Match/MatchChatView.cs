@@ -11,6 +11,13 @@ using UnityEngine.UI;
 
 namespace Game.Client.Match
 {
+    public enum MatchChatHudMode
+    {
+        Hidden,
+        Full,
+        Searching
+    }
+
     public interface IMatchChatView
     {
         event Action<string> SendRequested;
@@ -59,6 +66,7 @@ namespace Game.Client.Match
         private float lastSendUnscaledTime = -1f;
         private float lastDeactivateUnscaledTime = -1f;
         private bool activated;
+        private MatchChatHudMode mode = MatchChatHudMode.Full;
         private bool layoutReady;
         private bool fontPrewarmed;
         private Coroutine prewarmRoutine;
@@ -66,6 +74,7 @@ namespace Game.Client.Match
         public event Action<string> SendRequested;
         public static bool BlocksPlayerInput { get; private set; }
         public bool IsActivated => activated;
+        public MatchChatHudMode Mode => mode;
         public bool IsInputFocused =>
             activated || (inputField != null && inputField.isFocused);
 
@@ -140,6 +149,67 @@ namespace Game.Client.Match
                    !isActivated &&
                    !isOpening &&
                    now - lastClosedAt >= OpenCooldownSeconds;
+        }
+
+        public static bool ShowsHistory(MatchChatHudMode hudMode)
+        {
+            return hudMode == MatchChatHudMode.Full;
+        }
+
+        public static bool ShowsInput(MatchChatHudMode hudMode, bool isActivated)
+        {
+            return hudMode == MatchChatHudMode.Full ||
+                   (hudMode == MatchChatHudMode.Searching && isActivated);
+        }
+
+        public void SetMode(MatchChatHudMode value)
+        {
+            EnsureLayout();
+            if (mode == value)
+            {
+                if (value == MatchChatHudMode.Hidden)
+                {
+                    if (gameObject.activeSelf)
+                    {
+                        gameObject.SetActive(false);
+                    }
+
+                    return;
+                }
+
+                if (!gameObject.activeSelf)
+                {
+                    gameObject.SetActive(true);
+                    ApplyPresentation();
+                }
+
+                return;
+            }
+
+            mode = value;
+            if (value == MatchChatHudMode.Hidden)
+            {
+                SetActivated(false);
+                if (gameObject.activeSelf)
+                {
+                    gameObject.SetActive(false);
+                }
+
+                return;
+            }
+
+            if (!gameObject.activeSelf)
+            {
+                gameObject.SetActive(true);
+            }
+
+            if (value == MatchChatHudMode.Searching)
+            {
+                SetActivated(false);
+                return;
+            }
+
+            ApplyPresentation();
         }
 
         private void Awake()
@@ -409,6 +479,7 @@ namespace Game.Client.Match
                 lastDeactivateUnscaledTime = Time.unscaledTime;
             }
 
+            ApplyPresentation();
             if (inputField == null)
             {
                 return;
@@ -427,6 +498,39 @@ namespace Game.Client.Match
             {
                 EventSystem.current.SetSelectedGameObject(null);
             }
+        }
+
+        private void ApplyPresentation()
+        {
+            if (!layoutReady)
+            {
+                return;
+            }
+
+            var history = historyRect != null
+                ? historyRect.gameObject
+                : transform.Find("HistoryPanel")?.gameObject;
+            var input = transform.Find("InputPanel")?.gameObject;
+            if (history != null && history.activeSelf != ShowsHistory(mode))
+            {
+                history.SetActive(ShowsHistory(mode));
+            }
+
+            if (input != null && input.activeSelf != ShowsInput(mode, activated))
+            {
+                input.SetActive(ShowsInput(mode, activated));
+            }
+
+            if (transform is not RectTransform root)
+            {
+                return;
+            }
+
+            root.sizeDelta = new Vector2(
+                InputWidth,
+                ShowsHistory(mode)
+                    ? HistoryHeight + PanelGap + InputHeight
+                    : ShowsInput(mode, activated) ? InputHeight : 0f);
         }
 
         private void RefreshSendIcon()
@@ -469,6 +573,7 @@ namespace Game.Client.Match
             EnsureHistoryFade();
             ApplyFonts();
             layoutReady = true;
+            ApplyPresentation();
         }
 
         private void IsolateCanvases()

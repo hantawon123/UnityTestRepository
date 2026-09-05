@@ -47,6 +47,7 @@ namespace Game.Client.Match
         void HideVitals();
         void SetTopHudVisible(bool visible);
         void SetMatchChatVisible(bool visible);
+        void SetMatchChatMode(MatchChatHudMode mode);
         void SetPlayerStatusVisible(bool visible);
     }
 
@@ -427,10 +428,15 @@ namespace Game.Client.Match
 
         public void SetMatchChatVisible(bool visible)
         {
+            SetMatchChatMode(visible ? MatchChatHudMode.Full : MatchChatHudMode.Hidden);
+        }
+
+        public void SetMatchChatMode(MatchChatHudMode mode)
+        {
             var chat = GetComponentInParent<Canvas>()?.GetComponentInChildren<MatchChatView>(true);
             if (chat != null)
             {
-                chat.gameObject.SetActive(visible);
+                chat.SetMode(mode);
             }
         }
 

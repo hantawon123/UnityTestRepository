@@ -102,6 +102,47 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void SearchingMode_HidesHistoryAndInputUntilActivated()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchChatView.Create(canvas.transform);
+                view.SetMessages(new[]
+                {
+                    new LobbyChatMessage("a", "싸피생1", "하나")
+                });
+                view.SetMode(MatchChatHudMode.Searching);
+
+                Assert.That(view.Mode, Is.EqualTo(MatchChatHudMode.Searching));
+                Assert.That(view.gameObject.activeSelf, Is.True);
+                Assert.That(
+                    view.transform.Find("HistoryPanel").gameObject.activeSelf,
+                    Is.False);
+                Assert.That(
+                    view.transform.Find("InputPanel").gameObject.activeSelf,
+                    Is.False);
+                Assert.That(MatchChatView.ShowsHistory(MatchChatHudMode.Searching), Is.False);
+                Assert.That(MatchChatView.ShowsInput(MatchChatHudMode.Searching, false), Is.False);
+                Assert.That(MatchChatView.ShowsInput(MatchChatHudMode.Searching, true), Is.True);
+                Assert.That(MatchChatView.ShowsHistory(MatchChatHudMode.Full), Is.True);
+                Assert.That(MatchChatView.ShowsInput(MatchChatHudMode.Full, false), Is.True);
+
+                view.SetMode(MatchChatHudMode.Full);
+                Assert.That(
+                    view.transform.Find("HistoryPanel").gameObject.activeSelf,
+                    Is.True);
+                Assert.That(
+                    view.transform.Find("InputPanel").gameObject.activeSelf,
+                    Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
         public void ShouldOpenOnEnter_IgnoresTheEnterThatClosedChat()
         {
             Assert.That(
