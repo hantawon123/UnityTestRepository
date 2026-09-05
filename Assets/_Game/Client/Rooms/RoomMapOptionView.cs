@@ -1,4 +1,5 @@
 using System;
+using Game.Client.Home;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -28,6 +29,7 @@ namespace Game.Client.Rooms
 
         private void Awake()
         {
+            HomeUiFonts.ApplyTmp(transform);
             selectButton.onClick.AddListener(OnSelectButtonClicked);
         }
 

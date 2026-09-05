@@ -2,6 +2,7 @@ using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.TextCore.LowLevel;
+using UnityEngine.UI;
 
 namespace Game.Client.Home
 {
@@ -170,6 +171,7 @@ namespace Game.Client.Home
         private const string RegularResource = "Fonts/Paperlogy-4Regular";
         private static TMP_FontAsset koreanLightFont;
         private static TMP_FontAsset koreanRegularFont;
+        private static Font legacyFont;
 
         public static TMP_FontAsset Apply(TMP_FontAsset fontAsset = null)
         {
@@ -184,6 +186,99 @@ namespace Game.Client.Home
         public static TMP_FontAsset ApplyRegular(TMP_FontAsset fontAsset = null)
         {
             return koreanRegularFont ??= LoadKorean(RegularResource, fontAsset);
+        }
+
+        public static Font Legacy()
+        {
+            if (legacyFont != null)
+            {
+                return legacyFont;
+            }
+
+            legacyFont = Resources.Load<Font>(SemiBoldResource)
+                ?? Resources.Load<Font>(RegularResource);
+            return legacyFont;
+        }
+
+        public static void ApplyLegacy(Transform root)
+        {
+            var font = Legacy();
+            if (font == null || root == null)
+            {
+                return;
+            }
+
+            var texts = root.GetComponentsInChildren<Text>(true);
+            for (var index = 0; index < texts.Length; index++)
+            {
+                if (texts[index] != null)
+                {
+                    texts[index].font = font;
+                }
+            }
+
+            var inputs = root.GetComponentsInChildren<InputField>(true);
+            for (var index = 0; index < inputs.Length; index++)
+            {
+                var input = inputs[index];
+                if (input == null)
+                {
+                    continue;
+                }
+
+                if (input.textComponent != null)
+                {
+                    input.textComponent.font = font;
+                }
+
+                if (input.placeholder is Text placeholder)
+                {
+                    placeholder.font = font;
+                }
+            }
+        }
+
+        public static void ApplyTmp(Transform root)
+        {
+            var font = Apply();
+            if (font == null || root == null)
+            {
+                return;
+            }
+
+            var texts = root.GetComponentsInChildren<TMP_Text>(true);
+            for (var index = 0; index < texts.Length; index++)
+            {
+                var text = texts[index];
+                if (text != null && text.font != font)
+                {
+                    text.font = font;
+                    text.fontSharedMaterial = font.material;
+                }
+            }
+
+            var inputs = root.GetComponentsInChildren<TMP_InputField>(true);
+            for (var index = 0; index < inputs.Length; index++)
+            {
+                var input = inputs[index];
+                if (input == null)
+                {
+                    continue;
+                }
+
+                input.fontAsset = font;
+                if (input.textComponent != null && input.textComponent.font != font)
+                {
+                    input.textComponent.font = font;
+                    input.textComponent.fontSharedMaterial = font.material;
+                }
+
+                if (input.placeholder is TMP_Text placeholder && placeholder.font != font)
+                {
+                    placeholder.font = font;
+                    placeholder.fontSharedMaterial = font.material;
+                }
+            }
         }
 
         private static TMP_FontAsset LoadKorean(string resourcePath, TMP_FontAsset fontAsset)

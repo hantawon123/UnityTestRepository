@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Home;
 using Game.Core.Lobby;
 using UnityEngine;
 using UnityEngine.UI;
@@ -100,9 +101,10 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            if (uiFont != null)
+            var font = HomeUiFonts.Legacy() ?? uiFont;
+            if (font != null)
             {
-                anchor.bubbleText.font = uiFont;
+                anchor.bubbleText.font = font;
             }
 
             anchor.bubbleText.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -173,6 +175,12 @@ namespace Game.Client.Lobby
             if (anchor.nameText == null)
             {
                 return;
+            }
+
+            var font = HomeUiFonts.Legacy();
+            if (font != null)
+            {
+                anchor.nameText.font = font;
             }
 
             var trimmed = displayName?.Trim();
