@@ -76,6 +76,8 @@ namespace Game.Architecture.Tests
                 Assert.That(input.fontAsset.name, Does.Contain("Paperlogy").IgnoreCase);
                 Assert.That(input.textComponent.overflowMode, Is.EqualTo(TextOverflowModes.Overflow));
                 Assert.That(input.textComponent.textWrappingMode, Is.EqualTo(TextWrappingModes.NoWrap));
+                Assert.That(input.textComponent.rectTransform.anchorMax.x, Is.EqualTo(0f));
+                Assert.That(MatchChatView.SendIconGap, Is.EqualTo(8f));
                 Assert.That(
                     view.transform.Find("InputPanel/Placeholder").GetComponent<TMP_Text>().text,
                     Is.EqualTo(MatchChatView.PlaceholderText));
@@ -94,6 +96,10 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     (view.transform.Find("InputPanel/TextViewport") as RectTransform).offsetMin.x,
                     Is.EqualTo(MatchChatView.ContentPadding));
+                Assert.That(
+                    (view.transform.Find("InputPanel/TextViewport") as RectTransform).offsetMax.x,
+                    Is.EqualTo(-(MatchChatView.SendIconSize + MatchChatView.ContentPadding +
+                        MatchChatView.SendIconGap)));
                 Assert.That(MatchChatView.HistoryFadeAlpha(0f), Is.EqualTo(0f));
                 Assert.That(MatchChatView.HistoryFadeAlpha(1f), Is.EqualTo(1f));
             }

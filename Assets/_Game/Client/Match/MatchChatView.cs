@@ -37,6 +37,7 @@ namespace Game.Client.Match
         public const string PlaceholderText = "채팅 입력..";
         public const float InputWidth = 320f;
         public const float ContentPadding = 16f;
+        public const float SendIconGap = 8f;
         public const float OpenCooldownSeconds = 0.12f;
         public static readonly Color NameColor = new Color32(0xC1, 0xC1, 0xC1, 0xFF);
         public static readonly Color PanelColor = new Color(0f, 0f, 0f, 0.62f);
@@ -44,7 +45,7 @@ namespace Game.Client.Match
         private const float InputHeight = 48f;
         private const float PanelGap = 10f;
         public const float Margin = 24f;
-        private const float SendIconSize = 24f;
+        public const float SendIconSize = 24f;
         private const string SendOrangeResource = "UI/ic_send_orange";
         private const string SendGrayResource = "UI/ic_send_gray";
 
@@ -569,6 +570,7 @@ namespace Game.Client.Match
         {
             if (layoutReady && itemRoot != null && inputField != null)
             {
+                FitTextViewport();
                 ApplyInputOverflow();
                 return;
             }
@@ -825,8 +827,13 @@ namespace Game.Client.Match
 
             Stretch(viewport);
             viewport.offsetMin = new Vector2(ContentPadding, 0f);
-            viewport.offsetMax = new Vector2(-(SendIconSize + ContentPadding), 0f);
-            FitInputLabel(viewport.Find("Text") as RectTransform);
+            viewport.offsetMax = new Vector2(-(SendIconSize + ContentPadding + SendIconGap), 0f);
+            var textRect = viewport.Find("Text") as RectTransform;
+            if (textRect != null && !Mathf.Approximately(textRect.anchorMax.x, 0f))
+            {
+                FitScrollingInputText(textRect);
+            }
+
             FitInputLabel(viewport.Find("Placeholder") as RectTransform);
             ApplyInputOverflow();
         }
@@ -1057,7 +1064,7 @@ namespace Game.Client.Match
             var textAreaRect = (RectTransform)textArea.transform;
             Stretch(textAreaRect);
             textAreaRect.offsetMin = new Vector2(ContentPadding, 0f);
-            textAreaRect.offsetMax = new Vector2(-(SendIconSize + ContentPadding), 0f);
+            textAreaRect.offsetMax = new Vector2(-(SendIconSize + ContentPadding + SendIconGap), 0f);
 
             var text = CreateText(
                 textAreaRect,
@@ -1068,7 +1075,7 @@ namespace Game.Client.Match
             text.alignment = TextAlignmentOptions.MidlineLeft;
             text.textWrappingMode = TextWrappingModes.NoWrap;
             text.overflowMode = TextOverflowModes.Overflow;
-            FitInputLabel(text.rectTransform);
+            FitScrollingInputText(text.rectTransform);
 
             var placeholder = CreateText(
                 textAreaRect,
@@ -1218,6 +1225,34 @@ namespace Game.Client.Match
             rect.pivot = pivot;
             rect.anchoredPosition = anchoredPosition;
             rect.sizeDelta = size;
+        }
+
+        private static void FitScrollingInputText(RectTransform rect)
+        {
+            if (rect == null)
+            {
+                return;
+            }
+
+            rect.anchorMin = new Vector2(0f, 0f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(2048f, 0f);
+            var text = rect.GetComponent<TMP_Text>();
+            if (text != null)
+            {
+                text.margin = Vector4.zero;
+                text.extraPadding = false;
+                text.textWrappingMode = TextWrappingModes.NoWrap;
+                text.overflowMode = TextOverflowModes.Overflow;
+            }
+
+            var layout = rect.GetComponent<LayoutElement>();
+            if (layout != null)
+            {
+                layout.ignoreLayout = true;
+            }
         }
 
         private static void FitInputLabel(RectTransform rect)

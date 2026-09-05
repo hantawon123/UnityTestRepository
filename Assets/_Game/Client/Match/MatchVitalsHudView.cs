@@ -40,9 +40,12 @@ namespace Game.Client.Match
 
         public static float BarStart => IconPadding + IconSize + BarIconGap;
         public static float BarRightInset => ValuePadding + ValueWidth + BarValueGap;
-        public static float TrackWidth => PanelWidth - BarStart - BarRightInset;
+        public static float TrackWidth =>
+            PanelWidth - (RowInset * 2f) - BarStart - BarRightInset;
         public static float SegmentWidth =>
             (TrackWidth - (SegmentGap * (DefaultHits - 1))) / DefaultHits;
+        public static float BarWidth =>
+            (SegmentWidth * DefaultHits) + (SegmentGap * (DefaultHits - 1));
         public const string FlashIconResource = "UI/ic_flash";
         public const string HeartIconResource = "UI/ic_heart";
 
@@ -353,12 +356,15 @@ namespace Game.Client.Match
             var panelRect = transform.Find("Panel") as RectTransform;
             var segment = transform.Find("Panel/Health/BarTrack/Segment0")
                 ?.GetComponent<LayoutElement>();
+            var staminaBar = transform.Find("Panel/Stamina/Bar") as RectTransform;
             return panelRect != null &&
                    Mathf.Approximately(panelRect.anchorMin.x, 0.5f) &&
                    Mathf.Approximately(panelRect.anchorMax.x, 0.5f) &&
                    Mathf.Approximately(panelRect.sizeDelta.x, PanelWidth) &&
                    transform.Find("Panel/Health/BarTrack") != null &&
-                   transform.Find("Panel/Stamina/Bar")?.GetComponent<ParallelogramShear>() != null &&
+                   staminaBar != null &&
+                   staminaBar.GetComponent<ParallelogramShear>() != null &&
+                   Mathf.Approximately(staminaBar.sizeDelta.x, BarWidth) &&
                    segment != null &&
                    Mathf.Approximately(segment.preferredWidth, SegmentWidth) &&
                    Mathf.Approximately(segment.flexibleWidth, 0f);
@@ -401,13 +407,13 @@ namespace Game.Client.Match
 
             if (staminaFill != null)
             {
-                StretchBetween(staminaFill, BarStart, BarRightInset, BarHeight);
+                PlaceBar(staminaFill, BarStart, BarWidth, BarHeight);
             }
 
             var track = transform.Find("Panel/Health/BarTrack") as RectTransform;
             if (track != null)
             {
-                StretchBetween(track, BarStart, BarRightInset, BarHeight);
+                PlaceBar(track, BarStart, BarWidth, BarHeight);
             }
         }
 
@@ -466,14 +472,14 @@ namespace Game.Client.Match
             bar.fillMethod = Image.FillMethod.Horizontal;
             bar.fillAmount = 1f;
             bar.gameObject.AddComponent<ParallelogramShear>();
-            StretchBetween(bar.rectTransform, BarStart, BarRightInset, BarHeight);
+            PlaceBar(bar.rectTransform, BarStart, BarWidth, BarHeight);
             return bar.rectTransform;
         }
 
         private static RectTransform[] CreateHealthSegments(Transform parent)
         {
             var track = CreateRect(parent, "BarTrack");
-            StretchBetween(track, BarStart, BarRightInset, BarHeight);
+            PlaceBar(track, BarStart, BarWidth, BarHeight);
             var layout = track.gameObject.AddComponent<HorizontalLayoutGroup>();
             layout.spacing = SegmentGap;
             layout.childAlignment = TextAnchor.MiddleLeft;
@@ -597,17 +603,17 @@ namespace Game.Client.Match
             rect.offsetMax = new Vector2(-RowInset, y + 14f);
         }
 
-        private static void StretchBetween(
+        private static void PlaceBar(
             RectTransform rect,
             float left,
-            float right,
+            float width,
             float height)
         {
             rect.anchorMin = new Vector2(0f, 0.5f);
-            rect.anchorMax = new Vector2(1f, 0.5f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.offsetMin = new Vector2(left, -height * 0.5f);
-            rect.offsetMax = new Vector2(-right, height * 0.5f);
+            rect.anchorMax = new Vector2(0f, 0.5f);
+            rect.pivot = new Vector2(0f, 0.5f);
+            rect.anchoredPosition = new Vector2(left, 0f);
+            rect.sizeDelta = new Vector2(width, height);
         }
     }
 }

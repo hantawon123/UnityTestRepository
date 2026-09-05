@@ -18,7 +18,7 @@ namespace Game.Client.Match
     /// <summary>Shows the latest match chat message above each player.</summary>
     public sealed class MatchChatBubbleView : MonoBehaviour, IMatchChatBubbleView
     {
-        public const float FontSize = 10f;
+        public const float FontSize = 8f;
         public const float MinBubbleWidth = 40f;
         public const float MaxBubbleWidth = 210f;
         public const float MinBubbleHeight = 24f;

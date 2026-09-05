@@ -49,12 +49,13 @@ namespace Game.Architecture.Tests
 
                 var staminaRect = view.transform.Find("Panel/Stamina/Bar") as RectTransform;
                 var track = view.transform.Find("Panel/Health/BarTrack") as RectTransform;
-                Assert.That(staminaRect.anchorMin.x, Is.EqualTo(0f));
-                Assert.That(staminaRect.anchorMax.x, Is.EqualTo(1f));
-                Assert.That(staminaRect.offsetMin.x, Is.EqualTo(MatchVitalsHudView.BarStart));
-                Assert.That(staminaRect.offsetMax.x, Is.EqualTo(-MatchVitalsHudView.BarRightInset));
-                Assert.That(track.offsetMin.x, Is.EqualTo(MatchVitalsHudView.BarStart));
-                Assert.That(track.offsetMax.x, Is.EqualTo(-MatchVitalsHudView.BarRightInset));
+                Assert.That(MatchVitalsHudView.BarWidth, Is.EqualTo(
+                    (MatchVitalsHudView.SegmentWidth * MatchVitalsHudView.DefaultHits) +
+                    (MatchVitalsHudView.SegmentGap * (MatchVitalsHudView.DefaultHits - 1))));
+                Assert.That(staminaRect.sizeDelta.x, Is.EqualTo(MatchVitalsHudView.BarWidth));
+                Assert.That(track.sizeDelta.x, Is.EqualTo(MatchVitalsHudView.BarWidth));
+                Assert.That(staminaRect.anchoredPosition.x, Is.EqualTo(MatchVitalsHudView.BarStart));
+                Assert.That(track.anchoredPosition.x, Is.EqualTo(MatchVitalsHudView.BarStart));
                 var group = track.GetComponent<HorizontalLayoutGroup>();
                 Assert.That(group.spacing, Is.EqualTo(MatchVitalsHudView.SegmentGap));
                 Assert.That(group.childForceExpandWidth, Is.False);
