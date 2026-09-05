@@ -19,7 +19,8 @@ namespace Game.Client.Match
     [DisallowMultipleComponent]
     public sealed class DestroyedItemsHudView : MonoBehaviour, IDestroyedItemsHudView
     {
-        public const float SlotSize = 70f;
+        public const float SlotSize = 100f;
+        public const int PreviewTextureSize = 256;
         public const float SlotGap = 12f;
         public const float QuestionFontSize = 30f;
         public const float LeftPadding = 36f;
@@ -96,33 +97,32 @@ namespace Game.Client.Match
 
         private void EnsureLayout()
         {
-            if (panel != null && slotRoot != null)
+            if (panel == null || slotRoot == null)
             {
-                return;
+                var panelRect = CreateRect(transform, "Panel");
+                panelRect.anchorMin = new Vector2(0f, 1f);
+                panelRect.anchorMax = new Vector2(0f, 1f);
+                panelRect.pivot = new Vector2(0f, 1f);
+                var layout = panelRect.gameObject.AddComponent<HorizontalLayoutGroup>();
+                layout.spacing = SlotGap;
+                layout.childAlignment = TextAnchor.MiddleLeft;
+                layout.childControlWidth = true;
+                layout.childControlHeight = true;
+                layout.childForceExpandWidth = false;
+                layout.childForceExpandHeight = false;
+                panel = panelRect.gameObject;
+                slotRoot = panelRect;
             }
 
-            var panelRect = CreateRect(transform, "Panel");
-            panelRect.anchorMin = new Vector2(0f, 1f);
-            panelRect.anchorMax = new Vector2(0f, 1f);
-            panelRect.pivot = new Vector2(0f, 1f);
-            panelRect.anchoredPosition = new Vector2(LeftPadding, -TopPadding);
-            panelRect.sizeDelta = new Vector2(
+            slotRoot.anchoredPosition = new Vector2(LeftPadding, -TopPadding);
+            slotRoot.sizeDelta = new Vector2(
                 (SlotSize * RoomSettings.MaxPlayerCount) + (SlotGap * (RoomSettings.MaxPlayerCount - 1)),
                 SlotSize);
-            var layout = panelRect.gameObject.AddComponent<HorizontalLayoutGroup>();
-            layout.spacing = SlotGap;
-            layout.childAlignment = TextAnchor.MiddleLeft;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = false;
-            panel = panelRect.gameObject;
-            slotRoot = panelRect;
         }
 
         private void EnsureSlots(int count)
         {
-            if (slots.Length == count)
+            if (slots.Length == count && SlotsMatchSize())
             {
                 return;
             }
@@ -143,6 +143,19 @@ namespace Game.Client.Match
             }
 
             slots = System.Array.Empty<Slot>();
+        }
+
+        private bool SlotsMatchSize()
+        {
+            if (slotRoot == null)
+            {
+                return false;
+            }
+
+            var layout = slotRoot.Find("Slot0")?.GetComponent<LayoutElement>();
+            return layout != null &&
+                   Mathf.Approximately(layout.preferredWidth, SlotSize) &&
+                   Mathf.Approximately(layout.preferredHeight, SlotSize);
         }
 
         private static RectTransform CreateRect(Transform parent, string name)
@@ -230,7 +243,7 @@ namespace Game.Client.Match
                 previewImage.enabled = false;
                 var preview = new HidingIntroItemPreview(
                     previewImage,
-                    128,
+                    PreviewTextureSize,
                     new Color(0f, 0f, 0f, 0f),
                     Vector3.right * (20f * (index + 1)));
                 return new Slot(root, question, previewImage, preview);

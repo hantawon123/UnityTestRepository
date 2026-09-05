@@ -21,7 +21,8 @@ namespace Game.Architecture.Tests
                 var panel = view.transform.Find("Panel");
                 Assert.That(panel, Is.Not.Null);
                 Assert.That(panel.gameObject.activeSelf, Is.True);
-                Assert.That(DestroyedItemsHudView.SlotSize, Is.EqualTo(70f));
+                Assert.That(DestroyedItemsHudView.SlotSize, Is.EqualTo(100f));
+                Assert.That(DestroyedItemsHudView.PreviewTextureSize, Is.EqualTo(256));
                 Assert.That(DestroyedItemsHudView.QuestionFontSize, Is.EqualTo(30f));
 
                 for (var index = 0; index < 6; index++)
@@ -35,7 +36,8 @@ namespace Game.Architecture.Tests
                     Assert.That(question.text, Is.EqualTo(DestroyedItemsHudView.QuestionMark));
                     Assert.That(question.fontSize, Is.EqualTo(DestroyedItemsHudView.QuestionFontSize));
                     Assert.That(question.gameObject.activeSelf, Is.True);
-                    Assert.That(slot.GetComponent<LayoutElement>().preferredWidth, Is.EqualTo(70f));
+                    Assert.That(slot.GetComponent<LayoutElement>().preferredWidth, Is.EqualTo(100f));
+                    Assert.That(slot.GetComponent<LayoutElement>().preferredHeight, Is.EqualTo(100f));
                 }
             }
             finally
