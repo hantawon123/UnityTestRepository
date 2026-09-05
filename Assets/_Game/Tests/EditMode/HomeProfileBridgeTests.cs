@@ -201,7 +201,6 @@ namespace Game.Architecture.Tests
             public event Action<string> FriendRequestCancelled;
             public event Action FriendListRefreshRequested;
             public event Action<string> FriendRemoved;
-            public event Action<string> FriendBlocked;
 
             public void RaiseNicknameChangeRequested(string nickname)
             {
@@ -230,6 +229,13 @@ namespace Game.Architecture.Tests
 
             public void SetIncomingRequests(IReadOnlyList<FriendRequestSummary> requests) { }
 
+            public string FriendActionError { get; private set; } = string.Empty;
+
+            public void SetFriendActionError(string message)
+            {
+                FriendActionError = message ?? string.Empty;
+            }
+
             public void SetOutgoingRequests(IReadOnlyList<FriendRequestSummary> requests) { }
 
             /// <remarks>
@@ -252,7 +258,6 @@ namespace Game.Architecture.Tests
                 FriendRequestCancelled?.Invoke(null);
                 FriendListRefreshRequested?.Invoke();
                 FriendRemoved?.Invoke(null);
-                FriendBlocked?.Invoke(null);
             }
         }
     }
