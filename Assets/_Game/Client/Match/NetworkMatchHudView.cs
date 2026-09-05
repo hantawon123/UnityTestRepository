@@ -143,6 +143,7 @@ namespace Game.Client.Match
             EnsureDestroyedItemsHud();
             destroyedItemsHudView?.Hide();
             EnsureDestructionUsesText();
+            ApplyHighlightFonts();
             HideVoiceButton();
         }
 
@@ -230,6 +231,7 @@ namespace Game.Client.Match
                 return;
             }
 
+            ApplyPaperlogy(highlightTitleText);
             var visible = !string.IsNullOrWhiteSpace(title);
             highlightTitleText.text = visible ? title.Trim() : string.Empty;
             highlightTitleText.gameObject.SetActive(visible);
@@ -268,6 +270,7 @@ namespace Game.Client.Match
         {
             if (destructionNoticeText != null)
             {
+                ApplyPaperlogy(destructionNoticeText);
                 destructionNoticeText.text = message ?? string.Empty;
             }
 
@@ -577,6 +580,24 @@ namespace Game.Client.Match
             }
 
             ApplyDestructionUsesStyle(assignedItemText);
+        }
+
+        private void ApplyHighlightFonts()
+        {
+            ApplyPaperlogy(highlightTitleText);
+            ApplyPaperlogy(destructionNoticeText);
+        }
+
+        private static void ApplyPaperlogy(TMP_Text text)
+        {
+            var font = HomeUiFonts.Apply();
+            if (text == null || font == null || text.font == font)
+            {
+                return;
+            }
+
+            text.font = font;
+            text.fontSharedMaterial = font.material;
         }
 
         public static void ApplyDestructionUsesStyle(TMP_Text text)

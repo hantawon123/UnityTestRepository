@@ -1,5 +1,6 @@
 using System.IO;
 using Game.Bootstrap;
+using Game.Client.Home;
 using Game.Client.Match;
 using Game.Client.Voice;
 using TMPro;
@@ -182,6 +183,7 @@ namespace Game.Editor
                 30f,
                 TextAlignmentOptions.Center);
             Stretch(noticeText.rectTransform, 18f);
+            noticeText.font = HomeUiFonts.Apply();
 
             var marker = CreatePanel(
                 canvasObject.transform,
@@ -486,12 +488,8 @@ namespace Game.Editor
         {
             var serialized = new SerializedObject(hud);
             var property = serialized.FindProperty("highlightTitleText");
-            if (property.objectReferenceValue != null)
-            {
-                return;
-            }
-
-            var text = hud.transform.Find("HighlightTitleText")?.GetComponent<TMP_Text>();
+            var text = property.objectReferenceValue as TMP_Text ??
+                       hud.transform.Find("HighlightTitleText")?.GetComponent<TMP_Text>();
             if (text == null)
             {
                 text = CreateText(
@@ -507,6 +505,7 @@ namespace Game.Editor
                     new Vector2(500f, 64f));
             }
 
+            text.font = HomeUiFonts.Apply();
             property.objectReferenceValue = text;
             serialized.ApplyModifiedPropertiesWithoutUndo();
             text.gameObject.SetActive(false);

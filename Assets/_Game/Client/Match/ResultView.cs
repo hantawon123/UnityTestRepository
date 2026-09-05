@@ -1,3 +1,4 @@
+using Game.Client.Home;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -16,8 +17,17 @@ namespace Game.Client.Match
 
         public void Initialize()
         {
-            if (font == null) throw new System.InvalidOperationException("ResultView: 결과 표시용 TMP 폰트를 연결하세요.");
-            if (label != null) return;
+            font = HomeUiFonts.Apply() ?? font;
+            if (font == null)
+            {
+                throw new System.InvalidOperationException("ResultView: Paperlogy TMP 폰트를 찾지 못했습니다.");
+            }
+
+            if (label != null)
+            {
+                label.font = font;
+                return;
+            }
             var canvasObject = new GameObject("Result Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
             canvasObject.transform.SetParent(transform, false);
             var canvas = canvasObject.GetComponent<Canvas>();
