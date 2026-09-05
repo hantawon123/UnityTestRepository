@@ -1,8 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
+using Game.Client.Home;
 using Game.Client.Interactions;
-using Game.Core.Items;
 using Game.Core.Lobby;
 using Game.Core.Match;
 using TMPro;
@@ -20,6 +19,7 @@ namespace Game.Client.Match
         void SetHighlightTitle(string title);
         void SetAssignedItem(string displayName);
         void SetPlayerItemStatuses(IReadOnlyList<PlayerItemStatusSnapshot> statuses);
+        void SetDestroyedItems(int playerCount, IReadOnlyList<PlayerItemStatusSnapshot> statuses);
         void SetRemainingDestructionUses(int remainingUses);
         void ShowDestructionNotice(string message);
         void HideDestructionNotice();
@@ -57,6 +57,7 @@ namespace Game.Client.Match
     /// </summary>
     public sealed class NetworkMatchHudView : MonoBehaviour, INetworkMatchHudView
     {
+        public const float DestructionUsesFontSize = 30f;
         [SerializeField]
         private MatchPhaseView phaseView;
 
@@ -102,8 +103,13 @@ namespace Game.Client.Match
         [SerializeField]
         private MatchVitalsHudView vitalsHudView;
 
-        private string assignedItemDisplayName;
+        [SerializeField]
+        private DestroyedItemsHudView destroyedItemsHudView;
+
         private int remainingDestructionUses = -1;
+        private int destroyedItemPlayerCount;
+        private IReadOnlyList<PlayerItemStatusSnapshot> destroyedItemStatuses =
+            Array.Empty<PlayerItemStatusSnapshot>();
         private bool playerStatusVisible = true;
         private bool highlightOnly;
         private bool showEndCountdown;
@@ -134,6 +140,9 @@ namespace Game.Client.Match
             HideHidingWaitHud();
             EnsureVitalsHud();
             HideVitals();
+            EnsureDestroyedItemsHud();
+            destroyedItemsHudView?.Hide();
+            EnsureDestructionUsesText();
             HideVoiceButton();
         }
 
@@ -228,42 +237,25 @@ namespace Game.Client.Match
 
         public void SetAssignedItem(string displayName)
         {
-            assignedItemDisplayName = string.IsNullOrWhiteSpace(displayName)
-                ? null
-                : displayName.Trim();
-            RefreshPlayerStatus();
         }
 
         public void SetPlayerItemStatuses(IReadOnlyList<PlayerItemStatusSnapshot> statuses)
         {
-            if (playerItemStatusesText == null)
+            if (playerItemStatusesText != null)
             {
-                return;
-            }
-
-            if (statuses == null || statuses.Count == 0)
-            {
-                playerItemStatusesText.text = string.Empty;
                 playerItemStatusesText.gameObject.SetActive(false);
-                return;
             }
 
-            var builder = new StringBuilder();
-            for (var index = 0; index < statuses.Count; index++)
-            {
-                if (index > 0)
-                {
-                    builder.Append('\n');
-                }
+            SetDestroyedItems(statuses == null ? 0 : statuses.Count, statuses);
+        }
 
-                var status = statuses[index];
-                builder.Append(ItemCatalog.DisplayNameOf(status.ItemId));
-                builder.Append(": ");
-                builder.Append(status.IsDestroyed ? "파괴됨" : "정상");
-            }
-
-            playerItemStatusesText.text = builder.ToString();
-            playerItemStatusesText.gameObject.SetActive(true);
+        public void SetDestroyedItems(
+            int playerCount,
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+        {
+            destroyedItemPlayerCount = playerCount;
+            destroyedItemStatuses = statuses ?? Array.Empty<PlayerItemStatusSnapshot>();
+            ApplyDestroyedItems();
         }
 
         public void SetRemainingDestructionUses(int remainingUses)
@@ -444,6 +436,24 @@ namespace Game.Client.Match
         {
             playerStatusVisible = visible;
             RefreshPlayerStatus();
+            ApplyDestroyedItems();
+        }
+
+        private void ApplyDestroyedItems()
+        {
+            EnsureDestroyedItemsHud();
+            if (destroyedItemsHudView == null)
+            {
+                return;
+            }
+
+            if (!playerStatusVisible || destroyedItemPlayerCount <= 0)
+            {
+                destroyedItemsHudView.Hide();
+                return;
+            }
+
+            destroyedItemsHudView.Show(destroyedItemPlayerCount, destroyedItemStatuses);
         }
 
         private void EnsureHidingIntro()
@@ -524,6 +534,19 @@ namespace Game.Client.Match
             }
         }
 
+        private void EnsureDestroyedItemsHud()
+        {
+            if (destroyedItemsHudView == null)
+            {
+                destroyedItemsHudView = GetComponentInChildren<DestroyedItemsHudView>(true);
+            }
+
+            if (destroyedItemsHudView == null)
+            {
+                destroyedItemsHudView = DestroyedItemsHudView.Create(transform);
+            }
+        }
+
         private void HideVoiceButton()
         {
             var slot = transform.Find("VoiceButton");
@@ -533,33 +556,63 @@ namespace Game.Client.Match
             }
         }
 
+        private void EnsureDestructionUsesText()
+        {
+            if (assignedItemText == null)
+            {
+                assignedItemText = transform.Find("AssignedItemText")?.GetComponent<TMP_Text>();
+            }
+
+            if (assignedItemText == null)
+            {
+                var gameObject = new GameObject(
+                    "AssignedItemText",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(TextMeshProUGUI));
+                gameObject.transform.SetParent(transform, false);
+                assignedItemText = gameObject.GetComponent<TextMeshProUGUI>();
+                assignedItemText.color = Color.white;
+                assignedItemText.raycastTarget = false;
+            }
+
+            ApplyDestructionUsesStyle(assignedItemText);
+        }
+
+        public static void ApplyDestructionUsesStyle(TMP_Text text)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            text.font = HomeUiFonts.Apply();
+            text.fontSize = DestructionUsesFontSize;
+            text.alignment = TextAlignmentOptions.TopRight;
+            text.enableWordWrapping = false;
+            text.overflowMode = TextOverflowModes.Overflow;
+            var rect = text.rectTransform;
+            rect.anchorMin = new Vector2(1f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(1f, 1f);
+            rect.anchoredPosition = new Vector2(-36f, -36f);
+            rect.sizeDelta = new Vector2(360f, 48f);
+        }
+
         private void RefreshPlayerStatus()
         {
+            EnsureDestructionUsesText();
             if (assignedItemText == null)
             {
                 return;
             }
 
-            var hasItem = assignedItemDisplayName != null;
             var hasUses = remainingDestructionUses >= 0;
             var uses = remainingDestructionUses == PlaySettingsDraft.UnlimitedDestructionUses
                 ? "무한"
                 : $"{remainingDestructionUses}회";
-            assignedItemText.gameObject.SetActive(playerStatusVisible && (hasItem || hasUses));
-            assignedItemText.text = hasItem && hasUses
-                ? $"내 물건: {assignedItemDisplayName}\n파쇄기: {uses}"
-                : hasItem
-                    ? $"내 물건: {assignedItemDisplayName}"
-                    : hasUses
-                        ? $"파쇄기: {uses}"
-                        : string.Empty;
-
-            if (hasItem && hasUses)
-            {
-                var size = assignedItemText.rectTransform.sizeDelta;
-                size.y = Mathf.Max(size.y, 96f);
-                assignedItemText.rectTransform.sizeDelta = size;
-            }
+            assignedItemText.gameObject.SetActive(playerStatusVisible && hasUses);
+            assignedItemText.text = hasUses ? $"파쇄기: {uses}" : string.Empty;
         }
     }
 }

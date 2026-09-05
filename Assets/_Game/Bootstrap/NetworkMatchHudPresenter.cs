@@ -79,7 +79,7 @@ namespace Game.Bootstrap
             events.PlayerInteractionStatesReceived += OnPlayerInteractionStatesReceived;
             view.HideDestructionNotice();
             view.SetRemainingDestructionUses(-1);
-            view.SetPlayerItemStatuses(events.LatestPlayerItemStatuses);
+            RefreshDestroyedItems();
             view.SetShredderMarker(default, false);
             view.HideHidingIntro();
             view.HideSearchingIntro();
@@ -101,7 +101,7 @@ namespace Game.Bootstrap
             events.PlayerItemStatusesReceived -= OnPlayerItemStatusesReceived;
             events.PlayerInteractionStatesReceived -= OnPlayerInteractionStatesReceived;
             view.HideDestructionNotice();
-            view.SetPlayerItemStatuses(Array.Empty<PlayerItemStatusSnapshot>());
+            view.SetDestroyedItems(0, Array.Empty<PlayerItemStatusSnapshot>());
             view.SetShredderMarker(default, false);
             HideHidingIntro();
             HideSearchingIntro();
@@ -188,6 +188,7 @@ namespace Game.Bootstrap
             var extrasVisible = received.Phase != MatchPhase.Hiding;
             ApplyMatchChat();
             view.SetPlayerStatusVisible(extrasVisible);
+            RefreshDestroyedItems();
             ReportPhase();
             UpdateGameEndNotice();
             TryShowHidingIntro();
@@ -644,7 +645,14 @@ namespace Game.Bootstrap
         private void OnPlayerItemStatusesReceived(
             IReadOnlyList<PlayerItemStatusSnapshot> statuses)
         {
-            view.SetPlayerItemStatuses(statuses);
+            RefreshDestroyedItems();
+        }
+
+        private void RefreshDestroyedItems()
+        {
+            view.SetDestroyedItems(
+                room.MatchParticipants.CurrentValue.Count,
+                events.LatestPlayerItemStatuses);
         }
 
         private void OnPlayerInteractionStatesReceived(

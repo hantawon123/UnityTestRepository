@@ -787,6 +787,11 @@ namespace Game.Architecture.Tests
             var network = new FakeNetwork { ServerTime = 100d };
             var view = new FakeView();
             using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
             var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
             try
             {
@@ -801,6 +806,7 @@ namespace Game.Architecture.Tests
                 Assert.That(view.MatchChatVisible, Is.True);
                 Assert.That(view.MatchChatMode, Is.EqualTo(MatchChatHudMode.Searching));
                 Assert.That(view.PlayerStatusVisible, Is.True);
+                Assert.That(view.DestroyedItemPlayerCount, Is.EqualTo(2));
             }
             finally
             {
@@ -873,10 +879,20 @@ namespace Game.Architecture.Tests
             public void SetRemainingSeconds(double value) => RemainingSeconds = value;
             public void SetHighlightTitle(string title) { }
             public void SetAssignedItem(string displayName) => AssignedItem = displayName;
+            public int DestroyedItemPlayerCount { get; private set; }
+
             public void SetPlayerItemStatuses(IReadOnlyList<PlayerItemStatusSnapshot> statuses) =>
+                SetDestroyedItems(statuses == null ? 0 : statuses.Count, statuses);
+
+            public void SetDestroyedItems(
+                int playerCount,
+                IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+            {
+                DestroyedItemPlayerCount = playerCount;
                 PlayerItemStatuses = statuses == null
                     ? Array.Empty<PlayerItemStatusSnapshot>()
                     : new List<PlayerItemStatusSnapshot>(statuses);
+            }
             public void SetRemainingDestructionUses(int value) =>
                 RemainingDestructionUses = value;
 

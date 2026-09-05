@@ -71,6 +71,7 @@ namespace Game.Editor
                 EnsureHidingActiveHud(hud);
                 EnsureHidingWaitHud(hud);
                 EnsureVitalsHud(hud);
+                EnsureDestroyedItemsHud(hud);
                 EnsureVoiceButton(hud);
                 EnsureWaitingSpawnPoints(scene);
 
@@ -439,31 +440,43 @@ namespace Game.Editor
             view.Hide();
         }
 
+        private static void EnsureDestroyedItemsHud(NetworkMatchHudView hud)
+        {
+            var serialized = new SerializedObject(hud);
+            var property = serialized.FindProperty("destroyedItemsHudView");
+            var view = property.objectReferenceValue as DestroyedItemsHudView;
+            if (view == null)
+            {
+                view = hud.GetComponentInChildren<DestroyedItemsHudView>(true);
+            }
+
+            if (view == null)
+            {
+                view = DestroyedItemsHudView.Create(hud.transform);
+            }
+
+            property.objectReferenceValue = view;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            view.Hide();
+        }
+
         private static void EnsureAssignedItem(NetworkMatchHudView hud)
         {
             var serialized = new SerializedObject(hud);
             var property = serialized.FindProperty("assignedItemText");
-            if (property.objectReferenceValue != null)
-            {
-                return;
-            }
-
-            var text = hud.transform.Find("AssignedItemText")?.GetComponent<TMP_Text>();
+            var text = property.objectReferenceValue as TMP_Text ??
+                       hud.transform.Find("AssignedItemText")?.GetComponent<TMP_Text>();
             if (text == null)
             {
                 text = CreateText(
                     hud.transform,
                     "AssignedItemText",
-                    "내 물건: 탄산음료",
-                    34f,
-                    TextAlignmentOptions.Left);
-                Place(
-                    text.rectTransform,
-                    new Vector2(0f, 1f),
-                    new Vector2(250f, -72f),
-                    new Vector2(460f, 56f));
+                    "파쇄기: 3회",
+                    NetworkMatchHudView.DestructionUsesFontSize,
+                    TextAlignmentOptions.TopRight);
             }
 
+            NetworkMatchHudView.ApplyDestructionUsesStyle(text);
             property.objectReferenceValue = text;
             serialized.ApplyModifiedPropertiesWithoutUndo();
             text.gameObject.SetActive(false);
