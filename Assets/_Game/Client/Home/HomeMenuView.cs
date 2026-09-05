@@ -46,12 +46,12 @@ namespace Game.Client.Home
         {
             koreanFont = HomeUiFonts.Apply(fontAsset);
             var canvas = CreateCanvas();
-            CreateTitle(canvas);
-            CreateProfile(canvas);
-            CreateCharacter(canvas);
-            CreateLeftButtons(canvas);
+            CreateBackground(canvas);
+            CreateLeftMenu(canvas);
             CreateQuitButton(canvas);
-            CreateBottomRightButtons(canvas);
+            CreateProfileChip(canvas);
+            CreateFriendButton(canvas);
+            CreateServerButton(canvas);
             CreateFriendListRoot(canvas);
             CreateProfileSettingsRoot(canvas);
         }
@@ -85,147 +85,360 @@ namespace Game.Client.Home
             return canvasRect;
         }
 
-        private void CreateTitle(RectTransform canvas)
+        /// <summary>
+        /// The night street the whole screen sits on, character included: the
+        /// art is one image rather than a backdrop with a model in front of it.
+        /// </summary>
+        /// <remarks>
+        /// Sized to the reference resolution and then grown to envelope the
+        /// canvas, so a window of any shape is covered and the overflow is cut
+        /// off rather than letterboxed. The character stands near the middle,
+        /// which is the part that survives every crop.
+        /// </remarks>
+        private void CreateBackground(RectTransform canvas)
         {
-            var titleRect = CreateRect("Title", canvas);
-            SetAnchor(titleRect, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f));
-            titleRect.anchoredPosition = new Vector2(0f, -36f);
-            titleRect.sizeDelta = new Vector2(900f, 84f);
-            AddText(titleRect, title, 58f, FontStyles.Bold, TextAlignmentOptions.Center);
+            var rect = CreateRect("Background", canvas);
+            SetAnchor(rect, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = HomeStyle.ReferenceResolution;
+            rect.SetAsFirstSibling();
+
+            var image = rect.gameObject.AddComponent<Image>();
+            image.sprite = backgroundSprite;
+            image.type = Image.Type.Simple;
+            image.raycastTarget = false;
+            image.color = backgroundSprite != null
+                ? Color.white
+                : HomeStyle.Palette.BackgroundFallback;
+
+            var fitter = rect.gameObject.AddComponent<AspectRatioFitter>();
+            fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+            fitter.aspectRatio = backgroundSprite != null && backgroundSprite.rect.height > 0f
+                ? backgroundSprite.rect.width / backgroundSprite.rect.height
+                : HomeStyle.ReferenceResolution.x / HomeStyle.ReferenceResolution.y;
         }
 
-        private void CreateProfile(RectTransform canvas)
+        /// <summary>
+        /// The player's own name, bottom right, over a rounded plate.
+        /// </summary>
+        /// <remarks>
+        /// The plate is sized here rather than by a layout group because the
+        /// design fixes what it may measure: it grows with the name between a
+        /// floor and a ceiling, and <see cref="ResizeProfileChip"/> is what
+        /// applies that every time the name changes.
+        /// </remarks>
+        private void CreateProfileChip(RectTransform canvas)
         {
-            var profileRect = CreateRect("Profile", canvas);
-            SetAnchor(profileRect, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f));
-            profileRect.anchoredPosition = new Vector2(-40f, -28f);
-            profileRect.sizeDelta = new Vector2(360f, 88f);
+            var chip = CreateRect("ProfileChip", canvas);
+            SetAnchor(chip, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f));
+            chip.anchoredPosition = new Vector2(
+                -(HomeStyle.Layout.BottomRightMargin
+                    + HomeStyle.Layout.IconButtonSize
+                    + HomeStyle.Layout.ChipToFriendButton),
+                HomeStyle.Layout.BottomMargin);
+            chip.sizeDelta = new Vector2(
+                HomeStyle.Layout.ChipMinWidth, HomeStyle.Layout.ChipHeight);
+            profileChip = chip;
 
-            var layout = profileRect.gameObject.AddComponent<HorizontalLayoutGroup>();
-            layout.spacing = 16f;
-            layout.childAlignment = TextAnchor.MiddleLeft;
-            layout.childControlWidth = false;
-            layout.childControlHeight = false;
-            layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = false;
+            var fill = AddImage(
+                chip,
+                HomeStyle.Palette.ChipFill,
+                HomeUiFonts.Rounded(HomeStyle.Radius.Chip),
+                raycastTarget: true);
+            fill.type = Image.Type.Sliced;
+            fill.pixelsPerUnitMultiplier = 1f;
 
-            var avatar = CreateRect("Avatar", profileRect);
-            avatar.sizeDelta = new Vector2(72f, 72f);
-            var avatarImage = AddImage(avatar, AvatarColor, HomeUiFonts.CircleSprite);
-            avatarImage.preserveAspect = true;
-            var avatarLayout = avatar.gameObject.AddComponent<LayoutElement>();
-            avatarLayout.preferredWidth = 72f;
-            avatarLayout.preferredHeight = 72f;
+            var stroke = CreateStroke(chip, HomeStyle.Radius.Chip);
 
-            var info = CreateRect("Info", profileRect);
-            info.sizeDelta = new Vector2(260f, 72f);
-            var infoLayout = info.gameObject.AddComponent<VerticalLayoutGroup>();
-            infoLayout.spacing = 6f;
-            infoLayout.childAlignment = TextAnchor.MiddleLeft;
-            infoLayout.childControlWidth = true;
-            infoLayout.childControlHeight = false;
-            infoLayout.childForceExpandWidth = true;
-            infoLayout.childForceExpandHeight = false;
+            var avatar = CreateRect("Avatar", chip);
+            SetAnchor(avatar, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
+            avatar.anchoredPosition = new Vector2(HomeStyle.Layout.ChipLeftPadding, 0f);
+            avatar.sizeDelta = new Vector2(
+                HomeStyle.Layout.ChipAvatarDiameter, HomeStyle.Layout.ChipAvatarDiameter);
+            AddImage(avatar, AvatarColor, HomeUiFonts.CircleSprite);
 
-            var nicknameRect = CreateRect("Nickname", info);
-            nicknameRect.sizeDelta = new Vector2(260f, 32f);
+            var nameRect = CreateRect("Nickname", chip);
+            SetAnchor(nameRect, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
+            nameRect.anchoredPosition = new Vector2(NicknameLeft, 0f);
+            nameRect.sizeDelta = new Vector2(
+                HomeStyle.Layout.ChipMaxWidth - NicknameLeft - HomeStyle.Layout.ChipRightPadding,
+                HomeStyle.Layout.ChipHeight);
             nicknameText = AddText(
-                nicknameRect,
+                nameRect,
                 "사용자닉네임",
-                26f,
-                FontStyles.Bold,
-                TextAlignmentOptions.MidlineLeft);
-
-            var levelRow = CreateRect("LevelRow", info);
-            levelRow.sizeDelta = new Vector2(260f, 22f);
-            var levelLayout = levelRow.gameObject.AddComponent<HorizontalLayoutGroup>();
-            levelLayout.spacing = 10f;
-            levelLayout.childAlignment = TextAnchor.MiddleLeft;
-            levelLayout.childControlWidth = false;
-            levelLayout.childControlHeight = true;
-            levelLayout.childForceExpandWidth = false;
-            levelLayout.childForceExpandHeight = true;
-
-            var levelRect = CreateRect("Level", levelRow);
-            levelRect.sizeDelta = new Vector2(56f, 22f);
-            levelText = AddText(
-                levelRect,
-                "Lv.1",
-                18f,
+                HomeStyle.FontSize.Nickname,
                 FontStyles.Normal,
                 TextAlignmentOptions.MidlineLeft);
+            ApplyMenuFont(nicknameText);
+            nicknameText.color = HomeStyle.Palette.TextPrimary;
 
-            var experienceTrack = CreateRect("ExperienceTrack", levelRow);
-            experienceTrack.sizeDelta = new Vector2(180f, 14f);
-            AddImage(experienceTrack, ExperienceBackground);
-
-            var experienceFill = CreateRect("ExperienceFill", experienceTrack);
-            SetAnchor(experienceFill, Vector2.zero, Vector2.one, new Vector2(0f, 0.5f));
-            experienceFill.offsetMin = Vector2.zero;
-            experienceFill.offsetMax = Vector2.zero;
-            var fillImage = AddImage(experienceFill, ExperienceFillColor);
-            fillImage.type = Image.Type.Filled;
-            fillImage.fillMethod = Image.FillMethod.Horizontal;
-            fillImage.fillOrigin = (int)Image.OriginHorizontal.Left;
-            fillImage.fillAmount = experienceRatio;
+            AddButton(chip, fill, stroke, HomeStyle.Palette.ChipFill, HomeMenuAction.ProfileSettings);
+            ResizeProfileChip();
         }
 
-        private void CreateCharacter(RectTransform canvas)
+        /// <summary>
+        /// Where the name starts: past the avatar and the gap after it.
+        /// </summary>
+        private const float NicknameLeft =
+            HomeStyle.Layout.ChipLeftPadding
+            + HomeStyle.Layout.ChipAvatarDiameter
+            + HomeStyle.Layout.ChipAvatarToName;
+
+        /// <summary>
+        /// Fits the chip to the name it is showing, within the two widths the
+        /// design allows.
+        /// </summary>
+        private void ResizeProfileChip()
         {
-            var character = CreateRect("Character", canvas);
-            SetAnchor(character, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
-            character.anchoredPosition = new Vector2(0f, -24f);
-            character.sizeDelta = new Vector2(340f, 480f);
-            AddImage(character, CharacterColor);
+            if (profileChip == null || nicknameText == null)
+            {
+                return;
+            }
 
-            var label = CreateRect("Label", character);
-            SetAnchor(label, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
-            label.offsetMin = Vector2.zero;
-            label.offsetMax = Vector2.zero;
-            AddText(label, "캐릭터", 36f, FontStyles.Bold, TextAlignmentOptions.Center);
+            var width = Mathf.Clamp(
+                NicknameLeft + nicknameText.preferredWidth + HomeStyle.Layout.ChipRightPadding,
+                HomeStyle.Layout.ChipMinWidth,
+                HomeStyle.Layout.ChipMaxWidth);
+            profileChip.sizeDelta = new Vector2(width, HomeStyle.Layout.ChipHeight);
         }
 
-        private void CreateLeftButtons(RectTransform canvas)
+        /// <summary>
+        /// One of the two square icon buttons: friends at the bottom right,
+        /// the server picker at the top right.
+        /// </summary>
+        private void CreateIconButton(
+            RectTransform canvas,
+            string name,
+            Sprite icon,
+            float iconSize,
+            Vector2 anchor,
+            Vector2 position,
+            HomeMenuAction action)
         {
-            var left = CreateRect("PrimaryButtons", canvas);
-            SetAnchor(left, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
-            left.anchoredPosition = new Vector2(48f, 12f);
-            left.sizeDelta = new Vector2(280f, 320f);
-            AddVerticalLayout(left, TextAnchor.MiddleLeft);
+            var rect = CreateRect(name, canvas);
+            SetAnchor(rect, anchor, anchor, anchor);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = new Vector2(
+                HomeStyle.Layout.IconButtonSize, HomeStyle.Layout.IconButtonSize);
 
-            CreateTextButton(left, "바로 플레이", HomeMenuAction.QuickPlay, TextAlignmentOptions.MidlineLeft);
-            CreateTextButton(left, "방 찾기", HomeMenuAction.FindRoom, TextAlignmentOptions.MidlineLeft);
-            CreateSpacer(left, 18f);
-            CreateTextButton(left, "프로필 설정", HomeMenuAction.ProfileSettings, TextAlignmentOptions.MidlineLeft);
+            var fill = AddImage(
+                rect,
+                HomeStyle.Palette.ButtonFill,
+                HomeUiFonts.Rounded(HomeStyle.Radius.IconButton),
+                raycastTarget: true);
+            fill.type = Image.Type.Sliced;
+            fill.pixelsPerUnitMultiplier = 1f;
+
+            var stroke = CreateStroke(rect, HomeStyle.Radius.IconButton);
+
+            var glyph = CreateRect("Icon", rect);
+            SetAnchor(glyph, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
+            glyph.anchoredPosition = Vector2.zero;
+            glyph.sizeDelta = new Vector2(iconSize, iconSize);
+
+            // The icons are drawn in the text colour already, so they are left
+            // white here rather than tinted back to it.
+            var glyphImage = AddImage(glyph, Color.white, icon);
+            glyphImage.preserveAspect = true;
+            glyphImage.enabled = icon != null;
+
+            AddButton(rect, fill, stroke, HomeStyle.Palette.ButtonFill, action);
         }
 
+        /// <summary>
+        /// The hairline that appears on hover, drawn over the fill and hidden
+        /// until <see cref="HomeHoverHighlight"/> asks for it.
+        /// </summary>
+        private static Image CreateStroke(RectTransform parent, int radius)
+        {
+            var rect = CreateRect("Stroke", parent);
+            SetAnchor(rect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
+            var image = AddImage(
+                rect,
+                HomeStyle.Palette.HoverStroke,
+                HomeUiFonts.Outline(radius, HomeStyle.HoverStrokeThickness));
+            image.type = Image.Type.Sliced;
+            image.pixelsPerUnitMultiplier = 1f;
+            image.enabled = false;
+            return image;
+        }
+
+        private void AddButton(
+            RectTransform rect, Image fill, Image stroke, Color normal, HomeMenuAction action)
+        {
+            var button = rect.gameObject.AddComponent<Button>();
+            button.targetGraphic = fill;
+            button.transition = Selectable.Transition.None;
+            button.onClick.AddListener(() => ActionClicked?.Invoke(action));
+            menuButtons.Add(button);
+
+            rect.gameObject.AddComponent<HomeHoverHighlight>()
+                .Bind(fill, stroke, normal, HomeStyle.Palette.HoverFill);
+        }
+
+        /// <summary>
+        /// The four ways out of Home, stacked down the left of the character.
+        /// </summary>
+        /// <remarks>
+        /// Placed one by one off the top-left corner rather than through a
+        /// layout group. The design gives the first line's top and the gap
+        /// between lines, which is what <see cref="HomeStyle.Layout.MenuPitch"/>
+        /// adds up, and a layout group would re-derive that from whatever
+        /// heights the labels happened to measure.
+        /// </remarks>
+        private void CreateLeftMenu(RectTransform canvas)
+        {
+            var menu = CreateRect("Menu", canvas);
+            SetAnchor(menu, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f));
+            menu.anchoredPosition = new Vector2(
+                HomeStyle.Layout.MenuLeft, -HomeStyle.Layout.MenuTop);
+            menu.sizeDelta = Vector2.zero;
+
+            CreateMenuItem(menu, "방 만들기", HomeMenuAction.CreateRoom, 0);
+            CreateMenuItem(menu, "게임 찾기", HomeMenuAction.FindRoom, 1);
+            CreateMenuItem(menu, "캐릭터", HomeMenuAction.Character, 2);
+            CreateMenuItem(menu, "환경 설정", HomeMenuAction.Settings, 3);
+        }
+
+        /// <summary>
+        /// One menu line, lit in the accent colour while the pointer is on it.
+        /// </summary>
+        /// <remarks>
+        /// The label carries the click rather than a panel behind it, and the
+        /// rect is fitted to the glyphs, so the line answers where it is legible
+        /// and the empty stretch beside it stays part of the picture.
+        /// <para>
+        /// The tint multiplies the graphic's own colour, so the text is left
+        /// white and the palette lives entirely in the colour block. Selected
+        /// matches normal: a line that was clicked and then returned to should
+        /// not stay lit while the pointer is elsewhere.
+        /// </para>
+        /// </remarks>
+        private void CreateMenuItem(
+            RectTransform parent, string label, HomeMenuAction action, int index)
+        {
+            var rect = CreateRect(action.ToString(), parent);
+            SetAnchor(rect, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f));
+            rect.anchoredPosition = new Vector2(0f, -index * HomeStyle.Layout.MenuPitch);
+            rect.sizeDelta = new Vector2(0f, HomeStyle.Layout.MenuLineHeight);
+
+            var text = AddText(
+                rect,
+                label,
+                HomeStyle.FontSize.Menu,
+                FontStyles.Normal,
+                TextAlignmentOptions.MidlineLeft,
+                raycastTarget: true);
+            ApplyMenuFont(text);
+            text.color = Color.white;
+
+            var fitter = rect.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+            AddLabelButton(rect, text, action);
+        }
+
+        /// <summary>
+        /// Makes a label clickable, lit in the accent colour while hovered.
+        /// </summary>
+        /// <remarks>
+        /// The tint multiplies the graphic's own colour, so callers leave the
+        /// text white and the palette lives entirely in the colour block.
+        /// Selected matches normal: a label that was clicked and returned to
+        /// should not stay lit while the pointer is elsewhere.
+        /// </remarks>
+        private void AddLabelButton(RectTransform rect, TMP_Text text, HomeMenuAction action)
+        {
+            var button = rect.gameObject.AddComponent<Button>();
+            button.targetGraphic = text;
+            button.transition = Selectable.Transition.ColorTint;
+
+            var colors = ColorBlock.defaultColorBlock;
+            colors.normalColor = HomeStyle.Palette.TextPrimary;
+            colors.highlightedColor = HomeStyle.Palette.Accent;
+            colors.pressedColor = HomeStyle.Palette.Accent;
+            colors.selectedColor = HomeStyle.Palette.TextPrimary;
+            colors.disabledColor = HomeStyle.Palette.TextPrimary * 0.5f;
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
+
+            button.onClick.AddListener(() => ActionClicked?.Invoke(action));
+            menuButtons.Add(button);
+        }
+
+        /// <summary>
+        /// Swaps a label onto the SemiBold face, material included: a TMP text
+        /// keeps the material of the font it was built with, and leaving the two
+        /// apart draws the new glyphs through the old atlas.
+        /// </summary>
+        private void ApplyMenuFont(TMP_Text text)
+        {
+            if (semiBoldFont == null)
+            {
+                return;
+            }
+
+            text.font = semiBoldFont;
+            text.fontSharedMaterial = semiBoldFont.material;
+        }
+
+        /// <summary>
+        /// The way out of the game, bottom left. A plain label like the menu
+        /// rather than a plate like the chip beside it.
+        /// </summary>
         private void CreateQuitButton(RectTransform canvas)
         {
             var quit = CreateRect("QuitButton", canvas);
-            SetAnchor(quit, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(0f, 0f));
-            quit.anchoredPosition = new Vector2(48f, 48f);
-            quit.sizeDelta = new Vector2(280f, 56f);
-            AddVerticalLayout(quit, TextAnchor.LowerLeft);
-            CreateTextButton(quit, "게임 종료", HomeMenuAction.Quit, TextAlignmentOptions.MidlineLeft);
+            SetAnchor(quit, Vector2.zero, Vector2.zero, Vector2.zero);
+            quit.anchoredPosition = new Vector2(
+                HomeStyle.Layout.QuitLeft, HomeStyle.Layout.QuitBottom);
+            quit.sizeDelta = new Vector2(0f, HomeStyle.FontSize.Quit * 1.2f);
+
+            var text = AddText(
+                quit,
+                "게임 종료",
+                HomeStyle.FontSize.Quit,
+                FontStyles.Normal,
+                TextAlignmentOptions.BottomLeft,
+                raycastTarget: true);
+            ApplyMenuFont(text);
+            text.color = Color.white;
+
+            var fitter = quit.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+            AddLabelButton(quit, text, HomeMenuAction.Quit);
         }
 
-        private void CreateBottomRightButtons(RectTransform canvas)
+        private void CreateFriendButton(RectTransform canvas)
         {
-            var row = CreateRect("BottomRightButtons", canvas);
-            SetAnchor(row, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f));
-            row.anchoredPosition = new Vector2(-48f, 48f);
-            row.sizeDelta = new Vector2(400f, 56f);
+            CreateIconButton(
+                canvas,
+                "FriendButton",
+                friendIcon,
+                HomeStyle.Layout.FriendIconSize,
+                new Vector2(1f, 0f),
+                new Vector2(-HomeStyle.Layout.BottomRightMargin, HomeStyle.Layout.BottomMargin),
+                HomeMenuAction.Friends);
+        }
 
-            var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
-            layout.spacing = 28f;
-            layout.childAlignment = TextAnchor.MiddleRight;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = true;
-
-            CreateTextButton(row, "환경 설정", HomeMenuAction.Settings, TextAlignmentOptions.MidlineRight, 160f);
-            CreateTextButton(row, "친구 목록", HomeMenuAction.Friends, TextAlignmentOptions.MidlineRight, 160f);
+        private void CreateServerButton(RectTransform canvas)
+        {
+            CreateIconButton(
+                canvas,
+                "ServerButton",
+                serverIcon,
+                HomeStyle.Layout.ServerIconSize,
+                new Vector2(1f, 1f),
+                new Vector2(
+                    -HomeStyle.Layout.ServerRightMargin, -HomeStyle.Layout.ServerTopMargin),
+                HomeMenuAction.ServerSettings);
         }
 
         private void CreateFriendListRoot(RectTransform canvas)
@@ -1116,40 +1329,6 @@ namespace Game.Client.Home
             shadow.useGraphicAlpha = true;
         }
 
-        private RectTransform CreateTextButton(
-            RectTransform parent,
-            string label,
-            HomeMenuAction action,
-            TextAlignmentOptions alignment,
-            float preferredWidth = 280f)
-        {
-            var buttonRect = CreateRect(action.ToString(), parent);
-            buttonRect.sizeDelta = new Vector2(preferredWidth, 56f);
-            var layoutElement = buttonRect.gameObject.AddComponent<LayoutElement>();
-            layoutElement.preferredWidth = preferredWidth;
-            layoutElement.minWidth = preferredWidth;
-            layoutElement.preferredHeight = 56f;
-            layoutElement.minHeight = 56f;
-
-            var text = AddText(buttonRect, label, 28f, FontStyles.Normal, alignment, raycastTarget: true);
-            text.color = Color.white;
-            var button = buttonRect.gameObject.AddComponent<Button>();
-            button.targetGraphic = text;
-            button.transition = Selectable.Transition.ColorTint;
-            var colors = ColorBlock.defaultColorBlock;
-            colors.normalColor = Color.black;
-            colors.highlightedColor = MenuHover;
-            colors.pressedColor = MenuPressed;
-            colors.selectedColor = Color.black;
-            colors.disabledColor = new Color(0.5f, 0.5f, 0.5f, 0.5f);
-            colors.colorMultiplier = 1f;
-            colors.fadeDuration = 0.08f;
-            button.colors = colors;
-            button.onClick.AddListener(() => ActionClicked?.Invoke(action));
-            menuButtons.Add(button);
-            return buttonRect;
-        }
-
         private static void ClearButtons(List<Button> buttons)
         {
             for (var index = 0; index < buttons.Count; index++)
@@ -1159,26 +1338,6 @@ namespace Game.Client.Home
                     buttons[index].onClick.RemoveAllListeners();
                 }
             }
-        }
-
-        private static void AddVerticalLayout(RectTransform parent, TextAnchor alignment)
-        {
-            var layout = parent.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.spacing = 12f;
-            layout.childAlignment = alignment;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = true;
-            layout.childForceExpandHeight = false;
-        }
-
-        private static void CreateSpacer(RectTransform parent, float height)
-        {
-            var spacer = CreateRect("Spacer", parent);
-            spacer.sizeDelta = new Vector2(0f, height);
-            var layoutElement = spacer.gameObject.AddComponent<LayoutElement>();
-            layoutElement.preferredHeight = height;
-            layoutElement.minHeight = height;
         }
 
         private TMP_Text AddText(

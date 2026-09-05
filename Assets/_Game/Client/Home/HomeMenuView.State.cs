@@ -10,20 +10,36 @@ namespace Game.Client.Home
     public sealed partial class HomeMenuView
     {
         [SerializeField]
-        private string title = "로고 or 이름 두둥";
-
-        [SerializeField]
         [Range(0f, 1f)]
         private float experienceRatio = 0.4f;
 
+        [Header("Art")]
+        [SerializeField]
+        private Sprite backgroundSprite;
+
+        [SerializeField]
+        private Sprite friendIcon;
+
+        [SerializeField]
+        private Sprite serverIcon;
+
+        [Header("Fonts")]
         [SerializeField]
         private TMP_FontAsset fontAsset;
+
+        /// <summary>
+        /// The menu is drawn in SemiBold where the rest of the screen is not,
+        /// so it is a second asset rather than a style flag: TextMeshPro fakes a
+        /// bold weight by smearing the glyph, and the mock-up wants the weight
+        /// the type designer drew.
+        /// </summary>
+        [SerializeField]
+        private TMP_FontAsset semiBoldFont;
 
         [SerializeField]
         private TMP_Text nicknameText;
 
-        [SerializeField]
-        private TMP_Text levelText;
+        private RectTransform profileChip;
 
         private readonly List<Button> menuButtons = new List<Button>();
         private readonly List<FriendRow> onlineRows = new List<FriendRow>();
@@ -70,7 +86,7 @@ namespace Game.Client.Home
         private void Awake()
         {
             EnsureEventSystem();
-            if (nicknameText == null || levelText == null)
+            if (nicknameText == null)
             {
                 BuildLayout();
             }
@@ -112,6 +128,11 @@ namespace Game.Client.Home
             if (nicknameText != null)
             {
                 nicknameText.text = nickname;
+
+                // The chip is only as wide as the name inside it, so a longer
+                // one has to move the chip's own edge before it is drawn.
+                nicknameText.ForceMeshUpdate();
+                ResizeProfileChip();
             }
 
             if (profileNicknameInput != null && profileNicknameInput.text != nickname)
@@ -122,12 +143,9 @@ namespace Game.Client.Home
 
         public void SetLevel(int level)
         {
+            // Home itself no longer shows a level: the chip carries the name
+            // alone. The profile panel is the one place it is still written.
             var label = $"Lv.{level}";
-            if (levelText != null)
-            {
-                levelText.text = label;
-            }
-
             if (profileLevelText != null)
             {
                 profileLevelText.text = label;
