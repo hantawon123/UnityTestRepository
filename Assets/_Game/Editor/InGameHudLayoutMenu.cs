@@ -150,7 +150,8 @@ namespace Game.Editor
             // Wider than the phase names need, because hiding now reads
             // "<이름>이 숨기는 중" and a nickname can run to its full length.
             Place(phaseText.rectTransform, new Vector2(0.5f, 1f),
-                new Vector2(0f, -58f), new Vector2(620f, 54f));
+                new Vector2(0f, -(HidingActiveHudView.TopPadding + MatchTimerView.TimerHeight + MatchTimerView.HintHeight)),
+                new Vector2(620f, 40f));
             var phaseView = phaseText.gameObject.AddComponent<MatchPhaseView>();
             Assign(phaseView, "phaseText", phaseText);
 
@@ -158,10 +159,11 @@ namespace Game.Editor
                 canvasObject.transform,
                 "TimerText",
                 "03:00",
-                52f,
+                MatchTimerView.TimerFontSize,
                 TextAlignmentOptions.Center);
+            timerText.color = MatchTimerView.TimerColor;
             Place(timerText.rectTransform, new Vector2(0.5f, 1f),
-                new Vector2(0f, -112f), new Vector2(360f, 68f));
+                new Vector2(0f, -HidingActiveHudView.TopPadding), new Vector2(420f, MatchTimerView.TimerHeight));
             var timerView = timerText.gameObject.AddComponent<MatchTimerView>();
             Assign(timerView, "timerText", timerText);
 

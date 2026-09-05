@@ -179,7 +179,12 @@ namespace Game.Client.Match
         public void SetEndCountdown(double remainingSeconds)
         {
             showEndCountdown = remainingSeconds > 0d;
-            if (showEndCountdown) timerView?.SetRemainingSeconds(remainingSeconds);
+            if (showEndCountdown)
+            {
+                timerView?.SetRemainingSeconds(remainingSeconds);
+            }
+
+            timerView?.SetHintVisible(!showEndCountdown);
             LateUpdate();
         }
 
@@ -195,8 +200,10 @@ namespace Game.Client.Match
 
         private void OnDestroy() => RestoreHud();
 
-        public void SetRemainingSeconds(double remainingSeconds) =>
+        public void SetRemainingSeconds(double remainingSeconds)
+        {
             timerView?.SetRemainingSeconds(remainingSeconds);
+        }
 
         public void SetHighlightTitle(string title)
         {
