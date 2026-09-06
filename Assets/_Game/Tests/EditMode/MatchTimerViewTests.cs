@@ -78,6 +78,50 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void SetResult_ReplacesTimerWithWhiteSubtitle()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = CreateView(canvas.transform);
+                view.SetRemainingSeconds(30d);
+                view.SetResult(MatchTimerView.WinHeadline, MatchTimerView.WinSubtitle);
+
+                var timer = view.GetComponent<TMP_Text>();
+                Assert.That(timer.text, Is.EqualTo(MatchTimerView.WinHeadline));
+                Assert.That(timer.fontSize, Is.EqualTo(MatchTimerView.TimerFontSize));
+                Assert.That(timer.color, Is.EqualTo(MatchTimerView.TimerColor));
+                Assert.That(timer.font, Is.EqualTo(HomeUiFonts.ApplyBlack()));
+
+                var hint = view.transform.Find("Hint")?.GetComponent<TMP_Text>();
+                Assert.That(hint, Is.Not.Null);
+                Assert.That(hint.gameObject.activeSelf, Is.True);
+                Assert.That(hint.text, Is.EqualTo(MatchTimerView.WinSubtitle));
+                Assert.That(hint.color, Is.EqualTo(MatchTimerView.ResultSubtitleColor));
+
+                view.SetRemainingSeconds(12d);
+                Assert.That(timer.text, Is.EqualTo(MatchTimerView.WinHeadline));
+                Assert.That(hint.text, Is.EqualTo(MatchTimerView.WinSubtitle));
+                InvokeUpdate(view);
+                Assert.That(view.transform.localScale, Is.EqualTo(Vector3.one));
+
+                view.SetResult(MatchTimerView.LoseHeadline, MatchTimerView.LoseSubtitle);
+                Assert.That(timer.text, Is.EqualTo(MatchTimerView.LoseHeadline));
+                Assert.That(hint.text, Is.EqualTo(MatchTimerView.LoseSubtitle));
+                Assert.That(hint.color, Is.EqualTo(Color.white));
+
+                view.ClearResult();
+                view.SetRemainingSeconds(90d);
+                Assert.That(timer.text, Is.EqualTo("01:30"));
+                Assert.That(hint.gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
         public void SetHintVisible_HidesThePromptEvenInTheLastThirtySeconds()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));

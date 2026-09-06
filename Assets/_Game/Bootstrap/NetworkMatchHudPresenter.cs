@@ -30,7 +30,6 @@ namespace Game.Bootstrap
         private bool hasSnapshot;
         private double noticeEndsAt;
         private double gameEndNoticeEndsAt = -1d;
-        private string gameEndNotice = "게임이 종료되었습니다!";
         private Transform shredder;
         private Camera worldCamera;
 
@@ -165,7 +164,6 @@ namespace Game.Bootstrap
             if (received.Phase == MatchPhase.Hiding || received.Phase == MatchPhase.Waiting)
             {
                 gameEndNoticeEndsAt = -1d;
-                gameEndNotice = "게임이 종료되었습니다!";
             }
             if (received.Phase == MatchPhase.Highlight || received.Phase == MatchPhase.Result)
             {
@@ -204,8 +202,7 @@ namespace Game.Bootstrap
         private void OnMatchResultReceived(MatchResult result)
         {
             if (result.EndReason == MatchEndReason.LastPlayerStanding) return;
-            gameEndNotice = "게임이 종료되었습니다!";
-            gameEndNoticeEndsAt = result.EndedAt + HighlightPresentationTiming.PostRollSeconds;
+            gameEndNoticeEndsAt = result.EndedAt + HighlightPresentationTiming.FadeSeconds;
             UpdateGameEndNotice();
         }
 
@@ -214,9 +211,9 @@ namespace Game.Bootstrap
             if (!clock.IsRuntimeReady) return false;
             var remaining = gameEndNoticeEndsAt - clock.ServerTime;
             var active = remaining > 0d && (!hasSnapshot || snapshot.Phase != MatchPhase.Result);
-            view.SetEndCountdown(active ? remaining : 0d);
+            view.SetEndCountdown(0d);
             if (!active) return false;
-            view.ShowDestructionNotice(gameEndNotice);
+            view.HideDestructionNotice();
             noticeEndsAt = gameEndNoticeEndsAt;
             return true;
         }

@@ -8,6 +8,8 @@ namespace Game.Client.Match
     {
         void SetRemainingSeconds(double remainingSeconds);
         void SetHintVisible(bool visible);
+        void SetResult(string headline, string subtitle);
+        void ClearResult();
     }
 
     /// <summary>
@@ -24,8 +26,13 @@ namespace Game.Client.Match
         public const float TimerHeight = 80f;
         public const float HintHeight = 48f;
         public const string HintText = "서둘러 자신의 물건을 확보하세요 !";
+        public const string WinHeadline = "YOU WIN!";
+        public const string LoseHeadline = "YOU LOSE..";
+        public const string WinSubtitle = "숨겼던 물건을 끝까지 지켜냈어요!";
+        public const string LoseSubtitle = "아쉽게도 물건을 지키지 못했어요!";
         public static readonly Color TimerColor = HidingActiveHudView.WarningColor;
         public static readonly Color WarningColor = HidingActiveHudView.WarningColor;
+        public static readonly Color ResultSubtitleColor = Color.white;
 
         [SerializeField]
         private TMP_Text timerText;
@@ -36,6 +43,9 @@ namespace Game.Client.Match
         private int lastTotalSeconds = -1;
         private bool warningActive;
         private bool hintAllowed = true;
+        private bool resultActive;
+        private string resultHeadline = string.Empty;
+        private string resultSubtitle = string.Empty;
 
         public static bool IsWarning(double remainingSeconds)
         {
@@ -55,7 +65,7 @@ namespace Game.Client.Match
 
         private void Update()
         {
-            if (!warningActive)
+            if (resultActive || !warningActive)
             {
                 ResetPulseScale();
                 return;
@@ -64,11 +74,44 @@ namespace Game.Client.Match
             ApplyPulseScale(Vector3.one * HidingActiveHudView.HeartbeatScale(Time.unscaledTime));
         }
 
+        public void SetResult(string headline, string subtitle)
+        {
+            resultActive = true;
+            resultHeadline = headline ?? string.Empty;
+            resultSubtitle = subtitle ?? string.Empty;
+            warningActive = false;
+            lastTotalSeconds = -1;
+            ResetPulseScale();
+            EnsureLayout();
+            ApplyResult();
+        }
+
+        public void ClearResult()
+        {
+            if (!resultActive)
+            {
+                return;
+            }
+
+            resultActive = false;
+            resultHeadline = string.Empty;
+            resultSubtitle = string.Empty;
+            lastTotalSeconds = -1;
+            EnsureLayout();
+            ResetPulseScale();
+        }
+
         public void SetRemainingSeconds(double remainingSeconds)
         {
             EnsureLayout();
             if (timerText == null)
             {
+                return;
+            }
+
+            if (resultActive)
+            {
+                ApplyResult();
                 return;
             }
 
@@ -138,11 +181,11 @@ namespace Game.Client.Match
             hintText.fontSize = HintFontSize;
             hintText.fontStyle = FontStyles.Normal;
             hintText.alignment = TextAlignmentOptions.Center;
-            hintText.color = WarningColor;
+            hintText.color = resultActive ? ResultSubtitleColor : WarningColor;
             hintText.enableWordWrapping = false;
             hintText.overflowMode = TextOverflowModes.Overflow;
             hintText.raycastTarget = false;
-            hintText.text = HintText;
+            hintText.text = resultActive ? resultSubtitle : HintText;
             ApplyHintVisibility();
         }
 
@@ -160,7 +203,7 @@ namespace Game.Client.Match
                     viewRect,
                     new Vector2(0.5f, 1f),
                     new Vector2(0f, -HidingActiveHudView.TopPadding),
-                    new Vector2(420f, TimerHeight),
+                    new Vector2(resultActive ? 980f : 420f, TimerHeight),
                     new Vector2(0.5f, 1f));
             }
             else
@@ -177,7 +220,7 @@ namespace Game.Client.Match
                         timerText.rectTransform,
                         new Vector2(0.5f, 1f),
                         Vector2.zero,
-                        new Vector2(420f, TimerHeight),
+                        new Vector2(resultActive ? 980f : 420f, TimerHeight),
                         new Vector2(0.5f, 1f));
                 }
             }
@@ -195,6 +238,12 @@ namespace Game.Client.Match
 
         private void ApplyUrgency(double remainingSeconds)
         {
+            if (resultActive)
+            {
+                ApplyResult();
+                return;
+            }
+
             warningActive = IsWarning(remainingSeconds);
             if (timerText != null)
             {
@@ -213,6 +262,30 @@ namespace Game.Client.Match
             ApplyHintVisibility();
         }
 
+        private void ApplyResult()
+        {
+            warningActive = false;
+            if (timerText != null)
+            {
+                timerText.text = resultHeadline;
+                timerText.fontSize = TimerFontSize;
+                timerText.color = TimerColor;
+                timerText.font = HomeUiFonts.ApplyBlack();
+                timerText.enableWordWrapping = false;
+                timerText.overflowMode = TextOverflowModes.Overflow;
+            }
+
+            if (hintText != null)
+            {
+                hintText.text = resultSubtitle;
+                hintText.color = ResultSubtitleColor;
+                hintText.font = HomeUiFonts.Apply();
+                hintText.gameObject.SetActive(true);
+            }
+
+            ResetPulseScale();
+        }
+
         private void ApplyTimerTypeface()
         {
             if (timerText == null)
@@ -220,7 +293,7 @@ namespace Game.Client.Match
                 return;
             }
 
-            timerText.font = warningActive
+            timerText.font = warningActive || resultActive
                 ? HomeUiFonts.ApplyBlack()
                 : HomeUiFonts.Apply();
         }
@@ -254,7 +327,7 @@ namespace Game.Client.Match
         {
             if (hintText != null)
             {
-                hintText.gameObject.SetActive(hintAllowed && warningActive);
+                hintText.gameObject.SetActive(resultActive || (hintAllowed && warningActive));
             }
         }
 

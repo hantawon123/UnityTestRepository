@@ -16,6 +16,7 @@ namespace Game.Client.Match
         void SetPhase(MatchPhase phase, string hidingPlayerName);
         void SetRemainingSeconds(double remainingSeconds);
         void SetEndCountdown(double remainingSeconds);
+        void SetEndResult(string headline, string subtitle);
         void SetHighlightTitle(string title);
         void SetAssignedItem(string displayName);
         void SetPlayerItemStatuses(IReadOnlyList<PlayerItemStatusSnapshot> statuses);
@@ -202,8 +203,19 @@ namespace Game.Client.Match
             {
                 timerView?.SetRemainingSeconds(remainingSeconds);
             }
+            else
+            {
+                timerView?.ClearResult();
+            }
 
             timerView?.SetHintVisible(!showEndCountdown);
+            LateUpdate();
+        }
+
+        public void SetEndResult(string headline, string subtitle)
+        {
+            showEndCountdown = true;
+            timerView?.SetResult(headline, subtitle);
             LateUpdate();
         }
 

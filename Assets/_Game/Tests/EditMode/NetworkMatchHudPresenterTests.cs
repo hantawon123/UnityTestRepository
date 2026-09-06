@@ -18,7 +18,7 @@ namespace Game.Architecture.Tests
     {
         [TestCase(false)]
         [TestCase(true)]
-        public void GameEnd_CountsDownBeforeBlackTransition(bool phaseFirst)
+        public void GameEnd_FadesOutThenCoversBeforeResult(bool phaseFirst)
         {
             var network = new FakeNetwork { ServerTime = 100d };
             var view = new FakeView();
@@ -39,17 +39,19 @@ namespace Game.Architecture.Tests
                 Assert.DoesNotThrow(() => presenter.Tick());
                 Assert.DoesNotThrow(() => playback.Tick());
                 network.IsRuntimeReady = true;
-                for (var second = 0; second < 3; second++)
-                {
-                    network.ServerTime = 100d + second;
-                    presenter.Tick();
-                    playback.Tick();
-                    Assert.That(view.NoticeVisible, Is.True);
-                    Assert.That(view.Notice, Is.EqualTo("게임이 종료되었습니다!"));
-                    Assert.That(view.EndCountdown, Is.EqualTo(3 - second));
-                    Assert.That(transition.Opacity, Is.Zero);
-                }
-                network.ServerTime = 103d;
+                presenter.Tick();
+                playback.Tick();
+                Assert.That(view.EndHeadline, Is.Null.Or.Empty);
+                Assert.That(view.EndCountdown, Is.Zero);
+                Assert.That(transition.Opacity, Is.Zero);
+
+                network.ServerTime = 100d + (HighlightPresentationTiming.FadeSeconds * 0.5d);
+                presenter.Tick();
+                playback.Tick();
+                Assert.That(transition.Opacity, Is.EqualTo(0.5f).Within(0.001f));
+                Assert.That(view.EndHeadline, Is.Null.Or.Empty);
+
+                network.ServerTime = 100d + HighlightPresentationTiming.FadeSeconds;
                 presenter.Tick();
                 playback.Tick();
                 Assert.That(view.NoticeVisible, Is.False);
@@ -993,7 +995,24 @@ namespace Game.Architecture.Tests
             public MatchPhase Phase { get; private set; }
             public double RemainingSeconds { get; private set; }
             public double EndCountdown { get; private set; }
-            public void SetEndCountdown(double value) => EndCountdown = value;
+            public string EndHeadline { get; private set; }
+            public string EndSubtitle { get; private set; }
+
+            public void SetEndCountdown(double value)
+            {
+                EndCountdown = value;
+                if (value <= 0d)
+                {
+                    EndHeadline = null;
+                    EndSubtitle = null;
+                }
+            }
+
+            public void SetEndResult(string headline, string subtitle)
+            {
+                EndHeadline = headline;
+                EndSubtitle = subtitle;
+            }
             public string Notice { get; private set; }
             public bool NoticeVisible { get; private set; }
             public string AssignedItem { get; private set; }
