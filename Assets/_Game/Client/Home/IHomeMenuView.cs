@@ -41,6 +41,13 @@ namespace Game.Client.Home
         /// </summary>
         event Action FriendListRefreshRequested;
 
+        /// <summary>
+        /// An incoming request was answered, by the id of who sent it.
+        /// </summary>
+        event Action<string> FriendRequestAccepted;
+
+        event Action<string> FriendRequestRejected;
+
         void SetNickname(string nickname);
 
         void SetLevel(int level);
@@ -72,5 +79,10 @@ namespace Game.Client.Home
         void SetFriendSearchVisible(bool visible);
 
         void SetFriendSearchResults(IReadOnlyList<FriendSearchHit> results);
+
+        /// <summary>
+        /// The requests waiting to be answered, newest list wins.
+        /// </summary>
+        void SetIncomingRequests(IReadOnlyList<FriendSummary> requests);
     }
 }

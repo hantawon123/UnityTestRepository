@@ -150,6 +150,7 @@ namespace Game.Bootstrap
             builder.Register<HomeMenuSystem>(Lifetime.Singleton);
             builder.Register<FriendListSystem>(Lifetime.Singleton);
             builder.Register<FriendSearchSystem>(Lifetime.Singleton);
+            builder.Register<FriendRequestSystem>(Lifetime.Singleton);
 
             // One instance for the whole application. The home screen edits this
             // one and the network reads this one, so a rename is visible in both

@@ -111,8 +111,7 @@ namespace Game.Client.Home
                 HomeStyle.Friends.TabDividerThickness, HomeStyle.Friends.TabDividerHeight);
             AddImage(divider, HomeStyle.Palette.TabDivider);
 
-            CreateBadge(
-                friendRequestTab.transform.parent as RectTransform, friendRequestTab);
+            CreateBadge(friendRequestTab.transform.parent as RectTransform);
 
             // One rule across the whole panel, lit under whichever tab is
             // showing. Two separate underlines would leave a seam in the middle.
@@ -120,6 +119,16 @@ namespace Game.Client.Home
             requestRule = CreateTabRule(tabs, 0.5f, 1f);
         }
 
+        /// <summary>
+        /// One tab: a plate that takes the click, and a centred row holding the
+        /// label and, on the request tab, its count.
+        /// </summary>
+        /// <remarks>
+        /// The row is a layout group rather than a measured placement. Asking a
+        /// label for its width before Unity has laid it out gives an answer
+        /// that puts the badge on top of the text, and the group also recentres
+        /// the label on its own when the badge is hidden.
+        /// </remarks>
         private TMP_Text CreateTab(
             RectTransform parent, string label, float min, float max, Action onClicked)
         {
@@ -133,10 +142,24 @@ namespace Game.Client.Home
             // plate that takes the click across its whole width.
             var hit = AddImage(tab, Color.clear, raycastTarget: true);
 
-            var labelRect = CreateRect("Label", tab);
-            SetAnchor(labelRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
-            labelRect.offsetMin = Vector2.zero;
-            labelRect.offsetMax = Vector2.zero;
+            var row = CreateRect("Content", tab);
+            SetAnchor(row, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
+            row.anchoredPosition = Vector2.zero;
+            row.sizeDelta = new Vector2(0f, HomeStyle.Friends.TabHeight);
+
+            var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = HomeStyle.Friends.RefreshGap;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+
+            var fitter = row.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+            var labelRect = CreateRect("Label", row);
             var text = AddText(
                 labelRect,
                 label,
@@ -164,22 +187,17 @@ namespace Game.Client.Home
         }
 
         /// <summary>
-        /// The count that sits just after the tab's label.
+        /// The count that sits beside the tab's label, laid out by the same row.
         /// </summary>
-        /// <remarks>
-        /// Placed from the middle by half the label's width rather than pinned
-        /// to the tab's right edge: the label is centred, so the badge has to
-        /// follow the text rather than the panel.
-        /// </remarks>
-        private void CreateBadge(RectTransform tab, TMP_Text label)
+        private void CreateBadge(RectTransform row)
         {
-            label.ForceMeshUpdate();
-            var badge = CreateRect("Badge", tab);
-            SetAnchor(badge, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 0.5f));
-            badge.anchoredPosition = new Vector2(
-                (label.preferredWidth * 0.5f) + HomeStyle.Friends.RefreshGap, 0f);
+            var badge = CreateRect("Badge", row);
             badge.sizeDelta = new Vector2(
                 HomeStyle.Friends.BadgeDiameter, HomeStyle.Friends.BadgeDiameter);
+            var element = badge.gameObject.AddComponent<LayoutElement>();
+            element.preferredWidth = HomeStyle.Friends.BadgeDiameter;
+            element.preferredHeight = HomeStyle.Friends.BadgeDiameter;
+            element.minWidth = HomeStyle.Friends.BadgeDiameter;
             AddImage(badge, HomeStyle.Palette.BadgeFill, HomeUiFonts.CircleSprite);
 
             var labelRect = CreateRect("Count", badge);

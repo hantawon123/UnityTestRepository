@@ -109,6 +109,7 @@ namespace Game.Client.Home
         private readonly AppFlowSystem appFlow;
         private readonly INicknameAvailabilityCheck availability;
         private readonly ServerRegionSystem regions;
+        private readonly FriendRequestSystem requests;
         private bool isFriendListVisible;
         private bool isRequestTabOpen;
 
@@ -130,7 +131,8 @@ namespace Game.Client.Home
             FriendListSystem friends,
             FriendSearchSystem search,
             INicknameAvailabilityCheck availability,
-            ServerRegionSystem regions)
+            ServerRegionSystem regions,
+            FriendRequestSystem requests)
         {
             this.profile = profile ?? throw new ArgumentNullException(nameof(profile));
             this.menu = menu ?? throw new ArgumentNullException(nameof(menu));
@@ -143,6 +145,7 @@ namespace Game.Client.Home
             this.availability = availability
                 ?? throw new ArgumentNullException(nameof(availability));
             this.regions = regions ?? throw new ArgumentNullException(nameof(regions));
+            this.requests = requests ?? throw new ArgumentNullException(nameof(requests));
         }
 
         public void Start()
@@ -160,11 +163,16 @@ namespace Game.Client.Home
             view.FriendSearchRequested += OnFriendSearchRequested;
             view.FriendRequestClicked += OnFriendRequestClicked;
             view.FriendListRefreshRequested += OnFriendListRefreshRequested;
+            view.FriendRequestAccepted += OnFriendRequestAccepted;
+            view.FriendRequestRejected += OnFriendRequestRejected;
             profile.Changed += BindProfile;
             friends.FriendsChanged += BindFriends;
             search.ResultsChanged += BindSearchResults;
+            requests.Changed += BindRequests;
+            requests.Accepted += friends.AddFriend;
             BindProfile(profile);
             BindFriends();
+            BindRequests();
             HideFriendList();
             HideProfileSettings();
             view.SetServerSettingsVisible(false);
@@ -186,9 +194,13 @@ namespace Game.Client.Home
             view.FriendSearchRequested -= OnFriendSearchRequested;
             view.FriendRequestClicked -= OnFriendRequestClicked;
             view.FriendListRefreshRequested -= OnFriendListRefreshRequested;
+            view.FriendRequestAccepted -= OnFriendRequestAccepted;
+            view.FriendRequestRejected -= OnFriendRequestRejected;
             profile.Changed -= BindProfile;
             friends.FriendsChanged -= BindFriends;
             search.ResultsChanged -= BindSearchResults;
+            requests.Changed -= BindRequests;
+            requests.Accepted -= friends.AddFriend;
         }
 
         private void OnActionClicked(HomeMenuAction action)
@@ -450,6 +462,32 @@ namespace Game.Client.Home
             }
 
             return kept;
+        }
+
+        private void OnFriendRequestAccepted(string playerId)
+        {
+            requests.TryAccept(playerId);
+        }
+
+        private void OnFriendRequestRejected(string playerId)
+        {
+            requests.TryReject(playerId);
+        }
+
+        /// <summary>
+        /// The panel draws a name and two buttons, so the arrival time that
+        /// ordered the list is left behind here.
+        /// </summary>
+        private void BindRequests()
+        {
+            var incoming = requests.Incoming;
+            var senders = new FriendSummary[incoming.Count];
+            for (var index = 0; index < incoming.Count; index++)
+            {
+                senders[index] = incoming[index].Friend;
+            }
+
+            view.SetIncomingRequests(senders);
         }
 
         private void BindSearchResults()

@@ -46,6 +46,7 @@ namespace Game.Bootstrap
             {
                 var friendList = container.Resolve<FriendListSystem>();
                 var friendSearch = container.Resolve<FriendSearchSystem>();
+                var friendRequests = container.Resolve<FriendRequestSystem>();
                 if (friendList.OnlineFriends.Count > 0 || friendList.OfflineFriends.Count > 0)
                 {
                     return;
@@ -86,6 +87,22 @@ namespace Game.Bootstrap
                     new FriendSummary("preview-search-1", "금오산냥펀치", FriendPresence.Online),
                     new FriendSummary("preview-search-2", "금오산냥옹2", FriendPresence.Offline),
                     new FriendSummary("preview-search-3", "플레이어A", FriendPresence.Online)
+                });
+
+                // Out of order on purpose: the newest is listed first, so the
+                // one stamped now belongs at the top whatever its name is.
+                var now = System.DateTimeOffset.UtcNow;
+                friendRequests.ReplaceIncoming(new[]
+                {
+                    new FriendRequest(
+                        new FriendSummary("preview-request-1", "금오산고양이", FriendPresence.Online),
+                        now.AddMinutes(-30)),
+                    new FriendRequest(
+                        new FriendSummary("preview-request-2", "금오산고양이금오", FriendPresence.Offline),
+                        now),
+                    new FriendRequest(
+                        new FriendSummary("preview-request-3", "금오산고양이금오산고양이", FriendPresence.Online),
+                        now.AddMinutes(-5))
                 });
             });
         }
