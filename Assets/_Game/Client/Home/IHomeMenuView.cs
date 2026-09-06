@@ -36,6 +36,11 @@ namespace Game.Client.Home
 
         event Action<string> FriendRequestClicked;
 
+        /// <summary>
+        /// The player asked for the list to be read again.
+        /// </summary>
+        event Action FriendListRefreshRequested;
+
         void SetNickname(string nickname);
 
         void SetLevel(int level);

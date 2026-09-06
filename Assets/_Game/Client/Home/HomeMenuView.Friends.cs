@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using Game.Core.Home;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.UI;
 
 namespace Game.Client.Home
@@ -278,8 +280,8 @@ namespace Game.Client.Home
             input.customCaretColor = true;
             input.caretColor = HomeStyle.Palette.SearchText;
             input.characterLimit = NicknamePolicy.MaxLength;
-            input.onValueChanged.AddListener(value => FriendSearchRequested?.Invoke(value));
-            input.onSubmit.AddListener(value => FriendSearchRequested?.Invoke(value));
+            input.onValueChanged.AddListener(OnFriendSearchTyped);
+            input.onSubmit.AddListener(OnFriendSearchTyped);
             field.gameObject.SetActive(true);
             friendSearchInput = input;
         }
@@ -626,12 +628,71 @@ namespace Game.Client.Home
             return image;
         }
 
+        /// <summary>
+        /// What is in the box, including the syllable still being composed.
+        /// </summary>
+        /// <remarks>
+        /// A Korean keyboard hands over a syllable only once the next keystroke
+        /// settles it. Until then TextMeshPro draws the part-built glyph but
+        /// keeps it out of <c>text</c>, so filtering on <c>text</c> alone runs a
+        /// keystroke behind what the player can see. The composition is read
+        /// straight off the keyboard and put back on the front.
+        /// </remarks>
+        private string TypedFriendSearch =>
+            (friendSearchInput != null ? friendSearchInput.text : string.Empty) + composingText;
+
+        private void OnFriendSearchTyped(string value)
+        {
+            // Whatever was being composed is now part of the text.
+            composingText = string.Empty;
+            FriendSearchRequested?.Invoke(TypedFriendSearch);
+        }
+
+        private void OnComposingTextChanged(IMECompositionString composition)
+        {
+            var next = composition.ToString();
+            if (string.Equals(next, composingText, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            composingText = next;
+            FriendSearchRequested?.Invoke(TypedFriendSearch);
+        }
+
+        private void WatchComposition(bool watching)
+        {
+            var keyboard = Keyboard.current;
+            if (keyboard == null)
+            {
+                return;
+            }
+
+            keyboard.onIMECompositionChange -= OnComposingTextChanged;
+            if (watching)
+            {
+                keyboard.onIMECompositionChange += OnComposingTextChanged;
+            }
+        }
+
+        /// <summary>
+        /// Empties the box, the half-typed syllable with it.
+        /// </summary>
+        /// <remarks>
+        /// Clearing <c>text</c> alone leaves the composition on screen, because
+        /// it was never in <c>text</c> to begin with. Dropping focus is what
+        /// ends it.
+        /// </remarks>
         private void ClearFriendSearch()
         {
-            if (friendSearchInput != null)
+            composingText = string.Empty;
+            if (friendSearchInput == null)
             {
-                friendSearchInput.text = string.Empty;
+                return;
             }
+
+            friendSearchInput.DeactivateInputField();
+            friendSearchInput.text = string.Empty;
         }
 
         /// <summary>

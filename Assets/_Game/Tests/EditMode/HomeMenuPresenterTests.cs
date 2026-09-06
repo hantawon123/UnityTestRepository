@@ -316,7 +316,7 @@ namespace Game.Tests.EditMode
 
             view.Raise(HomeMenuAction.Friends);
             view.RaiseFriendSearchOpened();
-            view.RaiseFriendSearchRequested("검색");
+            view.RaiseFriendSearchRequested("검색유저");
 
             Assert.That(view.SearchResults.Count, Is.EqualTo(1));
             Assert.That(view.SearchResults[0].Nickname, Is.EqualTo("검색유저"));
@@ -325,6 +325,85 @@ namespace Game.Tests.EditMode
             view.RaiseFriendRequestClicked("player-2");
 
             Assert.That(view.SearchResults[0].IsPending, Is.True);
+        }
+
+        [Test]
+        public void Presenter_ListTabSearch_NarrowsTheFriendsShown()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out var friends, out _);
+            friends.ReplaceFriends(new[]
+            {
+                new FriendSummary("p1", "가나다", FriendPresence.Online),
+                new FriendSummary("p2", "나비야", FriendPresence.Online),
+                new FriendSummary("p3", "다람쥐", FriendPresence.Offline)
+            });
+            view.Raise(HomeMenuAction.Friends);
+
+            view.RaiseFriendSearchRequested("나");
+
+            Assert.That(view.OnlineFriends.Count, Is.EqualTo(2), "가나다와 나비야가 남아야 한다.");
+            Assert.That(view.OfflineFriends, Is.Empty);
+
+            view.RaiseFriendSearchRequested(string.Empty);
+            Assert.That(view.OnlineFriends.Count, Is.EqualTo(2));
+            Assert.That(view.OfflineFriends.Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Presenter_SwitchingTabs_DropsTheListFilter()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out var friends, out _);
+            friends.ReplaceFriends(new[]
+            {
+                new FriendSummary("p1", "가나다", FriendPresence.Online),
+                new FriendSummary("p2", "다람쥐", FriendPresence.Online)
+            });
+            view.Raise(HomeMenuAction.Friends);
+            view.RaiseFriendSearchRequested("가");
+            Assert.That(view.OnlineFriends.Count, Is.EqualTo(1));
+
+            // The box is shared and the view empties it on the way across, so a
+            // filter left behind would hide friends nobody asked to hide.
+            view.RaiseFriendSearchOpened();
+            view.RaiseFriendSearchClosed();
+
+            Assert.That(view.OnlineFriends.Count, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Presenter_RequestTabSearch_MatchesTheWholeNicknameOnly()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out var search);
+            search.ReplaceDirectory(new[]
+            {
+                new FriendSummary("p1", "금오산냥펀치", FriendPresence.Online),
+                new FriendSummary("p2", "금오산냥옹2", FriendPresence.Online)
+            });
+            view.Raise(HomeMenuAction.Friends);
+            view.RaiseFriendSearchOpened();
+
+            view.RaiseFriendSearchRequested("금오산");
+            Assert.That(view.SearchResults, Is.Empty, "부분 일치로는 아무도 나오면 안 된다.");
+
+            view.RaiseFriendSearchRequested("금오산냥펀치");
+            Assert.That(view.SearchResults.Count, Is.EqualTo(1));
+            Assert.That(view.SearchResults[0].Nickname, Is.EqualTo("금오산냥펀치"));
+        }
+
+        [Test]
+        public void Presenter_Refresh_RedrawsTheList()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out var friends, out _);
+            view.Raise(HomeMenuAction.Friends);
+            Assert.That(view.OnlineFriends, Is.Empty);
+
+            friends.ReplaceFriends(new[]
+            {
+                new FriendSummary("p1", "가나다", FriendPresence.Online)
+            });
+            view.RaiseRefresh();
+
+            Assert.That(view.OnlineFriends.Count, Is.EqualTo(1));
         }
 
         [Test]
@@ -723,6 +802,8 @@ namespace Game.Tests.EditMode
 
             public event Action<string> FriendRequestClicked;
 
+            public event Action FriendListRefreshRequested;
+
             public void SetNickname(string nickname)
             {
                 Nickname = nickname;
@@ -808,6 +889,11 @@ namespace Game.Tests.EditMode
             public void RaiseRegionSelected(string code)
             {
                 RegionSelected?.Invoke(code);
+            }
+
+            public void RaiseRefresh()
+            {
+                FriendListRefreshRequested?.Invoke();
             }
 
             public void RaiseServerSettingsDismissed()

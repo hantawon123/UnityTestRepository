@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Core.Flow;
 using Game.Core.Home;
 using UnityEngine;
@@ -109,6 +110,14 @@ namespace Game.Client.Home
         private readonly INicknameAvailabilityCheck availability;
         private readonly ServerRegionSystem regions;
         private bool isFriendListVisible;
+        private bool isRequestTabOpen;
+
+        /// <summary>
+        /// What was typed while the list tab was showing. Held here because the
+        /// list is rebuilt from the friend system whenever it changes, and the
+        /// filter has to survive that.
+        /// </summary>
+        private string listFilter = string.Empty;
         private bool isProfileSettingsVisible;
         private bool isServerSettingsVisible;
 
@@ -150,6 +159,7 @@ namespace Game.Client.Home
             view.FriendSearchClosed += OnFriendSearchClosed;
             view.FriendSearchRequested += OnFriendSearchRequested;
             view.FriendRequestClicked += OnFriendRequestClicked;
+            view.FriendListRefreshRequested += OnFriendListRefreshRequested;
             profile.Changed += BindProfile;
             friends.FriendsChanged += BindFriends;
             search.ResultsChanged += BindSearchResults;
@@ -175,6 +185,7 @@ namespace Game.Client.Home
             view.FriendSearchClosed -= OnFriendSearchClosed;
             view.FriendSearchRequested -= OnFriendSearchRequested;
             view.FriendRequestClicked -= OnFriendRequestClicked;
+            view.FriendListRefreshRequested -= OnFriendListRefreshRequested;
             profile.Changed -= BindProfile;
             friends.FriendsChanged -= BindFriends;
             search.ResultsChanged -= BindSearchResults;
@@ -284,19 +295,52 @@ namespace Game.Client.Home
 
         private void OnFriendSearchOpened()
         {
+            // The box is shared, and the view empties it on the way across, so
+            // the list's filter goes with it.
+            isRequestTabOpen = true;
+            listFilter = string.Empty;
             search.ClearResults();
             view.SetFriendSearchVisible(true);
+            BindFriends();
             BindSearchResults();
         }
 
         private void OnFriendSearchClosed()
         {
+            isRequestTabOpen = false;
+            listFilter = string.Empty;
             HideFriendSearch();
+            BindFriends();
         }
 
+        /// <summary>
+        /// One box, two jobs: on the request tab it asks the directory for a
+        /// player, and on the list tab it narrows the friends already shown.
+        /// </summary>
         private void OnFriendSearchRequested(string query)
         {
-            search.Search(query, CollectFriendIds());
+            if (isRequestTabOpen)
+            {
+                search.Search(query, CollectFriendIds());
+                return;
+            }
+
+            listFilter = query == null ? string.Empty : query.Trim();
+            BindFriends();
+        }
+
+        /// <summary>
+        /// Reads the list again. With no service behind it yet this only
+        /// redraws, which is still worth having: it is the one control that
+        /// picks up a friend who came online while the panel was open.
+        /// </summary>
+        private void OnFriendListRefreshRequested()
+        {
+            BindFriends();
+            if (isRequestTabOpen)
+            {
+                BindSearchResults();
+            }
         }
 
         private void OnFriendRequestClicked(string playerId)
@@ -381,7 +425,31 @@ namespace Game.Client.Home
 
         private void BindFriends()
         {
-            view.SetFriends(friends.OnlineFriends, friends.OfflineFriends);
+            view.SetFriends(
+                Filtered(friends.OnlineFriends), Filtered(friends.OfflineFriends));
+        }
+
+        /// <summary>
+        /// The friends whose nickname contains what was typed. One character is
+        /// enough to start narrowing; nothing typed shows everyone.
+        /// </summary>
+        private IReadOnlyList<FriendSummary> Filtered(IReadOnlyList<FriendSummary> source)
+        {
+            if (listFilter.Length == 0)
+            {
+                return source;
+            }
+
+            var kept = new List<FriendSummary>();
+            for (var index = 0; index < source.Count; index++)
+            {
+                if (source[index].Nickname.IndexOf(listFilter, StringComparison.Ordinal) >= 0)
+                {
+                    kept.Add(source[index]);
+                }
+            }
+
+            return kept;
         }
 
         private void BindSearchResults()

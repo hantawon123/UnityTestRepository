@@ -80,6 +80,12 @@ namespace Game.Client.Home
         private GameObject requestBadge;
         private TMP_Text requestBadgeText;
         private bool isRequestTabOpen;
+
+        /// <summary>
+        /// The syllable the IME is still building, which never reaches the
+        /// input field's own text.
+        /// </summary>
+        private string composingText = string.Empty;
         private TMP_InputField friendSearchInput;
         private TMP_Text searchEmptyText;
         private Button dismissButton;
@@ -152,6 +158,8 @@ namespace Game.Client.Home
             {
                 profileNicknameInput.onValueChanged.RemoveAllListeners();
             }
+
+            WatchComposition(false);
         }
 
         public void SetNickname(string nickname)
@@ -218,6 +226,10 @@ namespace Game.Client.Home
 
             SetFriendSearchVisible(false);
             friendListRoot.SetActive(visible);
+
+            // The keyboard is the whole application's, so the panel stops
+            // listening to it the moment it goes away.
+            WatchComposition(visible);
         }
 
         public void SetFriends(
@@ -252,10 +264,8 @@ namespace Game.Client.Home
 
             // The box is shared by both tabs, so what was typed on one would
             // otherwise still be filtering the other.
-            if (friendSearchInput != null && friendSearchInput.text.Length > 0)
-            {
-                friendSearchInput.text = string.Empty;
-            }
+            ClearFriendSearch();
+            WatchComposition(true);
 
             UpdateSearchEmptyHint(Array.Empty<FriendSearchHit>());
         }
