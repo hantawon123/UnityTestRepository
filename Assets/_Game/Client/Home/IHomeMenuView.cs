@@ -28,11 +28,6 @@ namespace Game.Client.Home
 
         event Action<string> NicknameChangeRequested;
 
-        /// <summary>
-        /// The player asked whether the name they typed is free.
-        /// </summary>
-        event Action<string> NicknameDuplicateCheckRequested;
-
         event Action<string> NicknameEdited;
 
         event Action FriendSearchOpened;
@@ -64,8 +59,7 @@ namespace Game.Client.Home
         void SetNicknameAppliedFeedbackVisible(bool visible);
 
         /// <summary>
-        /// The answer to the last check, which is also what decides whether the
-        /// apply button is open.
+        /// How the attempt to take a name went.
         /// </summary>
         void SetNicknameAvailability(NicknameCheckOutcome outcome);
 

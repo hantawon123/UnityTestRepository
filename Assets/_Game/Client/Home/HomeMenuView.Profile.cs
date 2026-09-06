@@ -7,8 +7,8 @@ using UnityEngine.UI;
 namespace Game.Client.Home
 {
     /// <summary>
-    /// The nickname panel: the search-allow toggle, the field with its
-    /// duplicate check, and the apply button under them.
+    /// The nickname panel: the search-allow toggle, the name field, and the
+    /// apply button under them.
     /// </summary>
     /// <remarks>
     /// Kept apart from the rest of the screen because the rules are its own.
@@ -18,11 +18,6 @@ namespace Game.Client.Home
     /// </remarks>
     public sealed partial class HomeMenuView
     {
-        /// <summary>
-        /// Raised when the player asks whether the typed name is free.
-        /// </summary>
-        public event Action<string> NicknameDuplicateCheckRequested;
-
         /// <summary>
         /// Raised when the search-allow toggle is flipped, with its new state.
         /// </summary>
@@ -74,6 +69,7 @@ namespace Game.Client.Home
             profileSettingsRoot = root.gameObject;
             SetNicknameSearchAllowed(false);
             ClearNicknameMessage();
+            UpdateNicknameApplyEnabled();
         }
 
         private void CreateSearchAllowToggle(RectTransform panel)
@@ -154,10 +150,7 @@ namespace Game.Client.Home
             var viewport = CreateRect("TextArea", field);
             SetAnchor(viewport, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
             viewport.offsetMin = new Vector2(HomeStyle.Profile.InputTextPadding, 4f);
-            viewport.offsetMax = new Vector2(
-                -(HomeStyle.Profile.CheckSize.x
-                    + (HomeStyle.Profile.CheckRightInset * 2f)),
-                -4f);
+            viewport.offsetMax = new Vector2(-HomeStyle.Profile.InputTextPadding, -4f);
             viewport.gameObject.AddComponent<RectMask2D>();
 
             var textRect = CreateRect("Text", viewport);
@@ -192,43 +185,6 @@ namespace Game.Client.Home
             input.onValueChanged.AddListener(OnNicknameEdited);
             field.gameObject.SetActive(true);
             profileNicknameInput = input;
-
-            CreateDuplicateCheckButton(field);
-        }
-
-        private void CreateDuplicateCheckButton(RectTransform field)
-        {
-            var check = CreateRect("DuplicateCheckButton", field);
-            SetAnchor(check, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
-            check.anchoredPosition = new Vector2(-HomeStyle.Profile.CheckRightInset, 0f);
-            check.sizeDelta = HomeStyle.Profile.CheckSize;
-
-            var fill = AddImage(
-                check,
-                HomeStyle.Palette.CheckFill,
-                HomeUiFonts.Rounded(HomeStyle.Radius.Check),
-                raycastTarget: true);
-            fill.type = Image.Type.Sliced;
-            fill.pixelsPerUnitMultiplier = 1f;
-
-            var labelRect = CreateRect("Label", check);
-            SetAnchor(labelRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
-            labelRect.offsetMin = Vector2.zero;
-            labelRect.offsetMax = Vector2.zero;
-            var label = AddText(
-                labelRect,
-                "중복확인",
-                HomeStyle.FontSize.Check,
-                FontStyles.Normal,
-                TextAlignmentOptions.Center);
-            ApplyMenuFont(label);
-            label.color = HomeStyle.Palette.CheckLabel;
-
-            var button = check.gameObject.AddComponent<Button>();
-            button.targetGraphic = fill;
-            button.transition = Selectable.Transition.None;
-            button.onClick.AddListener(OnDuplicateCheckClicked);
-            menuButtons.Add(button);
         }
 
         /// <summary>
@@ -340,54 +296,43 @@ namespace Game.Client.Home
             }
 
             UpdateNicknameCounter(accepted);
-
-            // Anything typed after a check invalidates it: what was found free
-            // was the old spelling.
-            SetNicknameApplyEnabled(false);
+            UpdateNicknameApplyEnabled();
             NicknameEdited?.Invoke(accepted);
         }
 
-        private void OnDuplicateCheckClicked()
-        {
-            var nickname = profileNicknameInput != null
-                ? profileNicknameInput.text
-                : string.Empty;
-            if (nickname.Length < NicknamePolicy.MinLength)
-            {
-                ShowNicknameMessage(
-                    $"최소 {NicknamePolicy.MinLength}글자 이상 작성해주세요",
-                    HomeStyle.Palette.MessageRejected);
-                SetNicknameApplyEnabled(false);
-                return;
-            }
-
-            // Typing lets bare jamo through so a Korean keyboard can compose;
-            // the server does not. Anything left half-composed is refused here
-            // rather than spending a round trip to be told the same.
-            if (!NicknamePolicy.IsValid(nickname))
-            {
-                ShowNicknameMessage(
-                    HomeStyle.Profile.BadCharacterMessage, HomeStyle.Palette.MessageRejected);
-                SetNicknameApplyEnabled(false);
-                return;
-            }
-
-            NicknameDuplicateCheckRequested?.Invoke(nickname);
-        }
-
         /// <summary>
-        /// Answers the check: says what came back and opens or shuts the apply
-        /// button to match.
+        /// Says how the attempt went. Only a refusal is worth a line: a name
+        /// that was accepted is already showing on the chip.
         /// </summary>
         public void SetNicknameAvailability(NicknameCheckOutcome outcome)
         {
-            var available = outcome == NicknameCheckOutcome.Available;
-            ShowNicknameMessage(
-                DescribeOutcome(outcome),
-                available
-                    ? HomeStyle.Palette.MessageAccepted
-                    : HomeStyle.Palette.MessageRejected);
-            SetNicknameApplyEnabled(available);
+            if (outcome == NicknameCheckOutcome.Available)
+            {
+                ClearNicknameMessage();
+                return;
+            }
+
+            ShowNicknameMessage(DescribeOutcome(outcome), HomeStyle.Palette.MessageRejected);
+        }
+
+        /// <summary>
+        /// Apply is open for any name the rule allows that is not the one
+        /// already in use.
+        /// </summary>
+        /// <remarks>
+        /// Excluding the current name matters: asking whether your own nickname
+        /// is taken comes back yes, and the panel would answer a press with
+        /// "이미 존재하는 닉네임입니다" about the name you already own.
+        /// </remarks>
+        private void UpdateNicknameApplyEnabled()
+        {
+            var typed = profileNicknameInput != null
+                ? profileNicknameInput.text
+                : string.Empty;
+
+            SetNicknameApplyEnabled(
+                NicknamePolicy.IsValid(typed)
+                && !string.Equals(typed, currentNickname, StringComparison.Ordinal));
         }
 
         private static string DescribeOutcome(NicknameCheckOutcome outcome)
@@ -477,10 +422,26 @@ namespace Game.Client.Home
             ShowNicknameMessage(string.Empty, HomeStyle.Palette.MessageRejected);
         }
 
+        /// <summary>
+        /// Hands the name over. Whether anyone else has it is the presenter's
+        /// question to ask.
+        /// </summary>
         private void OnChangeNicknameClicked()
         {
-            NicknameChangeRequested?.Invoke(
-                profileNicknameInput != null ? profileNicknameInput.text : string.Empty);
+            var typed = profileNicknameInput != null
+                ? profileNicknameInput.text
+                : string.Empty;
+
+            // Half-composed Hangul is allowed into the field so a Korean
+            // keyboard can build a syllable; it must not leave it.
+            if (!NicknamePolicy.IsValid(typed))
+            {
+                ShowNicknameMessage(
+                    HomeStyle.Profile.BadCharacterMessage, HomeStyle.Palette.MessageRejected);
+                return;
+            }
+
+            NicknameChangeRequested?.Invoke(typed);
         }
     }
 }

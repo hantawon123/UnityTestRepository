@@ -740,33 +740,48 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Presenter_DuplicateCheck_AsksAndReportsBack()
+        public void Presenter_ApplyingATakenNickname_SaysSoAndKeepsTheOldOne()
         {
             using var presenter = CreateStartedPresenter(
                 out var view, out _, out _, out _, out _, out var availability);
             view.Raise(HomeMenuAction.ProfileSettings);
 
             availability.Answer = NicknameCheckOutcome.Taken;
-            view.RaiseDuplicateCheck("금오산냥냥이");
+            view.RaiseNicknameChangeRequested("금오산냥냥이");
 
             Assert.That(availability.LastAsked, Is.EqualTo("금오산냥냥이"));
             Assert.That(view.LastAvailability, Is.EqualTo(NicknameCheckOutcome.Taken));
+            Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"), "거절당한 이름이 적용되면 안 된다.");
         }
 
         [Test]
-        public void Presenter_DuplicateCheck_IgnoredUntilProfileSettingsIsOpen()
+        public void Presenter_ApplyingAFreeNickname_TakesIt()
+        {
+            using var presenter = CreateStartedPresenter(
+                out var view, out _, out _, out _, out _, out var availability);
+            view.Raise(HomeMenuAction.ProfileSettings);
+
+            availability.Answer = NicknameCheckOutcome.Available;
+            view.RaiseNicknameChangeRequested("새로운이름");
+
+            Assert.That(view.Nickname, Is.EqualTo("새로운이름"));
+            Assert.That(view.LastAvailability, Is.EqualTo(NicknameCheckOutcome.Available));
+        }
+
+        [Test]
+        public void Presenter_ApplyingIsIgnoredUntilProfileSettingsIsOpen()
         {
             using var presenter = CreateStartedPresenter(
                 out var view, out _, out _, out _, out _, out var availability);
 
-            view.RaiseDuplicateCheck("금오산냥냥이");
+            view.RaiseNicknameChangeRequested("새로운이름");
 
             Assert.That(availability.AskCount, Is.Zero);
-            Assert.That(view.LastAvailability, Is.Null);
+            Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"));
         }
 
         [Test]
-        public void Presenter_DuplicateCheck_AnswerAfterClosingIsDropped()
+        public void Presenter_AnAnswerThatArrivesAfterClosing_IsDropped()
         {
             using var presenter = CreateStartedPresenter(
                 out var view, out _, out _, out _, out _, out var availability);
@@ -774,16 +789,16 @@ namespace Game.Tests.EditMode
 
             availability.Defer = true;
             availability.Answer = NicknameCheckOutcome.Available;
-            view.RaiseDuplicateCheck("금오산냥냥이");
-            Assert.That(view.LastAvailability, Is.Null, "답이 오기 전인데 이미 반영되었다.");
+            view.RaiseNicknameChangeRequested("새로운이름");
+            Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"), "답이 오기 전인데 이미 바뀌었다.");
 
             view.RaiseProfileSettingsDismissed();
             availability.AnswerNow();
 
             Assert.That(
-                view.LastAvailability,
-                Is.Null,
-                "닫힌 패널에 늦게 온 답이 반영되면 다음에 열 때 적용 버튼이 켜져 있다.");
+                view.Nickname,
+                Is.EqualTo("사용자닉네임"),
+                "닫힌 패널의 답으로 이름이 바뀌면 안 된다.");
         }
 
         [Test]
@@ -1013,8 +1028,6 @@ namespace Game.Tests.EditMode
 
             public event Action<string> NicknameChangeRequested;
 
-            public event Action<string> NicknameDuplicateCheckRequested;
-
             public event Action<string> NicknameEdited;
 
             public event Action FriendSearchOpened;
@@ -1079,11 +1092,6 @@ namespace Game.Tests.EditMode
             public void RaiseCreateRoomDismissed()
             {
                 CreateRoomDismissed?.Invoke();
-            }
-
-            public void RaiseDuplicateCheck(string nickname)
-            {
-                NicknameDuplicateCheckRequested?.Invoke(nickname);
             }
 
             public void SetFriendListVisible(bool visible)

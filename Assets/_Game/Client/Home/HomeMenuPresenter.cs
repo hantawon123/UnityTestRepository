@@ -180,7 +180,6 @@ namespace Game.Client.Home
             view.RoomCreationRequested += OnRoomCreationRequested;
             view.CreateRoomDismissed += OnCreateRoomDismissed;
             view.NicknameChangeRequested += OnNicknameChangeRequested;
-            view.NicknameDuplicateCheckRequested += OnNicknameDuplicateCheckRequested;
             view.NicknameEdited += OnNicknameEdited;
             view.FriendSearchOpened += OnFriendSearchOpened;
             view.FriendSearchClosed += OnFriendSearchClosed;
@@ -214,7 +213,6 @@ namespace Game.Client.Home
             view.RoomCreationRequested -= OnRoomCreationRequested;
             view.CreateRoomDismissed -= OnCreateRoomDismissed;
             view.NicknameChangeRequested -= OnNicknameChangeRequested;
-            view.NicknameDuplicateCheckRequested -= OnNicknameDuplicateCheckRequested;
             view.NicknameEdited -= OnNicknameEdited;
             view.FriendSearchOpened -= OnFriendSearchOpened;
             view.FriendSearchClosed -= OnFriendSearchClosed;
@@ -290,29 +288,19 @@ namespace Game.Client.Home
             }
         }
 
-        private void OnNicknameChangeRequested(string nickname)
-        {
-            if (!isProfileSettingsVisible)
-            {
-                return;
-            }
-
-            if (profile.TryChangeNickname(nickname, out _))
-            {
-                view.SetNicknameAppliedFeedbackVisible(true);
-            }
-        }
-
         /// <summary>
-        /// Passes the question on, and hands whatever comes back to the panel.
+        /// Asks whether the name is free, and takes it if it is.
         /// </summary>
         /// <remarks>
+        /// The check happens on the way to applying rather than as a step of
+        /// its own, so there is nothing for the player to remember to press and
+        /// no stale verdict to invalidate when they carry on typing.
+        /// <para>
         /// The answer may arrive later than the ask, so the panel is only told
-        /// while it is still the thing on screen: a reply that lands after the
-        /// player has closed it would light up an apply button nobody can see,
-        /// and it would still be lit the next time they open the panel.
+        /// while it is still the thing on screen.
+        /// </para>
         /// </remarks>
-        private void OnNicknameDuplicateCheckRequested(string nickname)
+        private void OnNicknameChangeRequested(string nickname)
         {
             if (!isProfileSettingsVisible)
             {
@@ -321,10 +309,22 @@ namespace Game.Client.Home
 
             availability.Check(nickname, outcome =>
             {
-                if (isProfileSettingsVisible)
+                if (!isProfileSettingsVisible)
                 {
-                    view.SetNicknameAvailability(outcome);
+                    return;
                 }
+
+                if (outcome == NicknameCheckOutcome.Available
+                    && profile.TryChangeNickname(nickname, out _))
+                {
+                    view.SetNicknameAvailability(NicknameCheckOutcome.Available);
+                    return;
+                }
+
+                view.SetNicknameAvailability(
+                    outcome == NicknameCheckOutcome.Available
+                        ? NicknameCheckOutcome.Rejected
+                        : outcome);
             });
         }
 

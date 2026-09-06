@@ -129,6 +129,12 @@ namespace Game.Client.Home
         /// </summary>
         private bool isRewritingNickname;
 
+        /// <summary>
+        /// The name in use, so the apply button can tell a change from a
+        /// re-typing of what is already there.
+        /// </summary>
+        private string currentNickname = string.Empty;
+
         public event Action<HomeMenuAction> ActionClicked;
 
         public event Action FriendListDismissed;
@@ -202,7 +208,10 @@ namespace Game.Client.Home
                 profileNicknameInput.text = nickname;
             }
 
-            UpdateNicknameCounter(nickname ?? string.Empty);
+            currentNickname = nickname ?? string.Empty;
+            UpdateNicknameCounter(currentNickname);
+            ClearNicknameMessage();
+            UpdateNicknameApplyEnabled();
         }
 
         /// <summary>
