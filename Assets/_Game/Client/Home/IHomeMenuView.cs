@@ -14,6 +14,11 @@ namespace Game.Client.Home
 
         event Action ServerSettingsDismissed;
 
+        /// <summary>
+        /// The code of the region the player picked.
+        /// </summary>
+        event Action<string> RegionSelected;
+
         event Action<string> NicknameChangeRequested;
 
         /// <summary>

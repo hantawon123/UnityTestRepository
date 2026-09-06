@@ -50,6 +50,13 @@ namespace Game.Bootstrap
                 LoadProfile(store),
                 _networkRegion);
             builder.RegisterInstance<IProfileStore>(store);
+
+            // Built here for the same reason the profile store is: it reads
+            // this machine's preferences, and a test container must not pick up
+            // whichever region the developer last chose.
+            var regionStore = new PlayerPrefsServerRegionStore();
+            builder.RegisterInstance<IServerRegionStore>(regionStore);
+            builder.RegisterInstance(new ServerRegionSystem(regionStore));
             // Shared across Playground and Result so scene unloading cannot reveal gameplay.
             var transition = new GameObject("Highlight Transition").AddComponent<HighlightTransitionView>();
             transition.transform.SetParent(transform, false);

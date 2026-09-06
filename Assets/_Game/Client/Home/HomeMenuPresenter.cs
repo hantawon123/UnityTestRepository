@@ -107,6 +107,7 @@ namespace Game.Client.Home
         private readonly IHomeApplicationHost applicationHost;
         private readonly AppFlowSystem appFlow;
         private readonly INicknameAvailabilityCheck availability;
+        private readonly ServerRegionSystem regions;
         private bool isFriendListVisible;
         private bool isProfileSettingsVisible;
         private bool isServerSettingsVisible;
@@ -119,7 +120,8 @@ namespace Game.Client.Home
             AppFlowSystem appFlow,
             FriendListSystem friends,
             FriendSearchSystem search,
-            INicknameAvailabilityCheck availability)
+            INicknameAvailabilityCheck availability,
+            ServerRegionSystem regions)
         {
             this.profile = profile ?? throw new ArgumentNullException(nameof(profile));
             this.menu = menu ?? throw new ArgumentNullException(nameof(menu));
@@ -131,6 +133,7 @@ namespace Game.Client.Home
             this.search = search ?? throw new ArgumentNullException(nameof(search));
             this.availability = availability
                 ?? throw new ArgumentNullException(nameof(availability));
+            this.regions = regions ?? throw new ArgumentNullException(nameof(regions));
         }
 
         public void Start()
@@ -139,6 +142,7 @@ namespace Game.Client.Home
             view.FriendListDismissed += HideFriendList;
             view.ProfileSettingsDismissed += HideProfileSettings;
             view.ServerSettingsDismissed += HideServerSettings;
+            view.RegionSelected += OnRegionSelected;
             view.NicknameChangeRequested += OnNicknameChangeRequested;
             view.NicknameDuplicateCheckRequested += OnNicknameDuplicateCheckRequested;
             view.NicknameEdited += OnNicknameEdited;
@@ -154,7 +158,7 @@ namespace Game.Client.Home
             HideFriendList();
             HideProfileSettings();
             view.SetServerSettingsVisible(false);
-            view.SetSelectedRegion(ServerRegionCatalog.Default.Code);
+            view.SetSelectedRegion(regions.Current.Code);
         }
 
         public void Dispose()
@@ -163,6 +167,7 @@ namespace Game.Client.Home
             view.FriendListDismissed -= HideFriendList;
             view.ProfileSettingsDismissed -= HideProfileSettings;
             view.ServerSettingsDismissed -= HideServerSettings;
+            view.RegionSelected -= OnRegionSelected;
             view.NicknameChangeRequested -= OnNicknameChangeRequested;
             view.NicknameDuplicateCheckRequested -= OnNicknameDuplicateCheckRequested;
             view.NicknameEdited -= OnNicknameEdited;
@@ -316,6 +321,18 @@ namespace Game.Client.Home
             HideFriendSearch();
             isFriendListVisible = false;
             view.SetFriendListVisible(false);
+        }
+
+        /// <summary>
+        /// Records the pick. The panel has already moved its own mark, so this
+        /// only puts the mark back when the code was not one we offer.
+        /// </summary>
+        private void OnRegionSelected(string code)
+        {
+            if (!regions.TrySelect(code))
+            {
+                view.SetSelectedRegion(regions.Current.Code);
+            }
         }
 
         private void SetServerSettingsVisible(bool visible)

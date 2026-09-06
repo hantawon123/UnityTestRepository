@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Core.Flow;
 using Game.Core.Home;
+using Game.Core.Ports;
 using NUnit.Framework;
 
 namespace Game.Tests.EditMode
@@ -24,7 +25,8 @@ namespace Game.Tests.EditMode
 
             using (var presenter = new HomeMenuPresenter(
                 profile, menu, view, host, appFlow, friends, search,
-                new FakeNicknameAvailabilityCheck()))
+                new FakeNicknameAvailabilityCheck(),
+                new ServerRegionSystem(new InMemoryServerRegionStore())))
             {
                 presenter.Start();
                 Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"));
@@ -350,6 +352,75 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Presenter_PickingARegion_WritesItDown()
+        {
+            using var presenter = CreateStartedPresenter(
+                out var view, out _, out _, out _, out _, out _, out var regionStore);
+
+            view.RaiseRegionSelected("eu");
+
+            Assert.That(regionStore.TryLoad(out var saved), Is.True);
+            Assert.That(saved, Is.EqualTo("eu"));
+        }
+
+        [Test]
+        public void Presenter_StartsOnTheRegionSavedLastTime()
+        {
+            var store = new InMemoryServerRegionStore("eu");
+            var view = new FakeHomeMenuView();
+            using var presenter = new HomeMenuPresenter(
+                new PlayerProfile("사용자닉네임", 1),
+                new HomeMenuSystem(),
+                view,
+                new FakeHomeApplicationHost(),
+                new AppFlowSystem(),
+                new FriendListSystem(),
+                new FriendSearchSystem(),
+                new FakeNicknameAvailabilityCheck(),
+                new ServerRegionSystem(store));
+
+            presenter.Start();
+
+            Assert.That(view.SelectedRegion, Is.EqualTo("eu"));
+        }
+
+        [Test]
+        public void Presenter_ARegionWeNoLongerOffer_FallsBackToTheDefault()
+        {
+            // A code saved by an older build, or one dropped from the
+            // catalogue. Keeping it would leave the picker showing nothing
+            // chosen while the game connected somewhere unnamed.
+            var store = new InMemoryServerRegionStore("mars");
+            var view = new FakeHomeMenuView();
+            using var presenter = new HomeMenuPresenter(
+                new PlayerProfile("사용자닉네임", 1),
+                new HomeMenuSystem(),
+                view,
+                new FakeHomeApplicationHost(),
+                new AppFlowSystem(),
+                new FriendListSystem(),
+                new FriendSearchSystem(),
+                new FakeNicknameAvailabilityCheck(),
+                new ServerRegionSystem(store));
+
+            presenter.Start();
+
+            Assert.That(view.SelectedRegion, Is.EqualTo(ServerRegionCatalog.Default.Code));
+        }
+
+        [Test]
+        public void Presenter_AnUnknownRegion_IsRefusedAndTheMarkPutBack()
+        {
+            using var presenter = CreateStartedPresenter(
+                out var view, out _, out _, out _, out _, out _, out var regionStore);
+
+            view.RaiseRegionSelected("mars");
+
+            Assert.That(regionStore.SaveCount, Is.Zero);
+            Assert.That(view.SelectedRegion, Is.EqualTo(ServerRegionCatalog.Default.Code));
+        }
+
+        [Test]
         public void Presenter_ClickOutsideRegionPicker_ClosesIt()
         {
             using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
@@ -453,30 +524,34 @@ namespace Game.Tests.EditMode
             var friends = new FriendListSystem();
             var search = new FriendSearchSystem();
             var availability = new FakeNicknameAvailabilityCheck();
+            var regions = new ServerRegionSystem(new InMemoryServerRegionStore());
 
             Assert.That(
-                () => new HomeMenuPresenter(null, menu, view, host, appFlow, friends, search, availability),
+                () => new HomeMenuPresenter(null, menu, view, host, appFlow, friends, search, availability, regions),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, null, view, host, appFlow, friends, search, availability),
+                () => new HomeMenuPresenter(profile, null, view, host, appFlow, friends, search, availability, regions),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, null, host, appFlow, friends, search, availability),
+                () => new HomeMenuPresenter(profile, menu, null, host, appFlow, friends, search, availability, regions),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, null, appFlow, friends, search, availability),
+                () => new HomeMenuPresenter(profile, menu, view, null, appFlow, friends, search, availability, regions),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, host, null, friends, search, availability),
+                () => new HomeMenuPresenter(profile, menu, view, host, null, friends, search, availability, regions),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, host, appFlow, null, search, availability),
+                () => new HomeMenuPresenter(profile, menu, view, host, appFlow, null, search, availability, regions),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, host, appFlow, friends, null, availability),
+                () => new HomeMenuPresenter(profile, menu, view, host, appFlow, friends, null, availability, regions),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, host, appFlow, friends, search, null),
+                () => new HomeMenuPresenter(profile, menu, view, host, appFlow, friends, search, null, regions),
+                Throws.TypeOf<ArgumentNullException>());
+            Assert.That(
+                () => new HomeMenuPresenter(profile, menu, view, host, appFlow, friends, search, availability, null),
                 Throws.TypeOf<ArgumentNullException>());
         }
 
@@ -499,6 +574,19 @@ namespace Game.Tests.EditMode
             out FriendSearchSystem search,
             out FakeNicknameAvailabilityCheck availability)
         {
+            return CreateStartedPresenter(
+                out view, out host, out appFlow, out friends, out search, out availability, out _);
+        }
+
+        private static HomeMenuPresenter CreateStartedPresenter(
+            out FakeHomeMenuView view,
+            out FakeHomeApplicationHost host,
+            out AppFlowSystem appFlow,
+            out FriendListSystem friends,
+            out FriendSearchSystem search,
+            out FakeNicknameAvailabilityCheck availability,
+            out InMemoryServerRegionStore regionStore)
+        {
             var profile = new PlayerProfile("사용자닉네임", 1);
             var menu = new HomeMenuSystem();
             view = new FakeHomeMenuView();
@@ -507,10 +595,39 @@ namespace Game.Tests.EditMode
             friends = new FriendListSystem();
             search = new FriendSearchSystem();
             availability = new FakeNicknameAvailabilityCheck();
+            regionStore = new InMemoryServerRegionStore();
             var presenter = new HomeMenuPresenter(
-                profile, menu, view, host, appFlow, friends, search, availability);
+                profile, menu, view, host, appFlow, friends, search, availability,
+                new ServerRegionSystem(regionStore));
             presenter.Start();
             return presenter;
+        }
+
+        /// <summary>
+        /// A region store that lives only as long as the test.
+        /// </summary>
+        private sealed class InMemoryServerRegionStore : IServerRegionStore
+        {
+            private string saved;
+
+            public InMemoryServerRegionStore(string initial = null)
+            {
+                saved = initial;
+            }
+
+            public int SaveCount { get; private set; }
+
+            public bool TryLoad(out string code)
+            {
+                code = saved;
+                return !string.IsNullOrWhiteSpace(saved);
+            }
+
+            public void Save(string code)
+            {
+                saved = code;
+                SaveCount++;
+            }
         }
 
         /// <summary>
@@ -589,6 +706,8 @@ namespace Game.Tests.EditMode
             public event Action ProfileSettingsDismissed;
 
             public event Action ServerSettingsDismissed;
+
+            public event Action<string> RegionSelected;
 
             public event Action<string> NicknameChangeRequested;
 
@@ -684,6 +803,11 @@ namespace Game.Tests.EditMode
             public void RaiseFriendListDismissed()
             {
                 FriendListDismissed?.Invoke();
+            }
+
+            public void RaiseRegionSelected(string code)
+            {
+                RegionSelected?.Invoke(code);
             }
 
             public void RaiseServerSettingsDismissed()
