@@ -74,6 +74,10 @@ namespace Game.Architecture.Tests
                 Assert.That(body.font.name, Does.Contain("Paperlogy").IgnoreCase);
                 var input = view.transform.Find("InputPanel").GetComponent<TMP_InputField>();
                 Assert.That(input.fontAsset.name, Does.Contain("Paperlogy").IgnoreCase);
+                Assert.That(input.textComponent.overflowMode, Is.EqualTo(TextOverflowModes.Overflow));
+                Assert.That(input.textComponent.textWrappingMode, Is.EqualTo(TextWrappingModes.NoWrap));
+                Assert.That(input.textComponent.rectTransform.anchorMax.x, Is.EqualTo(0f));
+                Assert.That(MatchChatView.SendIconGap, Is.EqualTo(8f));
                 Assert.That(
                     view.transform.Find("InputPanel/Placeholder").GetComponent<TMP_Text>().text,
                     Is.EqualTo(MatchChatView.PlaceholderText));
@@ -92,8 +96,59 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     (view.transform.Find("InputPanel/TextViewport") as RectTransform).offsetMin.x,
                     Is.EqualTo(MatchChatView.ContentPadding));
+                Assert.That(
+                    (view.transform.Find("InputPanel/TextViewport") as RectTransform).offsetMax.x,
+                    Is.EqualTo(-(MatchChatView.SendIconSize + MatchChatView.ContentPadding +
+                        MatchChatView.SendIconGap)));
                 Assert.That(MatchChatView.HistoryFadeAlpha(0f), Is.EqualTo(0f));
                 Assert.That(MatchChatView.HistoryFadeAlpha(1f), Is.EqualTo(1f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void SearchingMode_HidesHistoryAndInputUntilActivated()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchChatView.Create(canvas.transform);
+                view.SetMessages(new[]
+                {
+                    new LobbyChatMessage("a", "싸피생1", "하나")
+                });
+                view.SetMode(MatchChatHudMode.Searching);
+
+                Assert.That(view.Mode, Is.EqualTo(MatchChatHudMode.Searching));
+                Assert.That(view.gameObject.activeSelf, Is.True);
+                Assert.That(
+                    view.transform.Find("HistoryPanel").gameObject.activeSelf,
+                    Is.False);
+                Assert.That(
+                    view.transform.Find("InputPanel").gameObject.activeSelf,
+                    Is.False);
+                Assert.That(MatchChatView.ShowsHistory(MatchChatHudMode.Searching), Is.False);
+                Assert.That(MatchChatView.ShowsInput(MatchChatHudMode.Searching, false), Is.False);
+                Assert.That(MatchChatView.ShowsInput(MatchChatHudMode.Searching, true), Is.True);
+                Assert.That(MatchChatView.ShowsHistory(MatchChatHudMode.Full), Is.True);
+                Assert.That(MatchChatView.ShowsInput(MatchChatHudMode.Full, false), Is.False);
+                Assert.That(MatchChatView.ShowsInput(MatchChatHudMode.Full, true), Is.True);
+
+                view.SetMode(MatchChatHudMode.Full);
+                Assert.That(
+                    view.transform.Find("HistoryPanel").gameObject.activeSelf,
+                    Is.True);
+                Assert.That(
+                    view.transform.Find("InputPanel").gameObject.activeSelf,
+                    Is.False);
+                view.ClearInput();
+                Assert.That(view.IsActivated, Is.False);
+                Assert.That(
+                    view.transform.Find("InputPanel").gameObject.activeSelf,
+                    Is.False);
             }
             finally
             {

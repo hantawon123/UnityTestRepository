@@ -1,5 +1,6 @@
 using System.IO;
 using Game.Bootstrap;
+using Game.Client.Home;
 using Game.Client.Match;
 using Game.Client.Voice;
 using TMPro;
@@ -28,8 +29,6 @@ namespace Game.Editor
         private const string RequestPath =
             "Assets/_Game/Editor/InGameHudInstallRequest.txt";
         private const string HudName = "InGameHud";
-        private const string FontPath =
-            "Assets/_Game/Content/Fonts/Cafe24Ssurround SDF.asset";
 
         static InGameHudLayoutMenu()
         {
@@ -66,9 +65,12 @@ namespace Game.Editor
                 EnsureAssignedItem(hud);
                 EnsureHighlightTitle(hud);
                 EnsureHidingIntro(hud);
+                EnsureSearchingIntro(hud);
                 EnsureHidingTurnStart(hud);
                 EnsureHidingActiveHud(hud);
                 EnsureHidingWaitHud(hud);
+                EnsureVitalsHud(hud);
+                EnsureDestroyedItemsHud(hud);
                 EnsureVoiceButton(hud);
                 EnsureWaitingSpawnPoints(scene);
 
@@ -149,7 +151,8 @@ namespace Game.Editor
             // Wider than the phase names need, because hiding now reads
             // "<이름>이 숨기는 중" and a nickname can run to its full length.
             Place(phaseText.rectTransform, new Vector2(0.5f, 1f),
-                new Vector2(0f, -58f), new Vector2(620f, 54f));
+                new Vector2(0f, -(HidingActiveHudView.TopPadding + MatchTimerView.TimerHeight + MatchTimerView.HintHeight)),
+                new Vector2(620f, 40f));
             var phaseView = phaseText.gameObject.AddComponent<MatchPhaseView>();
             Assign(phaseView, "phaseText", phaseText);
 
@@ -157,10 +160,11 @@ namespace Game.Editor
                 canvasObject.transform,
                 "TimerText",
                 "03:00",
-                52f,
+                MatchTimerView.TimerFontSize,
                 TextAlignmentOptions.Center);
+            timerText.color = MatchTimerView.TimerColor;
             Place(timerText.rectTransform, new Vector2(0.5f, 1f),
-                new Vector2(0f, -112f), new Vector2(360f, 68f));
+                new Vector2(0f, -HidingActiveHudView.TopPadding), new Vector2(420f, MatchTimerView.TimerHeight));
             var timerView = timerText.gameObject.AddComponent<MatchTimerView>();
             Assign(timerView, "timerText", timerText);
 
@@ -177,6 +181,7 @@ namespace Game.Editor
                 30f,
                 TextAlignmentOptions.Center);
             Stretch(noticeText.rectTransform, 18f);
+            noticeText.font = HomeUiFonts.Apply();
 
             var marker = CreatePanel(
                 canvasObject.transform,
@@ -315,6 +320,30 @@ namespace Game.Editor
             view.Hide();
         }
 
+        private static void EnsureSearchingIntro(NetworkMatchHudView hud)
+        {
+            var serialized = new SerializedObject(hud);
+            var property = serialized.FindProperty("searchingIntroView");
+            var view = property.objectReferenceValue as SearchingIntroView;
+            if (view == null)
+            {
+                view = hud.GetComponentInChildren<SearchingIntroView>(true);
+            }
+
+            if (view == null)
+            {
+                view = SearchingIntroView.Create(hud.transform);
+            }
+
+            property.objectReferenceValue = view;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var viewSerialized = new SerializedObject(view);
+            viewSerialized.FindProperty("previewOnAwake").boolValue = false;
+            viewSerialized.ApplyModifiedPropertiesWithoutUndo();
+            view.Hide();
+        }
+
         private static void EnsureHidingTurnStart(NetworkMatchHudView hud)
         {
             var serialized = new SerializedObject(hud);
@@ -387,31 +416,67 @@ namespace Game.Editor
             view.Hide();
         }
 
+        private static void EnsureVitalsHud(NetworkMatchHudView hud)
+        {
+            var serialized = new SerializedObject(hud);
+            var property = serialized.FindProperty("vitalsHudView");
+            var view = property.objectReferenceValue as MatchVitalsHudView;
+            if (view == null)
+            {
+                view = hud.GetComponentInChildren<MatchVitalsHudView>(true);
+            }
+
+            if (view == null)
+            {
+                view = MatchVitalsHudView.Create(hud.transform);
+            }
+
+            property.objectReferenceValue = view;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var viewSerialized = new SerializedObject(view);
+            viewSerialized.FindProperty("previewOnAwake").boolValue = false;
+            viewSerialized.ApplyModifiedPropertiesWithoutUndo();
+            view.Hide();
+        }
+
+        private static void EnsureDestroyedItemsHud(NetworkMatchHudView hud)
+        {
+            var serialized = new SerializedObject(hud);
+            var property = serialized.FindProperty("destroyedItemsHudView");
+            var view = property.objectReferenceValue as DestroyedItemsHudView;
+            if (view == null)
+            {
+                view = hud.GetComponentInChildren<DestroyedItemsHudView>(true);
+            }
+
+            if (view == null)
+            {
+                view = DestroyedItemsHudView.Create(hud.transform);
+            }
+
+            property.objectReferenceValue = view;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            view.Hide();
+        }
+
         private static void EnsureAssignedItem(NetworkMatchHudView hud)
         {
             var serialized = new SerializedObject(hud);
             var property = serialized.FindProperty("assignedItemText");
-            if (property.objectReferenceValue != null)
-            {
-                return;
-            }
-
-            var text = hud.transform.Find("AssignedItemText")?.GetComponent<TMP_Text>();
+            var text = property.objectReferenceValue as TMP_Text ??
+                       hud.transform.Find("AssignedItemText")?.GetComponent<TMP_Text>();
             if (text == null)
             {
                 text = CreateText(
                     hud.transform,
                     "AssignedItemText",
-                    "내 물건: 탄산음료",
-                    34f,
-                    TextAlignmentOptions.Left);
-                Place(
-                    text.rectTransform,
-                    new Vector2(0f, 1f),
-                    new Vector2(250f, -72f),
-                    new Vector2(460f, 56f));
+                    "파쇄기: 3회",
+                    NetworkMatchHudView.DestructionUsesFontSize,
+                    TextAlignmentOptions.TopRight);
             }
 
+            NetworkMatchHudView.ApplyDestructionUsesStyle(text);
             property.objectReferenceValue = text;
             serialized.ApplyModifiedPropertiesWithoutUndo();
             text.gameObject.SetActive(false);
@@ -421,12 +486,8 @@ namespace Game.Editor
         {
             var serialized = new SerializedObject(hud);
             var property = serialized.FindProperty("highlightTitleText");
-            if (property.objectReferenceValue != null)
-            {
-                return;
-            }
-
-            var text = hud.transform.Find("HighlightTitleText")?.GetComponent<TMP_Text>();
+            var text = property.objectReferenceValue as TMP_Text ??
+                       hud.transform.Find("HighlightTitleText")?.GetComponent<TMP_Text>();
             if (text == null)
             {
                 text = CreateText(
@@ -442,6 +503,7 @@ namespace Game.Editor
                     new Vector2(500f, 64f));
             }
 
+            text.font = HomeUiFonts.Apply();
             property.objectReferenceValue = text;
             serialized.ApplyModifiedPropertiesWithoutUndo();
             text.gameObject.SetActive(false);
@@ -500,7 +562,7 @@ namespace Game.Editor
             text.alignment = alignment;
             text.color = Color.white;
             text.raycastTarget = false;
-            text.font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
+            text.font = HomeUiFonts.Apply();
             return text;
         }
 

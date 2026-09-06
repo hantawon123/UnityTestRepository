@@ -46,6 +46,8 @@ namespace Game.Client.Lobby
         private const string templateBubbleName = "Bubble";
         private const string templateNameplateName = "Nameplate";
 
+        public static readonly Color BubbleColor = new(0f, 0f, 0f, 0.27f);
+
         private const float MinBubbleWidth = 140f;
         private const float MaxBubbleWidth = 420f;
         private const float MinBubbleHeight = 56f;
@@ -113,6 +115,7 @@ namespace Game.Client.Lobby
             anchor.bubbleText.text = message.Text ?? string.Empty;
 
             ResizeBubble(anchor);
+            ApplyBubbleColor(anchor);
             anchor.bubbleRoot.gameObject.SetActive(true);
             hideAt[message.SenderId] = Time.unscaledTime + Mathf.Max(0.5f, visibleSeconds);
         }
@@ -188,6 +191,15 @@ namespace Game.Client.Lobby
 
             anchor.nameText.text = hasName ? trimmed : string.Empty;
             anchor.nameText.gameObject.SetActive(hasName);
+        }
+
+        private static void ApplyBubbleColor(LobbyChatBubbleAnchor anchor)
+        {
+            if (anchor?.bubbleRoot != null &&
+                anchor.bubbleRoot.TryGetComponent<Image>(out var panel))
+            {
+                panel.color = BubbleColor;
+            }
         }
 
         private static void ResizeBubble(LobbyChatBubbleAnchor anchor)

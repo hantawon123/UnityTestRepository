@@ -16,16 +16,28 @@ namespace Game.Client.Match
         private static readonly Vector3 StagePosition = new(0f, -2500f, 0f);
 
         private readonly RawImage target;
+        private readonly int textureSize;
+        private readonly Color backgroundColor;
+        private readonly Vector3 stageOffset;
         private GameObject stage;
         private Transform model;
         private Camera camera;
         private Light light;
         private RenderTexture texture;
 
-        public HidingIntroItemPreview(RawImage target)
+        public HidingIntroItemPreview(
+            RawImage target,
+            int textureSize = 512,
+            Color? backgroundColor = null,
+            Vector3? stageOffset = null)
         {
             this.target = target;
+            this.textureSize = Mathf.Clamp(textureSize, 64, 512);
+            this.backgroundColor = backgroundColor ?? Color.black;
+            this.stageOffset = stageOffset ?? Vector3.zero;
         }
+
+        public bool HasPreview => target != null && target.enabled && target.texture != null;
 
         public void Show(string itemId)
         {
@@ -119,9 +131,9 @@ namespace Game.Client.Match
 
             stage = new GameObject("Hiding Intro Preview Stage");
             UnityEngine.Object.DontDestroyOnLoad(stage);
-            stage.transform.position = StagePosition;
+            stage.transform.position = StagePosition + stageOffset;
 
-            texture = new RenderTexture(512, 512, 16)
+            texture = new RenderTexture(textureSize, textureSize, 16)
             {
                 name = "Hiding Intro Preview",
                 antiAliasing = 2
@@ -131,7 +143,7 @@ namespace Game.Client.Match
             cameraObject.transform.SetParent(stage.transform, false);
             camera = cameraObject.AddComponent<Camera>();
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = Color.black;
+            camera.backgroundColor = backgroundColor;
             camera.orthographic = true;
             camera.nearClipPlane = 0.05f;
             camera.farClipPlane = 20f;

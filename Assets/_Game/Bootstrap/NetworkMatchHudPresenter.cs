@@ -46,9 +46,13 @@ namespace Game.Bootstrap
         private bool hidingIntroVisible;
         private bool hidingIntroOpenedThisPhase;
         private double hidingIntroEndsAt;
+        private bool searchingIntroVisible;
+        private bool searchingIntroOpenedThisPhase;
+        private double searchingIntroEndsAt;
         private bool hidingTurnStartVisible;
         private bool hidingActiveHudVisible;
         private bool hidingWaitHudVisible;
+        private int localHitCount;
 
         public NetworkMatchHudPresenter(
             INetworkMatchEvents events,
@@ -76,13 +80,15 @@ namespace Game.Bootstrap
             events.PlayerInteractionStatesReceived += OnPlayerInteractionStatesReceived;
             view.HideDestructionNotice();
             view.SetRemainingDestructionUses(-1);
-            view.SetPlayerItemStatuses(events.LatestPlayerItemStatuses);
+            RefreshDestroyedItems();
             view.SetShredderMarker(default, false);
             view.HideHidingIntro();
+            view.HideSearchingIntro();
             view.HideHidingTurnStart();
             view.HideHidingActiveHud();
             view.HideHidingWaitHud();
-            view.SetMatchChatVisible(false);
+            view.HideVitals();
+            view.SetMatchChatMode(MatchChatHudMode.Hidden);
             view.SetPlayerStatusVisible(false);
             FindSceneReferences();
         }
@@ -96,12 +102,14 @@ namespace Game.Bootstrap
             events.PlayerItemStatusesReceived -= OnPlayerItemStatusesReceived;
             events.PlayerInteractionStatesReceived -= OnPlayerInteractionStatesReceived;
             view.HideDestructionNotice();
-            view.SetPlayerItemStatuses(Array.Empty<PlayerItemStatusSnapshot>());
+            view.SetDestroyedItems(0, Array.Empty<PlayerItemStatusSnapshot>());
             view.SetShredderMarker(default, false);
             HideHidingIntro();
+            HideSearchingIntro();
             HideHidingTurnStart();
             HideHidingActiveHud();
             HideHidingWaitHud();
+            HideVitals();
         }
 
         public void Tick()
@@ -140,15 +148,20 @@ namespace Game.Bootstrap
             }
 
             UpdateHidingIntro(now);
+            UpdateSearchingIntro(now);
             UpdateHidingTurnStart(now);
             UpdateShredderMarker();
+            UpdateVitals();
         }
 
         private void OnMatchStateReceived(MatchStateSnapshot received)
         {
             if ((!hasSnapshot || snapshot.Phase != received.Phase) &&
                 (received.Phase == MatchPhase.Hiding || received.Phase == MatchPhase.Waiting))
+            {
                 destructions.Clear();
+                localHitCount = 0;
+            }
             if (received.Phase == MatchPhase.Hiding || received.Phase == MatchPhase.Waiting)
             {
                 gameEndNoticeEndsAt = -1d;
@@ -168,15 +181,24 @@ namespace Game.Bootstrap
                 HideHidingWaitHud();
             }
 
+            if (received.Phase != MatchPhase.Searching)
+            {
+                searchingIntroOpenedThisPhase = false;
+                HideSearchingIntro();
+            }
+
             snapshot = received;
             hasSnapshot = true;
             var extrasVisible = received.Phase != MatchPhase.Hiding;
-            view.SetMatchChatVisible(extrasVisible);
+            ApplyMatchChat();
             view.SetPlayerStatusVisible(extrasVisible);
+            RefreshDestroyedItems();
             ReportPhase();
             UpdateGameEndNotice();
             TryShowHidingIntro();
+            TryShowSearchingIntro();
             UpdateHidingTurnStart(clock.IsRuntimeReady ? clock.ServerTime : 0d);
+            UpdateVitals();
         }
 
         private void OnMatchResultReceived(MatchResult result)
@@ -253,6 +275,16 @@ namespace Game.Bootstrap
                 ? clock.MatchRules.HidingDurationSeconds
                 : rules.HidingTurnDurationSeconds;
 
+        private double SearchingDurationSeconds =>
+            clock.MatchRules.SearchingDurationSeconds > 0
+                ? clock.MatchRules.SearchingDurationSeconds
+                : rules.SearchingDurationSeconds;
+
+        private int HitsRequiredToStun =>
+            clock.MatchRules.StunHitCount > 0
+                ? clock.MatchRules.StunHitCount
+                : rules.HitsRequiredToStun;
+
         private void OnItemDestroyedReceived(PlayerItemDestroyedEvent confirmed)
         {
             destructions.Add(confirmed);
@@ -293,7 +325,14 @@ namespace Game.Bootstrap
                 return;
             }
 
+            if (searchingIntroVisible)
+            {
+                view.ShowSearchingIntro(assignedItemDisplayName, assignedItemId);
+                return;
+            }
+
             TryShowHidingIntro();
+            TryShowSearchingIntro();
         }
 
         private void UpdateHidingIntro(double now)
@@ -346,6 +385,104 @@ namespace Game.Bootstrap
             view.HideHidingIntro();
         }
 
+        private void UpdateSearchingIntro(double now)
+        {
+            TryShowSearchingIntro();
+            if (searchingIntroVisible && now >= searchingIntroEndsAt)
+            {
+                HideSearchingIntro();
+            }
+        }
+
+        private void TryShowSearchingIntro()
+        {
+            if (searchingIntroOpenedThisPhase ||
+                !hasSnapshot ||
+                snapshot.Phase != MatchPhase.Searching ||
+                string.IsNullOrEmpty(assignedItemDisplayName) ||
+                !clock.IsRuntimeReady)
+            {
+                return;
+            }
+
+            var startedAt = snapshot.PhaseEndsAt - SearchingDurationSeconds;
+            var endsAt = startedAt + SearchingIntroView.VisibleSeconds;
+            if (clock.ServerTime >= endsAt)
+            {
+                return;
+            }
+
+            searchingIntroEndsAt = endsAt;
+            searchingIntroOpenedThisPhase = true;
+            searchingIntroVisible = true;
+            view.ShowSearchingIntro(assignedItemDisplayName, assignedItemId);
+        }
+
+        private void HideSearchingIntro()
+        {
+            if (!searchingIntroVisible)
+            {
+                return;
+            }
+
+            searchingIntroVisible = false;
+            view.HideSearchingIntro();
+        }
+
+        private void UpdateVitals()
+        {
+            if (!hasSnapshot || snapshot.Phase != MatchPhase.Searching)
+            {
+                HideVitals();
+                return;
+            }
+
+            if (!clock.TryGetLocalStamina(out var stamina, out var maxStamina, out var exhausted) ||
+                maxStamina <= 0f)
+            {
+                stamina = MatchVitalsHudView.DefaultStamina;
+                maxStamina = MatchVitalsHudView.DefaultStamina;
+                exhausted = false;
+            }
+
+            var maxHits = HitsRequiredToStun;
+            view.ShowVitals(
+                stamina,
+                maxStamina,
+                MatchVitalsHudView.RemainingHits(localHitCount, maxHits),
+                maxHits,
+                exhausted);
+        }
+
+        private void HideVitals()
+        {
+            view.HideVitals();
+        }
+
+        private void ApplyMatchChat(bool showHidingWaitChat = false)
+        {
+            if (!hasSnapshot)
+            {
+                view.SetMatchChatMode(MatchChatHudMode.Hidden);
+                return;
+            }
+
+            if (snapshot.Phase == MatchPhase.Hiding)
+            {
+                view.SetMatchChatMode(
+                    showHidingWaitChat ? MatchChatHudMode.Full : MatchChatHudMode.Hidden);
+                return;
+            }
+
+            if (snapshot.Phase == MatchPhase.Searching)
+            {
+                view.SetMatchChatMode(MatchChatHudMode.Searching);
+                return;
+            }
+
+            view.SetMatchChatMode(MatchChatHudMode.Full);
+        }
+
         private void UpdateHidingTurnStart(double now)
         {
             if (hidingIntroVisible ||
@@ -359,7 +496,7 @@ namespace Game.Bootstrap
                 if (hasSnapshot && snapshot.Phase != MatchPhase.Hiding)
                 {
                     view.SetTopHudVisible(true);
-                    view.SetMatchChatVisible(true);
+                    ApplyMatchChat();
                 }
 
                 return;
@@ -413,12 +550,12 @@ namespace Game.Bootstrap
             if (isLocalTurn)
             {
                 HideHidingWaitHud();
-                view.SetMatchChatVisible(false);
+                ApplyMatchChat();
                 return;
             }
 
             ShowHidingWaitHud(turnIndex, playing, remaining);
-            view.SetMatchChatVisible(true);
+            ApplyMatchChat(showHidingWaitChat: true);
         }
 
         private void HideHidingTurnStart()
@@ -518,7 +655,14 @@ namespace Game.Bootstrap
         private void OnPlayerItemStatusesReceived(
             IReadOnlyList<PlayerItemStatusSnapshot> statuses)
         {
-            view.SetPlayerItemStatuses(statuses);
+            RefreshDestroyedItems();
+        }
+
+        private void RefreshDestroyedItems()
+        {
+            view.SetDestroyedItems(
+                room.MatchParticipants.CurrentValue.Count,
+                events.LatestPlayerItemStatuses);
         }
 
         private void OnPlayerInteractionStatesReceived(
@@ -534,8 +678,10 @@ namespace Game.Bootstrap
             {
                 if (states[index].PlayerIndex == localPlayerIndex)
                 {
+                    localHitCount = states[index].HitCount;
                     view.SetRemainingDestructionUses(
                         states[index].RemainingDestructionUses);
+                    UpdateVitals();
                     return;
                 }
             }

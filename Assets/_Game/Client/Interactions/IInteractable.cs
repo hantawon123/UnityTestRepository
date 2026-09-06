@@ -6,7 +6,7 @@ namespace Game.Client.Interactions
     /// </summary>
     public interface IInteractable
     {
-        /// <summary>HUD에 표시할 안내 문구. 예: "곰인형 들기 [F]"</summary>
+        /// <summary>조준 시 키 아래에 표시할 동작 문구. 예: "물건 잡기", "파괴하기"</summary>
         string InteractionPrompt { get; }
 
         bool CanInteract(PlayerInteractor interactor);

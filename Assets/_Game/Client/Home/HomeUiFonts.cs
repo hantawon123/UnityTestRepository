@@ -52,34 +52,7 @@ namespace Game.Client.Home
                     return roundedSprite;
                 }
 
-                const int size = 64;
-                const int radius = 16;
-                var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
-                {
-                    hideFlags = HideFlags.HideAndDontSave,
-                    filterMode = FilterMode.Bilinear
-                };
-
-                for (var y = 0; y < size; y++)
-                {
-                    for (var x = 0; x < size; x++)
-                    {
-                        texture.SetPixel(x, y, IsInsideRoundedRect(x, y, size, radius)
-                            ? Color.white
-                            : Color.clear);
-                    }
-                }
-
-                texture.Apply(false, false);
-                roundedSprite = Sprite.Create(
-                    texture,
-                    new Rect(0f, 0f, size, size),
-                    new Vector2(0.5f, 0.5f),
-                    100f,
-                    0,
-                    SpriteMeshType.FullRect,
-                    new Vector4(radius, radius, radius, radius));
-                roundedSprite.hideFlags = HideFlags.HideAndDontSave;
+                roundedSprite = CreateRoundedSprite(256, 64, 400f);
                 return roundedSprite;
             }
         }
@@ -354,6 +327,50 @@ namespace Game.Client.Home
             }
 
             return loaded;
+        }
+
+        private static Sprite CreateRoundedSprite(int size, int radius, float pixelsPerUnit)
+        {
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                hideFlags = HideFlags.HideAndDontSave,
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp
+            };
+
+            for (var y = 0; y < size; y++)
+            {
+                for (var x = 0; x < size; x++)
+                {
+                    texture.SetPixel(x, y, CoverageRoundedRect(x, y, size, radius));
+                }
+            }
+
+            texture.Apply(false, false);
+            var sprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, size, size),
+                new Vector2(0.5f, 0.5f),
+                pixelsPerUnit,
+                0,
+                SpriteMeshType.FullRect,
+                new Vector4(radius, radius, radius, radius));
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+
+        private static Color CoverageRoundedRect(int x, int y, int size, int radius)
+        {
+            var half = size * 0.5f;
+            var extent = half - radius;
+            var dx = Mathf.Abs(x + 0.5f - half) - extent;
+            var dy = Mathf.Abs(y + 0.5f - half) - extent;
+            var outside = Mathf.Sqrt(
+                (Mathf.Max(dx, 0f) * Mathf.Max(dx, 0f)) +
+                (Mathf.Max(dy, 0f) * Mathf.Max(dy, 0f)));
+            var distance = outside + Mathf.Min(Mathf.Max(dx, dy), 0f) - radius;
+            var alpha = Mathf.Clamp01(0.5f - distance);
+            return new Color(1f, 1f, 1f, alpha);
         }
 
         private static bool IsInsideRoundedRect(int x, int y, int size, int radius)

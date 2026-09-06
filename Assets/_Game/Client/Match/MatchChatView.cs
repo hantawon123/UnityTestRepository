@@ -11,12 +11,20 @@ using UnityEngine.UI;
 
 namespace Game.Client.Match
 {
+    public enum MatchChatHudMode
+    {
+        Hidden,
+        Full,
+        Searching
+    }
+
     public interface IMatchChatView
     {
         event Action<string> SendRequested;
 
         void SetMessages(IReadOnlyList<LobbyChatMessage> messages);
         void ClearInput();
+        void Deactivate();
     }
 
     /// <summary>한 줄 입력과 최근 메시지만 표시하는 인게임 채팅 View.</summary>
@@ -29,14 +37,15 @@ namespace Game.Client.Match
         public const string PlaceholderText = "채팅 입력..";
         public const float InputWidth = 320f;
         public const float ContentPadding = 16f;
+        public const float SendIconGap = 8f;
         public const float OpenCooldownSeconds = 0.12f;
         public static readonly Color NameColor = new Color32(0xC1, 0xC1, 0xC1, 0xFF);
         public static readonly Color PanelColor = new Color(0f, 0f, 0f, 0.62f);
         private const float HistoryHeight = 248f;
         private const float InputHeight = 48f;
         private const float PanelGap = 10f;
-        private const float Margin = 24f;
-        private const float SendIconSize = 24f;
+        public const float Margin = 24f;
+        public const float SendIconSize = 24f;
         private const string SendOrangeResource = "UI/ic_send_orange";
         private const string SendGrayResource = "UI/ic_send_gray";
 
@@ -59,6 +68,7 @@ namespace Game.Client.Match
         private float lastSendUnscaledTime = -1f;
         private float lastDeactivateUnscaledTime = -1f;
         private bool activated;
+        private MatchChatHudMode mode = MatchChatHudMode.Full;
         private bool layoutReady;
         private bool fontPrewarmed;
         private Coroutine prewarmRoutine;
@@ -66,6 +76,7 @@ namespace Game.Client.Match
         public event Action<string> SendRequested;
         public static bool BlocksPlayerInput { get; private set; }
         public bool IsActivated => activated;
+        public MatchChatHudMode Mode => mode;
         public bool IsInputFocused =>
             activated || (inputField != null && inputField.isFocused);
 
@@ -140,6 +151,60 @@ namespace Game.Client.Match
                    !isActivated &&
                    !isOpening &&
                    now - lastClosedAt >= OpenCooldownSeconds;
+        }
+
+        public static bool ShowsHistory(MatchChatHudMode hudMode)
+        {
+            return hudMode == MatchChatHudMode.Full;
+        }
+
+        public static bool ShowsInput(MatchChatHudMode hudMode, bool isActivated)
+        {
+            return hudMode != MatchChatHudMode.Hidden && isActivated;
+        }
+
+        public void SetMode(MatchChatHudMode value)
+        {
+            EnsureLayout();
+            if (mode == value)
+            {
+                if (value == MatchChatHudMode.Hidden)
+                {
+                    if (gameObject.activeSelf)
+                    {
+                        gameObject.SetActive(false);
+                    }
+
+                    return;
+                }
+
+                if (!gameObject.activeSelf)
+                {
+                    gameObject.SetActive(true);
+                    ApplyPresentation();
+                }
+
+                return;
+            }
+
+            mode = value;
+            if (value == MatchChatHudMode.Hidden)
+            {
+                SetActivated(false);
+                if (gameObject.activeSelf)
+                {
+                    gameObject.SetActive(false);
+                }
+
+                return;
+            }
+
+            if (!gameObject.activeSelf)
+            {
+                gameObject.SetActive(true);
+            }
+
+            SetActivated(false);
         }
 
         private void Awake()
@@ -327,9 +392,10 @@ namespace Game.Client.Match
                 return;
             }
 
+            Deactivate();
             if (!isActiveAndEnabled)
             {
-                ApplyClearedInput(keepFocus: activated);
+                ApplyClearedInput(keepFocus: false);
                 return;
             }
 
@@ -339,6 +405,11 @@ namespace Game.Client.Match
             }
 
             clearRoutine = StartCoroutine(ClearInputNextFrame());
+        }
+
+        public void Deactivate()
+        {
+            SetActivated(false);
         }
 
         private IEnumerator FocusInputNextFrame()
@@ -351,7 +422,7 @@ namespace Game.Client.Match
         private IEnumerator ClearInputNextFrame()
         {
             yield return null;
-            ApplyClearedInput(keepFocus: activated);
+            ApplyClearedInput(keepFocus: false);
             clearRoutine = null;
         }
 
@@ -397,6 +468,7 @@ namespace Game.Client.Match
             }
 
             SendRequested?.Invoke(text.Trim());
+            Deactivate();
         }
 
         private void SetActivated(bool value)
@@ -409,6 +481,7 @@ namespace Game.Client.Match
                 lastDeactivateUnscaledTime = Time.unscaledTime;
             }
 
+            ApplyPresentation();
             if (inputField == null)
             {
                 return;
@@ -427,6 +500,53 @@ namespace Game.Client.Match
             {
                 EventSystem.current.SetSelectedGameObject(null);
             }
+        }
+
+        private void ApplyPresentation()
+        {
+            if (!layoutReady)
+            {
+                return;
+            }
+
+            var history = historyRect != null
+                ? historyRect.gameObject
+                : transform.Find("HistoryPanel")?.gameObject;
+            var input = transform.Find("InputPanel")?.gameObject;
+            if (history != null && history.activeSelf != ShowsHistory(mode))
+            {
+                history.SetActive(ShowsHistory(mode));
+            }
+
+            if (input != null && input.activeSelf != ShowsInput(mode, activated))
+            {
+                input.SetActive(ShowsInput(mode, activated));
+            }
+
+            if (transform is not RectTransform root)
+            {
+                return;
+            }
+
+            var showHistory = ShowsHistory(mode);
+            var showInput = ShowsInput(mode, activated);
+            var height = 0f;
+            if (showHistory)
+            {
+                height += HistoryHeight;
+            }
+
+            if (showHistory && showInput)
+            {
+                height += PanelGap;
+            }
+
+            if (showInput)
+            {
+                height += InputHeight;
+            }
+
+            root.sizeDelta = new Vector2(InputWidth, height);
         }
 
         private void RefreshSendIcon()
@@ -450,6 +570,8 @@ namespace Game.Client.Match
         {
             if (layoutReady && itemRoot != null && inputField != null)
             {
+                FitTextViewport();
+                ApplyInputOverflow();
                 return;
             }
 
@@ -469,6 +591,8 @@ namespace Game.Client.Match
             EnsureHistoryFade();
             ApplyFonts();
             layoutReady = true;
+            ApplyInputOverflow();
+            ApplyPresentation();
         }
 
         private void IsolateCanvases()
@@ -703,9 +827,33 @@ namespace Game.Client.Match
 
             Stretch(viewport);
             viewport.offsetMin = new Vector2(ContentPadding, 0f);
-            viewport.offsetMax = new Vector2(-(SendIconSize + ContentPadding), 0f);
-            FitInputLabel(viewport.Find("Text") as RectTransform);
+            viewport.offsetMax = new Vector2(-(SendIconSize + ContentPadding + SendIconGap), 0f);
+            var textRect = viewport.Find("Text") as RectTransform;
+            if (textRect != null && !Mathf.Approximately(textRect.anchorMax.x, 0f))
+            {
+                FitScrollingInputText(textRect);
+            }
+
             FitInputLabel(viewport.Find("Placeholder") as RectTransform);
+            ApplyInputOverflow();
+        }
+
+        private void ApplyInputOverflow()
+        {
+            var text = inputField != null
+                ? inputField.textComponent
+                : transform.Find("InputPanel/TextViewport/Text")?.GetComponent<TMP_Text>();
+            if (text == null)
+            {
+                return;
+            }
+
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Overflow;
+            if (inputField != null)
+            {
+                inputField.lineType = TMP_InputField.LineType.SingleLine;
+            }
         }
 
         private void ApplyRowFade()
@@ -916,7 +1064,7 @@ namespace Game.Client.Match
             var textAreaRect = (RectTransform)textArea.transform;
             Stretch(textAreaRect);
             textAreaRect.offsetMin = new Vector2(ContentPadding, 0f);
-            textAreaRect.offsetMax = new Vector2(-(SendIconSize + ContentPadding), 0f);
+            textAreaRect.offsetMax = new Vector2(-(SendIconSize + ContentPadding + SendIconGap), 0f);
 
             var text = CreateText(
                 textAreaRect,
@@ -926,8 +1074,8 @@ namespace Game.Client.Match
                 Color.white);
             text.alignment = TextAlignmentOptions.MidlineLeft;
             text.textWrappingMode = TextWrappingModes.NoWrap;
-            text.overflowMode = TextOverflowModes.Truncate;
-            FitInputLabel(text.rectTransform);
+            text.overflowMode = TextOverflowModes.Overflow;
+            FitScrollingInputText(text.rectTransform);
 
             var placeholder = CreateText(
                 textAreaRect,
@@ -1077,6 +1225,34 @@ namespace Game.Client.Match
             rect.pivot = pivot;
             rect.anchoredPosition = anchoredPosition;
             rect.sizeDelta = size;
+        }
+
+        private static void FitScrollingInputText(RectTransform rect)
+        {
+            if (rect == null)
+            {
+                return;
+            }
+
+            rect.anchorMin = new Vector2(0f, 0f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(2048f, 0f);
+            var text = rect.GetComponent<TMP_Text>();
+            if (text != null)
+            {
+                text.margin = Vector4.zero;
+                text.extraPadding = false;
+                text.textWrappingMode = TextWrappingModes.NoWrap;
+                text.overflowMode = TextOverflowModes.Overflow;
+            }
+
+            var layout = rect.GetComponent<LayoutElement>();
+            if (layout != null)
+            {
+                layout.ignoreLayout = true;
+            }
         }
 
         private static void FitInputLabel(RectTransform rect)

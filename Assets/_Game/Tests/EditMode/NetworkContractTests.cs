@@ -984,6 +984,7 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     receivedInteractions[0].RemainingDestructionUses,
                     Is.EqualTo(4));
+                Assert.That(receivedInteractions[0].HitCount, Is.Zero);
                 Assert.That(receivedStatuses, Is.Not.Null);
                 Assert.That(receivedStatuses.Count, Is.EqualTo(2));
                 Assert.That(receivedStatuses[0].ItemId, Is.EqualTo("Soda_01"));
@@ -1010,19 +1011,25 @@ namespace Game.Architecture.Tests
             var stunEndsAt = typeof(MatchSessionState).GetProperty("StunEndsAt");
             var remainingUses = typeof(MatchSessionState).GetProperty(
                 "RemainingDestructionUses");
+            var hitCounts = typeof(MatchSessionState).GetProperty("HitCounts");
 
             Assert.That(stunEndsAt, Is.Not.Null);
             Assert.That(remainingUses, Is.Not.Null);
+            Assert.That(hitCounts, Is.Not.Null);
             Assert.That(
                 Attribute.IsDefined(stunEndsAt, typeof(Fusion.NetworkedAttribute)),
                 Is.True);
             Assert.That(
                 Attribute.IsDefined(remainingUses, typeof(Fusion.NetworkedAttribute)),
                 Is.True);
+            Assert.That(
+                Attribute.IsDefined(hitCounts, typeof(Fusion.NetworkedAttribute)),
+                Is.True);
 
-            var snapshot = new PlayerInteractionStateSnapshot(1, 15d, 3);
+            var snapshot = new PlayerInteractionStateSnapshot(1, 15d, 3, 2);
             Assert.That(snapshot.IsStunned(14.99d), Is.True);
             Assert.That(snapshot.IsStunned(15d), Is.False);
+            Assert.That(snapshot.HitCount, Is.EqualTo(2));
         }
 
         [Test]

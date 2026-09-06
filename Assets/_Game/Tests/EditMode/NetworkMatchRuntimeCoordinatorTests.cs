@@ -464,6 +464,14 @@ namespace Game.Architecture.Tests
             public bool TryGetPlayerPose(string playerId, out Pose pose) =>
                 poses.TryGetValue(playerId, out pose);
 
+            public bool TryGetLocalStamina(out float current, out float max, out bool exhausted)
+            {
+                current = 0f;
+                max = 0f;
+                exhausted = false;
+                return false;
+            }
+
             public bool BindMatchSession(
                 MatchSessionCoordinator session,
                 Pose shredderEjectionPose)

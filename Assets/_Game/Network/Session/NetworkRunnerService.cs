@@ -481,6 +481,34 @@ namespace Game.Network.Session
             return false;
         }
 
+        public bool TryGetLocalStamina(out float current, out float max, out bool exhausted)
+        {
+            current = 0f;
+            max = 0f;
+            exhausted = false;
+            if (!IsRuntimeReady || _runner == null)
+            {
+                return false;
+            }
+
+            if (_localInputMotor == null ||
+                _localInputMotor.Object == null ||
+                !_localInputMotor.Object.HasInputAuthority)
+            {
+                _localInputMotor = FindLocalInputMotor(_runner);
+            }
+
+            if (_localInputMotor == null)
+            {
+                return false;
+            }
+
+            current = _localInputMotor.CurrentStamina;
+            max = _localInputMotor.MaxStamina;
+            exhausted = _localInputMotor.IsSprintExhausted;
+            return max > 0f;
+        }
+
         public bool TryGetPlayerReplayState(
             string playerId,
             out NetworkPlayerReplayState state)
