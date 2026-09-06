@@ -18,6 +18,14 @@
         },
         "type" : "object"
       },
+      "AdminSession" : {
+        "properties" : {
+          "username" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "FriendListResponse" : {
         "properties" : {
           "friends" : {
@@ -365,6 +373,26 @@
         },
         "tags" : [
           "account-controller"
+        ]
+      }
+    },
+    "/api/v1/admin/session" : {
+      "get" : {
+        "operationId" : "current",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminSession"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-session-controller"
         ]
       }
     },

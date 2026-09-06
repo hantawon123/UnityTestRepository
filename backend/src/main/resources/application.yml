@@ -26,12 +26,27 @@ spring:
 server:
   port: 8080
   shutdown: graceful
+  servlet:
+    session:
+      cookie:
+        # 자바스크립트가 세션 쿠키를 읽지 못하게 합니다. 톰캣 기본값이기도 하지만,
+        # 관리자 세션이 걸려 있는 값이라 명시해 둡니다.
+        http-only: true
+        # 다른 사이트에서 우리 서버로 보내는 POST 에는 쿠키가 실리지 않습니다.
+        # CSRF 토큰과 겹치는 방어지만 층이 둘인 편이 낫습니다. strict 로 하지 않는
+        # 이유는 북마크나 링크로 들어올 때 로그아웃된 것처럼 보이기 때문입니다.
+        same-site: lax
+        # secure 는 운영에서만 켭니다. 로컬은 http 라 켜면 쿠키가 아예 오가지 않습니다.
 
 management:
   endpoints:
     web:
       exposure:
-        # 헬스체크만 엽니다. 나머지 엔드포인트는 인증을 붙인 뒤에 판단합니다.
+        # 헬스체크만 엽니다.
+        #
+        # 인증이 생겼지만(SecurityConfig) 그것은 /api/v1/admin/** 에만 걸립니다.
+        # actuator 는 여전히 누구나 부를 수 있으므로, 여기에 값을 더할 때는 그 정보를
+        # 공개해도 되는지 먼저 따져야 합니다. env 나 heapdump 는 그렇지 않습니다.
         include: health
   endpoint:
     health:
@@ -53,3 +68,12 @@ springdoc:
     enabled: false
   swagger-ui:
     enabled: false
+
+# 관리자 계정. 값이 없으면 계정을 등록하지 않고 관리 API 만 쓸 수 없게 됩니다.
+# 게임 API 는 영향을 받지 않습니다.
+#
+# 기본값을 심어두지 않는 이유는 위 springdoc 과 같습니다. 설정을 잊은 서버가
+# 아는 비밀번호로 열려 있는 것보다, 관리 화면을 못 쓰는 편이 안전합니다.
+admin:
+  username: ${ADMIN_USERNAME:}
+  password: ${ADMIN_PASSWORD:}
