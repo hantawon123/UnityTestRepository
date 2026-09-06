@@ -1,0 +1,107 @@
+package com.ssafy.d205.domain.report.entity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+/**
+ * 한 사람이 한 번 신고한 기록.
+ *
+ * <p><b>이 행은 아무 동작도 일으키지 않습니다.</b> 신고당한 사람은 알 수 없고, 검색이나
+ * 친구 요청이나 초대가 이 테이블을 읽지 않습니다. 차단과 다른 점이 여기이고, 설계의
+ * 대부분이 여기서 나옵니다 - 읽는 경로가 없으니 조회 성능도, 경합도 문제가 되지
+ * 않습니다.
+ *
+ * <p>신고자는 이 행을 고칠 수 없습니다. 취소하는 API 를 두지 않았습니다 - 취소를
+ * 허용하면 "신고했다가 지운 기록"이 남을지 말지를 정해야 하는데, 그 질문에 답할 근거가
+ * 아직 없습니다.
+ *
+ * <p>바뀌는 것은 검토 상태 하나뿐이고 그것은 운영자가 바꿉니다. 다만 <b>그 API 는 아직
+ * 없습니다.</b> 인증이 없는 채로 열면 아무나 신고를 기각 처리해 숨길 수 있습니다.
+ */
+@Entity
+@Table(name = "user_reports")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class UserReport {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "user_reports_seq")
+    private Integer seq;
+
+    /**
+     * 신고한 사람. <b>탈퇴하면 NULL 이 됩니다.</b>
+     *
+     * <p>기록을 지우지 않고 신고자만 비우는 이유는 V9 주석에 있습니다 - 신고는
+     * 신고당한 사람에 대한 기록이지 신고자에 대한 기록이 아닙니다.
+     */
+    @Column(name = "reporter_seq")
+    private Integer reporterSeq;
+
+    @Column(name = "reported_seq", nullable = false)
+    private Integer reportedSeq;
+
+    /**
+     * 이름으로 담습니다. ORDINAL 은 값의 순서를 바꾸거나 중간에 하나 넣는 순간
+     * 이미 쌓인 행의 뜻이 전부 달라집니다.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "reason", nullable = false, length = 32)
+    private ReportReason reason;
+
+    /** 신고자가 적은 한 줄. 없을 수 있습니다. */
+    @Column(name = "memo", length = 200)
+    private String memo;
+
+    /** 신고한 시각. yyyyMMddHHmmss, UTC. */
+    @Column(name = "created_at", nullable = false, length = 14)
+    private String createdAt;
+
+    /** 검토 상태. 들어올 때는 늘 {@link ReportStatus#PENDING} 입니다. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 16)
+    private ReportStatus status;
+
+    /** 검토한 시각. 아직 안 봤으면 null 입니다. */
+    @Column(name = "reviewed_at", length = 14)
+    private String reviewedAt;
+
+    private UserReport(Integer reporterSeq, Integer reportedSeq,
+                       ReportReason reason, String memo, String now) {
+        this.reporterSeq = reporterSeq;
+        this.reportedSeq = reportedSeq;
+        this.reason = reason;
+        this.memo = memo;
+        this.createdAt = now;
+        this.status = ReportStatus.PENDING;
+    }
+
+    public static UserReport of(Integer reporterSeq, Integer reportedSeq,
+                                ReportReason reason, String memo, String now) {
+        return new UserReport(reporterSeq, reportedSeq, reason, memo, now);
+    }
+
+    /**
+     * 운영자가 이 신고를 마무리합니다.
+     *
+     * <p>상태와 시각을 함께 씁니다. 둘을 따로 두면 "처리했다는데 언제인지 모르는" 행이
+     * 생기고, 그 행은 검토 이력으로 쓸 수 없습니다.
+     *
+     * <p>다시 부르면 덮어씁니다. 판단을 뒤집는 일은 실제로 일어나고, 막으면 잘못 누른
+     * 것을 고칠 방법이 없어집니다. 대신 이전 판단이 무엇이었는지는 남지 않으므로,
+     * 이력이 필요해지면 이 행이 아니라 별도 기록이 있어야 합니다.
+     */
+    public void review(ReportStatus decision, String now) {
+        this.status = decision;
+        this.reviewedAt = now;
+    }
+}

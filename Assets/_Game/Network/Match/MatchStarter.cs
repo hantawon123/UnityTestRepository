@@ -391,6 +391,7 @@ namespace Game.Network.Match
                     var restored = _session.CaptureMigrationPlayer(i, default);
                     _state.TrySetStunEndsAt(i, restored.StunEndsAt);
                     _state.TrySetRemainingDestructionUses(i, restored.DestructionUses);
+                    _state.TrySetHitCount(i, restored.HitCount);
                 }
                 return;
             }
@@ -774,6 +775,11 @@ namespace Game.Network.Match
                 targetPlayerIndex,
                 targetPose.position,
                 ServerTime);
+            if (result != Game.Core.Players.HitResult.Ignored)
+            {
+                PublishHitCount(targetPlayerIndex);
+            }
+
             if (result == Game.Core.Players.HitResult.Stunned && droppedObjectId != null)
             {
                 _state.TrySetObjectReleased(
@@ -997,6 +1003,11 @@ namespace Game.Network.Match
             _state?.TrySetRemainingDestructionUses(
                 playerIndex,
                 _session.GetRemainingDestructionUses(playerIndex));
+        }
+
+        private void PublishHitCount(int playerIndex)
+        {
+            _state?.TrySetHitCount(playerIndex, _session.GetHitCount(playerIndex));
         }
 
         private void UnbindSession()

@@ -204,7 +204,7 @@ namespace Game.Architecture.Tests
                 Assert.That(network.BoundSession, Is.Not.Null);
                 Assert.That(network.ResetStaminaPlayers, Is.EquivalentTo(new[] { 0, 1 }));
                 Assert.That(network.InitializedAssignmentPlayers, Is.EqualTo(new[] { 0 }));
-                Assert.That(network.PublishedAssignmentPlayers, Is.EqualTo(new[] { 0 }));
+                Assert.That(network.PublishedAssignmentPlayers, Is.EqualTo(new[] { 0, 1, 0 }));
                 Assert.That(network.PlayerItemStatuses.Count, Is.EqualTo(1));
                 Assert.That(network.PlayerItemStatuses[0], Is.Not.Null);
                 Assert.That(network.PlayerItemStatuses[0].Count, Is.EqualTo(2));
@@ -230,7 +230,7 @@ namespace Game.Architecture.Tests
                     Is.EqualTo(new[] { 0, 1 }));
                 Assert.That(
                     network.PublishedAssignmentPlayers,
-                    Is.EqualTo(new[] { 0, 1 }));
+                    Is.EqualTo(new[] { 0, 1, 0, 1 }));
                 // 턴 교대: 새로 숨는 1번만 집으로, 직전에 숨긴 0번만 대기 구역으로 이동한다.
                 Assert.That(
                     network.TeleportedPlayers,
@@ -463,6 +463,14 @@ namespace Game.Architecture.Tests
 
             public bool TryGetPlayerPose(string playerId, out Pose pose) =>
                 poses.TryGetValue(playerId, out pose);
+
+            public bool TryGetLocalStamina(out float current, out float max, out bool exhausted)
+            {
+                current = 0f;
+                max = 0f;
+                exhausted = false;
+                return false;
+            }
 
             public bool BindMatchSession(
                 MatchSessionCoordinator session,

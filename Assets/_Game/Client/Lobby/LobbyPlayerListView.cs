@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Home;
 using Game.Core.Lobby;
 using UnityEngine;
 using UnityEngine.UI;
@@ -25,6 +26,11 @@ namespace Game.Client.Lobby
         private void Awake()
         {
             EnsureLayout();
+        }
+
+        private void OnEnable()
+        {
+            HomeUiFonts.ApplyLegacy(transform);
         }
 
         public void SetParticipants(
@@ -213,12 +219,9 @@ namespace Game.Client.Lobby
 
         private Font ResolveFont()
         {
-            if (uiFont != null)
-            {
-                return uiFont;
-            }
-
-            return Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")
+            return HomeUiFonts.Legacy()
+                ?? uiFont
+                ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")
                 ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
         }
 

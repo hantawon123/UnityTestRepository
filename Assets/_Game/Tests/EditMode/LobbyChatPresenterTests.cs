@@ -54,6 +54,7 @@ namespace Game.Tests.EditMode
             Assert.That(log.Messages.CurrentValue[0].SenderId, Is.EqualTo("host-1"));
             Assert.That(log.Messages.CurrentValue[0].Text, Is.EqualTo("테스트 메시지"));
             Assert.That(chatView.ClearedInput, Is.True);
+            Assert.That(chatView.Deactivated, Is.True);
             Assert.That(bubbleView.Shown.Count, Is.EqualTo(1));
         }
 
@@ -81,6 +82,7 @@ namespace Game.Tests.EditMode
 
             Assert.That(log.Messages.CurrentValue, Is.Empty);
             Assert.That(chatView.ClearedInput, Is.True);
+            Assert.That(chatView.Deactivated, Is.True);
         }
 
         [Test]
@@ -99,11 +101,14 @@ namespace Game.Tests.EditMode
             public IReadOnlyList<LobbyChatMessage> LastMessages { get; private set; }
                 = System.Array.Empty<LobbyChatMessage>();
             public bool ClearedInput { get; private set; }
+            public bool Deactivated { get; private set; }
 
             public void SetMessages(IReadOnlyList<LobbyChatMessage> messages) =>
                 LastMessages = messages;
 
             public void ClearInput() => ClearedInput = true;
+
+            public void Deactivate() => Deactivated = true;
 
             public void EmitSend(string text) => SendRequested?.Invoke(text);
         }

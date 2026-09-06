@@ -15,6 +15,7 @@ namespace Game.Network.Match
         double ServerTime { get; }
         MatchRuleSettings MatchRules { get; }
         bool TryGetPlayerPose(string playerId, out Pose pose);
+        bool TryGetLocalStamina(out float current, out float max, out bool exhausted);
     }
 
     public readonly struct NetworkPlayerReplayState

@@ -1,4 +1,5 @@
 using System;
+using Game.Client.Home;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -66,6 +67,7 @@ namespace Game.Client.Lobby
 
         public void Show(string message)
         {
+            HomeUiFonts.ApplyLegacy(panel != null ? panel.transform : transform);
             if (messageText != null)
             {
                 messageText.text = message ?? string.Empty;

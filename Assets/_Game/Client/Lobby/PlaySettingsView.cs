@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Home;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
 using UnityEngine;
@@ -115,6 +116,7 @@ namespace Game.Client.Lobby
 
         private void OnEnable()
         {
+            HomeUiFonts.ApplyLegacy(panel != null ? panel.transform : transform);
             Bind(openButton, () => OpenRequested?.Invoke());
             Bind(closeButton, () => CloseRequested?.Invoke());
             Bind(copyRoomCodeButton, () => CopyRoomCodeRequested?.Invoke());

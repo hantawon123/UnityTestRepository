@@ -28,26 +28,17 @@ namespace Game.Editor
     /// fit one 2048 square page at a sampling size the screens never exceed.
     /// </para>
     /// <para>
-    /// This rewrites the asset in place instead of recreating it. Two scenes
-    /// assign the font and its material to text components directly — 24
-    /// references between them — and TMP Settings names it as the project
-    /// default. Deleting and recreating the asset would reissue its guid and
-    /// leave every one of those pointing at nothing.
+    /// This rewrites the Paperlogy Regular SDF asset in place instead of
+    /// recreating it, so existing references keep their guid.
     /// </para>
     /// <para>
-    /// Re-run this after replacing the source font
-    /// (<c>Assets/_Game/Content/Fonts/Cafe24Ssurround-v2.0.ttf</c>, reached
-    /// through the guid the asset already holds) or after editing the
-    /// character set file. Nothing else needs to run it.
+    /// Re-run this after replacing
+    /// <c>Assets/_Game/Content/Resources/Fonts/Paperlogy-4Regular.ttf</c>
+    /// or after editing the character set file. Nothing else needs to run it.
     /// </para>
     /// </remarks>
     public static class FontAtlasBaker
     {
-        private const string MenuPath = "Game/Fonts/Bake Static Atlas";
-
-        private const string FontAssetPath =
-            "Assets/_Game/Content/Fonts/Cafe24Ssurround SDF.asset";
-
         private const string CharacterSetPath =
             "Assets/_Game/Editor/FontAtlasCharacterSet.txt";
 
@@ -83,23 +74,60 @@ namespace Game.Editor
         /// </summary>
         private const int MissingCharacterLimit = 200;
 
-        [MenuItem(MenuPath)]
-        public static void BakeStaticAtlas()
+        private const string PaperlogyRegularMenuPath =
+            "Game/Fonts/Bake Paperlogy Regular Atlas";
+
+        private const string PaperlogyRegularSourcePath =
+            "Assets/_Game/Content/Resources/Fonts/Paperlogy-4Regular.ttf";
+
+        private const string PaperlogyRegularAssetPath =
+            "Assets/_Game/Content/Resources/Fonts/Paperlogy-4Regular SDF.asset";
+
+        [InitializeOnLoadMethod]
+        private static void QueuePaperlogyRegularBakeIfMissing()
         {
-            var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
-                FontAssetPath);
-            if (fontAsset == null)
+            EditorApplication.playModeStateChanged -= BakePaperlogyRegularWhenEditMode;
+            EditorApplication.playModeStateChanged += BakePaperlogyRegularWhenEditMode;
+            EditorApplication.delayCall += BakePaperlogyRegularIfMissing;
+        }
+
+        private static void BakePaperlogyRegularWhenEditMode(PlayModeStateChange state)
+        {
+            if (state == PlayModeStateChange.EnteredEditMode)
             {
-                throw new InvalidOperationException(
-                    $"No font asset at '{FontAssetPath}'.");
+                EditorApplication.delayCall += BakePaperlogyRegularIfMissing;
+            }
+        }
+
+        private static void BakePaperlogyRegularIfMissing()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode ||
+                EditorApplication.isCompiling ||
+                EditorApplication.isUpdating)
+            {
+                return;
             }
 
-            var sourceFont = ResolveSourceFont(fontAsset);
-            var characters = ReadCharacterSet();
+            if (AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(PaperlogyRegularAssetPath) != null)
+            {
+                return;
+            }
 
-            // Pack into a throwaway asset first. Its tables, glyph rectangles
-            // and atlas all come out consistent, which is hard to guarantee
-            // when mutating the live asset field by field.
+            Debug.Log("[Fonts] Paperlogy Regular SDF가 없어 Static 아틀라스를 굽습니다.");
+            BakePaperlogyRegular();
+        }
+
+        [MenuItem(PaperlogyRegularMenuPath)]
+        public static void BakePaperlogyRegular()
+        {
+            var sourceFont = AssetDatabase.LoadAssetAtPath<Font>(PaperlogyRegularSourcePath);
+            if (sourceFont == null)
+            {
+                throw new InvalidOperationException(
+                    $"No source font at '{PaperlogyRegularSourcePath}'.");
+            }
+
+            var characters = ReadCharacterSet();
             var baked = TMP_FontAsset.CreateFontAsset(
                 sourceFont,
                 SamplingPointSize,
@@ -123,15 +151,71 @@ namespace Game.Editor
                     characters,
                     out var missing,
                     includeFontFeatures: true);
-
                 RejectOverfilledAtlas(missing);
-                TransferInto(fontAsset, baked);
-                ReportResult(fontAsset, characters, missing);
+
+                baked.name = "Paperlogy-4Regular SDF";
+                baked.atlasPopulationMode = AtlasPopulationMode.Static;
+                baked.ReadFontAssetDefinition();
+
+                var existing = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+                    PaperlogyRegularAssetPath);
+                if (existing != null)
+                {
+                    TransferInto(existing, baked);
+                    ReportResult(existing, characters, missing);
+                    return;
+                }
+
+                SaveNewFontAsset(baked, PaperlogyRegularAssetPath);
+                ReportResult(baked, characters, missing);
+                baked = null;
             }
             finally
             {
-                DiscardBakedAsset(baked);
+                if (baked != null)
+                {
+                    DiscardBakedAsset(baked);
+                }
             }
+        }
+
+        private static void SaveNewFontAsset(TMP_FontAsset fontAsset, string assetPath)
+        {
+            AssetDatabase.CreateAsset(fontAsset, assetPath);
+            if (fontAsset.atlasTextures != null)
+            {
+                for (var index = 0; index < fontAsset.atlasTextures.Length; index++)
+                {
+                    var atlas = fontAsset.atlasTextures[index];
+                    if (atlas == null)
+                    {
+                        continue;
+                    }
+
+                    atlas.name = fontAsset.name + (index == 0 ? " Atlas" : $" Atlas {index}");
+                    AssetDatabase.AddObjectToAsset(atlas, fontAsset);
+                }
+            }
+
+            if (fontAsset.material != null)
+            {
+                fontAsset.material.name = fontAsset.name + " Material";
+                AssetDatabase.AddObjectToAsset(fontAsset.material, fontAsset);
+                if (fontAsset.atlasTextures is { Length: > 0 } &&
+                    fontAsset.atlasTextures[0] != null)
+                {
+                    RefreshMaterial(
+                        fontAsset.material,
+                        fontAsset,
+                        fontAsset.atlasTextures[0]);
+                }
+            }
+
+            fontAsset.atlasPopulationMode = AtlasPopulationMode.Static;
+            fontAsset.ReadFontAssetDefinition();
+            EditorUtility.SetDirty(fontAsset);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
         }
 
         /// <summary>
@@ -257,37 +341,6 @@ namespace Game.Editor
             }
 
             return characters.ToString();
-        }
-
-        /// <summary>
-        /// Finds the font this atlas is rendered from. A Static asset holds
-        /// only the guid, so a rerun has to go through that.
-        /// </summary>
-        private static Font ResolveSourceFont(TMP_FontAsset fontAsset)
-        {
-            if (fontAsset.sourceFontFile != null)
-            {
-                return fontAsset.sourceFontFile;
-            }
-
-            var serialized = new SerializedObject(fontAsset);
-            var guid = serialized
-                .FindProperty("m_SourceFontFileGUID")
-                ?.stringValue;
-
-            var font = string.IsNullOrEmpty(guid)
-                ? null
-                : AssetDatabase.LoadAssetAtPath<Font>(
-                    AssetDatabase.GUIDToAssetPath(guid));
-
-            if (font == null)
-            {
-                throw new InvalidOperationException(
-                    $"'{fontAsset.name}' no longer points at a source font. " +
-                    "Assign one on the asset before baking.");
-            }
-
-            return font;
         }
 
         private static void DiscardBakedAsset(TMP_FontAsset baked)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Game.Client.Home;
 using Game.Core.Lobby;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -14,6 +15,7 @@ namespace Game.Client.Lobby
 
         void SetMessages(IReadOnlyList<LobbyChatMessage> messages);
         void ClearInput();
+        void Deactivate();
     }
 
     public sealed class LobbyChatView : MonoBehaviour, ILobbyChatView
@@ -47,6 +49,7 @@ namespace Game.Client.Lobby
 
         private void OnEnable()
         {
+            HomeUiFonts.ApplyLegacy(transform);
             if (sendButton != null)
             {
                 sendButton.onClick.AddListener(HandleSendClicked);
@@ -56,6 +59,12 @@ namespace Game.Client.Lobby
             {
                 inputField.lineType = InputField.LineType.SingleLine;
                 inputField.characterLimit = LobbyChatMessage.MaxTextLength;
+                if (inputField.textComponent != null)
+                {
+                    inputField.textComponent.horizontalOverflow = HorizontalWrapMode.Overflow;
+                    inputField.textComponent.verticalOverflow = VerticalWrapMode.Overflow;
+                }
+
                 // Enter is handled only via onSubmit so we don't fight InputField's KeyPressed.
                 inputField.onSubmit.AddListener(HandleSubmit);
             }
@@ -177,6 +186,16 @@ namespace Game.Client.Lobby
             inputField.selectionAnchorPosition = 0;
             inputField.selectionFocusPosition = 0;
             inputField.ForceLabelUpdate();
+            Deactivate();
+        }
+
+        public void Deactivate()
+        {
+            if (inputField == null)
+            {
+                return;
+            }
+
             inputField.DeactivateInputField();
         }
 
@@ -204,6 +223,7 @@ namespace Game.Client.Lobby
 
             lastSendUnscaledTime = Time.unscaledTime;
             SendRequested?.Invoke(text ?? string.Empty);
+            Deactivate();
         }
 
         private bool TryAppendOnly(IReadOnlyList<LobbyChatMessage> list)
@@ -407,6 +427,12 @@ namespace Game.Client.Lobby
             if (inputField != null)
             {
                 inputField.characterLimit = LobbyChatMessage.MaxTextLength;
+                inputField.lineType = InputField.LineType.SingleLine;
+                if (inputField.textComponent != null)
+                {
+                    inputField.textComponent.horizontalOverflow = HorizontalWrapMode.Overflow;
+                    inputField.textComponent.verticalOverflow = VerticalWrapMode.Overflow;
+                }
             }
 
             var leftover = transform.Find("HistoryViewport/HistoryText");
@@ -423,10 +449,10 @@ namespace Game.Client.Lobby
                 return cachedFont;
             }
 
-            cachedFont = uiFont != null
-                ? uiFont
-                : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")
-                  ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+            cachedFont = HomeUiFonts.Legacy()
+                ?? uiFont
+                ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")
+                ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
             return cachedFont;
         }
     }
