@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Game.Core.Rooms;
 
@@ -13,7 +13,6 @@ namespace Game.Client.Rooms
         /// A full room code, typed into the panel on the left.
         /// </summary>
         event Action<string> RoomCodeEntered;
-        event Action CreateRoomRequested;
         event Action BackRequested;
         event Action<string> RoomSelected;
         event Action DisconnectionAcknowledged;

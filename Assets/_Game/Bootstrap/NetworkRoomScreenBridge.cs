@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Client.Rooms;
@@ -46,11 +46,9 @@ namespace Game.Bootstrap
 
         public void Start()
         {
-            screen.RoomCreateRequested += OnCreateRequested;
             screen.RoomJoinRequested += OnJoinRequested;
             screen.RoomCodeEntryRequested += OnCodeEntryRequested;
             browserView.RefreshRequested += OnRefreshRequested;
-            browserView.CreateRoomRequested += OnCreateFormOpened;
             Refresh().Forget();
         }
 
@@ -65,21 +63,12 @@ namespace Game.Bootstrap
         /// </remarks>
         public void Dispose()
         {
-            screen.RoomCreateRequested -= OnCreateRequested;
             screen.RoomJoinRequested -= OnJoinRequested;
             screen.RoomCodeEntryRequested -= OnCodeEntryRequested;
             browserView.RefreshRequested -= OnRefreshRequested;
-            browserView.CreateRoomRequested -= OnCreateFormOpened;
         }
 
         private void OnRefreshRequested() => Refresh().Forget();
-
-        private void OnCreateFormOpened() => network.PrepareLobbyScene();
-
-        private void OnCreateRequested(RoomCreateRequest request)
-        {
-            Create(request).Forget();
-        }
 
         private void OnJoinRequested(RoomId room, string password)
         {
@@ -121,21 +110,6 @@ namespace Game.Bootstrap
         /// The outcome is not returned anywhere: it is recorded on
         /// <see cref="RoomBrowserSystem"/>, which the screen already watches.
         /// </summary>
-        private async UniTaskVoid Create(RoomCreateRequest request)
-        {
-            try
-            {
-                await commands.CreateAsync(request, CancellationToken.None);
-            }
-            catch (OperationCanceledException)
-            {
-            }
-            catch (Exception failure)
-            {
-                Debug.LogError($"[Rooms] Could not open the room: {failure.Message}");
-            }
-        }
-
         private async UniTaskVoid Enter(RoomId room, string password)
         {
             try
