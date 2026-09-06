@@ -109,6 +109,7 @@ namespace Game.Client.Home
         private readonly INicknameAvailabilityCheck availability;
         private bool isFriendListVisible;
         private bool isProfileSettingsVisible;
+        private bool isServerSettingsVisible;
 
         public HomeMenuPresenter(
             PlayerProfile profile,
@@ -137,6 +138,7 @@ namespace Game.Client.Home
             view.ActionClicked += OnActionClicked;
             view.FriendListDismissed += HideFriendList;
             view.ProfileSettingsDismissed += HideProfileSettings;
+            view.ServerSettingsDismissed += HideServerSettings;
             view.NicknameChangeRequested += OnNicknameChangeRequested;
             view.NicknameDuplicateCheckRequested += OnNicknameDuplicateCheckRequested;
             view.NicknameEdited += OnNicknameEdited;
@@ -151,6 +153,8 @@ namespace Game.Client.Home
             BindFriends();
             HideFriendList();
             HideProfileSettings();
+            view.SetServerSettingsVisible(false);
+            view.SetSelectedRegion(ServerRegionCatalog.Default.Code);
         }
 
         public void Dispose()
@@ -158,6 +162,7 @@ namespace Game.Client.Home
             view.ActionClicked -= OnActionClicked;
             view.FriendListDismissed -= HideFriendList;
             view.ProfileSettingsDismissed -= HideProfileSettings;
+            view.ServerSettingsDismissed -= HideServerSettings;
             view.NicknameChangeRequested -= OnNicknameChangeRequested;
             view.NicknameDuplicateCheckRequested -= OnNicknameDuplicateCheckRequested;
             view.NicknameEdited -= OnNicknameEdited;
@@ -179,9 +184,26 @@ namespace Game.Client.Home
                 return;
             }
 
+            if (action == HomeMenuAction.ServerSettings)
+            {
+                // The globe both opens and closes this one: the design gives
+                // the panel no other way out. Opening it puts away whatever
+                // else was up, so only one panel is ever on screen.
+                var opening = !isServerSettingsVisible;
+                if (opening)
+                {
+                    HideFriendList();
+                    HideProfileSettings();
+                }
+
+                SetServerSettingsVisible(opening);
+                return;
+            }
+
             if (action == HomeMenuAction.Friends)
             {
                 HideProfileSettings();
+                HideServerSettings();
                 ShowFriendList();
                 return;
             }
@@ -189,6 +211,7 @@ namespace Game.Client.Home
             if (action == HomeMenuAction.ProfileSettings)
             {
                 HideFriendList();
+                HideServerSettings();
                 ShowProfileSettings();
                 return;
             }
@@ -198,6 +221,7 @@ namespace Game.Client.Home
             {
                 HideFriendList();
                 HideProfileSettings();
+                HideServerSettings();
                 applicationHost.OpenRoomBrowser();
             }
         }
@@ -292,6 +316,22 @@ namespace Game.Client.Home
             HideFriendSearch();
             isFriendListVisible = false;
             view.SetFriendListVisible(false);
+        }
+
+        private void SetServerSettingsVisible(bool visible)
+        {
+            if (isServerSettingsVisible == visible)
+            {
+                return;
+            }
+
+            isServerSettingsVisible = visible;
+            view.SetServerSettingsVisible(visible);
+        }
+
+        private void HideServerSettings()
+        {
+            SetServerSettingsVisible(false);
         }
 
         private void ShowProfileSettings()

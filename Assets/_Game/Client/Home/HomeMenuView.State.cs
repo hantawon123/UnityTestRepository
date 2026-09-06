@@ -19,6 +19,9 @@ namespace Game.Client.Home
         [SerializeField]
         private Sprite serverIcon;
 
+        [SerializeField]
+        private Sprite checkIcon;
+
         [Header("Fonts")]
         [SerializeField]
         private TMP_FontAsset fontAsset;
@@ -57,6 +60,7 @@ namespace Game.Client.Home
         private TMP_Text searchEmptyText;
         private Button dismissButton;
         private GameObject profileSettingsRoot;
+        private GameObject serverSettingsRoot;
         private TMP_InputField profileNicknameInput;
         private TMP_Text nicknameMessageText;
         private TMP_Text nicknameCounterText;

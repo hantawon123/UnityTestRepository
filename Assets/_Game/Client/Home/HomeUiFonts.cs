@@ -5,6 +5,17 @@ using UnityEngine;
 
 namespace Game.Client.Home
 {
+    /// <summary>
+    /// Which corner a rounded rectangle leaves square, for the panels that butt
+    /// up against the control that opened them.
+    /// </summary>
+    public enum SquareCorner
+    {
+        None,
+        TopRight,
+        BottomRight
+    }
+
     public static class HomeUiFonts
     {
         private static TMP_FontAsset koreanFont;
@@ -28,15 +39,15 @@ namespace Game.Client.Home
         /// sprite costs a few kilobytes and no repository space, and it cannot
         /// drift from <see cref="HomeStyle"/> the way an exported PNG does.
         /// </remarks>
-        public static Sprite Rounded(int radius, bool squareBottomRight = false)
+        public static Sprite Rounded(int radius, SquareCorner squareCorner = SquareCorner.None)
         {
-            var key = squareBottomRight ? -radius : radius;
+            var key = (radius * 10) + (int)squareCorner;
             if (RoundedSprites.TryGetValue(key, out var cached) && cached != null)
             {
                 return cached;
             }
 
-            var sprite = BuildRoundedSprite(radius, 0f, squareBottomRight);
+            var sprite = BuildRoundedSprite(radius, 0f, squareCorner);
             RoundedSprites[key] = sprite;
             return sprite;
         }
@@ -68,7 +79,7 @@ namespace Game.Client.Home
         /// corner shows its steps at chip size.
         /// </remarks>
         private static Sprite BuildRoundedSprite(
-            int radius, float thickness, bool squareBottomRight = false)
+            int radius, float thickness, SquareCorner squareCorner = SquareCorner.None)
         {
             var size = Mathf.Max((radius * 2) + 4, 8);
             var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
@@ -85,10 +96,11 @@ namespace Game.Client.Home
                 {
                     // Texture space counts up from the bottom, so the design's
                     // bottom-right corner is the low-y, high-x quadrant here.
-                    // Filling that quadrant solid leaves it square while the
-                    // other three keep their radius, and the nine-slice takes
-                    // each corner from the matching corner of this texture.
-                    var isSquareCorner = squareBottomRight && x + 0.5f > half && y + 0.5f < half;
+                    // Filling a quadrant solid leaves that corner square while
+                    // the other three keep their radius, and the nine-slice
+                    // takes each corner from the matching corner of this
+                    // texture.
+                    var isSquareCorner = IsSquare(squareCorner, x + 0.5f > half, y + 0.5f > half);
                     var coverage = isSquareCorner
                         ? 1f
                         : RoundedCoverage(x, y, half, radius, 0f);
@@ -116,6 +128,21 @@ namespace Game.Client.Home
                 new Vector4(border, border, border, border));
             sprite.hideFlags = HideFlags.HideAndDontSave;
             return sprite;
+        }
+
+        private static bool IsSquare(SquareCorner corner, bool right, bool top)
+        {
+            switch (corner)
+            {
+                case SquareCorner.TopRight:
+                    return right && top;
+
+                case SquareCorner.BottomRight:
+                    return right && !top;
+
+                default:
+                    return false;
+            }
         }
 
         private static float RoundedCoverage(int x, int y, float half, float radius, float inset)

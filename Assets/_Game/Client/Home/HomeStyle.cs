@@ -78,6 +78,11 @@ namespace Game.Client.Home
             /// that are there to be glanced at.
             /// </summary>
             public static readonly Color Counter = FromHex(0xA8ADB3);
+
+            /// <summary>
+            /// The plate a region row shows while the pointer is on it.
+            /// </summary>
+            public static readonly Color RowHover = FromHex(0xF5F3F1, 0.16f);
         }
 
         public static class Layout
@@ -189,6 +194,47 @@ namespace Game.Client.Home
             public const string UnreachableMessage = "확인하지 못했어요. 잠시 후 다시 시도해주세요";
         }
 
+        /// <summary>
+        /// The region picker, hung under the globe button it opens from.
+        /// </summary>
+        /// <remarks>
+        /// Its top-right corner is square for the same reason the profile
+        /// panel's bottom-right is: the panel and the button that opened it
+        /// read as one piece.
+        /// </remarks>
+        public static class Server
+        {
+            public static readonly Vector2 PanelSize = new Vector2(240f, 307f);
+            public const float PanelRightMargin = 60f;
+            public const float PanelTopMargin = 128f;
+
+            public const float SidePadding = 24f;
+            public const float VerticalPadding = 20f;
+
+            public const float TitleHeight = 28f;
+
+            public const float RowHeight = 40f;
+            public const float RowGap = 10f;
+            public const int RowRadius = 12;
+
+            /// <summary>
+            /// Not given by the design. The check mark is square-ish and the
+            /// row is 40 tall, so this leaves it room without crowding.
+            /// </summary>
+            public const float CheckSize = 22f;
+
+            /// <summary>
+            /// The gap between the title and the first region.
+            /// </summary>
+            public const float TitleToRows = 12f;
+
+            /// <summary>
+            /// Where the first row's top sits, measured down from the panel's
+            /// own top: past the padding, the title, and the gap after it.
+            /// </summary>
+            public const float RowsTop = VerticalPadding + TitleHeight + TitleToRows;
+        }
+
         public static class Radius
         {
             public const int Chip = 20;
@@ -221,6 +267,8 @@ namespace Game.Client.Home
             public const float Apply = 24f;
             public const float Message = 18f;
             public const float Counter = 18f;
+            public const float ServerTitle = 20f;
+            public const float Region = 24f;
         }
 
         /// <summary>

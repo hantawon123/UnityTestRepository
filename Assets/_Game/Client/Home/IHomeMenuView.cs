@@ -12,6 +12,8 @@ namespace Game.Client.Home
 
         event Action ProfileSettingsDismissed;
 
+        event Action ServerSettingsDismissed;
+
         event Action<string> NicknameChangeRequested;
 
         /// <summary>
@@ -42,6 +44,14 @@ namespace Game.Client.Home
         /// apply button is open.
         /// </summary>
         void SetNicknameAvailability(NicknameCheckOutcome outcome);
+
+        void SetServerSettingsVisible(bool visible);
+
+        /// <summary>
+        /// Marks which region is in use. A code the picker does not list leaves
+        /// every row unmarked.
+        /// </summary>
+        void SetSelectedRegion(string code);
 
         void SetFriendListVisible(bool visible);
 

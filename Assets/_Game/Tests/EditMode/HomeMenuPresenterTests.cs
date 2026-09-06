@@ -326,6 +326,76 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Presenter_ServerSettings_TheGlobeOpensAndClosesIt()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
+            Assert.That(view.ServerSettingsVisible, Is.False);
+
+            view.Raise(HomeMenuAction.ServerSettings);
+            Assert.That(view.ServerSettingsVisible, Is.True);
+
+            view.Raise(HomeMenuAction.ServerSettings);
+            Assert.That(
+                view.ServerSettingsVisible,
+                Is.False,
+                "지구본을 다시 눌러도 닫히지 않으면 패널을 닫을 방법이 없다.");
+        }
+
+        [Test]
+        public void Presenter_ServerSettings_StartsOnTheDefaultRegion()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
+
+            Assert.That(view.SelectedRegion, Is.EqualTo(ServerRegionCatalog.Default.Code));
+        }
+
+        [Test]
+        public void Presenter_ClickOutsideRegionPicker_ClosesIt()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
+            view.Raise(HomeMenuAction.ServerSettings);
+
+            view.RaiseServerSettingsDismissed();
+            Assert.That(view.ServerSettingsVisible, Is.False);
+
+            // Closing by pressing away must leave the globe able to open it
+            // again on the next press, not on the one after.
+            view.Raise(HomeMenuAction.ServerSettings);
+            Assert.That(view.ServerSettingsVisible, Is.True);
+        }
+
+        [Test]
+        public void Presenter_RegionPicker_ClosesTheOtherPanels()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
+
+            view.Raise(HomeMenuAction.ProfileSettings);
+            view.Raise(HomeMenuAction.ServerSettings);
+            Assert.That(view.ProfileSettingsVisible, Is.False);
+            Assert.That(view.ServerSettingsVisible, Is.True);
+
+            view.Raise(HomeMenuAction.ServerSettings);
+            view.Raise(HomeMenuAction.Friends);
+            view.Raise(HomeMenuAction.ServerSettings);
+            Assert.That(view.FriendListVisible, Is.False);
+            Assert.That(view.ServerSettingsVisible, Is.True);
+        }
+
+        [Test]
+        public void Presenter_OtherPanels_CloseTheRegionPicker()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
+
+            view.Raise(HomeMenuAction.ServerSettings);
+            view.Raise(HomeMenuAction.Friends);
+            Assert.That(view.ServerSettingsVisible, Is.False);
+
+            view.Raise(HomeMenuAction.ServerSettings);
+            view.Raise(HomeMenuAction.ProfileSettings);
+            Assert.That(view.ServerSettingsVisible, Is.False);
+        }
+
+        [Test]
         public void Presenter_DuplicateCheck_AsksAndReportsBack()
         {
             using var presenter = CreateStartedPresenter(
@@ -508,11 +578,17 @@ namespace Game.Tests.EditMode
 
             public NicknameCheckOutcome? LastAvailability { get; private set; }
 
+            public bool ServerSettingsVisible { get; private set; }
+
+            public string SelectedRegion { get; private set; }
+
             public event Action<HomeMenuAction> ActionClicked;
 
             public event Action FriendListDismissed;
 
             public event Action ProfileSettingsDismissed;
+
+            public event Action ServerSettingsDismissed;
 
             public event Action<string> NicknameChangeRequested;
 
@@ -551,6 +627,16 @@ namespace Game.Tests.EditMode
             public void SetNicknameAvailability(NicknameCheckOutcome outcome)
             {
                 LastAvailability = outcome;
+            }
+
+            public void SetServerSettingsVisible(bool visible)
+            {
+                ServerSettingsVisible = visible;
+            }
+
+            public void SetSelectedRegion(string code)
+            {
+                SelectedRegion = code;
             }
 
             public void RaiseDuplicateCheck(string nickname)
@@ -598,6 +684,11 @@ namespace Game.Tests.EditMode
             public void RaiseFriendListDismissed()
             {
                 FriendListDismissed?.Invoke();
+            }
+
+            public void RaiseServerSettingsDismissed()
+            {
+                ServerSettingsDismissed?.Invoke();
             }
 
             public void RaiseProfileSettingsDismissed()

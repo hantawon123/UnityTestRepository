@@ -61,7 +61,7 @@ namespace Game.Client.Home
             var fill = AddImage(
                 panel,
                 HomeStyle.Palette.PanelFill,
-                HomeUiFonts.Rounded(HomeStyle.Radius.Panel, squareBottomRight: true),
+                HomeUiFonts.Rounded(HomeStyle.Radius.Panel, SquareCorner.BottomRight),
                 raycastTarget: true);
             fill.type = Image.Type.Sliced;
             fill.pixelsPerUnitMultiplier = 1f;

@@ -49,11 +49,19 @@ namespace Game.Client.Home
             CreateBackground(canvas);
             CreateLeftMenu(canvas);
             CreateQuitButton(canvas);
+
+            // The panels are built before the controls that open them, and Unity
+            // hit-tests later siblings first. A panel's full-screen dismiss area
+            // would otherwise swallow the press on the globe or the chip, so
+            // pressing one while another panel was open would close that panel
+            // and do nothing else.
+            CreateFriendListRoot(canvas);
+            CreateProfileSettingsRoot(canvas);
+            CreateServerSettingsRoot(canvas);
+
             CreateProfileChip(canvas);
             CreateFriendButton(canvas);
             CreateServerButton(canvas);
-            CreateFriendListRoot(canvas);
-            CreateProfileSettingsRoot(canvas);
         }
 
         private RectTransform CreateCanvas()
