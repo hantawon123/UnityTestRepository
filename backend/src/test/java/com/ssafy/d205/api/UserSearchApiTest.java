@@ -17,6 +17,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -204,6 +205,149 @@ class UserSearchApiTest extends IntegrationTest {
         return (String) plan.get("possible_keys");
     }
 
+    @Test
+    @DisplayName("검색을 끈 사람은 결과에 담기지 않는다")
+    void hiddenUsersAreLeftOut() throws Exception {
+        String prefix = newPrefix();
+        String hidden = createUser(prefix + "AA");
+        createUser(prefix + "BB");
+        String me = createUser(newPrefix() + "ME");
+
+        setSearchable(hidden, false);
+
+        // 화면에서 가리는 것이 아니라 응답 자체에 없어야 합니다. 담아 보내고 클라이언트가
+        // 거르는 방식이면 네트워크를 보는 것만으로 드러납니다.
+        mvc.perform(searchRequest(me, prefix, null))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.users.length()").value(1))
+                .andExpect(jsonPath("$.users[0].nickname").value(prefix + "BB"));
+    }
+
+    @Test
+    @DisplayName("다시 켜면 다시 나온다")
+    void turningItBackOnRestoresThem() throws Exception {
+        String prefix = newPrefix();
+        String user = createUser(prefix + "AA");
+        String me = createUser(newPrefix() + "ME");
+
+        setSearchable(user, false);
+        setSearchable(user, true);
+
+        mvc.perform(searchRequest(me, prefix, null))
+                .andExpect(jsonPath("$.users.length()").value(1));
+    }
+
+    @Test
+    @DisplayName("컬럼 기본값이 TRUE 다 - 이미 가입한 사람을 위한 값")
+    void theColumnDefaultKeepsExistingUsersVisible() {
+        // V10 이 도는 순간 기존 사용자 전원이 이 값을 받습니다. FALSE 였으면 그 한 문장으로
+        // 모두가 검색에서 사라지고 친구 추가가 통째로 멈춥니다.
+        //
+        // 새 계정으로는 이것을 확인할 수 없습니다. User 엔티티가 필드를 true 로 초기화해서
+        // JPA 의 INSERT 에 값이 항상 실려 가므로, 컬럼 기본값을 FALSE 로 바꿔도 아래
+        // 테스트들은 전부 통과합니다. 그래서 스키마를 직접 봅니다.
+        //
+        // 테스트 컨테이너는 빈 DB 로 시작해 "마이그레이션 전에 있던 행"을 만들 수 없습니다.
+        // 확인할 수 있는 것은 그 행들이 받을 값이고, 그것이 이 값입니다.
+        String columnDefault = jdbcTemplate.queryForObject("""
+                SELECT COLUMN_DEFAULT
+                  FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = 'users'
+                   AND COLUMN_NAME = 'searchable'
+                """, String.class);
+
+        assertThat(columnDefault).isEqualTo("1");
+    }
+
+    @Test
+    @DisplayName("발급된 계정은 검색에 나온다")
+    void newAccountsAreSearchable() throws Exception {
+        // 위와 달리 이쪽이 보는 것은 엔티티의 초기값입니다. 둘 중 하나만 있으면 새
+        // 계정과 기존 계정 가운데 한쪽이 검증되지 않은 채로 남습니다.
+        String prefix = newPrefix();
+        createUser(prefix + "AA");
+        String me = createUser(newPrefix() + "ME");
+
+        mvc.perform(searchRequest(me, prefix, null))
+                .andExpect(jsonPath("$.users.length()").value(1));
+    }
+
+    @Test
+    @DisplayName("같은 값을 다시 보내도 성공한다")
+    void settingTheSameValueTwiceIsFine() throws Exception {
+        // 체크박스를 두 번 눌러 원래대로 돌아온 경우가 오류일 이유가 없습니다.
+        String me = createUser(newPrefix() + "ME");
+
+        setSearchable(me, false);
+        setSearchable(me, false);
+    }
+
+    @Test
+    @DisplayName("값을 빠뜨리면 400 이다")
+    void theValueIsRequired() throws Exception {
+        // Boolean 이 아니라 boolean 으로 두면 빠뜨린 요청에 false 가 채워져, 끄겠다는
+        // 뜻이 아닌데 검색에서 사라집니다.
+        String me = createUser(newPrefix() + "ME");
+
+        mvc.perform(put("/api/v1/accounts/me/searchable")
+                        .header(USER_ID_HEADER, me)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    @DisplayName("검색을 꺼도 계정 조회에는 현재 값이 나온다")
+    void theAccountShowsTheCurrentValue() throws Exception {
+        // 화면이 체크박스를 어떤 상태로 그릴지 아는 유일한 경로입니다. 없으면 껐다가
+        // 다시 들어왔을 때 켜진 것처럼 보입니다.
+        String me = createUser(newPrefix() + "ME");
+
+        mvc.perform(get("/api/v1/accounts/me").header(USER_ID_HEADER, me))
+                .andExpect(jsonPath("$.searchable").value(true));
+
+        setSearchable(me, false);
+
+        mvc.perform(get("/api/v1/accounts/me").header(USER_ID_HEADER, me))
+                .andExpect(jsonPath("$.searchable").value(false));
+    }
+
+    @Test
+    @DisplayName("검색을 꺼도 id 로 보낸 친구 요청은 도착한다")
+    void hiddenUsersStillReceiveFriendRequests() throws Exception {
+        // 검색에서 빼는 것과 연락을 끊는 것은 다릅니다. 이미 id 를 아는 사람 - 같은 방에
+        // 있었거나 이미 요청을 주고받은 사람 - 과의 경로까지 막으면 "검색 허용"이라는
+        // 이름이 약속한 것보다 큰 일을 하게 됩니다.
+        String hidden = createUser(newPrefix() + "AA");
+        String me = createUser(newPrefix() + "ME");
+        setSearchable(hidden, false);
+
+        mvc.perform(post("/api/v1/friend-requests")
+                        .header(USER_ID_HEADER, me)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"userId\":\"" + hidden + "\"}"))
+                .andExpect(status().isCreated());
+
+        mvc.perform(get("/api/v1/friend-requests")
+                        .header(USER_ID_HEADER, hidden)
+                        .param("direction", "incoming"))
+                .andExpect(jsonPath("$.requests.length()").value(1));
+
+        // 그리고 친구가 된 뒤에도 목록에 그대로 보여야 합니다.
+        //
+        // 검색 필터는 한 줄짜리라 나중에 누가 findFriends 에도 같은 조건을 붙이기 쉽습니다.
+        // 그러면 검색을 끈 친구가 목록에서 사라져 친구가 없어진 것처럼 보입니다.
+        // 검색에서 빼는 것과 이름을 숨기는 것은 다릅니다.
+        mvc.perform(post("/api/v1/friend-requests/{userId}/accept", me)
+                        .header(USER_ID_HEADER, hidden))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(get("/api/v1/friends").header(USER_ID_HEADER, me))
+                .andExpect(jsonPath("$.friends.length()").value(1));
+    }
+
     /**
      * 6글자 영숫자 접두사. 첫 글자를 대문자로 두어 대소문자 무시 검색을 시험할 수
      * 있게 합니다. 테스트마다 달라야 다른 테스트가 만든 계정이 섞이지 않습니다.
@@ -231,6 +375,15 @@ class UserSearchApiTest extends IntegrationTest {
         return userId;
     }
 
+
+    /** 검색 노출을 켜거나 끕니다. */
+    private void setSearchable(String userId, boolean searchable) throws Exception {
+        mvc.perform(put("/api/v1/accounts/me/searchable")
+                        .header(USER_ID_HEADER, userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"searchable\":" + searchable + "}"))
+                .andExpect(status().isOk());
+    }
 
     private org.springframework.test.web.servlet.RequestBuilder searchRequest(
             String callerUserId, String nickname, Integer limit) {

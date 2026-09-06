@@ -56,6 +56,19 @@ public class User {
     @Column(name = "nickname_set_at", length = 14)
     private String nicknameSetAt;
 
+    /**
+     * 닉네임 검색에 나올지. 기본은 나옵니다.
+     *
+     * <p><b>검색에서만 빠집니다.</b> 친구 목록과 받은 요청과 받은 초대에서는 이름이
+     * 그대로 보이고, userId 를 아는 사람이 보낸 친구 요청도 그대로 도착합니다.
+     * 이미 아는 사람과의 화면까지 가리면 그쪽이 통째로 깨집니다.
+     *
+     * <p>그래도 뜻이 성립하는 이유는 userId 가 UUIDv4 라서입니다. 검색으로 찾지
+     * 못하면 그 값을 알 길이 사실상 없습니다.
+     */
+    @Column(name = "searchable", nullable = false)
+    private boolean searchable = true;
+
     @Column(name = "created_at", nullable = false, length = 14, updatable = false)
     private String createdAt;
 
@@ -75,6 +88,17 @@ public class User {
      */
     public static User create(String nickname, String now) {
         return new User(UUID.randomUUID().toString(), nickname, now);
+    }
+
+    /**
+     * 검색에 나올지 정합니다. <b>멱등합니다.</b> 같은 값을 다시 넣어도 됩니다.
+     *
+     * <p>updated_at 을 함께 갱신합니다. 사용자가 자기 계정에 한 변경이므로 닉네임을
+     * 바꾼 것과 같은 성질입니다.
+     */
+    public void setSearchable(boolean searchable, String now) {
+        this.searchable = searchable;
+        this.updatedAt = now;
     }
 
     public void rename(String nickname, String now) {
