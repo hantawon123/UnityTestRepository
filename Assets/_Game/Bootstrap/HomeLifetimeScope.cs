@@ -3,6 +3,9 @@ using Cysharp.Threading.Tasks;
 using Game.Client.Home;
 using Game.Core.Home;
 using Game.Core.Lobby;
+using Game.Core.Maps;
+using Game.Core.Rooms;
+using Game.Network.Session;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
@@ -135,14 +138,17 @@ namespace Game.Bootstrap
         {
             private readonly RoomUiCommands rooms;
             private readonly FrontendSceneCoordinator scenes;
+            private readonly NetworkRunnerService network;
             private readonly UnityHomeApplicationHost fallback = new();
 
             public NetworkHomeApplicationHost(
                 RoomUiCommands rooms,
-                FrontendSceneCoordinator scenes)
+                FrontendSceneCoordinator scenes,
+                NetworkRunnerService network)
             {
                 this.rooms = rooms;
                 this.scenes = scenes;
+                this.network = network;
             }
 
             public void Quit() => fallback.Quit();
@@ -156,7 +162,54 @@ namespace Game.Bootstrap
                 scenes.OpenRoomBrowser();
             }
 
-            public void OpenLobby() => fallback.OpenLobby();
+            /// <summary>
+            /// Opens the room, then the lobby it made.
+            /// </summary>
+            /// <remarks>
+            /// PRIVATE is a room that stays out of the list and is reached by
+            /// its code, so it is locked without a password: the code is what
+            /// admits people. The map is the only one there is.
+            /// </remarks>
+            public void CreateRoom(string title, bool isPublic, int maxPlayers)
+            {
+                var request = new RoomCreateRequest(
+                    title,
+                    isLocked: !isPublic,
+                    password: null,
+                    maxPlayers: maxPlayers,
+                    mapId: MapCatalog.DefaultMapId);
+
+                CreateThenOpenLobbyAsync(request)
+                    .Forget(exception => Debug.LogException(exception));
+            }
+
+            private async UniTask CreateThenOpenLobbyAsync(RoomCreateRequest request)
+            {
+                var result = await rooms.CreateAsync(request, CancellationToken.None);
+                if (!result.Ok)
+                {
+                    // The room browser shows these failures; Home has nowhere to
+                    // put one yet, so it is logged rather than swallowed.
+                    Debug.LogWarning($"[Home] Room creation failed: {result.Failure}.");
+                    return;
+                }
+
+                OpenLobby();
+            }
+
+            /// <summary>
+            /// Through Fusion rather than by loading the scene: the runner is
+            /// already in the room, and swapping the Unity scene out from under
+            /// it would leave the session behind.
+            /// </summary>
+            public void OpenLobby()
+            {
+                if (!network.EnterLobbyScene())
+                {
+                    Debug.LogError(
+                        "[Session] Cannot enter Lobby without a running room session.");
+                }
+            }
         }
     }
 }

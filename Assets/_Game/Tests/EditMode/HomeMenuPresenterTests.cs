@@ -5,6 +5,8 @@ using Game.Core.Flow;
 using Game.Core.Home;
 using Game.Core.Ports;
 using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Game.Tests.EditMode
 {
@@ -532,6 +534,71 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Presenter_CreateRoom_OpensTheModalAndClosesTheRest()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
+            view.Raise(HomeMenuAction.Friends);
+
+            view.Raise(HomeMenuAction.CreateRoom);
+
+            Assert.That(view.CreateRoomVisible, Is.True);
+            Assert.That(view.FriendListVisible, Is.False);
+            Assert.That(view.ProfileSettingsVisible, Is.False);
+            Assert.That(view.ServerSettingsVisible, Is.False);
+        }
+
+        [Test]
+        public void Presenter_CreatingARoom_PassesTheFormOnAndClosesTheModal()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out var host, out var appFlow, out _, out _);
+            view.Raise(HomeMenuAction.CreateRoom);
+
+            view.RaiseRoomCreationRequested("우리방", false, 4);
+
+            Assert.That(host.CreatedTitle, Is.EqualTo("우리방"));
+            Assert.That(host.CreatedPublic, Is.False);
+            Assert.That(host.CreatedMaxPlayers, Is.EqualTo(4));
+            Assert.That(view.CreateRoomVisible, Is.False);
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Lobby));
+        }
+
+        [Test]
+        public void Presenter_CreatingARoom_IsRefusedFromAStateThatCannotLeave()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out var host, out var appFlow, out _, out _);
+
+            // Highlight is the one state with no way back to a lobby: it only
+            // goes on to the result. InGame does allow it, for the rematch.
+            Assert.That(appFlow.TryTransitionTo(AppFlowState.RoomBrowser), Is.True);
+            Assert.That(appFlow.TryTransitionTo(AppFlowState.Lobby), Is.True);
+            Assert.That(appFlow.TryTransitionTo(AppFlowState.InGame), Is.True);
+            Assert.That(appFlow.TryTransitionTo(AppFlowState.Highlight), Is.True);
+
+            // The refusal is logged on purpose, so the test says it expects one
+            // rather than failing on it.
+            LogAssert.Expect(LogType.Error, "Cannot open a room from Highlight.");
+            view.RaiseRoomCreationRequested("우리방", true, 6);
+
+            Assert.That(
+                host.CreateCount,
+                Is.Zero,
+                "흐름이 허락하지 않는 곳에서 방을 열면 안 된다.");
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Highlight));
+        }
+
+        [Test]
+        public void Presenter_DismissingTheCreateRoomModal_ClosesIt()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out var host, out _, out _, out _);
+            view.Raise(HomeMenuAction.CreateRoom);
+
+            view.RaiseCreateRoomDismissed();
+
+            Assert.That(view.CreateRoomVisible, Is.False);
+            Assert.That(host.CreateCount, Is.Zero);
+        }
+
+        [Test]
         public void Presenter_ServerSettings_TheGlobeOpensAndClosesIt()
         {
             using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
@@ -928,6 +995,8 @@ namespace Game.Tests.EditMode
 
             public string SelectedRegion { get; private set; }
 
+            public bool CreateRoomVisible { get; private set; }
+
             public event Action<HomeMenuAction> ActionClicked;
 
             public event Action FriendListDismissed;
@@ -937,6 +1006,10 @@ namespace Game.Tests.EditMode
             public event Action ServerSettingsDismissed;
 
             public event Action<string> RegionSelected;
+
+            public event Action<string, bool, int> RoomCreationRequested;
+
+            public event Action CreateRoomDismissed;
 
             public event Action<string> NicknameChangeRequested;
 
@@ -991,6 +1064,21 @@ namespace Game.Tests.EditMode
             public void SetSelectedRegion(string code)
             {
                 SelectedRegion = code;
+            }
+
+            public void SetCreateRoomVisible(bool visible)
+            {
+                CreateRoomVisible = visible;
+            }
+
+            public void RaiseRoomCreationRequested(string title, bool isPublic, int maxPlayers)
+            {
+                RoomCreationRequested?.Invoke(title, isPublic, maxPlayers);
+            }
+
+            public void RaiseCreateRoomDismissed()
+            {
+                CreateRoomDismissed?.Invoke();
             }
 
             public void RaiseDuplicateCheck(string nickname)
@@ -1115,6 +1203,22 @@ namespace Game.Tests.EditMode
             public int RoomBrowserOpenCount { get; private set; }
 
             public int LobbyOpenCount { get; private set; }
+
+            public string CreatedTitle { get; private set; }
+
+            public bool CreatedPublic { get; private set; }
+
+            public int CreatedMaxPlayers { get; private set; }
+
+            public int CreateCount { get; private set; }
+
+            public void CreateRoom(string title, bool isPublic, int maxPlayers)
+            {
+                CreatedTitle = title;
+                CreatedPublic = isPublic;
+                CreatedMaxPlayers = maxPlayers;
+                CreateCount++;
+            }
 
             public void OpenLobby()
             {

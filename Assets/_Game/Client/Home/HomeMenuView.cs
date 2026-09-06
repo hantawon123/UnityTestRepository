@@ -58,6 +58,7 @@ namespace Game.Client.Home
             CreateFriendListRoot(canvas);
             CreateProfileSettingsRoot(canvas);
             CreateServerSettingsRoot(canvas);
+            CreateRoomModalRoot(canvas);
 
             CreateProfileChip(canvas);
             CreateFriendButton(canvas);

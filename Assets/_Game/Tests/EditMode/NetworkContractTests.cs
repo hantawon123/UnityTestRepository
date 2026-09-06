@@ -181,6 +181,10 @@ namespace Game.Architecture.Tests
             public void OpenRoomBrowser() => OpenCount++;
             public void Quit() { }
             public void OpenHome() { }
+            public void CreateRoom(string title, bool isPublic, int maxPlayers)
+            {
+            }
+
             public void OpenLobby() { }
         }
 

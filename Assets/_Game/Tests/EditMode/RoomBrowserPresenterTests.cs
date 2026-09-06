@@ -328,6 +328,10 @@ namespace Game.Tests.EditMode
 
             public int LobbyOpenCount { get; private set; }
 
+            public void CreateRoom(string title, bool isPublic, int maxPlayers)
+            {
+            }
+
             public void OpenLobby()
             {
                 LobbyOpenCount++;

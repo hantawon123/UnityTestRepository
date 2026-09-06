@@ -100,6 +100,21 @@ namespace Game.Client.Home
             public static readonly Color FriendOffline = FromHex(0xA8ADB3);
 
             public static readonly Color ScrollHandle = FromHex(0xF5F3F1);
+
+            /// <summary>
+            /// The only panel in this screen that dims what is behind it. The
+            /// others hang off a control and leave Home readable; this one takes
+            /// the screen over until it is answered.
+            /// </summary>
+            public static readonly Color Dim = FromHex(0x000000, 0.5f);
+
+            public static readonly Color ModalFill = FromHex(0x0B1018, 0.95f);
+            public static readonly Color SegmentOnFill = FromHex(0xFF7032);
+            public static readonly Color SegmentOnLabel = FromHex(0xF5F3F1);
+            public static readonly Color SegmentOffFill = FromHex(0xF5F3F1, 0.16f);
+            public static readonly Color SegmentOffLabel = FromHex(0xA8ADB3);
+            public static readonly Color FieldFill = FromHex(0xF5F3F1, 0.16f);
+            public static readonly Color CounterFaint = FromHex(0xF5F3F1);
         }
 
         public static class Layout
@@ -333,6 +348,53 @@ namespace Game.Client.Home
             public const int ScrollbarRadius = 2;
         }
 
+        /// <summary>
+        /// The room-creation modal, centred over a dimmed Home.
+        /// </summary>
+        public static class CreateRoom
+        {
+            public static readonly Vector2 ModalSize = new Vector2(590f, 397f);
+            public const float SidePadding = 32f;
+            public const float VerticalPadding = 41f;
+
+            public const float CloseIconSize = 30f;
+
+            public const float RowHeight = 37f;
+            public const float RowGap = 23f;
+            public const float LabelWidth = 70f;
+            public const float LabelToControl = 49f;
+            public const float ControlWidth = 308f;
+
+            /// <summary>
+            /// How far the lit half sits inside the track it slides in. Not
+            /// given by the design; read off the mock-up, where the orange
+            /// clears the grey on all four sides rather than filling its half.
+            /// </summary>
+            public const float SegmentInset = 4f;
+
+            public const float FieldPadding = 23f;
+            public const float StepperPadding = 23f;
+
+            public static readonly Vector2 CreateSize = new Vector2(426f, 52f);
+
+            /// <summary>
+            /// Where the label column starts. The three rows add up to the same
+            /// width as the create button, and the design centres that whole
+            /// block rather than ranging it against the padding, so the button
+            /// and the controls above it share their left and right edges.
+            /// </summary>
+            public static float RowsLeft => (ModalSize.x - CreateSize.x) * 0.5f;
+            public const float CreateTopGap = 37f;
+
+            public const int MinTitleLength = 1;
+            public const int MaxTitleLength = 20;
+            public const int MinPlayers = 2;
+            public const int MaxPlayers = 6;
+            public const int DefaultPlayers = 6;
+
+            public const string TitlePlaceholder = "방 이름 입력";
+        }
+
         public static class Radius
         {
             public const int Chip = 20;
@@ -346,6 +408,8 @@ namespace Game.Client.Home
             public const int Input = 12;
 
             public const int Check = 8;
+            public const int Modal = 20;
+            public const int Control = 10;
         }
 
         public static class FontSize
@@ -373,6 +437,18 @@ namespace Game.Client.Home
             public const float RefreshLabel = 18f;
             public const float Section = 20f;
             public const float FriendName = 20f;
+            public const float ModalTitle = 30f;
+            public const float RowLabel = 24f;
+            public const float Segment = 18f;
+            public const float RoomName = 20f;
+            public const float RoomNameCounter = 11f;
+            /// <summary>
+            /// Larger than the design's 20: at that size the two smallest
+            /// targets on the screen are also the hardest to see.
+            /// </summary>
+            public const float Stepper = 28f;
+            public const float PlayerCount = 18f;
+            public const float Create = 24f;
         }
 
         /// <summary>

@@ -16,6 +16,17 @@ namespace Game.Client.Home
 
         void OpenRoomBrowser();
 
+        /// <summary>
+        /// Opens a room with these settings and, if it opens, goes to its
+        /// lobby.
+        /// </summary>
+        /// <remarks>
+        /// Handed to the host rather than done in the presenter because
+        /// creating a room is a network call, and the presenter's job ends at
+        /// deciding that one should be made.
+        /// </remarks>
+        void CreateRoom(string title, bool isPublic, int maxPlayers);
+
         void OpenLobby();
     }
 
@@ -60,6 +71,17 @@ namespace Game.Client.Home
         public void OpenRoomBrowser()
         {
             LoadSceneAsync(RoomBrowserSceneName);
+        }
+
+        /// <summary>
+        /// Nothing to do without a network runner. The scene that owns one
+        /// replaces this host; this fallback exists for the editor and for
+        /// tests, where there is no room to open.
+        /// </summary>
+        public void CreateRoom(string title, bool isPublic, int maxPlayers)
+        {
+            Debug.LogWarning(
+                "[Home] Cannot create a room without the networked host.");
         }
 
         public void OpenLobby()
@@ -155,6 +177,8 @@ namespace Game.Client.Home
             view.ProfileSettingsDismissed += HideProfileSettings;
             view.ServerSettingsDismissed += HideServerSettings;
             view.RegionSelected += OnRegionSelected;
+            view.RoomCreationRequested += OnRoomCreationRequested;
+            view.CreateRoomDismissed += OnCreateRoomDismissed;
             view.NicknameChangeRequested += OnNicknameChangeRequested;
             view.NicknameDuplicateCheckRequested += OnNicknameDuplicateCheckRequested;
             view.NicknameEdited += OnNicknameEdited;
@@ -176,6 +200,7 @@ namespace Game.Client.Home
             HideFriendList();
             HideProfileSettings();
             view.SetServerSettingsVisible(false);
+            view.SetCreateRoomVisible(false);
             view.SetSelectedRegion(regions.Current.Code);
         }
 
@@ -186,6 +211,8 @@ namespace Game.Client.Home
             view.ProfileSettingsDismissed -= HideProfileSettings;
             view.ServerSettingsDismissed -= HideServerSettings;
             view.RegionSelected -= OnRegionSelected;
+            view.RoomCreationRequested -= OnRoomCreationRequested;
+            view.CreateRoomDismissed -= OnCreateRoomDismissed;
             view.NicknameChangeRequested -= OnNicknameChangeRequested;
             view.NicknameDuplicateCheckRequested -= OnNicknameDuplicateCheckRequested;
             view.NicknameEdited -= OnNicknameEdited;
@@ -209,6 +236,15 @@ namespace Game.Client.Home
             if (action == HomeMenuAction.Quit)
             {
                 applicationHost.Quit();
+                return;
+            }
+
+            if (action == HomeMenuAction.CreateRoom)
+            {
+                HideFriendList();
+                HideProfileSettings();
+                HideServerSettings();
+                view.SetCreateRoomVisible(true);
                 return;
             }
 
@@ -389,6 +425,30 @@ namespace Game.Client.Home
             {
                 view.SetSelectedRegion(regions.Current.Code);
             }
+        }
+
+        /// <summary>
+        /// Closes the modal before asking for the room, so the screen is not
+        /// left with a live form over a lobby that is loading behind it.
+        /// </summary>
+        private void OnRoomCreationRequested(string title, bool isPublic, int maxPlayers)
+        {
+            // The flow state is asked before the room is, the way the room
+            // browser does it: a screen only leaves for a move the app allows.
+            if (appFlow.CurrentState != AppFlowState.Lobby &&
+                !appFlow.TryTransitionTo(AppFlowState.Lobby))
+            {
+                Debug.LogError($"Cannot open a room from {appFlow.CurrentState}.");
+                return;
+            }
+
+            view.SetCreateRoomVisible(false);
+            applicationHost.CreateRoom(title, isPublic, maxPlayers);
+        }
+
+        private void OnCreateRoomDismissed()
+        {
+            view.SetCreateRoomVisible(false);
         }
 
         private void SetServerSettingsVisible(bool visible)

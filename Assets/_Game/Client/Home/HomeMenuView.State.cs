@@ -40,6 +40,9 @@ namespace Game.Client.Home
         [SerializeField]
         private Sprite rejectIcon;
 
+        [SerializeField]
+        private Sprite closeIcon;
+
         [Header("Fonts")]
         [SerializeField]
         private TMP_FontAsset fontAsset;
@@ -95,6 +98,20 @@ namespace Game.Client.Home
         private Button dismissButton;
         private GameObject profileSettingsRoot;
         private GameObject serverSettingsRoot;
+        private GameObject createRoomRoot;
+        private TMP_InputField roomNameInput;
+        private TMP_Text roomNameCounter;
+        private TMP_Text privateSegment;
+        private TMP_Text publicSegment;
+        private RectTransform scopeIndicator;
+        private TMP_Text playerCountText;
+        private Button decreaseButton;
+        private Button increaseButton;
+        private Button createRoomButton;
+        private Image createRoomFill;
+        private TMP_Text createRoomLabel;
+        private bool isPublicRoom = true;
+        private int playerCount = 6;
         private TMP_InputField profileNicknameInput;
         private TMP_Text nicknameMessageText;
         private TMP_Text nicknameCounterText;

@@ -19,6 +19,13 @@ namespace Game.Client.Home
         /// </summary>
         event Action<string> RegionSelected;
 
+        /// <summary>
+        /// The player filled the room form in and pressed create.
+        /// </summary>
+        event Action<string, bool, int> RoomCreationRequested;
+
+        event Action CreateRoomDismissed;
+
         event Action<string> NicknameChangeRequested;
 
         /// <summary>
@@ -69,6 +76,8 @@ namespace Game.Client.Home
         /// every row unmarked.
         /// </summary>
         void SetSelectedRegion(string code);
+
+        void SetCreateRoomVisible(bool visible);
 
         void SetFriendListVisible(bool visible);
 
