@@ -12,6 +12,9 @@
           "nicknameSet" : {
             "type" : "boolean"
           },
+          "searchable" : {
+            "type" : "boolean"
+          },
           "userId" : {
             "type" : "string"
           }
@@ -218,6 +221,17 @@
         },
         "type" : "object"
       },
+      "UpdateSearchableRequest" : {
+        "properties" : {
+          "searchable" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [
+          "searchable"
+        ],
+        "type" : "object"
+      },
       "UserSearchResponse" : {
         "properties" : {
           "users" : {
@@ -354,6 +368,46 @@
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/UpdateNicknameRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "account-controller"
+        ]
+      }
+    },
+    "/api/v1/accounts/me/searchable" : {
+      "put" : {
+        "operationId" : "setSearchable",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateSearchableRequest"
               }
             }
           },

@@ -183,6 +183,9 @@ namespace Game.Architecture.Tests
 
             public string Renamed { get; private set; }
 
+            /// <summary>What the last SetSearchableAsync asked for.</summary>
+            public bool Searchable { get; private set; } = true;
+
             public UniTask<BackendResult<AccountSnapshot>> SignInAsync(
                 CancellationToken cancellation)
             {
@@ -190,7 +193,8 @@ namespace Game.Architecture.Tests
                     SignInFails
                         ? BackendResult<AccountSnapshot>.Failed(BackendFailure.Offline)
                         : BackendResult<AccountSnapshot>.Success(
-                            new AccountSnapshot("user-1", Nickname, NicknameSet)));
+                            new AccountSnapshot(
+                                "user-1", Nickname, NicknameSet, Searchable)));
             }
 
             public UniTask<BackendResult<AccountSnapshot>> RefreshAsync(
@@ -199,7 +203,8 @@ namespace Game.Architecture.Tests
                 return UniTask.FromResult(
                     RefreshFailure == BackendFailure.None
                         ? BackendResult<AccountSnapshot>.Success(
-                            new AccountSnapshot("user-1", Nickname, NicknameSet))
+                            new AccountSnapshot(
+                                "user-1", Nickname, NicknameSet, Searchable))
                         : BackendResult<AccountSnapshot>.Failed(RefreshFailure));
             }
 
@@ -218,7 +223,16 @@ namespace Game.Architecture.Tests
                 NicknameSet = true;
                 return UniTask.FromResult(
                     BackendResult<AccountSnapshot>.Success(
-                        new AccountSnapshot("user-1", nickname, true)));
+                        new AccountSnapshot("user-1", nickname, true, Searchable)));
+            }
+
+            public UniTask<BackendResult<AccountSnapshot>> SetSearchableAsync(
+                bool searchable, CancellationToken cancellation)
+            {
+                Searchable = searchable;
+                return UniTask.FromResult(
+                    BackendResult<AccountSnapshot>.Success(
+                        new AccountSnapshot("user-1", Nickname, NicknameSet, searchable)));
             }
 
             public UniTask<BackendResult> DeleteAccountAsync(CancellationToken cancellation) =>

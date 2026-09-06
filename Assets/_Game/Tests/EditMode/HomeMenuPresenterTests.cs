@@ -229,7 +229,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Presenter_SearchAndRequest_BindsResultsAndMarksPending()
+        public void Presenter_Search_BindsWhatTheSearchFound()
         {
             using var presenter = CreateStartedPresenter(out var view, out _, out _, out var friends, out var search);
             friends.ReplaceFriends(new[]
@@ -248,11 +248,13 @@ namespace Game.Tests.EditMode
 
             Assert.That(view.SearchResults.Count, Is.EqualTo(1));
             Assert.That(view.SearchResults[0].Nickname, Is.EqualTo("검색유저"));
+
+            // Pressing 친구요청 is not checked here. The presenter deliberately
+            // does not answer that click — HomeFriendBridge does, so the server
+            // call and the mark happen together. Both places answering it was a
+            // real bug: the row went to 요청 중 and nothing was ever sent.
+            // FriendRequestClickTests puts the two together and covers it.
             Assert.That(view.SearchResults[0].IsPending, Is.False);
-
-            view.RaiseFriendRequestClicked("player-2");
-
-            Assert.That(view.SearchResults[0].IsPending, Is.True);
         }
 
         [Test]

@@ -10,7 +10,13 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.RequestBuilder;
 
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -33,6 +39,9 @@ class AccountApiTest extends IntegrationTest {
 
     @Autowired
     ObjectMapper objectMapper;
+
+    @Autowired
+    org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @Test
     @DisplayName("처음 보는 기기면 계정을 새로 만들고 201을 준다")
@@ -250,6 +259,65 @@ class AccountApiTest extends IntegrationTest {
         mvc.perform(issueRequest(""))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    @DisplayName("둘이 동시에 같은 닉네임을 노리면 하나만 성공한다")
+    void twoPeopleRacingForOneNicknameLeaveOneWinner() throws Exception {
+        // 검사와 저장 사이에 창이 있습니다. existsByNickname 이 "비었다"고 답한 뒤
+        // 실제로 쓰기까지 사이에 남이 먼저 쓸 수 있어서, 애플리케이션 검사만으로는
+        // 막을 수 없습니다. 막는 것은 uk_users_nickname 제약입니다.
+        //
+        // 사용자에게 중요한 보장은 하나입니다 - 무슨 일이 있어도 닉네임은 겹치지 않는다.
+        // 겹치면 검색 결과와 친구 요청에서 사람이 구분되지 않습니다.
+        String wanted = uniqueNickname();
+        String first = issueAndGetUserId();
+        String second = issueAndGetUserId();
+
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch go = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+
+        try {
+            Future<Integer> a = pool.submit(() -> raceToRename(first, wanted, ready, go));
+            Future<Integer> b = pool.submit(() -> raceToRename(second, wanted, ready, go));
+
+            ready.await(10, TimeUnit.SECONDS);
+            go.countDown();
+
+            List<Integer> statuses = List.of(a.get(20, TimeUnit.SECONDS), b.get(20, TimeUnit.SECONDS));
+
+            // 겹치지 않고 순서대로 실행됐으면 진 쪽은 NICKNAME_TAKEN, 진짜로 겹쳤으면
+            // 제약 위반이라 CONFLICT 입니다. 둘 다 409 이고 둘 다 맞습니다.
+            assertThat(statuses).containsExactlyInAnyOrder(200, 409);
+        } finally {
+            pool.shutdownNow();
+        }
+
+        // 이긴 쪽만 그 이름을 갖습니다. 진 쪽은 트랜잭션이 통째로 되돌아가 이름이
+        // 그대로입니다.
+        assertThat(countWithNickname(wanted)).isOne();
+    }
+
+    /**
+     * 두 스레드가 같은 순간에 이름 변경을 시도하게 합니다.
+     *
+     * <p>완전히 같은 순간을 보장할 수는 없습니다. 겹치면 제약 위반 경로를, 겹치지 않으면
+     * 애플리케이션 검사 경로를 지나는데 <b>어느 쪽이든 결과는 같아야 합니다</b> -
+     * 하나만 성공. 그래서 이 테스트는 타이밍에 따라 흔들리지 않습니다.
+     */
+    private int raceToRename(String userId, String nickname,
+                             CountDownLatch ready, CountDownLatch go) throws Exception {
+        ready.countDown();
+        go.await(10, TimeUnit.SECONDS);
+
+        return mvc.perform(renameRequest(userId, nickname))
+                .andReturn().getResponse().getStatus();
+    }
+
+    private int countWithNickname(String nickname) {
+        return jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM users WHERE nickname = ?", Integer.class, nickname);
     }
 
     private static String newDeviceId() {

@@ -36,7 +36,7 @@ namespace Game.Architecture.Tests
         {
             using var wiring = await Wiring.StartAsync();
 
-            await wiring.SearchAsync("나");
+            await wiring.SearchAsync("나그네");
             wiring.View.RaiseFriendRequestClicked("b");
             await wiring.Settle();
 
@@ -52,7 +52,7 @@ namespace Game.Architecture.Tests
         public async Task ARefusedRequest_SaysWhyOnTheScreen()
         {
             using var wiring = await Wiring.StartAsync();
-            await wiring.SearchAsync("나");
+            await wiring.SearchAsync("나그네");
 
             wiring.Gateway.Failure = BackendFailure.AlreadyFriends;
             LogAssert.Expect(
@@ -69,7 +69,7 @@ namespace Game.Architecture.Tests
         public async Task AMissingTarget_SaysSoWithoutGuessingWhy()
         {
             using var wiring = await Wiring.StartAsync();
-            await wiring.SearchAsync("나");
+            await wiring.SearchAsync("나그네");
 
             wiring.Gateway.Failure = BackendFailure.TargetNotFound;
             LogAssert.Expect(
@@ -86,7 +86,7 @@ namespace Game.Architecture.Tests
         public async Task ASuccessAfterAFailure_ClearsTheMessage()
         {
             using var wiring = await Wiring.StartAsync();
-            await wiring.SearchAsync("나");
+            await wiring.SearchAsync("나그네");
 
             wiring.Gateway.Failure = BackendFailure.Offline;
             LogAssert.Expect(
@@ -107,7 +107,7 @@ namespace Game.Architecture.Tests
         public async Task OnlyOnePlaceMarksTheRow()
         {
             using var wiring = await Wiring.StartAsync();
-            await wiring.SearchAsync("나");
+            await wiring.SearchAsync("나그네");
 
             // The presenter is started and listening. If it also answered this
             // click it would mark the row before the command ran, and the
@@ -214,13 +214,16 @@ namespace Game.Architecture.Tests
             public UniTask<BackendResult<AccountSnapshot>> RenameAsync(
                 string nickname, CancellationToken cancellation) => Account();
 
+            public UniTask<BackendResult<AccountSnapshot>> SetSearchableAsync(
+                bool searchable, CancellationToken cancellation) => Account();
+
             public UniTask<BackendResult> DeleteAccountAsync(CancellationToken cancellation) =>
                 UniTask.FromResult(BackendResult.Success());
 
             private static UniTask<BackendResult<AccountSnapshot>> Account() =>
                 UniTask.FromResult(
                     BackendResult<AccountSnapshot>.Success(
-                        new AccountSnapshot("me", "나", true)));
+                        new AccountSnapshot("me", "나", true, true)));
         }
 
         private sealed class RecordingGateway : IFriendGateway
