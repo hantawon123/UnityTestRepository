@@ -104,7 +104,7 @@ namespace Game.Client.Match
             timerText.font = HomeUiFonts.Apply();
             timerText.fontStyle = FontStyles.Normal;
             timerText.alignment = TextAlignmentOptions.Center;
-            timerText.enableWordWrapping = false;
+            timerText.textWrappingMode = TextWrappingModes.NoWrap;
             timerText.overflowMode = TextOverflowModes.Overflow;
             timerText.raycastTarget = false;
         }
@@ -121,7 +121,7 @@ namespace Game.Client.Match
             hintText.fontStyle = FontStyles.Normal;
             hintText.alignment = TextAlignmentOptions.Center;
             hintText.color = WarningColor;
-            hintText.enableWordWrapping = false;
+            hintText.textWrappingMode = TextWrappingModes.NoWrap;
             hintText.overflowMode = TextOverflowModes.Overflow;
             hintText.raycastTarget = false;
             hintText.text = HintText;

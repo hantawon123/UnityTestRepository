@@ -834,7 +834,7 @@ namespace Game.Client.Match
             text.color = Color.white;
             text.raycastTarget = false;
             text.richText = true;
-            text.enableWordWrapping = false;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
             text.overflowMode = TextOverflowModes.Overflow;
             text.font = font != null ? font : HomeUiFonts.Apply();
             text.fontStyle = FontStyles.Normal;

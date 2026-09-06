@@ -610,7 +610,7 @@ namespace Game.Client.Match
             text.font = HomeUiFonts.Apply();
             text.fontSize = DestructionUsesFontSize;
             text.alignment = TextAlignmentOptions.TopRight;
-            text.enableWordWrapping = false;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
             text.overflowMode = TextOverflowModes.Overflow;
             var rect = text.rectTransform;
             rect.anchorMin = new Vector2(1f, 1f);

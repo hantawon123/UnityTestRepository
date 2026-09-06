@@ -128,7 +128,7 @@ namespace Game.Client.Match
             bannerText.font = font;
             bannerText.fontSize = BannerFontSize;
             bannerText.fontStyle = FontStyles.Normal;
-            bannerText.enableWordWrapping = false;
+            bannerText.textWrappingMode = TextWrappingModes.NoWrap;
             bannerText.overflowMode = TextOverflowModes.Overflow;
             bannerText.text = BannerText;
             if (timerText != null)
@@ -189,7 +189,7 @@ namespace Game.Client.Match
             Place(banner.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, -70f), new Vector2(1180f, 120f));
 
             bannerText = CreateText(banner.rectTransform, "Label", BannerText, BannerFontSize);
-            bannerText.enableWordWrapping = false;
+            bannerText.textWrappingMode = TextWrappingModes.NoWrap;
             bannerText.overflowMode = TextOverflowModes.Overflow;
             Stretch(bannerText.rectTransform, 24f);
 
@@ -202,7 +202,7 @@ namespace Game.Client.Match
 
             timerText = CreateText(stopwatch, "Timer", FormatTimer(previewRemainingSeconds), TimerFontSize);
             timerText.color = TimerColor;
-            timerText.enableWordWrapping = false;
+            timerText.textWrappingMode = TextWrappingModes.NoWrap;
             timerText.overflowMode = TextOverflowModes.Overflow;
             Place(timerText.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, 28f), new Vector2(168f, 56f));
         }
@@ -371,7 +371,7 @@ namespace Game.Client.Match
             text.color = Color.white;
             text.raycastTarget = false;
             text.richText = true;
-            text.enableWordWrapping = true;
+            text.textWrappingMode = TextWrappingModes.Normal;
             text.font = HomeUiFonts.Apply();
             text.fontStyle = FontStyles.Normal;
             return text;
