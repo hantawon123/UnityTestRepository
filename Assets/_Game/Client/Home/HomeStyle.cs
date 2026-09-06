@@ -51,6 +51,33 @@ namespace Game.Client.Home
             public static readonly Color HoverFill = FromHex(0x5C5C5C, 0.5f);
 
             public static readonly Color HoverStroke = FromHex(0xF5F3F1);
+
+            public static readonly Color PanelFill = FromHex(0x0B1018, 0.8f);
+
+            public static readonly Color ToggleStroke = FromHex(0xD9D9D9);
+            public static readonly Color ToggleOffFill = FromHex(0xFFFFFF);
+            public static readonly Color ToggleOffKnob = FromHex(0x747474);
+            public static readonly Color ToggleOnFill = FromHex(0xFF9A6A);
+            public static readonly Color ToggleOnKnob = FromHex(0xFF7032);
+
+            public static readonly Color InputFill = FromHex(0xF5F3F1, 0.16f);
+            public static readonly Color CheckFill = FromHex(0xFFFFFF);
+            public static readonly Color CheckLabel = FromHex(0x0B1018);
+
+            public static readonly Color ApplyOffFill = FromHex(0xF5F3F1, 0.16f);
+            public static readonly Color ApplyOffLabel = FromHex(0xA8ADB3);
+            public static readonly Color ApplyOnFill = FromHex(0xFF7032);
+            public static readonly Color ApplyOnLabel = FromHex(0xF5F3F1);
+
+            public static readonly Color MessageRejected = FromHex(0xFF0000);
+            public static readonly Color MessageAccepted = FromHex(0x00FF1E);
+
+            /// <summary>
+            /// The character counter beside the message. Not given by the
+            /// design; the muted grey the rest of the project uses for figures
+            /// that are there to be glanced at.
+            /// </summary>
+            public static readonly Color Counter = FromHex(0xA8ADB3);
         }
 
         public static class Layout
@@ -109,10 +136,68 @@ namespace Game.Client.Home
             public const float ServerTopMargin = 60f;
         }
 
+        /// <summary>
+        /// The panel that changes the nickname, hung above the profile chip.
+        /// </summary>
+        /// <remarks>
+        /// Its right edge lines up with the chip's, which is why the margin
+        /// here matches where the chip starts, and why its bottom-right corner
+        /// is square: the two read as one stack rather than two plates.
+        /// </remarks>
+        public static class Profile
+        {
+            public static readonly Vector2 PanelSize = new Vector2(532f, 251f);
+            public const float PanelRightMargin = 136f;
+            public const float PanelBottomMargin = 108f;
+
+            public const float SidePadding = 30f;
+
+            public const float ToggleRowCentreY = -44f;
+            public const float ToggleLeft = 190f;
+            public static readonly Vector2 ToggleSize = new Vector2(50f, 30f);
+            public const float ToggleStrokeThickness = 3f;
+
+            /// <summary>
+            /// How far the knob sits inside the pill. Not given by the design;
+            /// chosen so the knob clears the 3 pixel stroke on both sides.
+            /// </summary>
+            public const float ToggleKnobInset = 5f;
+
+            public const float InputTop = -78f;
+            public static readonly Vector2 InputSize = new Vector2(472f, 52f);
+            public const float InputTextPadding = 20f;
+
+            public static readonly Vector2 CheckSize = new Vector2(95f, 36f);
+            public const float CheckRightInset = 8f;
+
+            public const float MessageTop = -134f;
+            public const float MessageHeight = 26f;
+
+            public const float ApplyTop = -167f;
+            public static readonly Vector2 ApplySize = new Vector2(472f, 52f);
+
+            public const int MinNicknameLength = 2;
+            public const int MaxNicknameLength = 12;
+
+            public const string TooLongMessage = "최대 12글자 작성가능합니다";
+            public const string BadCharacterMessage = "한글/영어/숫자만 작성가능합니다";
+            public const string TakenMessage = "이미 존재하는 닉네임입니다";
+            public const string AvailableMessage = "사용 가능한 닉네임입니다";
+        }
+
         public static class Radius
         {
             public const int Chip = 20;
             public const int IconButton = 20;
+            public const int Panel = 20;
+
+            /// <summary>
+            /// Not given by the design. Read off the mock-up, where the field
+            /// and the apply button are rounded about a quarter of their height.
+            /// </summary>
+            public const int Input = 12;
+
+            public const int Check = 8;
         }
 
         public static class FontSize
@@ -120,6 +205,18 @@ namespace Game.Client.Home
             public const float Menu = 40f;
             public const float Quit = 30f;
             public const float Nickname = 24f;
+            public const float ToggleLabel = 20f;
+
+            /// <summary>
+            /// Not given by the design. Matched to the check button beside it,
+            /// which is the only text on that row the design does size.
+            /// </summary>
+            public const float NicknameInput = 20f;
+
+            public const float Check = 20f;
+            public const float Apply = 24f;
+            public const float Message = 18f;
+            public const float Counter = 18f;
         }
 
         /// <summary>

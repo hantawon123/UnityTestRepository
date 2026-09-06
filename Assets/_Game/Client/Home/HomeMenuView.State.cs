@@ -9,10 +9,6 @@ namespace Game.Client.Home
 {
     public sealed partial class HomeMenuView
     {
-        [SerializeField]
-        [Range(0f, 1f)]
-        private float experienceRatio = 0.4f;
-
         [Header("Art")]
         [SerializeField]
         private Sprite backgroundSprite;
@@ -62,8 +58,21 @@ namespace Game.Client.Home
         private Button dismissButton;
         private GameObject profileSettingsRoot;
         private TMP_InputField profileNicknameInput;
-        private TMP_Text profileLevelText;
-        private TMP_Text appliedFeedbackText;
+        private TMP_Text nicknameMessageText;
+        private TMP_Text nicknameCounterText;
+        private Image searchAllowFill;
+        private Image searchAllowKnobImage;
+        private RectTransform searchAllowKnob;
+        private Button applyButton;
+        private Image applyFill;
+        private TMP_Text applyLabel;
+        private bool isSearchAllowed;
+
+        /// <summary>
+        /// Set while the field is being corrected, so the edit handler does not
+        /// answer its own rewrite.
+        /// </summary>
+        private bool isRewritingNickname;
 
         public event Action<HomeMenuAction> ActionClicked;
 
@@ -135,21 +144,28 @@ namespace Game.Client.Home
                 ResizeProfileChip();
             }
 
+            // The field opens on the name the player already has, which is what
+            // the design calls the default.
             if (profileNicknameInput != null && profileNicknameInput.text != nickname)
             {
                 profileNicknameInput.text = nickname;
             }
+
+            UpdateNicknameCounter(nickname ?? string.Empty);
         }
 
+        /// <summary>
+        /// Nothing to draw. The revised design shows no level anywhere on Home
+        /// — the chip carries the name alone, and the profile panel is only
+        /// about the nickname.
+        /// </summary>
+        /// <remarks>
+        /// Kept because <see cref="IHomeMenuView"/> still declares it and the
+        /// presenter still binds the profile. Dropping it from the interface is
+        /// a change to the presenter and its tests, not to this screen.
+        /// </remarks>
         public void SetLevel(int level)
         {
-            // Home itself no longer shows a level: the chip carries the name
-            // alone. The profile panel is the one place it is still written.
-            var label = $"Lv.{level}";
-            if (profileLevelText != null)
-            {
-                profileLevelText.text = label;
-            }
         }
 
         public void SetProfileSettingsVisible(bool visible)
@@ -162,14 +178,13 @@ namespace Game.Client.Home
             profileSettingsRoot.SetActive(visible);
         }
 
+        /// <summary>
+        /// Nothing to draw, for the same reason as <see cref="SetLevel"/>: the
+        /// revised panel answers with the check message rather than with a
+        /// separate "applied" line.
+        /// </summary>
         public void SetNicknameAppliedFeedbackVisible(bool visible)
         {
-            if (appliedFeedbackText == null)
-            {
-                return;
-            }
-
-            appliedFeedbackText.gameObject.SetActive(visible);
         }
 
         public void SetFriendListVisible(bool visible)

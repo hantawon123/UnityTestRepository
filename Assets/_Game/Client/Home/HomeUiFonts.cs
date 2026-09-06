@@ -28,15 +28,16 @@ namespace Game.Client.Home
         /// sprite costs a few kilobytes and no repository space, and it cannot
         /// drift from <see cref="HomeStyle"/> the way an exported PNG does.
         /// </remarks>
-        public static Sprite Rounded(int radius)
+        public static Sprite Rounded(int radius, bool squareBottomRight = false)
         {
-            if (RoundedSprites.TryGetValue(radius, out var cached) && cached != null)
+            var key = squareBottomRight ? -radius : radius;
+            if (RoundedSprites.TryGetValue(key, out var cached) && cached != null)
             {
                 return cached;
             }
 
-            var sprite = BuildRoundedSprite(radius, 0f);
-            RoundedSprites[radius] = sprite;
+            var sprite = BuildRoundedSprite(radius, 0f, squareBottomRight);
+            RoundedSprites[key] = sprite;
             return sprite;
         }
 
@@ -66,7 +67,8 @@ namespace Game.Client.Home
         /// corners stay smooth once the nine-slice stretches them. A thresholded
         /// corner shows its steps at chip size.
         /// </remarks>
-        private static Sprite BuildRoundedSprite(int radius, float thickness)
+        private static Sprite BuildRoundedSprite(
+            int radius, float thickness, bool squareBottomRight = false)
         {
             var size = Mathf.Max((radius * 2) + 4, 8);
             var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
@@ -81,8 +83,16 @@ namespace Game.Client.Home
             {
                 for (var x = 0; x < size; x++)
                 {
-                    var coverage = RoundedCoverage(x, y, half, radius, 0f);
-                    if (thickness > 0f)
+                    // Texture space counts up from the bottom, so the design's
+                    // bottom-right corner is the low-y, high-x quadrant here.
+                    // Filling that quadrant solid leaves it square while the
+                    // other three keep their radius, and the nine-slice takes
+                    // each corner from the matching corner of this texture.
+                    var isSquareCorner = squareBottomRight && x + 0.5f > half && y + 0.5f < half;
+                    var coverage = isSquareCorner
+                        ? 1f
+                        : RoundedCoverage(x, y, half, radius, 0f);
+                    if (thickness > 0f && !isSquareCorner)
                     {
                         coverage -= RoundedCoverage(x, y, half, radius, thickness);
                     }
