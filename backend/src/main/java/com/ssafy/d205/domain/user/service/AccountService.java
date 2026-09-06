@@ -93,6 +93,26 @@ public class AccountService {
      * 합니다. equalsIgnoreCase로 두면 남이 쓰는 Player를 자기 것으로 착각해 중복
      * 검사를 건너뛰고, 제약 위반이 409가 아니라 500으로 나갑니다.
      */
+    /**
+     * 닉네임 검색에 나올지 정합니다.
+     *
+     * <p>닉네임 변경과 따로 둔 이유는 성질이 다르기 때문입니다. 닉네임은 남과 겹칠 수
+     * 있어 거절당하지만, 이 값은 나 혼자의 것이라 늘 성공합니다. 한 요청으로 묶으면
+     * 닉네임이 중복이라 409 가 날 때 이 설정까지 함께 되돌아갑니다 - 사용자는
+     * 체크박스만 껐는데 그것도 안 먹힌 셈이 됩니다.
+     *
+     * <p>같은 값을 다시 넣어도 성공합니다. 체크박스를 두 번 눌러 원래대로 돌아온
+     * 경우가 오류일 이유가 없습니다.
+     */
+    @Transactional
+    public AccountResponse setSearchable(String userId, boolean searchable) {
+        User user = userRepository.findByPublicId(userId)
+                .orElseThrow(() -> new UnknownCallerException(userId));
+
+        user.setSearchable(searchable, timeProvider.now());
+        return AccountResponse.from(user);
+    }
+
     @Transactional
     public AccountResponse rename(String userId, String nickname) {
         User user = userRepository.findByPublicId(userId)

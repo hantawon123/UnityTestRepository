@@ -72,6 +72,22 @@ namespace Game.Backend
                 : BackendResult<AccountSnapshot>.Failed(answer.Failure);
         }
 
+        public async UniTask<BackendResult<AccountSnapshot>> SetSearchableAsync(
+            bool searchable, CancellationToken cancellation)
+        {
+            var body = new UpdateSearchableRequestDto { searchable = searchable };
+
+            // PUT, not PATCH. Setting what is already set is not an error, and a
+            // checkbox pressed twice must land back where it started without
+            // failing on the way.
+            var answer = await client.CallAsync<AccountResponseDto>(
+                HttpMethod.Put, Me + "/searchable", body, BackendAuth.UserId, cancellation);
+
+            return answer.Ok
+                ? Map(answer.Value)
+                : BackendResult<AccountSnapshot>.Failed(answer.Failure);
+        }
+
         public async UniTask<BackendResult> DeleteAccountAsync(CancellationToken cancellation)
         {
             // The only call that sends the device identifier. Deletion cannot be
@@ -104,7 +120,8 @@ namespace Game.Backend
             }
 
             return BackendResult<AccountSnapshot>.Success(
-                new AccountSnapshot(dto.userId, dto.nickname, dto.nicknameSet));
+                new AccountSnapshot(
+                    dto.userId, dto.nickname, dto.nicknameSet, dto.searchable));
         }
     }
 }

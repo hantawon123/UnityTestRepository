@@ -32,6 +32,7 @@ namespace Game.Backend
         public string userId;
         public string nickname;
         public bool nicknameSet;
+        public bool searchable;
         public string createdAt;
     }
 
@@ -39,6 +40,12 @@ namespace Game.Backend
     internal sealed class UpdateNicknameRequestDto
     {
         public string nickname;
+    }
+
+    [Serializable]
+    internal sealed class UpdateSearchableRequestDto
+    {
+        public bool searchable;
     }
 
     [Serializable]

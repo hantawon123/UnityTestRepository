@@ -30,9 +30,11 @@ public interface UserRepository extends JpaRepository<User, Integer> {
      * 컬럼이고 엔티티에 매핑하지 않았기 때문입니다. 값을 쓰는 곳이 이 쿼리 하나뿐인데,
      * 매핑하면 읽기 전용 애너테이션을 정확히 달아야 하고 실수하면 INSERT 가 깨집니다.
      *
-     * <p>거르는 것은 나 자신뿐입니다. 차단이 있던 동안에는 양쪽 방향의 차단도 함께
-     * 걸러냈지만 그 테이블은 사라졌습니다. 신고는 상대에게 아무 영향이 없으므로
-     * 검색 결과를 바꾸지 않습니다.
+     * <p>거르는 것은 나 자신과 <b>검색을 꺼 둔 사람</b>입니다. 화면에서 가리는 것이
+     * 아니라 여기서 빠지므로, 응답 자체에 그 사람이 담기지 않습니다.
+     *
+     * <p>차단이 있던 동안에는 양쪽 방향의 차단도 함께 걸러냈지만 그 테이블은
+     * 사라졌습니다. 신고는 상대에게 아무 영향이 없으므로 검색 결과를 바꾸지 않습니다.
      *
      * <p>정렬을 nickname_lower 로 하는 것은 ix_users_nickname_lower 를 그대로 쓰기
      * 위해서입니다. 다른 컬럼으로 정렬하면 정렬을 위한 별도 작업이 생깁니다.
@@ -43,6 +45,7 @@ public interface UserRepository extends JpaRepository<User, Integer> {
               FROM users u
              WHERE u.nickname_lower LIKE CONCAT(:prefix, '%')
                AND u.users_seq <> :meSeq
+               AND u.searchable = TRUE
              ORDER BY u.nickname_lower
             """, nativeQuery = true)
     List<UserSummaryRow> searchByNicknamePrefix(@Param("prefix") String prefix,
