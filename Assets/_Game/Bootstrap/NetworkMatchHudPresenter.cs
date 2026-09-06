@@ -280,6 +280,11 @@ namespace Game.Bootstrap
                 ? clock.MatchRules.SearchingDurationSeconds
                 : rules.SearchingDurationSeconds;
 
+        private double FinalWarningSeconds =>
+            rules.FinalWarningSeconds > 0f
+                ? rules.FinalWarningSeconds
+                : MatchTimerView.WarningSeconds;
+
         private int HitsRequiredToStun =>
             clock.MatchRules.StunHitCount > 0
                 ? clock.MatchRules.StunHitCount
@@ -485,6 +490,12 @@ namespace Game.Bootstrap
 
         private void UpdateHidingTurnStart(double now)
         {
+            if (hasSnapshot && snapshot.Phase == MatchPhase.Searching)
+            {
+                UpdateFinalWarningOverlay(now);
+                return;
+            }
+
             if (hidingIntroVisible ||
                 !hasSnapshot ||
                 snapshot.Phase != MatchPhase.Hiding ||
@@ -556,6 +567,43 @@ namespace Game.Bootstrap
 
             ShowHidingWaitHud(turnIndex, playing, remaining);
             ApplyMatchChat(showHidingWaitChat: true);
+        }
+
+        private void UpdateFinalWarningOverlay(double now)
+        {
+            if (searchingIntroVisible || !clock.IsRuntimeReady)
+            {
+                HideHidingTurnStart();
+                view.SetTopHudVisible(true);
+                return;
+            }
+
+            var warningSeconds = FinalWarningSeconds;
+            var warningStartedAt = snapshot.PhaseEndsAt - warningSeconds;
+            var remaining = Math.Max(0d, snapshot.PhaseEndsAt - now);
+            var showOverlay = remaining > 0d &&
+                              now >= warningStartedAt &&
+                              now < warningStartedAt + HidingTurnStartView.VisibleSeconds;
+
+            if (showOverlay)
+            {
+                if (!hidingTurnStartVisible)
+                {
+                    hidingTurnStartVisible = true;
+                    view.ShowHidingTurnStart(
+                        remaining,
+                        HidingTurnStartView.FinalWarningBannerText);
+                }
+                else
+                {
+                    view.SetHidingTurnStartSeconds(remaining);
+                }
+
+                return;
+            }
+
+            HideHidingTurnStart();
+            view.SetTopHudVisible(true);
         }
 
         private void HideHidingTurnStart()

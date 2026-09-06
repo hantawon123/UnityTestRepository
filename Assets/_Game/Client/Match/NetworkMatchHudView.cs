@@ -28,7 +28,7 @@ namespace Game.Client.Match
         void HideHidingIntro();
         void ShowSearchingIntro(string itemDisplayName, string itemId);
         void HideSearchingIntro();
-        void ShowHidingTurnStart(double remainingSeconds);
+        void ShowHidingTurnStart(double remainingSeconds, string bannerText = null);
         void HideHidingTurnStart();
         void SetHidingTurnStartSeconds(double remainingSeconds);
         void ShowHidingActiveHud(double remainingSeconds, bool showTopPrompt, bool showCompleteGuide);
@@ -339,11 +339,11 @@ namespace Game.Client.Match
             searchingIntroView?.Hide();
         }
 
-        public void ShowHidingTurnStart(double remainingSeconds)
+        public void ShowHidingTurnStart(double remainingSeconds, string bannerText = null)
         {
             EnsureHidingTurnStart();
             SetTopHudVisible(false);
-            hidingTurnStartView?.Show(remainingSeconds);
+            hidingTurnStartView?.Show(remainingSeconds, bannerText);
         }
 
         public void HideHidingTurnStart()

@@ -47,5 +47,28 @@ namespace Game.Architecture.Tests
                 Object.DestroyImmediate(canvas);
             }
         }
+
+        [Test]
+        public void Show_CanReuseTheSameOverlayWithAFinalWarningBanner()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = HidingTurnStartView.Create(canvas.transform);
+                view.Show(30d, HidingTurnStartView.FinalWarningBannerText);
+
+                var timer = view.transform.Find("Content/Stopwatch/Timer").GetComponent<TMPro.TMP_Text>();
+                Assert.That(timer.text, Is.EqualTo("00:30"));
+
+                var banner = view.transform.Find("Content/Banner/Label")?.GetComponent<TMPro.TMP_Text>();
+                Assert.That(banner, Is.Not.Null);
+                Assert.That(banner.text, Is.EqualTo(HidingTurnStartView.FinalWarningBannerText));
+                Assert.That(banner.fontSize, Is.EqualTo(HidingTurnStartView.BannerFontSize));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
     }
 }

@@ -490,6 +490,7 @@ namespace Game.Architecture.Tests
                 Assert.That(view.MatchChatVisible, Is.False);
                 Assert.That(view.PlayerStatusVisible, Is.False);
                 Assert.That(view.HidingTurnStartSeconds, Is.EqualTo(30d));
+                Assert.That(view.HidingTurnStartBanner, Is.EqualTo(HidingTurnStartView.BannerText));
 
                 network.ServerTime = 70.9d;
                 presenter.Tick();
@@ -656,6 +657,7 @@ namespace Game.Architecture.Tests
                 presenter.Tick();
                 Assert.That(view.SearchingIntroVisible, Is.True);
                 Assert.That(view.SearchingIntroItem, Is.EqualTo("탄산음료"));
+                Assert.That(view.HidingTurnStartVisible, Is.False);
 
                 network.ServerTime = 102.9d;
                 presenter.Tick();
@@ -726,6 +728,78 @@ namespace Game.Architecture.Tests
                 network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 400d));
                 presenter.Tick();
                 Assert.That(view.SearchingIntroVisible, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void SearchingFinalWarning_ReusesHidingTurnStartOverlay()
+        {
+            var network = new FakeNetwork { ServerTime = 370d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 400d));
+                presenter.Tick();
+                Assert.That(view.HidingTurnStartVisible, Is.True);
+                Assert.That(view.HidingTurnStartSeconds, Is.EqualTo(30d));
+                Assert.That(
+                    view.HidingTurnStartBanner,
+                    Is.EqualTo(HidingTurnStartView.FinalWarningBannerText));
+                Assert.That(view.TopHudVisible, Is.False);
+
+                network.ServerTime = 370.9d;
+                presenter.Tick();
+                Assert.That(view.HidingTurnStartVisible, Is.True);
+                Assert.That(view.HidingTurnStartSeconds, Is.EqualTo(29.1d).Within(0.001d));
+
+                network.ServerTime = 371d;
+                presenter.Tick();
+                Assert.That(view.HidingTurnStartVisible, Is.False);
+                Assert.That(view.TopHudVisible, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void SearchingFinalWarning_DoesNotOpenAfterTheOpeningWindow()
+        {
+            var network = new FakeNetwork { ServerTime = 372d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 400d));
+                presenter.Tick();
+                Assert.That(view.HidingTurnStartVisible, Is.False);
+                Assert.That(view.TopHudVisible, Is.True);
             }
             finally
             {
@@ -987,10 +1061,15 @@ namespace Game.Architecture.Tests
             public bool TopHudVisible { get; private set; } = true;
             public bool MatchChatVisible { get; private set; } = true;
 
-            public void ShowHidingTurnStart(double remainingSeconds)
+            public string HidingTurnStartBanner { get; private set; }
+
+            public void ShowHidingTurnStart(double remainingSeconds, string bannerText = null)
             {
                 HidingTurnStartVisible = true;
                 HidingTurnStartSeconds = remainingSeconds;
+                HidingTurnStartBanner = string.IsNullOrWhiteSpace(bannerText)
+                    ? HidingTurnStartView.BannerText
+                    : bannerText;
                 TopHudVisible = false;
             }
 
