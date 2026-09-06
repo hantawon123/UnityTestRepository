@@ -18,20 +18,23 @@ namespace Game.Client.Match
     /// <summary>Shows the latest match chat message above each player.</summary>
     public sealed class MatchChatBubbleView : MonoBehaviour, IMatchChatBubbleView
     {
+        public const float FontSize = 8f;
+        public static readonly Color BubbleColor = new(0f, 0f, 0f, 0.27f);
+        public const float MinBubbleWidth = 40f;
+        public const float MaxBubbleWidth = 210f;
+        public const float MinBubbleHeight = 24f;
+        public const float MaxBubbleHeight = 80f;
         private const float HeightOffset = 2f;
         private const float VisibleSeconds = 3.5f;
         private const float CanvasScale = 0.01f;
-        private const float MinBubbleWidth = 80f;
-        private const float MaxBubbleWidth = 420f;
-        private const float MinBubbleHeight = 48f;
-        private const float MaxBubbleHeight = 160f;
-        private const float HorizontalPadding = 36f;
-        private const float VerticalPadding = 20f;
+        private const float HorizontalPadding = 18f;
+        private const float VerticalPadding = 10f;
 
         private readonly Dictionary<string, Bubble> bubbles = new(StringComparer.Ordinal);
         private readonly Dictionary<string, LobbyChatMessage> pending =
             new(StringComparer.Ordinal);
         private TMP_FontAsset font;
+        private Camera followCamera;
 
         public static MatchChatBubbleView Create(Transform parent)
         {
@@ -89,14 +92,19 @@ namespace Game.Client.Match
 
         private void Awake()
         {
-            font = HomeUiFonts.Apply();
+            font = HomeUiFonts.ApplyRegular();
         }
 
         private void LateUpdate()
         {
+            if (followCamera == null || !followCamera.isActiveAndEnabled)
+            {
+                followCamera = Camera.main;
+            }
+
             foreach (var bubble in bubbles.Values)
             {
-                bubble?.Tick(font);
+                bubble?.Tick(font, followCamera);
             }
         }
 
@@ -120,7 +128,7 @@ namespace Game.Client.Match
             var scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
             scaler.scaleFactor = 1f;
-            scaler.dynamicPixelsPerUnit = 100f;
+            scaler.dynamicPixelsPerUnit = 200f;
 
             var panelObject = new GameObject(
                 "Panel",
@@ -134,7 +142,9 @@ namespace Game.Client.Match
             panelRect.offsetMax = Vector2.zero;
             var panel = panelObject.GetComponent<Image>();
             panel.sprite = HomeUiFonts.RoundedSprite;
-            panel.color = new Color(0.06f, 0.07f, 0.09f, 0.92f);
+            panel.type = Image.Type.Sliced;
+            panel.pixelsPerUnitMultiplier = 1.2f;
+            panel.color = BubbleColor;
             panel.raycastTarget = false;
 
             var textObject = new GameObject(
@@ -145,11 +155,11 @@ namespace Game.Client.Match
             var textRect = textObject.GetComponent<RectTransform>();
             textRect.anchorMin = Vector2.zero;
             textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = new Vector2(18f, 10f);
-            textRect.offsetMax = new Vector2(-18f, -10f);
+            textRect.offsetMin = new Vector2(9f, 5f);
+            textRect.offsetMax = new Vector2(-9f, -5f);
             var text = textObject.GetComponent<TextMeshProUGUI>();
             text.font = font;
-            text.fontSize = 20f;
+            text.fontSize = FontSize;
             text.color = Color.white;
             text.alignment = TextAlignmentOptions.Center;
             text.textWrappingMode = TextWrappingModes.Normal;
@@ -164,8 +174,10 @@ namespace Game.Client.Match
         private sealed class Bubble
         {
             private readonly RectTransform canvas;
+            private readonly Canvas canvasComponent;
             private readonly TMP_Text text;
             private Transform playerRoot;
+            private Transform follow;
             private float hideAt = -1f;
 
             public bool IsDestroyed => canvas == null;
@@ -173,11 +185,16 @@ namespace Game.Client.Match
             public Bubble(RectTransform canvas, TMP_Text text, Transform playerRoot)
             {
                 this.canvas = canvas;
+                canvasComponent = canvas.GetComponent<Canvas>();
                 this.text = text;
-                this.playerRoot = playerRoot;
+                SetPlayerRoot(playerRoot);
             }
 
-            public void SetPlayerRoot(Transform value) => playerRoot = value;
+            public void SetPlayerRoot(Transform value)
+            {
+                playerRoot = value;
+                follow = value == null ? null : value.Find("Visual") ?? value;
+            }
 
             public void Show(string value)
             {
@@ -203,9 +220,9 @@ namespace Game.Client.Match
                 }
             }
 
-            public void Tick(TMP_FontAsset currentFont)
+            public void Tick(TMP_FontAsset currentFont, Camera camera)
             {
-                if (canvas == null || playerRoot == null)
+                if (canvas == null || follow == null)
                 {
                     return;
                 }
@@ -215,13 +232,14 @@ namespace Game.Client.Match
                     text.font = currentFont;
                 }
 
-                var follow = playerRoot.Find("Visual") ?? playerRoot;
                 canvas.position = follow.position + Vector3.up * HeightOffset;
-                var camera = Camera.main;
                 if (camera != null)
                 {
                     canvas.rotation = camera.transform.rotation;
-                    canvas.GetComponent<Canvas>().worldCamera = camera;
+                    if (canvasComponent != null)
+                    {
+                        canvasComponent.worldCamera = camera;
+                    }
                 }
 
                 if (hideAt >= 0f && Time.unscaledTime >= hideAt)

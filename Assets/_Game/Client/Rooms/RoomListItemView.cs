@@ -1,4 +1,5 @@
 using System;
+using Game.Client.Home;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
 using TMPro;
@@ -46,6 +47,7 @@ namespace Game.Client.Rooms
 
         private void Awake()
         {
+            HomeUiFonts.ApplyTmp(transform);
             selectButton.onClick.AddListener(OnSelectButtonClicked);
         }
 

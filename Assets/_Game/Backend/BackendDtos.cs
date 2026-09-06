@@ -100,19 +100,15 @@ namespace Game.Backend
     }
 
     [Serializable]
-    internal sealed class BlockedUserSummaryDto
+    internal sealed class SendReportRequestDto
     {
         public string userId;
-        public string nickname;
 
-        /// <summary>yyyyMMddHHmmss, UTC.</summary>
-        public string blockedAt;
-    }
+        /// <summary>ReportReason 의 서버 이름. ReportGateway 가 옮깁니다.</summary>
+        public string reason;
 
-    [Serializable]
-    internal sealed class BlockListResponseDto
-    {
-        public BlockedUserSummaryDto[] blocked;
+        /// <summary>선택. 200자까지. 빈 문자열과 없음을 서버가 같게 봅니다.</summary>
+        public string memo;
     }
 
     [Serializable]

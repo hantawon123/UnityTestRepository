@@ -983,7 +983,7 @@ namespace Game.Editor
                 var bubble = canvas.Find("Bubble") as RectTransform;
                 if (bubble == null)
                 {
-                    bubble = GetOrCreateSlot(canvas, "Bubble", new Color(0.1f, 0.1f, 0.12f, 0.92f));
+                    bubble = GetOrCreateSlot(canvas, "Bubble", LobbyChatBubbleView.BubbleColor);
                     SetLabel(bubble, string.Empty);
                 }
 
@@ -1272,11 +1272,13 @@ namespace Game.Editor
 
         private static Font ResolveLobbyFont()
         {
-            var korean = AssetDatabase.LoadAssetAtPath<Font>(
-                "Assets/_Game/Content/Fonts/Cafe24Ssurround-v2.0.ttf");
-            if (korean != null)
+            var paperlogy = AssetDatabase.LoadAssetAtPath<Font>(
+                "Assets/_Game/Content/Resources/Fonts/Paperlogy-6SemiBold.ttf")
+                ?? AssetDatabase.LoadAssetAtPath<Font>(
+                    "Assets/_Game/Content/Fonts/Paperlogy-6SemiBold.ttf");
+            if (paperlogy != null)
             {
-                return korean;
+                return paperlogy;
             }
 
             return Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")

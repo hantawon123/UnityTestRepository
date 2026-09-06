@@ -19,6 +19,9 @@ namespace Game.Core.Match
         public static float CountdownExitOpacity(double remaining) =>
             (float)(1d - Math.Clamp(remaining / FadeSeconds, 0d, 1d));
 
+        public static float MatchEndFadeOutOpacity(double elapsedSinceEnd) =>
+            (float)Math.Clamp(elapsedSinceEnd / FadeSeconds, 0d, 1d);
+
         public static float Opacity(double elapsed, double duration)
         {
             if (elapsed < TitleSeconds) return 1f;

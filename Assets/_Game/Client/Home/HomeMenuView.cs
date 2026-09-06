@@ -626,6 +626,29 @@ namespace Game.Client.Home
                 body, "보낸 요청", "보낸 요청이 없습니다", out sentSection, out sentEmptyText);
             CreateSearchBar(body);
             searchItemsRoot = CreateSearchResults(body);
+
+            // At the foot of the panel rather than inside the scrolling results,
+            // so a message about the button that was just pressed cannot be
+            // scrolled out of sight.
+            var errorRect = CreateRect("ActionError", body);
+            var errorLayout = errorRect.gameObject.AddComponent<LayoutElement>();
+            errorLayout.preferredHeight = 34f;
+            errorLayout.minHeight = 34f;
+            friendActionErrorText = AddText(
+                errorRect,
+                string.Empty,
+                15f,
+                FontStyles.Normal,
+                TextAlignmentOptions.Center);
+            friendActionErrorText.color = new Color(0.78f, 0.20f, 0.20f, 1f);
+
+            // Sized down rather than clipped, like the rename messages. These are
+            // sentences and the panel is 320 wide.
+            friendActionErrorText.enableAutoSizing = true;
+            friendActionErrorText.fontSizeMin = 12f;
+            friendActionErrorText.fontSizeMax = 15f;
+            friendActionErrorText.gameObject.SetActive(false);
+
             friendSearchBody.SetActive(false);
         }
 
@@ -909,20 +932,6 @@ namespace Game.Client.Home
                 row.PlayerId = friend.PlayerId;
                 row.Nickname.text = friend.Nickname;
                 row.Status.text = friend.Presence == FriendPresence.InGame ? "게임중" : string.Empty;
-
-                // Disarmed on every draw. A row half way through asking for
-                // confirmation must not stay that way for whoever lands in it
-                // next, and a refresh is exactly when that happens.
-                row.BlockArmed = false;
-                if (row.BlockLabel != null)
-                {
-                    row.BlockLabel.text = "차단";
-                }
-
-                if (row.BlockButton != null)
-                {
-                    row.BlockButton.interactable = true;
-                }
 
                 if (row.RemoveButton != null)
                 {
@@ -1308,10 +1317,12 @@ namespace Game.Client.Home
             AddDropShadow(row.gameObject, ItemShadowColor, new Vector2(2f, -3f));
             AddDropShadow(row.gameObject, new Color(0.12f, 0.12f, 0.12f, 0.16f), new Vector2(4f, -6f));
 
-            // Tighter than the other rows because this one carries two actions
-            // beside a status badge. The panel leaves 284 for a row, and at the
-            // old spacing a second button pushed the nickname under its own
-            // minimum and out of the panel.
+            // Tighter than the other rows. It was set this way when the row
+            // carried two actions beside the status badge and the nickname was
+            // being squeezed under its own minimum; blocking is gone and one
+            // action is left, so there is room to spare now. Left as it is
+            // because the row reads well and loosening it would only move
+            // things for no reason.
             var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
             layout.padding = new RectOffset(10, 10, 8, 8);
             layout.spacing = 6f;
@@ -1363,8 +1374,6 @@ namespace Game.Client.Home
                 Status = status
             };
 
-            // Ending the friendship first, blocking second: the pair reads left
-            // to right from the lighter action to the heavier one.
             friendRow.RemoveButton = CreateRowTextButton(
                 row,
                 "Remove",
@@ -1372,14 +1381,6 @@ namespace Game.Client.Home
                 36f,
                 () => RemoveFriend(friendRow));
 
-            friendRow.BlockButton = CreateRowTextButton(
-                row,
-                "Block",
-                "차단",
-                36f,
-                () => ConfirmBlock(friendRow));
-
-            friendRow.BlockLabel = friendRow.BlockButton.GetComponentInChildren<TMP_Text>();
             return friendRow;
         }
 
@@ -1387,9 +1388,9 @@ namespace Game.Client.Home
         /// Ends the friendship on the first press.
         /// </summary>
         /// <remarks>
-        /// No confirmation, unlike blocking. Both people can still find each
-        /// other afterwards and either can ask again, so the worst a stray press
-        /// costs is one more request.
+        /// No confirmation. Both people can still find each other afterwards and
+        /// either can ask again, so the worst a stray press costs is one more
+        /// request.
         /// </remarks>
         private void RemoveFriend(FriendRow row)
         {
@@ -1399,40 +1400,7 @@ namespace Game.Client.Home
             }
 
             row.RemoveButton.interactable = false;
-            row.BlockButton.interactable = false;
             FriendRemoved?.Invoke(row.PlayerId);
-        }
-
-        /// <summary>
-        /// Two presses to block: the first asks, the second does it.
-        /// </summary>
-        /// <remarks>
-        /// A confirmation step rather than a dialog, because the row is small and
-        /// a modal over a modal is worse than a label that changes. Blocking is
-        /// not only hiding someone — the server ends the friendship and drops any
-        /// request with it — so a single stray press should not do it.
-        /// <para>
-        /// The armed state lasts until this list is drawn again, which happens on
-        /// every refresh, so it cannot sit armed for long.
-        /// </para>
-        /// </remarks>
-        private void ConfirmBlock(FriendRow row)
-        {
-            if (string.IsNullOrEmpty(row.PlayerId))
-            {
-                return;
-            }
-
-            if (!row.BlockArmed)
-            {
-                row.BlockArmed = true;
-                row.BlockLabel.text = "확인?";
-                return;
-            }
-
-            row.BlockArmed = false;
-            row.BlockButton.interactable = false;
-            FriendBlocked?.Invoke(row.PlayerId);
         }
 
         private static void AddDropShadow(GameObject target, Color color, Vector2 distance)
@@ -1518,7 +1486,7 @@ namespace Game.Client.Home
         {
             if (koreanFont == null)
             {
-                throw new InvalidOperationException("Cafe24 Ssurround TMP font is missing.");
+                throw new InvalidOperationException("Korean TMP font is missing.");
             }
 
             target.gameObject.SetActive(false);
@@ -1558,9 +1526,6 @@ namespace Game.Client.Home
             public TMP_Text Nickname;
             public TMP_Text Status;
             public Button RemoveButton;
-            public Button BlockButton;
-            public TMP_Text BlockLabel;
-            public bool BlockArmed;
         }
 
         private sealed class RequestRow

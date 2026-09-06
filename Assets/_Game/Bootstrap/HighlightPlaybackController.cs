@@ -146,6 +146,7 @@ namespace Game.Bootstrap
         private readonly IHighlightTransitionView transition;
         private double highlightEndsAt;
         private double gameEndNoticeEndsAt = double.PositiveInfinity;
+        private double matchEndedAt = double.NaN;
         private double localSkipOffset;
         private double appliedBodyTime;
         private bool readinessConfirmed;
@@ -235,19 +236,19 @@ namespace Game.Bootstrap
                 return;
             }
 
-            // Keep the live camera visible for the end announcement/post-roll.
+            // Fade the live camera out, then let Result fade in over it.
             if (!clock.IsRuntimeReady) return;
-            if (clock.ServerTime < gameEndNoticeEndsAt)
-            {
-                transition.SetOpacity(HighlightPresentationTiming.CountdownExitOpacity(
-                    gameEndNoticeEndsAt - clock.ServerTime));
-                return;
-            }
-            // Result is an additive full-screen page. Do not prepare or reveal
-            // replay content until the authority has finished displaying it.
             if (network is INetworkResultNavigation { IsResultSceneLoaded: true })
             {
                 hud?.SetHighlightTitle(null);
+                return;
+            }
+            if (clock.ServerTime < gameEndNoticeEndsAt)
+            {
+                var fadeElapsed = double.IsNaN(matchEndedAt)
+                    ? 0d
+                    : clock.ServerTime - matchEndedAt;
+                transition.SetOpacity(HighlightPresentationTiming.MatchEndFadeOutOpacity(fadeElapsed));
                 return;
             }
             var keyboard = Keyboard.current;
@@ -390,11 +391,15 @@ namespace Game.Bootstrap
             {
                 replay = Array.Empty<HighlightReplayData>();
                 gameEndNoticeEndsAt = double.PositiveInfinity;
+                matchEndedAt = double.NaN;
             }
         }
 
-        private void OnMatchResultReceived(MatchResult result) =>
-            gameEndNoticeEndsAt = result.EndedAt + HighlightPresentationTiming.PostRollSeconds;
+        private void OnMatchResultReceived(MatchResult result)
+        {
+            matchEndedAt = result.EndedAt;
+            gameEndNoticeEndsAt = result.EndedAt + HighlightPresentationTiming.FadeSeconds;
+        }
 
         private void OnHighlightReplayReceived(IReadOnlyList<HighlightReplayData> received)
         {

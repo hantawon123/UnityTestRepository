@@ -9,17 +9,49 @@ namespace Game.Client.Match
         [SerializeField]
         private TMP_Text phaseText;
 
+        private void Awake()
+        {
+            EnsureLayout();
+        }
+
         public void SetPhase(MatchPhase phase, string hidingPlayerName)
         {
+            EnsureLayout();
+            if (phaseText == null)
+            {
+                return;
+            }
+
             phaseText.text = phase switch
             {
                 MatchPhase.Waiting => "대기 중",
                 MatchPhase.Hiding => DescribeHiding(hidingPlayerName),
-                MatchPhase.Searching => "찾는 중",
+                MatchPhase.Searching => string.Empty,
                 MatchPhase.Highlight => "하이라이트",
                 MatchPhase.Result => "결과",
                 _ => phase.ToString()
             };
+        }
+
+        private void EnsureLayout()
+        {
+            if (phaseText == null)
+            {
+                phaseText = GetComponent<TMP_Text>();
+            }
+
+            if (transform is not RectTransform rect)
+            {
+                return;
+            }
+
+            rect.anchorMin = new Vector2(0.5f, 1f);
+            rect.anchorMax = new Vector2(0.5f, 1f);
+            rect.pivot = new Vector2(0.5f, 1f);
+            rect.anchoredPosition = new Vector2(
+                0f,
+                -(HidingActiveHudView.TopPadding + MatchTimerView.TimerHeight + MatchTimerView.HintHeight));
+            rect.sizeDelta = new Vector2(620f, 40f);
         }
 
         private static string DescribeHiding(string hidingPlayerName)

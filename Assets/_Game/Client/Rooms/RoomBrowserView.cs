@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Home;
 using Game.Core.Rooms;
 using TMPro;
 using UnityEngine;
@@ -52,6 +53,7 @@ namespace Game.Client.Rooms
 
         private void Awake()
         {
+            HomeUiFonts.ApplyTmp(transform);
             searchInputField.onValueChanged.AddListener(OnSearchTextChanged);
             refreshButton.onClick.AddListener(OnRefreshButtonClicked);
             roomCodeSearchButton.onClick.AddListener(OnRoomCodeSearchButtonClicked);
@@ -165,7 +167,7 @@ namespace Game.Client.Rooms
             var rect = CreatePopupRect(label, parent, min, max);
             var text = rect.gameObject.AddComponent<TextMeshProUGUI>();
             // Reuse the room screen's Korean font and its fallback configuration.
-            text.font = searchInputField.textComponent.font;
+            text.font = HomeUiFonts.Apply();
             text.fontSize = 32f;
             text.alignment = TextAlignmentOptions.Center;
             text.color = Color.white;
@@ -189,6 +191,7 @@ namespace Game.Client.Rooms
             while (spawnedItems.Count < requiredCount)
             {
                 var item = Instantiate(listItemPrefab, listContent);
+                HomeUiFonts.ApplyTmp(item.transform);
                 item.Selected += OnRoomItemSelected;
                 spawnedItems.Add(item);
             }

@@ -59,6 +59,7 @@ namespace Game.Client.Match
             if (transport.TrySendMatchChat(text))
             {
                 view.ClearInput();
+                view.Deactivate();
             }
         }
 
