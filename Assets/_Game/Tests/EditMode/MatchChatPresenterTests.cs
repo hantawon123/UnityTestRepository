@@ -89,6 +89,8 @@ namespace Game.Tests.EditMode
                 var panel = bubble.Find("Panel")?.GetComponent<UnityEngine.UI.Image>();
                 Assert.That(panel, Is.Not.Null);
                 Assert.That(panel.type, Is.EqualTo(UnityEngine.UI.Image.Type.Sliced));
+                Assert.That(panel.color, Is.EqualTo(MatchChatBubbleView.BubbleColor));
+                Assert.That(panel.color.a, Is.EqualTo(0.27f));
             }
             finally
             {

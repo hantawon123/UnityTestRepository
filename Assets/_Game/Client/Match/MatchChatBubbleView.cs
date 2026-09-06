@@ -19,6 +19,7 @@ namespace Game.Client.Match
     public sealed class MatchChatBubbleView : MonoBehaviour, IMatchChatBubbleView
     {
         public const float FontSize = 8f;
+        public static readonly Color BubbleColor = new(0f, 0f, 0f, 0.27f);
         public const float MinBubbleWidth = 40f;
         public const float MaxBubbleWidth = 210f;
         public const float MinBubbleHeight = 24f;
@@ -143,7 +144,7 @@ namespace Game.Client.Match
             panel.sprite = HomeUiFonts.RoundedSprite;
             panel.type = Image.Type.Sliced;
             panel.pixelsPerUnitMultiplier = 1.2f;
-            panel.color = new Color(0.06f, 0.07f, 0.09f, 0.92f);
+            panel.color = BubbleColor;
             panel.raycastTarget = false;
 
             var textObject = new GameObject(

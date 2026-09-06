@@ -983,7 +983,7 @@ namespace Game.Editor
                 var bubble = canvas.Find("Bubble") as RectTransform;
                 if (bubble == null)
                 {
-                    bubble = GetOrCreateSlot(canvas, "Bubble", new Color(0.1f, 0.1f, 0.12f, 0.92f));
+                    bubble = GetOrCreateSlot(canvas, "Bubble", LobbyChatBubbleView.BubbleColor);
                     SetLabel(bubble, string.Empty);
                 }
 
