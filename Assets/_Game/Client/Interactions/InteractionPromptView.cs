@@ -11,7 +11,9 @@ namespace Game.Client.Interactions
         public const float LabelFontSize = 18f;
         public const float KeyFontSize = 18f;
         public const float KeyBoxSize = 32f;
-        public static readonly Color KeyBoxColor = new(0.12f, 0.12f, 0.12f, 1f);
+        public const float KeyIconSize = 24f;
+        public const string LeftClickIconResource = "UI/ic_left_click";
+        public static readonly Color KeyBoxColor = new(0f, 0f, 0f, 0.27f);
 
         private const int SortingOrder = 220;
         private const float WorldLift = 0.08f;
@@ -19,12 +21,16 @@ namespace Game.Client.Interactions
         private Canvas canvas;
         private RectTransform root;
         private Image keyBox;
+        private LayoutElement keyBoxLayout;
+        private Image keyIcon;
         private TMP_Text keyLabel;
         private TMP_Text actionLabel;
         private Transform follow;
         private Camera followCamera;
 
         public Image KeyBox => keyBox;
+
+        public Image KeyIcon => keyIcon;
 
         public TMP_Text KeyLabel => keyLabel;
 
@@ -45,15 +51,18 @@ namespace Game.Client.Interactions
             return view;
         }
 
-        public void Show(string key, string action, Transform target)
+        public void Show(string key, string action, Transform target, Sprite icon = null)
         {
             EnsureBuilt();
             follow = target;
-            keyLabel.text = key ?? string.Empty;
+            ApplyKeyContent(key, icon);
             actionLabel.text = action ?? string.Empty;
             root.gameObject.SetActive(true);
             RefreshPosition();
         }
+
+        public static Sprite LoadLeftClickIcon() =>
+            Resources.Load<Sprite>(LeftClickIconResource);
 
         public void Hide()
         {
@@ -128,23 +137,61 @@ namespace Game.Client.Interactions
             keyBox.pixelsPerUnitMultiplier = 2.4f;
             keyBox.color = KeyBoxColor;
             keyBox.raycastTarget = false;
-            var keyBoxLayout = keyBoxRect.gameObject.AddComponent<LayoutElement>();
-            keyBoxLayout.preferredWidth = KeyBoxSize;
-            keyBoxLayout.preferredHeight = KeyBoxSize;
+            keyBoxLayout = keyBoxRect.gameObject.AddComponent<LayoutElement>();
             keyBoxLayout.minWidth = KeyBoxSize;
             keyBoxLayout.minHeight = KeyBoxSize;
+            keyBoxLayout.preferredWidth = KeyBoxSize;
+            keyBoxLayout.preferredHeight = KeyBoxSize;
             keyBoxLayout.flexibleWidth = 0f;
+            var keyBoxGroup = keyBoxRect.gameObject.AddComponent<HorizontalLayoutGroup>();
+            keyBoxGroup.padding = new RectOffset(4, 4, 4, 4);
+            keyBoxGroup.childAlignment = TextAnchor.MiddleCenter;
+            keyBoxGroup.childControlWidth = true;
+            keyBoxGroup.childControlHeight = true;
+            keyBoxGroup.childForceExpandWidth = false;
+            keyBoxGroup.childForceExpandHeight = false;
 
+            keyIcon = CreateIcon("Icon", keyBoxRect);
             keyLabel = CreateLabel("Key", keyBoxRect, font, KeyFontSize, FontStyles.Normal);
-            var keyRect = keyLabel.rectTransform;
-            keyRect.anchorMin = Vector2.zero;
-            keyRect.anchorMax = Vector2.one;
-            keyRect.offsetMin = Vector2.zero;
-            keyRect.offsetMax = Vector2.zero;
 
             actionLabel = CreateLabel("Action", root, font, LabelFontSize, FontStyles.Normal);
 
             root.gameObject.SetActive(false);
+        }
+
+        private void ApplyKeyContent(string key, Sprite icon)
+        {
+            var useIcon = icon != null;
+            if (keyIcon != null)
+            {
+                keyIcon.sprite = icon;
+                keyIcon.gameObject.SetActive(useIcon);
+            }
+
+            keyLabel.gameObject.SetActive(!useIcon);
+            keyLabel.text = useIcon ? string.Empty : key ?? string.Empty;
+            if (keyBoxLayout != null)
+            {
+                keyBoxLayout.preferredWidth = KeyBoxSize;
+                keyBoxLayout.minWidth = KeyBoxSize;
+            }
+        }
+
+        private static Image CreateIcon(string objectName, Transform parent)
+        {
+            var created = new GameObject(objectName, typeof(RectTransform), typeof(Image));
+            created.transform.SetParent(parent, false);
+            var image = created.GetComponent<Image>();
+            image.color = Color.white;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+            var layout = created.AddComponent<LayoutElement>();
+            layout.preferredWidth = KeyIconSize;
+            layout.preferredHeight = KeyIconSize;
+            layout.minWidth = KeyIconSize;
+            layout.minHeight = KeyIconSize;
+            created.SetActive(false);
+            return image;
         }
 
         private void RefreshPosition()

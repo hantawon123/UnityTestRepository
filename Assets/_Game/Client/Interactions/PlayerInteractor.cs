@@ -88,6 +88,7 @@ namespace Game.Client.Interactions
         private Component aimedTarget;
         private CarryableItem highlightedItem;
         private InteractionPromptView promptView;
+        private ItemPlacementController placementController;
         private PlayerMovement playerMovement;
         private bool isAimingThrow;
         private IPlayerInteractionCommands commands;
@@ -120,6 +121,7 @@ namespace Game.Client.Interactions
             }
 
             playerMovement = GetComponent<PlayerMovement>();
+            placementController = GetComponent<ItemPlacementController>();
         }
 
         private void LateUpdate()
@@ -415,6 +417,7 @@ namespace Game.Client.Interactions
             follow = null;
 
             if (!HudVisible ||
+                placementController is { IsPlacing: true } ||
                 aimedTarget is not IInteractable interactable ||
                 !interactable.CanInteract(this) ||
                 (CarriedItem != null && aimedTarget is CarryableItem))

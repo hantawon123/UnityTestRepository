@@ -49,7 +49,10 @@ namespace Game.Architecture.Tests
                 view.Show("F", "물건 잡기", follow.transform);
 
                 Assert.That(view.IsVisible, Is.True);
-                Assert.That(view.KeyBox.color.a, Is.EqualTo(1f));
+                Assert.That(view.KeyBox.color, Is.EqualTo(InteractionPromptView.KeyBoxColor));
+                Assert.That(view.KeyBox.color.a, Is.EqualTo(0.27f));
+                Assert.That(view.KeyLabel.gameObject.activeSelf, Is.True);
+                Assert.That(view.KeyIcon.gameObject.activeSelf, Is.False);
                 Assert.That(view.KeyLabel.text, Is.EqualTo("F"));
                 Assert.That(view.ActionLabel.text, Is.EqualTo("물건 잡기"));
                 Assert.That(view.ActionLabel.fontSize, Is.EqualTo(InteractionPromptView.LabelFontSize));
@@ -60,6 +63,16 @@ namespace Game.Architecture.Tests
 
                 view.Show("F", "파괴하기", follow.transform);
                 Assert.That(view.ActionLabel.text, Is.EqualTo("파괴하기"));
+
+                var clickIcon = InteractionPromptView.LoadLeftClickIcon();
+                view.Show(string.Empty, ItemPlacementController.PlaceActionLabel, follow.transform, clickIcon);
+                Assert.That(view.KeyLabel.gameObject.activeSelf, Is.False);
+                Assert.That(view.KeyIcon.gameObject.activeSelf, Is.True);
+                Assert.That(view.KeyIcon.sprite, Is.EqualTo(clickIcon));
+                Assert.That(view.KeyIcon.sprite.name, Does.Contain("left_click").IgnoreCase);
+                Assert.That(view.ActionLabel.text, Is.EqualTo("배치"));
+                Assert.That(view.ActionLabel.fontSize, Is.EqualTo(18f));
+                Assert.That(view.KeyBox.color.a, Is.EqualTo(0.27f));
 
                 Object.DestroyImmediate(follow);
             }
