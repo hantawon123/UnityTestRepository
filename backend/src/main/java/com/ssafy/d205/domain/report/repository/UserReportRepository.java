@@ -91,9 +91,11 @@ public interface UserReportRepository extends JpaRepository<UserReport, Integer>
               FROM user_reports r
               JOIN users u ON u.users_seq = r.reported_seq
              WHERE u.public_id = :userId
+               AND (:status IS NULL OR r.status = :status)
              ORDER BY r.created_at DESC
             """, nativeQuery = true)
-    List<ReportDetailRow> findByReportedUserId(@Param("userId") String userId);
+    List<ReportDetailRow> findByReportedUserId(@Param("userId") String userId,
+                                               @Param("status") String status);
 
     /**
      * 한 사람에 대한 미검토 신고를 전부 가져옵니다. 검토 처리가 씁니다.

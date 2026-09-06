@@ -59,15 +59,24 @@ public class ReportReviewService {
                         .toList());
     }
 
-    /** 한 사람에 대한 신고를 하나씩. 최근 순입니다. */
+    /**
+     * 한 사람에 대한 신고를 하나씩. 최근 순입니다.
+     *
+     * <p>status 를 주면 그 상태만 봅니다. 목록에서 미검토를 보다가 펼쳤는데 예전에
+     * 처리한 것까지 섞여 나오면, 지금 무엇을 판단해야 하는지가 흐려집니다.
+     *
+     * <p>비워 두면 전부 봅니다. "이 사람 그동안 어땠나"를 볼 때 필요합니다.
+     */
     @Transactional(readOnly = true)
-    public ReportDetail.ListResponse detail(String userId) {
+    public ReportDetail.ListResponse detail(String userId, ReportStatus status) {
         // 신고가 하나도 없는 사람과 없는 계정을 구분합니다. 전자는 빈 목록이고
         // 후자는 404 입니다. 구분하지 않으면 오타로 부른 것과 정상 조회가 같아 보입니다.
         target(userId);
 
         return new ReportDetail.ListResponse(
-                userReportRepository.findByReportedUserId(userId).stream()
+                userReportRepository
+                        .findByReportedUserId(userId, status == null ? null : status.name())
+                        .stream()
                         .map(row -> new ReportDetail(
                                 row.getReason(), row.getMemo(),
                                 row.getCreatedAt(), row.getStatus()))

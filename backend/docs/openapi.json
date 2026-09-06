@@ -577,6 +577,19 @@
             "schema" : {
               "type" : "string"
             }
+          },
+          {
+            "in" : "query",
+            "name" : "status",
+            "required" : false,
+            "schema" : {
+              "enum" : [
+                "PENDING",
+                "ACTIONED",
+                "DISMISSED"
+              ],
+              "type" : "string"
+            }
           }
         ],
         "responses" : {

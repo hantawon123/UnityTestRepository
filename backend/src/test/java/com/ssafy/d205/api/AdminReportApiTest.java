@@ -254,6 +254,33 @@ class AdminReportApiTest extends IntegrationTest {
     }
 
     @Test
+    @DisplayName("상세를 상태로 걸러 볼 수 있다")
+    void detailCanBeFilteredByStatus() throws Exception {
+        // 미검토를 보다가 펼쳤는데 예전에 판단한 것까지 섞여 나오면 지금 무엇을
+        // 정해야 하는지가 흐려집니다.
+        String target = createUser();
+        report(createUser(), target, "ABUSE", "먼저 온 것");
+
+        Admin admin = login();
+        review(admin, target, "ACTIONED").andExpect(status().isOk());
+
+        report(createUser(), target, "SPAM", "나중에 온 것");
+
+        // 걸러서 보면 그 상태만
+        mvc.perform(get(REPORTS + "/" + target).param("status", "PENDING").session(admin.session()))
+                .andExpect(jsonPath("$.reports.length()").value(1))
+                .andExpect(jsonPath("$.reports[0].memo").value("나중에 온 것"));
+
+        mvc.perform(get(REPORTS + "/" + target).param("status", "ACTIONED").session(admin.session()))
+                .andExpect(jsonPath("$.reports.length()").value(1))
+                .andExpect(jsonPath("$.reports[0].memo").value("먼저 온 것"));
+
+        // 비워 두면 전부. "이 사람 그동안 어땠나"를 볼 때 필요합니다.
+        mvc.perform(get(REPORTS + "/" + target).session(admin.session()))
+                .andExpect(jsonPath("$.reports.length()").value(2));
+    }
+
+    @Test
     @DisplayName("신고가 없는 사람의 상세는 빈 목록이고, 없는 계정은 404")
     void detailTellsTheTwoApart() throws Exception {
         Admin admin = login();

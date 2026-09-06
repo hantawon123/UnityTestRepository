@@ -50,10 +50,18 @@ public class AdminReportController {
         return reportReviewService.list(status);
     }
 
-    /** 한 사람에 대한 신고를 하나씩. 목록의 사유 분포로 부족할 때 봅니다. */
+    /**
+     * 한 사람에 대한 신고를 하나씩. 목록의 사유 분포로 부족할 때 봅니다.
+     *
+     * <p>status 를 주면 그 상태만 봅니다. 미검토 목록에서 펼쳤는데 예전에 처리한 것까지
+     * 섞여 나오면 지금 무엇을 판단해야 하는지가 흐려집니다.
+     *
+     * <p>비워 두면 전부 봅니다. "이 사람 그동안 어땠나"를 볼 때 씁니다.
+     */
     @GetMapping("/{userId}")
-    public ReportDetail.ListResponse detail(@PathVariable String userId) {
-        return reportReviewService.detail(userId);
+    public ReportDetail.ListResponse detail(@PathVariable String userId,
+                                            @RequestParam(required = false) ReportStatus status) {
+        return reportReviewService.detail(userId, status);
     }
 
     /**
