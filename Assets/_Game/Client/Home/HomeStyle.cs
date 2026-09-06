@@ -83,6 +83,23 @@ namespace Game.Client.Home
             /// The plate a region row shows while the pointer is on it.
             /// </summary>
             public static readonly Color RowHover = FromHex(0xF5F3F1, 0.16f);
+
+            public static readonly Color TabSelected = FromHex(0xFF7032);
+            public static readonly Color TabIdle = FromHex(0xA2A2A2);
+            public static readonly Color TabDivider = FromHex(0x666666);
+            public static readonly Color BadgeFill = FromHex(0xFF7032);
+            public static readonly Color BadgeLabel = FromHex(0xFFFFFF);
+
+            public static readonly Color SearchText = FromHex(0xFFFFFF);
+            public static readonly Color Placeholder = FromHex(0xA8ADB3);
+            public static readonly Color Refresh = FromHex(0xFF9A6A);
+
+            public static readonly Color SectionPrimary = FromHex(0xFF9A6A);
+            public static readonly Color SectionSecondary = FromHex(0xA2A2A2);
+            public static readonly Color FriendOnline = FromHex(0xF5F3F1);
+            public static readonly Color FriendOffline = FromHex(0xA8ADB3);
+
+            public static readonly Color ScrollHandle = FromHex(0xF5F3F1);
         }
 
         public static class Layout
@@ -235,6 +252,87 @@ namespace Game.Client.Home
             public const float RowsTop = VerticalPadding + TitleHeight + TitleToRows;
         }
 
+        /// <summary>
+        /// The friend panel: two tabs over a list that scrolls.
+        /// </summary>
+        /// <remarks>
+        /// Sits where the profile panel does, above the chip and against the
+        /// right edge, and squares the same corner for the same reason.
+        /// </remarks>
+        public static class Friends
+        {
+            public static readonly Vector2 PanelSize = new Vector2(400f, 623f);
+            public const float PanelRightMargin = 60f;
+            public const float PanelBottomMargin = 108f;
+
+            public const float SidePadding = 20f;
+            public const float VerticalPadding = 20f;
+
+            public const float TabHeight = 40f;
+            public const float TabDividerHeight = 28f;
+            public const float TabDividerThickness = 1f;
+            public const float TabRuleThickness = 1f;
+            public const float BadgeDiameter = 20f;
+
+            /// <summary>
+            /// The search box is given its own width rather than stretched to
+            /// the padding, which would make it 360.
+            /// </summary>
+            public const float SearchRowWidth = 362f;
+
+            public const float SearchRowHeight = 40f;
+            public const float SearchIconSize = 20f;
+            public const float SearchIconGap = 10f;
+
+            public const float RefreshIconSize = 24f;
+            public const float RefreshGap = 10f;
+
+            public const float SectionHeaderGap = 15f;
+            public const float SectionGap = 26f;
+
+            /// <summary>
+            /// One height for every row. Two lines of the 20 point name stand
+            /// about 48 tall, so a wrapped nickname fits without the row having
+            /// to grow and shove the rest of the list about.
+            /// </summary>
+            public const float RowHeight = 60f;
+
+            public const float RowGap = 10f;
+            public const int RowRadius = 20;
+
+            public const float AvatarDiameter = 40f;
+            public const float AvatarLeft = 16f;
+            public const float AvatarToName = 16f;
+
+            public const float RowIconSize = 36f;
+            public const float RowIconGap = 8f;
+
+            /// <summary>
+            /// Each row of the header, measured down from the panel's top. Every
+            /// one is derived from the sizes above rather than given, so moving
+            /// one of them moves what follows it.
+            /// </summary>
+            public const float SearchTop = VerticalPadding + TabHeight + RefreshGap;
+
+            public const float RefreshTop = SearchTop + SearchRowHeight + RefreshGap;
+
+            public const float BodyTop = RefreshTop + RefreshIconSize + SectionHeaderGap;
+
+            public const float ScrollbarWidth = 3f;
+
+            /// <summary>
+            /// How wide the bar is to the pointer. The design draws a 3 pixel
+            /// line, which is far too thin to catch with a mouse, so the strip
+            /// that takes the drag is wider than the strip that is painted.
+            /// </summary>
+            public const float ScrollbarHitWidth = 14f;
+
+            /// <summary>
+            /// Half the width, so the handle's ends are round rather than cut.
+            /// </summary>
+            public const int ScrollbarRadius = 2;
+        }
+
         public static class Radius
         {
             public const int Chip = 20;
@@ -269,6 +367,12 @@ namespace Game.Client.Home
             public const float Counter = 18f;
             public const float ServerTitle = 20f;
             public const float Region = 24f;
+            public const float Tab = 20f;
+            public const float Badge = 12f;
+            public const float FriendSearch = 20f;
+            public const float RefreshLabel = 18f;
+            public const float Section = 20f;
+            public const float FriendName = 20f;
         }
 
         /// <summary>

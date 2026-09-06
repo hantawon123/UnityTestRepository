@@ -51,12 +51,31 @@ namespace Game.Bootstrap
                     return;
                 }
 
+                // Deliberately more than the panel is tall, and deliberately
+                // out of order: this is what the scrolling, the three-tier
+                // grouping and the Hangul-Latin-digit sort are looked at with
+                // until a Steam adapter fills the list for real.
                 var previewFriends = new[]
                 {
-                    new FriendSummary("preview-1", "친구1", FriendPresence.InGame),
-                    new FriendSummary("preview-2", "친구2", FriendPresence.InGame),
-                    new FriendSummary("preview-3", "친구3", FriendPresence.Online),
-                    new FriendSummary("preview-4", "친구4", FriendPresence.Offline)
+                    new FriendSummary("preview-1", "999구구구", FriendPresence.Online),
+                    new FriendSummary("preview-2", "zebra", FriendPresence.InGame),
+                    new FriendSummary("preview-3", "가나다", FriendPresence.Online),
+                    new FriendSummary("preview-4", "나비야", FriendPresence.InGame),
+                    new FriendSummary("preview-5", "apple", FriendPresence.Online),
+                    new FriendSummary("preview-6", "12345", FriendPresence.Online),
+                    new FriendSummary("preview-7", "다람쥐", FriendPresence.Online),
+                    new FriendSummary("preview-8", "스팀만켠친구", FriendPresence.SteamOnline),
+                    new FriendSummary("preview-9", "steamer", FriendPresence.SteamOnline),
+                    new FriendSummary("preview-10", "77스팀", FriendPresence.SteamOnline),
+                    new FriendSummary("preview-11", "잠수친구", FriendPresence.Offline),
+                    new FriendSummary("preview-12", "banana", FriendPresence.Offline),
+                    new FriendSummary("preview-13", "404낫파운드", FriendPresence.Offline),
+                    new FriendSummary("preview-14", "이건바로열두글자이지렁롱", FriendPresence.Offline),
+
+                    // The widest a nickname can be: twelve of the broadest
+                    // letter in the face. If a row survives this it survives
+                    // anything the rule allows.
+                    new FriendSummary("preview-15", "MMMMMMMMMMMM", FriendPresence.Offline)
                 };
                 friendList.ReplaceFriends(previewFriends);
                 friendSearch.ReplaceDirectory(new[]
@@ -64,9 +83,8 @@ namespace Game.Bootstrap
                     previewFriends[0],
                     previewFriends[1],
                     previewFriends[2],
-                    previewFriends[3],
-                    new FriendSummary("preview-search-1", "친구5", FriendPresence.Online),
-                    new FriendSummary("preview-search-2", "친구6", FriendPresence.Offline),
+                    new FriendSummary("preview-search-1", "금오산냥펀치", FriendPresence.Online),
+                    new FriendSummary("preview-search-2", "금오산냥옹2", FriendPresence.Offline),
                     new FriendSummary("preview-search-3", "플레이어A", FriendPresence.Online)
                 });
             });

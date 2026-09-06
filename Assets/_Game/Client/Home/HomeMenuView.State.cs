@@ -22,6 +22,24 @@ namespace Game.Client.Home
         [SerializeField]
         private Sprite checkIcon;
 
+        [SerializeField]
+        private Sprite searchIcon;
+
+        [SerializeField]
+        private Sprite clearIcon;
+
+        [SerializeField]
+        private Sprite refreshIcon;
+
+        [SerializeField]
+        private Sprite steamIcon;
+
+        [SerializeField]
+        private Sprite acceptIcon;
+
+        [SerializeField]
+        private Sprite rejectIcon;
+
         [Header("Fonts")]
         [SerializeField]
         private TMP_FontAsset fontAsset;
@@ -41,21 +59,27 @@ namespace Game.Client.Home
         private RectTransform profileChip;
 
         private readonly List<Button> menuButtons = new List<Button>();
-        private readonly List<FriendRow> onlineRows = new List<FriendRow>();
-        private readonly List<FriendRow> offlineRows = new List<FriendRow>();
-        private readonly List<SearchRow> searchRows = new List<SearchRow>();
         private TMP_FontAsset koreanFont;
         private GameObject friendListRoot;
         private GameObject friendListBody;
         private GameObject friendSearchBody;
-        private GameObject addFriendButton;
-        private GameObject closeSearchButton;
-        private TMP_Text panelHeaderText;
         private TMP_Text onlineSectionText;
         private TMP_Text offlineSectionText;
+        private TMP_Text searchSectionText;
+        private TMP_Text requestSectionText;
         private RectTransform onlineItemsRoot;
         private RectTransform offlineItemsRoot;
         private RectTransform searchItemsRoot;
+        private RectTransform requestItemsRoot;
+        private RectTransform listContentRoot;
+        private RectTransform requestContentRoot;
+        private TMP_Text friendListTab;
+        private TMP_Text friendRequestTab;
+        private Image listRule;
+        private Image requestRule;
+        private GameObject requestBadge;
+        private TMP_Text requestBadgeText;
+        private bool isRequestTabOpen;
         private TMP_InputField friendSearchInput;
         private TMP_Text searchEmptyText;
         private Button dismissButton;
@@ -112,13 +136,7 @@ namespace Game.Client.Home
         private void OnDestroy()
         {
             ClearButtons(menuButtons);
-            for (var index = 0; index < searchRows.Count; index++)
-            {
-                if (searchRows[index].RequestButton != null)
-                {
-                    searchRows[index].RequestButton.onClick.RemoveAllListeners();
-                }
-            }
+            ClearRowButtons(requestRows);
 
             if (dismissButton != null)
             {
@@ -216,19 +234,13 @@ namespace Game.Client.Home
                 throw new ArgumentNullException(nameof(offlineFriends));
             }
 
-            if (onlineSectionText == null || offlineSectionText == null)
-            {
-                return;
-            }
-
-            onlineSectionText.text = $"온라인 {onlineFriends.Count}";
-            offlineSectionText.text = $"오프라인 {offlineFriends.Count}";
-            BindRows(onlineRows, onlineItemsRoot, onlineFriends);
-            BindRows(offlineRows, offlineItemsRoot, offlineFriends);
+            BindFriendRows(onlineItemsRoot, onlineFriends, online: true);
+            BindFriendRows(offlineItemsRoot, offlineFriends, online: false);
         }
 
         public void SetFriendSearchVisible(bool visible)
         {
+            isRequestTabOpen = visible;
             if (friendListBody == null || friendSearchBody == null)
             {
                 return;
@@ -236,30 +248,16 @@ namespace Game.Client.Home
 
             friendListBody.SetActive(!visible);
             friendSearchBody.SetActive(visible);
-            if (panelHeaderText != null)
-            {
-                panelHeaderText.text = visible ? "친구 검색" : "친구";
-            }
+            ApplyTabColours();
 
-            if (addFriendButton != null)
-            {
-                addFriendButton.SetActive(!visible);
-            }
-
-            if (closeSearchButton != null)
-            {
-                closeSearchButton.SetActive(visible);
-            }
-
-            if (visible && friendSearchInput != null)
+            // The box is shared by both tabs, so what was typed on one would
+            // otherwise still be filtering the other.
+            if (friendSearchInput != null && friendSearchInput.text.Length > 0)
             {
                 friendSearchInput.text = string.Empty;
             }
 
-            if (visible)
-            {
-                UpdateSearchEmptyHint(Array.Empty<FriendSearchHit>());
-            }
+            UpdateSearchEmptyHint(Array.Empty<FriendSearchHit>());
         }
 
         public void SetFriendSearchResults(IReadOnlyList<FriendSearchHit> results)
@@ -269,31 +267,10 @@ namespace Game.Client.Home
                 throw new ArgumentNullException(nameof(results));
             }
 
-            if (searchItemsRoot == null)
-            {
-                return;
-            }
-
             BindSearchRows(results);
             UpdateSearchEmptyHint(results);
         }
 
-        private void UpdateSearchEmptyHint(IReadOnlyList<FriendSearchHit> results)
-        {
-            if (searchEmptyText == null)
-            {
-                return;
-            }
-
-            var hasQuery = friendSearchInput != null && !string.IsNullOrWhiteSpace(friendSearchInput.text);
-            searchEmptyText.gameObject.SetActive(results.Count == 0);
-            if (results.Count > 0)
-            {
-                return;
-            }
-
-            searchEmptyText.text = hasQuery ? "검색 결과가 없습니다" : "아이디를 검색해 보세요";
-        }
 
     }
 }

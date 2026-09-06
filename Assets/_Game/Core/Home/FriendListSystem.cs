@@ -7,7 +7,14 @@ namespace Game.Core.Home
     {
         Offline,
         Online,
-        InGame
+        InGame,
+
+        /// <summary>
+        /// Signed in to Steam but not in this game. Offline as far as playing
+        /// together goes, which is why it is listed under 오프라인, but worth
+        /// telling apart: this friend is at the keyboard.
+        /// </summary>
+        SteamOnline
     }
 
     public readonly struct FriendSummary
@@ -40,7 +47,12 @@ namespace Game.Core.Home
         public string PlayerId { get; }
         public string Nickname { get; }
         public FriendPresence Presence { get; }
-        public bool IsOnline => Presence != FriendPresence.Offline;
+        /// <summary>
+        /// In this game, which is what the 온라인 section means. A friend who
+        /// is only on Steam is not one of these.
+        /// </summary>
+        public bool IsOnline =>
+            Presence == FriendPresence.Online || Presence == FriendPresence.InGame;
     }
 
     public sealed class FriendListSystem
@@ -75,9 +87,30 @@ namespace Game.Core.Home
                 }
             }
 
+            // Hangul, then Latin, then digits, as the design asks. The offline
+            // half is grouped before that so the friends who are at least on
+            // Steam come first.
+            nextOnlineFriends.Sort(CompareByName);
+            nextOfflineFriends.Sort(CompareOffline);
+
             onlineFriends = nextOnlineFriends;
             offlineFriends = nextOfflineFriends;
             FriendsChanged?.Invoke();
+        }
+        private static int CompareByName(FriendSummary left, FriendSummary right)
+        {
+            return FriendNameComparer.Instance.Compare(left.Nickname, right.Nickname);
+        }
+
+        private static int CompareOffline(FriendSummary left, FriendSummary right)
+        {
+            var byPresence = OfflineRank(left).CompareTo(OfflineRank(right));
+            return byPresence != 0 ? byPresence : CompareByName(left, right);
+        }
+
+        private static int OfflineRank(FriendSummary friend)
+        {
+            return friend.Presence == FriendPresence.SteamOnline ? 0 : 1;
         }
     }
 }
