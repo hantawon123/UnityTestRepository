@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Bootstrap;
+using Game.Client.Match;
 using Game.Core.Items;
 using Game.Core.Lobby;
 using Game.Core.Match;
@@ -24,20 +25,20 @@ namespace Game.Architecture.Tests
             network.Publish(new MatchResult(MatchEndReason.TimeExpired, 0d, new[] { 1 }));
             network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 100d));
             controller.Tick(0d);
-            controller.Tick(HighlightPresentationTiming.PostRollSeconds - 0.01d);
+            controller.Tick(HighlightPresentationTiming.FadeSeconds - 0.01d);
             Assert.That(network.LoadCalls, Is.Zero);
             Assert.That(network.PrepareLobbyCalls, Is.Zero);
 
-            controller.Tick(HighlightPresentationTiming.PostRollSeconds);
+            controller.Tick(HighlightPresentationTiming.FadeSeconds);
             Assert.That(network.LoadCalls, Is.EqualTo(1));
             network.IsResultSceneLoaded = true;
-            controller.Tick(HighlightPresentationTiming.PostRollSeconds);
+            controller.Tick(HighlightPresentationTiming.FadeSeconds);
             controller.Tick(
-                HighlightPresentationTiming.PostRollSeconds +
+                HighlightPresentationTiming.FadeSeconds +
                 NetworkResultLobbyReturnController.ResultDisplaySeconds - 0.01d);
             Assert.That(network.PrepareLobbyCalls, Is.Zero);
             controller.Tick(
-                HighlightPresentationTiming.PostRollSeconds +
+                HighlightPresentationTiming.FadeSeconds +
                 NetworkResultLobbyReturnController.ResultDisplaySeconds);
 
             Assert.That(network.PrepareLobbyCalls, Is.EqualTo(1));
@@ -125,8 +126,10 @@ namespace Game.Architecture.Tests
             controller.Tick(11);
             Assert.That(network.ReturnCalls, Is.EqualTo(1));
             Assert.That(network.LoadCalls, Is.Zero);
+            Assert.That(controller.ResultHeadline, Is.EqualTo(MatchTimerView.WinHeadline));
+            Assert.That(controller.ResultSubtitle, Is.EqualTo(MatchTimerView.WinSubtitle));
             Assert.That(controller.ResultText.CurrentValue,
-                Does.Contain("승리").And.Contain("승자: 민수").And.Contain("제한 시간 종료"));
+                Does.Contain(MatchTimerView.WinHeadline).And.Contain(MatchTimerView.WinSubtitle));
             var displayedResult = controller.ResultText.CurrentValue;
             network.Publish(new MatchStateSnapshot(MatchPhase.Waiting, 0));
             Assert.That(controller.ResultText.CurrentValue, Is.EqualTo(displayedResult));
@@ -147,7 +150,10 @@ namespace Game.Architecture.Tests
             network.Publish(new MatchResult(MatchEndReason.AllPlayerItemsDestroyed, 100, new[] { 0 }));
             network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0));
             controller.Tick(100);
-            Assert.That(controller.ResultText.CurrentValue, Does.Contain("패배").And.Contain("방장"));
+            Assert.That(controller.ResultHeadline, Is.EqualTo(MatchTimerView.LoseHeadline));
+            Assert.That(controller.ResultSubtitle, Is.EqualTo(MatchTimerView.LoseSubtitle));
+            Assert.That(controller.ResultText.CurrentValue,
+                Does.Contain(MatchTimerView.LoseHeadline).And.Contain(MatchTimerView.LoseSubtitle));
             Assert.That(network.LoadCalls, Is.Zero);
             Assert.That(network.ReturnCalls, Is.Zero);
             var displayedResult = controller.ResultText.CurrentValue;

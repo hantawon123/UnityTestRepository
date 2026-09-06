@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Core.Flow;
@@ -15,7 +15,7 @@ namespace Game.Tests.EditMode
         [Test]
         public void Presenter_BindsProfileAndForwardsEveryMenuAction()
         {
-            var profile = new PlayerProfile("사용자닉네임", 1);
+            var profile = new PlayerProfile("사용자닉네임");
             var menu = new HomeMenuSystem();
             var view = new FakeHomeMenuView();
             var host = new FakeHomeApplicationHost();
@@ -27,18 +27,13 @@ namespace Game.Tests.EditMode
 
             using (var presenter = new HomeMenuPresenter(
                 profile, menu, view, host, appFlow, friends, search,
-                new FakeNicknameAvailabilityCheck(),
-                new ServerRegionSystem(new InMemoryServerRegionStore()),
-                new FriendRequestSystem()))
+                new ServerRegionSystem(new InMemoryServerRegionStore())))
             {
                 presenter.Start();
                 Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"));
-                Assert.That(view.Level, Is.EqualTo(1));
 
                 Assert.That(profile.TryChangeNickname("새닉네임", out _), Is.True);
-                Assert.That(profile.TryUpdateLevel(3, out _), Is.True);
                 Assert.That(view.Nickname, Is.EqualTo("새닉네임"));
-                Assert.That(view.Level, Is.EqualTo(3));
 
                 foreach (HomeMenuAction action in Enum.GetValues(typeof(HomeMenuAction)))
                 {
@@ -324,130 +319,6 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Presenter_IncomingRequests_ReachThePanel()
-        {
-            using var presenter = CreateStartedPresenter(
-                out var view, out _, out _, out _, out _, out _, out _, out var requests);
-            Assert.That(view.IncomingRequests, Is.Empty);
-
-            var now = DateTimeOffset.UtcNow;
-            requests.ReplaceIncoming(new[]
-            {
-                new FriendRequest(
-                    new FriendSummary("p1", "가나다", FriendPresence.Offline), now.AddHours(-1)),
-                new FriendRequest(
-                    new FriendSummary("p2", "하하하", FriendPresence.Online), now)
-            });
-
-            Assert.That(view.IncomingRequests.Count, Is.EqualTo(2));
-            Assert.That(
-                view.IncomingRequests[0].Nickname,
-                Is.EqualTo("하하하"),
-                "이름순이 아니라 늦게 온 요청이 위로 와야 한다.");
-        }
-
-        [Test]
-        public void Presenter_RequestsThatArrivedTogether_FallBackToNameOrder()
-        {
-            using var presenter = CreateStartedPresenter(
-                out var view, out _, out _, out _, out _, out _, out _, out var requests);
-
-            var together = DateTimeOffset.UtcNow;
-            requests.ReplaceIncoming(new[]
-            {
-                new FriendRequest(
-                    new FriendSummary("p1", "77칠칠", FriendPresence.Online), together),
-                new FriendRequest(
-                    new FriendSummary("p2", "banana", FriendPresence.Online), together),
-                new FriendRequest(
-                    new FriendSummary("p3", "가나다", FriendPresence.Online), together)
-            });
-
-            Assert.That(
-                new[]
-                {
-                    view.IncomingRequests[0].Nickname,
-                    view.IncomingRequests[1].Nickname,
-                    view.IncomingRequests[2].Nickname
-                },
-                Is.EqualTo(new[] { "가나다", "banana", "77칠칠" }));
-        }
-
-        [Test]
-        public void Presenter_TheSamePersonAskingTwice_IsOneRow()
-        {
-            using var presenter = CreateStartedPresenter(
-                out var view, out _, out _, out _, out _, out _, out _, out var requests);
-
-            var now = DateTimeOffset.UtcNow;
-            requests.ReplaceIncoming(new[]
-            {
-                new FriendRequest(
-                    new FriendSummary("p1", "두번보낸친구", FriendPresence.Online), now),
-                new FriendRequest(
-                    new FriendSummary("p1", "두번보낸친구", FriendPresence.Online), now)
-            });
-
-            Assert.That(view.IncomingRequests.Count, Is.EqualTo(1));
-        }
-
-        [Test]
-        public void Presenter_AcceptingARequest_MovesThemIntoTheFriendList()
-        {
-            using var presenter = CreateStartedPresenter(
-                out var view, out _, out _, out var friends, out _, out _, out _, out var requests);
-            requests.ReplaceIncoming(new[]
-            {
-                new FriendRequest(
-                    new FriendSummary("p1", "새친구", FriendPresence.Online),
-                    DateTimeOffset.UtcNow)
-            });
-
-            view.RaiseRequestAccepted("p1");
-
-            Assert.That(view.IncomingRequests, Is.Empty);
-            Assert.That(friends.OnlineFriends.Count, Is.EqualTo(1));
-            Assert.That(view.OnlineFriends[0].Nickname, Is.EqualTo("새친구"));
-        }
-
-        [Test]
-        public void Presenter_RejectingARequest_DropsThemEntirely()
-        {
-            using var presenter = CreateStartedPresenter(
-                out var view, out _, out _, out var friends, out _, out _, out _, out var requests);
-            requests.ReplaceIncoming(new[]
-            {
-                new FriendRequest(
-                    new FriendSummary("p1", "안받을친구", FriendPresence.Online),
-                    DateTimeOffset.UtcNow)
-            });
-
-            view.RaiseRequestRejected("p1");
-
-            Assert.That(view.IncomingRequests, Is.Empty);
-            Assert.That(friends.OnlineFriends, Is.Empty);
-            Assert.That(friends.OfflineFriends, Is.Empty);
-        }
-
-        [Test]
-        public void Presenter_AnsweringTheSameRequestTwice_DoesNothingTheSecondTime()
-        {
-            using var presenter = CreateStartedPresenter(
-                out var view, out _, out _, out var friends, out _, out _, out _, out var requests);
-            requests.ReplaceIncoming(new[]
-            {
-                new FriendRequest(
-                    new FriendSummary("p1", "새친구", FriendPresence.Online),
-                    DateTimeOffset.UtcNow)
-            });
-
-            view.RaiseRequestAccepted("p1");
-            view.RaiseRequestAccepted("p1");
-
-            Assert.That(friends.OnlineFriends.Count, Is.EqualTo(1), "친구가 둘로 늘면 안 된다.");
-        }
-
-        [Test]
         public void Presenter_Refresh_RedrawsTheList()
         {
             using var presenter = CreateStartedPresenter(out var view, out _, out _, out var friends, out _);
@@ -556,7 +427,7 @@ namespace Game.Tests.EditMode
         public void Presenter_PickingARegion_WritesItDown()
         {
             using var presenter = CreateStartedPresenter(
-                out var view, out _, out _, out _, out _, out _, out var regionStore);
+                out var view, out _, out _, out _, out _, out var regionStore);
 
             view.RaiseRegionSelected("eu");
 
@@ -570,16 +441,14 @@ namespace Game.Tests.EditMode
             var store = new InMemoryServerRegionStore("eu");
             var view = new FakeHomeMenuView();
             using var presenter = new HomeMenuPresenter(
-                new PlayerProfile("사용자닉네임", 1),
+                new PlayerProfile("사용자닉네임"),
                 new HomeMenuSystem(),
                 view,
                 new FakeHomeApplicationHost(),
                 new AppFlowSystem(),
                 new FriendListSystem(),
                 new FriendSearchSystem(),
-                new FakeNicknameAvailabilityCheck(),
-                new ServerRegionSystem(store),
-                new FriendRequestSystem());
+                new ServerRegionSystem(store));
 
             presenter.Start();
 
@@ -595,16 +464,14 @@ namespace Game.Tests.EditMode
             var store = new InMemoryServerRegionStore("mars");
             var view = new FakeHomeMenuView();
             using var presenter = new HomeMenuPresenter(
-                new PlayerProfile("사용자닉네임", 1),
+                new PlayerProfile("사용자닉네임"),
                 new HomeMenuSystem(),
                 view,
                 new FakeHomeApplicationHost(),
                 new AppFlowSystem(),
                 new FriendListSystem(),
                 new FriendSearchSystem(),
-                new FakeNicknameAvailabilityCheck(),
-                new ServerRegionSystem(store),
-                new FriendRequestSystem());
+                new ServerRegionSystem(store));
 
             presenter.Start();
 
@@ -615,7 +482,7 @@ namespace Game.Tests.EditMode
         public void Presenter_AnUnknownRegion_IsRefusedAndTheMarkPutBack()
         {
             using var presenter = CreateStartedPresenter(
-                out var view, out _, out _, out _, out _, out _, out var regionStore);
+                out var view, out _, out _, out _, out _, out var regionStore);
 
             view.RaiseRegionSelected("mars");
 
@@ -670,143 +537,48 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Presenter_ApplyingATakenNickname_SaysSoAndKeepsTheOldOne()
-        {
-            using var presenter = CreateStartedPresenter(
-                out var view, out _, out _, out _, out _, out var availability);
-            view.Raise(HomeMenuAction.ProfileSettings);
-
-            availability.Answer = NicknameCheckOutcome.Taken;
-            view.RaiseNicknameChangeRequested("금오산냥냥이");
-
-            Assert.That(availability.LastAsked, Is.EqualTo("금오산냥냥이"));
-            Assert.That(view.LastAvailability, Is.EqualTo(NicknameCheckOutcome.Taken));
-            Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"), "거절당한 이름이 적용되면 안 된다.");
-        }
-
-        [Test]
-        public void Presenter_ApplyingAFreeNickname_TakesIt()
-        {
-            using var presenter = CreateStartedPresenter(
-                out var view, out _, out _, out _, out _, out var availability);
-            view.Raise(HomeMenuAction.ProfileSettings);
-
-            availability.Answer = NicknameCheckOutcome.Available;
-            view.RaiseNicknameChangeRequested("새로운이름");
-
-            Assert.That(view.Nickname, Is.EqualTo("새로운이름"));
-            Assert.That(view.LastAvailability, Is.EqualTo(NicknameCheckOutcome.Available));
-        }
-
-        [Test]
-        public void Presenter_TakingAName_SpendsTheOneChange()
-        {
-            using var presenter = CreateStartedPresenter(
-                out var view, out _, out _, out _, out _, out var availability);
-            view.Raise(HomeMenuAction.ProfileSettings);
-            Assert.That(view.NicknameSettled, Is.False);
-
-            availability.Answer = NicknameCheckOutcome.Available;
-            view.RaiseNicknameChangeRequested("새로운이름");
-
-            Assert.That(view.NicknameSettled, Is.True);
-        }
-
-        [Test]
-        public void Presenter_ANameRefusedBecauseItIsTaken_LeavesTheChanceIntact()
-        {
-            using var presenter = CreateStartedPresenter(
-                out var view, out _, out _, out _, out _, out var availability);
-            view.Raise(HomeMenuAction.ProfileSettings);
-
-            availability.Answer = NicknameCheckOutcome.Taken;
-            view.RaiseNicknameChangeRequested("금오산냥냥이");
-
-            // Losing the only change to a name somebody else already had would
-            // leave the player on the server's temporary name for good.
-            Assert.That(view.NicknameSettled, Is.False);
-
-            availability.Answer = NicknameCheckOutcome.Available;
-            view.RaiseNicknameChangeRequested("다른이름");
-            Assert.That(view.Nickname, Is.EqualTo("다른이름"));
-        }
-
-        [Test]
-        public void Presenter_ApplyingIsIgnoredUntilProfileSettingsIsOpen()
-        {
-            using var presenter = CreateStartedPresenter(
-                out var view, out _, out _, out _, out _, out var availability);
-
-            view.RaiseNicknameChangeRequested("새로운이름");
-
-            Assert.That(availability.AskCount, Is.Zero);
-            Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"));
-        }
-
-        [Test]
-        public void Presenter_AnAnswerThatArrivesAfterClosing_IsDropped()
-        {
-            using var presenter = CreateStartedPresenter(
-                out var view, out _, out _, out _, out _, out var availability);
-            view.Raise(HomeMenuAction.ProfileSettings);
-
-            availability.Defer = true;
-            availability.Answer = NicknameCheckOutcome.Available;
-            view.RaiseNicknameChangeRequested("새로운이름");
-            Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"), "답이 오기 전인데 이미 바뀌었다.");
-
-            view.RaiseProfileSettingsDismissed();
-            availability.AnswerNow();
-
-            Assert.That(
-                view.Nickname,
-                Is.EqualTo("사용자닉네임"),
-                "닫힌 패널의 답으로 이름이 바뀌면 안 된다.");
-        }
-
-        [Test]
         public void Presenter_RequiresDependencies()
         {
-            var profile = new PlayerProfile("사용자닉네임", 1);
+            var profile = new PlayerProfile("사용자닉네임");
             var menu = new HomeMenuSystem();
             var view = new FakeHomeMenuView();
             var host = new FakeHomeApplicationHost();
             var appFlow = new AppFlowSystem();
             var friends = new FriendListSystem();
             var search = new FriendSearchSystem();
-            var availability = new FakeNicknameAvailabilityCheck();
             var regions = new ServerRegionSystem(new InMemoryServerRegionStore());
-            var requests = new FriendRequestSystem();
 
             Assert.That(
-                () => new HomeMenuPresenter(null, menu, view, host, appFlow, friends, search, availability, regions, requests),
+                () => new HomeMenuPresenter(
+                    null, menu, view, host, appFlow, friends, search, regions),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, null, view, host, appFlow, friends, search, availability, regions, requests),
+                () => new HomeMenuPresenter(
+                    profile, null, view, host, appFlow, friends, search, regions),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, null, host, appFlow, friends, search, availability, regions, requests),
+                () => new HomeMenuPresenter(
+                    profile, menu, null, host, appFlow, friends, search, regions),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, null, appFlow, friends, search, availability, regions, requests),
+                () => new HomeMenuPresenter(
+                    profile, menu, view, null, appFlow, friends, search, regions),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, host, null, friends, search, availability, regions, requests),
+                () => new HomeMenuPresenter(
+                    profile, menu, view, host, null, friends, search, regions),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, host, appFlow, null, search, availability, regions, requests),
+                () => new HomeMenuPresenter(
+                    profile, menu, view, host, appFlow, null, search, regions),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, host, appFlow, friends, null, availability, regions, requests),
+                () => new HomeMenuPresenter(
+                    profile, menu, view, host, appFlow, friends, null, regions),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, host, appFlow, friends, search, null, regions, requests),
-                Throws.TypeOf<ArgumentNullException>());
-            Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, host, appFlow, friends, search, availability, null, requests),
-                Throws.TypeOf<ArgumentNullException>());
-            Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, host, appFlow, friends, search, availability, regions, null),
+                () => new HomeMenuPresenter(
+                    profile, menu, view, host, appFlow, friends, search, null),
                 Throws.TypeOf<ArgumentNullException>());
         }
 
@@ -827,49 +599,19 @@ namespace Game.Tests.EditMode
             out AppFlowSystem appFlow,
             out FriendListSystem friends,
             out FriendSearchSystem search,
-            out FakeNicknameAvailabilityCheck availability)
-        {
-            return CreateStartedPresenter(
-                out view, out host, out appFlow, out friends, out search, out availability, out _);
-        }
-
-        private static HomeMenuPresenter CreateStartedPresenter(
-            out FakeHomeMenuView view,
-            out FakeHomeApplicationHost host,
-            out AppFlowSystem appFlow,
-            out FriendListSystem friends,
-            out FriendSearchSystem search,
-            out FakeNicknameAvailabilityCheck availability,
             out InMemoryServerRegionStore regionStore)
         {
-            return CreateStartedPresenter(
-                out view, out host, out appFlow, out friends, out search, out availability,
-                out regionStore, out _);
-        }
-
-        private static HomeMenuPresenter CreateStartedPresenter(
-            out FakeHomeMenuView view,
-            out FakeHomeApplicationHost host,
-            out AppFlowSystem appFlow,
-            out FriendListSystem friends,
-            out FriendSearchSystem search,
-            out FakeNicknameAvailabilityCheck availability,
-            out InMemoryServerRegionStore regionStore,
-            out FriendRequestSystem requests)
-        {
-            var profile = new PlayerProfile("사용자닉네임", 1);
+            var profile = new PlayerProfile("사용자닉네임");
             var menu = new HomeMenuSystem();
             view = new FakeHomeMenuView();
             host = new FakeHomeApplicationHost();
             appFlow = new AppFlowSystem();
             friends = new FriendListSystem();
             search = new FriendSearchSystem();
-            availability = new FakeNicknameAvailabilityCheck();
             regionStore = new InMemoryServerRegionStore();
-            requests = new FriendRequestSystem();
             var presenter = new HomeMenuPresenter(
-                profile, menu, view, host, appFlow, friends, search, availability,
-                new ServerRegionSystem(regionStore), requests);
+                profile, menu, view, host, appFlow, friends, search,
+                new ServerRegionSystem(regionStore));
             presenter.Start();
             return presenter;
         }
@@ -901,51 +643,9 @@ namespace Game.Tests.EditMode
             }
         }
 
-        /// <summary>
-        /// Answers whatever the test told it to, when the test says so.
-        /// </summary>
-        private sealed class FakeNicknameAvailabilityCheck : INicknameAvailabilityCheck
-        {
-            private Action<NicknameCheckOutcome> pending;
-
-            public string LastAsked { get; private set; }
-
-            public int AskCount { get; private set; }
-
-            public NicknameCheckOutcome Answer { get; set; } = NicknameCheckOutcome.Available;
-
-            /// <summary>
-            /// Holds the answer back so a test can close the panel first, the
-            /// way a slow server would.
-            /// </summary>
-            public bool Defer { get; set; }
-
-            public void Check(string nickname, Action<NicknameCheckOutcome> onAnswered)
-            {
-                LastAsked = nickname;
-                AskCount++;
-                if (Defer)
-                {
-                    pending = onAnswered;
-                    return;
-                }
-
-                onAnswered(Answer);
-            }
-
-            public void AnswerNow()
-            {
-                var callback = pending;
-                pending = null;
-                callback?.Invoke(Answer);
-            }
-        }
-
         private sealed class FakeHomeMenuView : IHomeMenuView
         {
             public string Nickname { get; private set; }
-
-            public int Level { get; private set; }
 
             public bool FriendListVisible { get; private set; }
 
@@ -962,13 +662,17 @@ namespace Game.Tests.EditMode
 
             public bool ProfileSettingsVisible { get; private set; }
 
-
-            public NicknameCheckOutcome? LastAvailability { get; private set; }
+            public string NicknameError { get; private set; } = string.Empty;
 
             public bool NicknameSettled { get; private set; }
 
-            public IReadOnlyList<FriendSummary> IncomingRequests { get; private set; } =
-                Array.Empty<FriendSummary>();
+            public IReadOnlyList<FriendRequestSummary> IncomingRequests { get; private set; } =
+                Array.Empty<FriendRequestSummary>();
+
+            public IReadOnlyList<FriendRequestSummary> OutgoingRequests { get; private set; } =
+                Array.Empty<FriendRequestSummary>();
+
+            public string FriendActionError { get; private set; } = string.Empty;
 
             public bool ServerSettingsVisible { get; private set; }
 
@@ -1006,16 +710,15 @@ namespace Game.Tests.EditMode
 
             public event Action<string> FriendRequestAccepted;
 
-            public event Action<string> FriendRequestRejected;
+            public event Action<string> FriendRequestDeclined;
+
+            public event Action<string> FriendRequestCancelled;
+
+            public event Action<string> FriendRemoved;
 
             public void SetNickname(string nickname)
             {
                 Nickname = nickname;
-            }
-
-            public void SetLevel(int level)
-            {
-                Level = level;
             }
 
             public void SetProfileSettingsVisible(bool visible)
@@ -1023,9 +726,17 @@ namespace Game.Tests.EditMode
                 ProfileSettingsVisible = visible;
             }
 
-            public void SetNicknameAvailability(NicknameCheckOutcome outcome)
+            public void SetNicknameError(string message)
             {
-                LastAvailability = outcome;
+                NicknameError = message ?? string.Empty;
+            }
+
+            /// <remarks>
+            /// A no-op on the real screen too: the panel says nothing on a
+            /// rename that worked, it just shows the new name.
+            /// </remarks>
+            public void SetNicknameAppliedFeedbackVisible(bool visible)
+            {
             }
 
             public void SetNicknameSettled(bool settled)
@@ -1105,9 +816,19 @@ namespace Game.Tests.EditMode
                 RegionSelected?.Invoke(code);
             }
 
-            public void SetIncomingRequests(IReadOnlyList<FriendSummary> requests)
+            public void SetIncomingRequests(IReadOnlyList<FriendRequestSummary> requests)
             {
                 IncomingRequests = requests;
+            }
+
+            public void SetOutgoingRequests(IReadOnlyList<FriendRequestSummary> requests)
+            {
+                OutgoingRequests = requests;
+            }
+
+            public void SetFriendActionError(string message)
+            {
+                FriendActionError = message ?? string.Empty;
             }
 
             public void RaiseRequestAccepted(string playerId)
@@ -1115,9 +836,19 @@ namespace Game.Tests.EditMode
                 FriendRequestAccepted?.Invoke(playerId);
             }
 
-            public void RaiseRequestRejected(string playerId)
+            public void RaiseRequestDeclined(string playerId)
             {
-                FriendRequestRejected?.Invoke(playerId);
+                FriendRequestDeclined?.Invoke(playerId);
+            }
+
+            public void RaiseRequestCancelled(string playerId)
+            {
+                FriendRequestCancelled?.Invoke(playerId);
+            }
+
+            public void RaiseFriendRemoved(string playerId)
+            {
+                FriendRemoved?.Invoke(playerId);
             }
 
             public void RaiseRefresh()

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Match;
 using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Network.Match;
@@ -30,6 +31,8 @@ namespace Game.Bootstrap
         private bool highlightLobbyRequested;
 
         public ReadOnlyReactiveProperty<string> ResultText => resultText;
+        public string ResultHeadline { get; private set; } = string.Empty;
+        public string ResultSubtitle { get; private set; } = string.Empty;
 
         public NetworkResultLobbyReturnController(
             INetworkMatchEvents events, INetworkResultNavigation navigation, RoomBrowserSystem room)
@@ -85,7 +88,9 @@ namespace Game.Bootstrap
                 {
                     resultDataFallbackAt = -1d;
                     resultDataFallbackActive = true;
-                    resultText.Value = "경기 결과 데이터를 받지 못했습니다.\n\n로비로 돌아갑니다.";
+                    ResultHeadline = string.Empty;
+                    ResultSubtitle = "경기 결과 데이터를 받지 못했습니다.\n\n로비로 돌아갑니다.";
+                    resultText.Value = ResultSubtitle;
                 }
             }
             if (!navigation.IsServer || phase != MatchPhase.Result ||
@@ -117,7 +122,11 @@ namespace Game.Bootstrap
             // Waiting arrives before Result finishes unloading. Keep its text
             // until the next match starts, independently of navigation state.
             if (phase == MatchPhase.Hiding)
-                resultText.Value = "표시할 경기 결과가 없습니다.";
+            {
+                ResultHeadline = string.Empty;
+                ResultSubtitle = "표시할 경기 결과가 없습니다.";
+                resultText.Value = ResultSubtitle;
+            }
         }
 
         private void OnMatchResultReceived(MatchResult result)
@@ -127,9 +136,35 @@ namespace Game.Bootstrap
             directLobbyResult = !hasResult;
             resultDataFallbackAt = -1d;
             resultDataFallbackActive = false;
-            resultLoadAt = result.EndedAt + HighlightPresentationTiming.PostRollSeconds;
-            resultText.Value =
-                $"{FormatResult(result, room, false)}\n\n잠시 후 하이라이트가 재생됩니다.";
+            resultLoadAt = result.EndedAt + HighlightPresentationTiming.FadeSeconds;
+            ApplyEndOutcome(result);
+        }
+
+        private void ApplyEndOutcome(MatchResult result)
+        {
+            var won = IsLocalWinner(result, room);
+            ResultHeadline = won ? MatchTimerView.WinHeadline : MatchTimerView.LoseHeadline;
+            ResultSubtitle = won ? MatchTimerView.WinSubtitle : MatchTimerView.LoseSubtitle;
+            resultText.Value = $"{ResultHeadline}\n{ResultSubtitle}";
+        }
+
+        internal static bool IsLocalWinner(MatchResult result, RoomBrowserSystem room)
+        {
+            var localPlayerIndex = room.LocalPlayerIndex;
+            if (localPlayerIndex < 0 || result.WinnerPlayerIndices == null)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < result.WinnerPlayerIndices.Count; index++)
+            {
+                if (result.WinnerPlayerIndices[index] == localPlayerIndex)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         internal static string FormatResult(

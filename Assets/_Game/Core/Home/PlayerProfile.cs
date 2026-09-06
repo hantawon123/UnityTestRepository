@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace Game.Core.Home
 {
@@ -10,31 +10,36 @@ namespace Game.Core.Home
         /// <summary>
         /// There was a name, but not one the rule allows.
         /// </summary>
-        NicknameNotAllowed,
-
-        InvalidLevel
+        NicknameNotAllowed
     }
 
+    /// <summary>
+    /// The name this player goes by, held in one place for the whole
+    /// application.
+    /// </summary>
+    /// <remarks>
+    /// The server owns this value: it is set from the account at sign-in and
+    /// written back when the player renames themselves. Nothing is saved on this
+    /// machine, because issuing an account is idempotent for a given device and
+    /// returns the same name on every launch.
+    /// <para>
+    /// There is no level here. There was one, shown beside an experience bar,
+    /// and neither the server nor the game had any notion of what raised it.
+    /// </para>
+    /// </remarks>
     public sealed class PlayerProfile
     {
-        public PlayerProfile(string nickname, int level)
+        public PlayerProfile(string nickname)
         {
             if (string.IsNullOrWhiteSpace(nickname))
             {
                 throw new ArgumentException("Nickname is required.", nameof(nickname));
             }
 
-            if (level < 1)
-            {
-                throw new ArgumentOutOfRangeException(nameof(level));
-            }
-
             Nickname = nickname.Trim();
-            Level = level;
         }
 
         public string Nickname { get; private set; }
-        public int Level { get; private set; }
 
         /// <summary>
         /// Whether this player has settled on a name. False means the server's
@@ -87,23 +92,13 @@ namespace Game.Core.Home
 
             Nickname = trimmed;
 
-            // The one change is spent by a change that worked. A name refused
-            // because someone else has it must leave the chance intact.
-            NicknameSet = true;
-            error = PlayerProfileError.None;
-            Changed?.Invoke(this);
-            return true;
-        }
-
-        public bool TryUpdateLevel(int level, out PlayerProfileError error)
-        {
-            if (level < 1)
-            {
-                error = PlayerProfileError.InvalidLevel;
-                return false;
-            }
-
-            Level = level;
+            // The one change is not spent here. Whether it has been is the
+            // server's answer — the account response carries nicknameSet — and
+            // this is also the setter the screen calls the moment it is asked,
+            // before the server has agreed to anything. Spending it here would
+            // take the only rename away from a player whose chosen name turned
+            // out to be taken. Callers mirror the server's answer with
+            // <see cref="MarkNicknameSet"/>.
             error = PlayerProfileError.None;
             Changed?.Invoke(this);
             return true;

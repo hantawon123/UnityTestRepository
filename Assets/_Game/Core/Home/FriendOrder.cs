@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace Game.Core.Home
@@ -66,6 +66,64 @@ namespace Game.Core.Home
             }
 
             return 3;
+        }
+    }
+
+    /// <summary>
+    /// The order friend requests are listed in: the one that arrived last sits
+    /// at the top.
+    /// </summary>
+    /// <remarks>
+    /// Ties are broken by <see cref="FriendNameComparer"/> rather than left to
+    /// whatever order the server answered in. Two requests can share a
+    /// timestamp — the server records them to the second — and a list that
+    /// reshuffles between refreshes is a list a player cannot click reliably.
+    /// </remarks>
+    public sealed class FriendRequestComparer : IComparer<FriendRequestSummary>
+    {
+        public static readonly FriendRequestComparer Instance = new FriendRequestComparer();
+
+        public int Compare(FriendRequestSummary left, FriendRequestSummary right)
+        {
+            var byTime = right.RequestedAtUtc.CompareTo(left.RequestedAtUtc);
+            return byTime != 0
+                ? byTime
+                : FriendNameComparer.Instance.Compare(left.Nickname, right.Nickname);
+        }
+    }
+
+    /// <summary>
+    /// Puts a list of requests in the order the panel draws them, dropping the
+    /// same sender listed twice.
+    /// </summary>
+    /// <remarks>
+    /// A duplicate is not a server bug to report: a request the player has
+    /// already answered can still be in a list read a moment earlier. Two rows
+    /// for one person means the second one refuses to do anything when pressed,
+    /// so only the first is kept.
+    /// </remarks>
+    public static class FriendRequestOrder
+    {
+        public static IReadOnlyList<FriendRequestSummary> Arrange(
+            IReadOnlyList<FriendRequestSummary> requests)
+        {
+            if (requests == null || requests.Count == 0)
+            {
+                return Array.Empty<FriendRequestSummary>();
+            }
+
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var arranged = new List<FriendRequestSummary>(requests.Count);
+            for (var index = 0; index < requests.Count; index++)
+            {
+                if (seen.Add(requests[index].PlayerId))
+                {
+                    arranged.Add(requests[index]);
+                }
+            }
+
+            arranged.Sort(FriendRequestComparer.Instance);
+            return arranged;
         }
     }
 }

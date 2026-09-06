@@ -1,3 +1,4 @@
+using Game.Client.Home;
 using TMPro;
 using UnityEngine;
 
@@ -77,6 +78,7 @@ namespace Game.Client.Players
                 label = gameObject.AddComponent<TextMeshPro>();
             }
 
+            label.font = HomeUiFonts.Apply();
             label.alignment = TextAlignmentOptions.Center;
             label.fontSize = 3f;
             label.fontStyle = FontStyles.Bold;

@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.TextCore.LowLevel;
+using UnityEngine.UI;
 
 namespace Game.Client.Home
 {
@@ -194,34 +196,7 @@ namespace Game.Client.Home
                     return roundedSprite;
                 }
 
-                const int size = 64;
-                const int radius = 16;
-                var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
-                {
-                    hideFlags = HideFlags.HideAndDontSave,
-                    filterMode = FilterMode.Bilinear
-                };
-
-                for (var y = 0; y < size; y++)
-                {
-                    for (var x = 0; x < size; x++)
-                    {
-                        texture.SetPixel(x, y, IsInsideRoundedRect(x, y, size, radius)
-                            ? Color.white
-                            : Color.clear);
-                    }
-                }
-
-                texture.Apply(false, false);
-                roundedSprite = Sprite.Create(
-                    texture,
-                    new Rect(0f, 0f, size, size),
-                    new Vector2(0.5f, 0.5f),
-                    100f,
-                    0,
-                    SpriteMeshType.FullRect,
-                    new Vector4(radius, radius, radius, radius));
-                roundedSprite.hideFlags = HideFlags.HideAndDontSave;
+                roundedSprite = CreateRoundedSprite(256, 64, 400f);
                 return roundedSprite;
             }
         }
@@ -308,22 +283,276 @@ namespace Game.Client.Home
             }
         }
 
+        private const string SemiBoldResource = "Fonts/Paperlogy-6SemiBold";
+        private const string LightResource = "Fonts/Paperlogy-3Light";
+        private const string RegularResource = "Fonts/Paperlogy-4Regular";
+        private const string BlackResource = "Fonts/Paperlogy-9Black";
+        private static TMP_FontAsset koreanLightFont;
+        private static TMP_FontAsset koreanRegularFont;
+        private static TMP_FontAsset koreanBlackFont;
+        private static Font legacyFont;
+
         public static TMP_FontAsset Apply(TMP_FontAsset fontAsset = null)
         {
-            if (koreanFont != null)
+            return koreanFont ??= LoadKorean(SemiBoldResource, fontAsset);
+        }
+
+        public static TMP_FontAsset ApplyLight(TMP_FontAsset fontAsset = null)
+        {
+            return koreanLightFont ??= LoadKorean(LightResource, fontAsset);
+        }
+
+        public static TMP_FontAsset ApplyRegular(TMP_FontAsset fontAsset = null)
+        {
+            return koreanRegularFont ??= LoadKorean(RegularResource, fontAsset);
+        }
+
+        public static TMP_FontAsset ApplyBlack(TMP_FontAsset fontAsset = null)
+        {
+            if (koreanBlackFont != null)
             {
-                return koreanFont;
+                return koreanBlackFont;
             }
 
-            koreanFont = fontAsset != null ? fontAsset : TMP_Settings.defaultFontAsset;
-            if (koreanFont == null)
+            try
             {
-                throw new InvalidOperationException(
-                    "Korean TMP font is missing. Assign a Paperlogy SDF asset " +
-                    "or set it as TMP Settings default font.");
+                koreanBlackFont = LoadKorean(BlackResource, fontAsset);
+                return koreanBlackFont;
+            }
+            catch (InvalidOperationException)
+            {
+                return Apply(fontAsset);
+            }
+        }
+
+        public static Font Legacy()
+        {
+            if (legacyFont != null)
+            {
+                return legacyFont;
             }
 
-            return koreanFont;
+            legacyFont = Resources.Load<Font>(SemiBoldResource)
+                ?? Resources.Load<Font>(RegularResource);
+            return legacyFont;
+        }
+
+        public static void ApplyLegacy(Transform root)
+        {
+            var font = Legacy();
+            if (font == null || root == null)
+            {
+                return;
+            }
+
+            var texts = root.GetComponentsInChildren<Text>(true);
+            for (var index = 0; index < texts.Length; index++)
+            {
+                if (texts[index] != null)
+                {
+                    texts[index].font = font;
+                }
+            }
+
+            var inputs = root.GetComponentsInChildren<InputField>(true);
+            for (var index = 0; index < inputs.Length; index++)
+            {
+                var input = inputs[index];
+                if (input == null)
+                {
+                    continue;
+                }
+
+                if (input.textComponent != null)
+                {
+                    input.textComponent.font = font;
+                }
+
+                if (input.placeholder is Text placeholder)
+                {
+                    placeholder.font = font;
+                }
+            }
+        }
+
+        public static void ApplyTmp(Transform root)
+        {
+            var font = Apply();
+            if (font == null || root == null)
+            {
+                return;
+            }
+
+            var texts = root.GetComponentsInChildren<TMP_Text>(true);
+            for (var index = 0; index < texts.Length; index++)
+            {
+                var text = texts[index];
+                if (text != null && text.font != font)
+                {
+                    text.font = font;
+                    text.fontSharedMaterial = font.material;
+                }
+            }
+
+            var inputs = root.GetComponentsInChildren<TMP_InputField>(true);
+            for (var index = 0; index < inputs.Length; index++)
+            {
+                var input = inputs[index];
+                if (input == null)
+                {
+                    continue;
+                }
+
+                input.fontAsset = font;
+                if (input.textComponent != null && input.textComponent.font != font)
+                {
+                    input.textComponent.font = font;
+                    input.textComponent.fontSharedMaterial = font.material;
+                }
+
+                if (input.placeholder is TMP_Text placeholder && placeholder.font != font)
+                {
+                    placeholder.font = font;
+                    placeholder.fontSharedMaterial = font.material;
+                }
+            }
+        }
+
+        private static TMP_FontAsset LoadKorean(string resourcePath, TMP_FontAsset fontAsset)
+        {
+            if (fontAsset != null)
+            {
+                return fontAsset;
+            }
+
+            var baked = Resources.Load<TMP_FontAsset>(resourcePath + " SDF");
+            if (baked != null)
+            {
+                return baked;
+            }
+
+            var source = Resources.Load<Font>(resourcePath) ?? LoadEditorFont(resourcePath);
+            var loaded = CreateRuntimeKorean(source);
+            if (loaded != null)
+            {
+                return loaded;
+            }
+
+            loaded = TMP_Settings.defaultFontAsset;
+            if (loaded != null)
+            {
+                return loaded;
+            }
+
+            throw new InvalidOperationException(
+                "Korean TMP font is missing. Add Paperlogy under " +
+                "Assets/_Game/Content/Resources/Fonts.");
+        }
+
+        private static Font LoadEditorFont(string resourcePath)
+        {
+#if UNITY_EDITOR
+            if (string.IsNullOrEmpty(resourcePath))
+            {
+                return null;
+            }
+
+            var fileName = resourcePath.StartsWith("Fonts/", StringComparison.Ordinal)
+                ? resourcePath.Substring("Fonts/".Length)
+                : resourcePath;
+            return UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(
+                $"Assets/_Game/Content/Fonts/{fileName}.ttf");
+#else
+            return null;
+#endif
+        }
+
+        public static TMP_FontAsset CreateRuntimeKorean(Font source, bool prewarmKorean = false)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var loaded = TMP_FontAsset.CreateFontAsset(
+                source,
+                36,
+                5,
+                GlyphRenderMode.SDFAA,
+                2048,
+                2048,
+                AtlasPopulationMode.Dynamic,
+                enableMultiAtlasSupport: true);
+            if (loaded == null)
+            {
+                return null;
+            }
+
+            loaded.hideFlags = HideFlags.HideAndDontSave;
+            loaded.TryAddCharacters(
+                "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ .,!?:;-_~/()[]");
+            if (prewarmKorean)
+            {
+                var glyphs = Resources.Load<TextAsset>("Fonts/KoreanGlyphs");
+#if UNITY_EDITOR
+                if (glyphs == null)
+                {
+                    glyphs = UnityEditor.AssetDatabase.LoadAssetAtPath<TextAsset>(
+                        "Assets/_Game/Editor/FontAtlasCharacterSet.txt");
+                }
+#endif
+                if (glyphs != null && !string.IsNullOrEmpty(glyphs.text))
+                {
+                    loaded.TryAddCharacters(
+                        glyphs.text.Replace("\r", string.Empty).Replace("\n", string.Empty));
+                }
+            }
+
+            return loaded;
+        }
+
+        private static Sprite CreateRoundedSprite(int size, int radius, float pixelsPerUnit)
+        {
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                hideFlags = HideFlags.HideAndDontSave,
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp
+            };
+
+            for (var y = 0; y < size; y++)
+            {
+                for (var x = 0; x < size; x++)
+                {
+                    texture.SetPixel(x, y, CoverageRoundedRect(x, y, size, radius));
+                }
+            }
+
+            texture.Apply(false, false);
+            var sprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, size, size),
+                new Vector2(0.5f, 0.5f),
+                pixelsPerUnit,
+                0,
+                SpriteMeshType.FullRect,
+                new Vector4(radius, radius, radius, radius));
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+
+        private static Color CoverageRoundedRect(int x, int y, int size, int radius)
+        {
+            var half = size * 0.5f;
+            var extent = half - radius;
+            var dx = Mathf.Abs(x + 0.5f - half) - extent;
+            var dy = Mathf.Abs(y + 0.5f - half) - extent;
+            var outside = Mathf.Sqrt(
+                (Mathf.Max(dx, 0f) * Mathf.Max(dx, 0f)) +
+                (Mathf.Max(dy, 0f) * Mathf.Max(dy, 0f)));
+            var distance = outside + Mathf.Min(Mathf.Max(dx, dy), 0f) - radius;
+            var alpha = Mathf.Clamp01(0.5f - distance);
+            return new Color(1f, 1f, 1f, alpha);
         }
 
         private static bool IsInsideRoundedRect(int x, int y, int size, int radius)

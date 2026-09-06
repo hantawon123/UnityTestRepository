@@ -230,6 +230,14 @@ namespace Game.Client.Home
         {
         }
 
+        /// <summary>
+        /// Nothing to draw. The revised panel answers with the message line
+        /// under the field rather than a separate "applied" note.
+        /// </summary>
+        public void SetNicknameAppliedFeedbackVisible(bool visible)
+        {
+        }
+
         public void SetProfileSettingsVisible(bool visible)
         {
             if (profileSettingsRoot == null)

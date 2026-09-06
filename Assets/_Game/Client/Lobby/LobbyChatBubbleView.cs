@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Home;
 using Game.Core.Lobby;
 using UnityEngine;
 using UnityEngine.UI;
@@ -44,6 +45,8 @@ namespace Game.Client.Lobby
         /// </summary>
         private const string templateBubbleName = "Bubble";
         private const string templateNameplateName = "Nameplate";
+
+        public static readonly Color BubbleColor = new(0f, 0f, 0f, 0.27f);
 
         private const float MinBubbleWidth = 140f;
         private const float MaxBubbleWidth = 420f;
@@ -100,9 +103,10 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            if (uiFont != null)
+            var font = HomeUiFonts.Legacy() ?? uiFont;
+            if (font != null)
             {
-                anchor.bubbleText.font = uiFont;
+                anchor.bubbleText.font = font;
             }
 
             anchor.bubbleText.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -111,6 +115,7 @@ namespace Game.Client.Lobby
             anchor.bubbleText.text = message.Text ?? string.Empty;
 
             ResizeBubble(anchor);
+            ApplyBubbleColor(anchor);
             anchor.bubbleRoot.gameObject.SetActive(true);
             hideAt[message.SenderId] = Time.unscaledTime + Mathf.Max(0.5f, visibleSeconds);
         }
@@ -175,11 +180,26 @@ namespace Game.Client.Lobby
                 return;
             }
 
+            var font = HomeUiFonts.Legacy();
+            if (font != null)
+            {
+                anchor.nameText.font = font;
+            }
+
             var trimmed = displayName?.Trim();
             var hasName = !string.IsNullOrEmpty(trimmed);
 
             anchor.nameText.text = hasName ? trimmed : string.Empty;
             anchor.nameText.gameObject.SetActive(hasName);
+        }
+
+        private static void ApplyBubbleColor(LobbyChatBubbleAnchor anchor)
+        {
+            if (anchor?.bubbleRoot != null &&
+                anchor.bubbleRoot.TryGetComponent<Image>(out var panel))
+            {
+                panel.color = BubbleColor;
+            }
         }
 
         private static void ResizeBubble(LobbyChatBubbleAnchor anchor)

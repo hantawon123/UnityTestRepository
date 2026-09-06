@@ -24,7 +24,18 @@ namespace Game.Client.Home
         /// </summary>
         public event Action<string> FriendRequestAccepted;
 
-        public event Action<string> FriendRequestRejected;
+        public event Action<string> FriendRequestDeclined;
+
+        /// <summary>
+        /// A request this player sent, taken back. The design has no place for
+        /// it yet, so nothing raises this.
+        /// </summary>
+        public event Action<string> FriendRequestCancelled;
+
+        /// <summary>
+        /// A friendship ended. No control for it in the design yet.
+        /// </summary>
+        public event Action<string> FriendRemoved;
 
         public event Action FriendListRefreshRequested;
 
@@ -861,7 +872,7 @@ namespace Game.Client.Home
         /// <summary>
         /// The requests waiting to be answered, each with its two buttons.
         /// </summary>
-        public void SetIncomingRequests(IReadOnlyList<FriendSummary> requests)
+        public void SetIncomingRequests(IReadOnlyList<FriendRequestSummary> requests)
         {
             if (requests == null)
             {
@@ -897,7 +908,7 @@ namespace Game.Client.Home
                     () => FriendRequestAccepted?.Invoke(playerId));
                 row.RejectButton.onClick.RemoveAllListeners();
                 row.RejectButton.onClick.AddListener(
-                    () => FriendRequestRejected?.Invoke(playerId));
+                    () => FriendRequestDeclined?.Invoke(playerId));
             }
 
             if (requestSectionText != null)
@@ -1016,6 +1027,38 @@ namespace Game.Client.Home
                     rows[index].RejectButton.onClick.RemoveAllListeners();
                 }
             }
+        }
+
+        /// <summary>
+        /// The requests this player is waiting on an answer to.
+        /// </summary>
+        /// <remarks>
+        /// The mock-up has no section for these, so they are accepted and not
+        /// drawn. When a design arrives it goes here beside the incoming list.
+        /// </remarks>
+        public void SetOutgoingRequests(IReadOnlyList<FriendRequestSummary> requests)
+        {
+        }
+
+        /// <summary>
+        /// Says why the last friend action did not happen. An empty message
+        /// clears it.
+        /// </summary>
+        public void SetFriendActionError(string message)
+        {
+            if (searchEmptyText == null)
+            {
+                return;
+            }
+
+            if (string.IsNullOrEmpty(message))
+            {
+                UpdateSearchEmptyHint(Array.Empty<FriendSearchHit>());
+                return;
+            }
+
+            searchEmptyText.gameObject.SetActive(true);
+            searchEmptyText.text = message;
         }
 
         /// <summary>

@@ -33,81 +33,18 @@ namespace Game.Bootstrap
             builder.Register<NetworkHomeApplicationHost>(Lifetime.Scoped)
                 .As<IHomeApplicationHost>();
             builder.RegisterEntryPoint<RoomBrowserWarmup>();
+            builder.RegisterEntryPoint<RegionSwitcher>();
             builder.RegisterComponent(homeMenuView).As<IHomeMenuView>();
 
-            // Placeholder until the server grows an endpoint for this, in the
-            // same spirit as the preview friends below: the panel and its
-            // presenter are finished, and only this registration changes when
-            // the real check arrives.
-            builder.RegisterInstance(
-                    new InMemoryNicknameAvailabilityCheck(new[] { "금오산냥냥이", "관리자" }))
-                .As<INicknameAvailabilityCheck>();
             builder.RegisterEntryPoint<HomeMenuPresenter>();
 
-            // Placeholder rows until a Steam adapter calls FriendListSystem.ReplaceFriends.
-            builder.RegisterBuildCallback(container =>
-            {
-                var friendList = container.Resolve<FriendListSystem>();
-                var friendSearch = container.Resolve<FriendSearchSystem>();
-                var friendRequests = container.Resolve<FriendRequestSystem>();
-                if (friendList.OnlineFriends.Count > 0 || friendList.OfflineFriends.Count > 0)
-                {
-                    return;
-                }
+            // Carries this panel's requests to the backend and its answers
+            // back. The rows it shows used to be invented here.
+            builder.RegisterEntryPoint<HomeFriendBridge>();
 
-                // Deliberately more than the panel is tall, and deliberately
-                // out of order: this is what the scrolling, the three-tier
-                // grouping and the Hangul-Latin-digit sort are looked at with
-                // until a Steam adapter fills the list for real.
-                var previewFriends = new[]
-                {
-                    new FriendSummary("preview-1", "999구구구", FriendPresence.Online),
-                    new FriendSummary("preview-2", "zebra", FriendPresence.InGame),
-                    new FriendSummary("preview-3", "가나다", FriendPresence.Online),
-                    new FriendSummary("preview-4", "나비야", FriendPresence.InGame),
-                    new FriendSummary("preview-5", "apple", FriendPresence.Online),
-                    new FriendSummary("preview-6", "12345", FriendPresence.Online),
-                    new FriendSummary("preview-7", "다람쥐", FriendPresence.Online),
-                    new FriendSummary("preview-8", "스팀만켠친구", FriendPresence.SteamOnline),
-                    new FriendSummary("preview-9", "steamer", FriendPresence.SteamOnline),
-                    new FriendSummary("preview-10", "77스팀", FriendPresence.SteamOnline),
-                    new FriendSummary("preview-11", "잠수친구", FriendPresence.Offline),
-                    new FriendSummary("preview-12", "banana", FriendPresence.Offline),
-                    new FriendSummary("preview-13", "404낫파운드", FriendPresence.Offline),
-                    new FriendSummary("preview-14", "이건바로열두글자이지렁롱", FriendPresence.Offline),
-
-                    // The widest a nickname can be: twelve of the broadest
-                    // letter in the face. If a row survives this it survives
-                    // anything the rule allows.
-                    new FriendSummary("preview-15", "MMMMMMMMMMMM", FriendPresence.Offline)
-                };
-                friendList.ReplaceFriends(previewFriends);
-                friendSearch.ReplaceDirectory(new[]
-                {
-                    previewFriends[0],
-                    previewFriends[1],
-                    previewFriends[2],
-                    new FriendSummary("preview-search-1", "금오산냥펀치", FriendPresence.Online),
-                    new FriendSummary("preview-search-2", "금오산냥옹2", FriendPresence.Offline),
-                    new FriendSummary("preview-search-3", "플레이어A", FriendPresence.Online)
-                });
-
-                // Out of order on purpose: the newest is listed first, so the
-                // one stamped now belongs at the top whatever its name is.
-                var now = System.DateTimeOffset.UtcNow;
-                friendRequests.ReplaceIncoming(new[]
-                {
-                    new FriendRequest(
-                        new FriendSummary("preview-request-1", "금오산고양이", FriendPresence.Online),
-                        now.AddMinutes(-30)),
-                    new FriendRequest(
-                        new FriendSummary("preview-request-2", "금오산고양이금오", FriendPresence.Offline),
-                        now),
-                    new FriendRequest(
-                        new FriendSummary("preview-request-3", "금오산고양이금오산고양이", FriendPresence.Online),
-                        now.AddMinutes(-5))
-                });
-            });
+            // Sends a rename on to the account and puts the old name back when
+            // the server refuses it.
+            builder.RegisterEntryPoint<HomeProfileBridge>();
         }
 
         /// <summary>

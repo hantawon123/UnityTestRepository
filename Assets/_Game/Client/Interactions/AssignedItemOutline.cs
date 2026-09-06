@@ -60,11 +60,18 @@ namespace Game.Client.Interactions
             };
             outlineMaterial.SetColor("_OutlineColor", color);
             outlineMaterial.SetFloat("_OutlineWidth", width);
+            outlineMaterial.SetFloat("_OutlinePixels", 0f);
 
             var sources = GetComponentsInChildren<Renderer>(includeInactive: true);
             for (var index = 0; index < sources.Length; index++)
             {
-                switch (sources[index])
+                var source = sources[index];
+                if (ItemOutlineRenderers.IsGenerated(source))
+                {
+                    continue;
+                }
+
+                switch (source)
                 {
                     case MeshRenderer meshRenderer:
                         CreateMeshOutline(meshRenderer);

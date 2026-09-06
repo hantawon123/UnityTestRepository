@@ -1,4 +1,5 @@
 using Game.Client.Interactions;
+using Game.Client.Match;
 using Game.Core.Players;
 using Game.SOAP.Config;
 using TMPro;
@@ -233,6 +234,11 @@ namespace Game.Client.Players
         /// </summary>
         public static bool IsTextInputFocused()
         {
+            if (MatchChatView.BlocksPlayerInput)
+            {
+                return true;
+            }
+
             var selected = EventSystem.current?.currentSelectedGameObject;
             if (selected == null)
             {

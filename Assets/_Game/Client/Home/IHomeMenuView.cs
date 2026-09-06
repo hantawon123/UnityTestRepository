@@ -12,20 +12,6 @@ namespace Game.Client.Home
 
         event Action ProfileSettingsDismissed;
 
-        event Action ServerSettingsDismissed;
-
-        /// <summary>
-        /// The code of the region the player picked.
-        /// </summary>
-        event Action<string> RegionSelected;
-
-        /// <summary>
-        /// The player filled the room form in and pressed create.
-        /// </summary>
-        event Action<string, bool, int> RoomCreationRequested;
-
-        event Action CreateRoomDismissed;
-
         event Action<string> NicknameChangeRequested;
 
         event Action<string> NicknameEdited;
@@ -38,44 +24,42 @@ namespace Game.Client.Home
 
         event Action<string> FriendRequestClicked;
 
-        /// <summary>
-        /// The player asked for the list to be read again.
-        /// </summary>
+        event Action<string> FriendRequestAccepted;
+
+        event Action<string> FriendRequestDeclined;
+
+        event Action ServerSettingsDismissed;
+
+        /// <summary>The code of the region the player picked.</summary>
+        event Action<string> RegionSelected;
+
+        /// <summary>The player filled the room form in and pressed create.</summary>
+        event Action<string, bool, int> RoomCreationRequested;
+
+        event Action CreateRoomDismissed;
+
+        /// <summary>A request this player sent, taken back.</summary>
+        event Action<string> FriendRequestCancelled;
+
+        /// <summary>The friend list, asked for again.</summary>
         event Action FriendListRefreshRequested;
 
         /// <summary>
-        /// An incoming request was answered, by the id of who sent it.
+        /// A friendship, ended. Raised on the first press: either player can ask
+        /// again afterwards, so there is nothing here to confirm.
         /// </summary>
-        event Action<string> FriendRequestAccepted;
-
-        event Action<string> FriendRequestRejected;
+        event Action<string> FriendRemoved;
 
         void SetNickname(string nickname);
 
-        void SetLevel(int level);
-
         void SetProfileSettingsVisible(bool visible);
 
+        void SetNicknameAppliedFeedbackVisible(bool visible);
 
         /// <summary>
-        /// How the attempt to take a name went.
+        /// Says why a rename was refused. An empty message clears it.
         /// </summary>
-        void SetNicknameAvailability(NicknameCheckOutcome outcome);
-
-        /// <summary>
-        /// Whether the one nickname change has been spent.
-        /// </summary>
-        void SetNicknameSettled(bool settled);
-
-        void SetServerSettingsVisible(bool visible);
-
-        /// <summary>
-        /// Marks which region is in use. A code the picker does not list leaves
-        /// every row unmarked.
-        /// </summary>
-        void SetSelectedRegion(string code);
-
-        void SetCreateRoomVisible(bool visible);
+        void SetNicknameError(string message);
 
         void SetFriendListVisible(bool visible);
 
@@ -88,8 +72,34 @@ namespace Game.Client.Home
         void SetFriendSearchResults(IReadOnlyList<FriendSearchHit> results);
 
         /// <summary>
-        /// The requests waiting to be answered, newest list wins.
+        /// Shows the requests waiting for this player to answer. An empty list
+        /// hides the section rather than leaving an empty heading behind.
         /// </summary>
-        void SetIncomingRequests(IReadOnlyList<FriendSummary> requests);
+        void SetIncomingRequests(IReadOnlyList<FriendRequestSummary> requests);
+
+        /// <summary>
+        /// Shows the requests this player is waiting on an answer to. An empty
+        /// list hides the section.
+        /// </summary>
+        void SetOutgoingRequests(IReadOnlyList<FriendRequestSummary> requests);
+
+        /// <summary>
+        /// Says why the last thing the player asked for did not happen. An empty
+        /// message clears it.
+        /// </summary>
+        void SetFriendActionError(string message);
+
+        void SetServerSettingsVisible(bool visible);
+
+        /// <summary>
+        /// Marks which region is in use. A code the picker does not list leaves
+        /// every row unmarked.
+        /// </summary>
+        void SetSelectedRegion(string code);
+
+        void SetCreateRoomVisible(bool visible);
+
+        /// <summary>Whether the one nickname change has been spent.</summary>
+        void SetNicknameSettled(bool settled);
     }
 }

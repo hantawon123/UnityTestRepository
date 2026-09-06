@@ -507,36 +507,22 @@ namespace Game.Client.Home
         }
 
         /// <summary>
-        /// Says how the attempt to take a name went. Only a refusal is worth a
-        /// line: a name that was accepted is already showing on the chip.
+        /// Says why a rename did not happen. An empty message clears the line.
         /// </summary>
-        public void SetNicknameAvailability(NicknameCheckOutcome outcome)
+        /// <remarks>
+        /// The server is the one that knows: the panel lets a name through on
+        /// its own rules and <c>HomeProfileBridge</c> reports back what the
+        /// account said.
+        /// </remarks>
+        public void SetNicknameError(string message)
         {
-            if (outcome == NicknameCheckOutcome.Available)
+            if (string.IsNullOrEmpty(message))
             {
                 ClearNicknameMessage();
                 return;
             }
 
-            ShowNicknameMessage(DescribeOutcome(outcome), HomeStyle.Palette.MessageRejected);
-        }
-
-        private static string DescribeOutcome(NicknameCheckOutcome outcome)
-        {
-            switch (outcome)
-            {
-                case NicknameCheckOutcome.Available:
-                    return HomeStyle.Profile.AvailableMessage;
-
-                case NicknameCheckOutcome.Taken:
-                    return HomeStyle.Profile.TakenMessage;
-
-                case NicknameCheckOutcome.Rejected:
-                    return HomeStyle.Profile.BadCharacterMessage;
-
-                default:
-                    return HomeStyle.Profile.UnreachableMessage;
-            }
+            ShowNicknameMessage(message, HomeStyle.Palette.MessageRejected);
         }
 
         /// <summary>

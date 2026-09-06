@@ -55,18 +55,17 @@ namespace Game.Client.Interactions
             }
         }
 
-        public string InteractionPrompt => $"{displayName} 들기 [F]";
+        public string InteractionPrompt => "물건 잡기";
 
         private Rigidbody body;
         private Collider[] colliders;
-        private Renderer[] renderers;
-        private MaterialPropertyBlock propertyBlock;
         private AssignedItemOutline assignedOutline;
+        private InteractableFocusOutline focusOutline;
+        private bool assignedHighlightVisible;
         private string resolvedObjectId;
         private Scene owningScene;
         private Vector3 placementCenterOffset;
         private Vector3 placementHalfExtents;
-        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
         private void Awake()
         {
@@ -256,13 +255,14 @@ namespace Game.Client.Interactions
 
         public void SetAssignedHighlight(bool visible)
         {
+            assignedHighlightVisible = visible;
             if (visible && assignedOutline == null)
             {
                 assignedOutline = GetComponent<AssignedItemOutline>() ??
                                   gameObject.AddComponent<AssignedItemOutline>();
             }
 
-            assignedOutline?.SetVisible(visible);
+            assignedOutline?.SetVisible(visible && focusOutline is not { IsVisible: true });
         }
 
         /// <summary>
@@ -289,28 +289,21 @@ namespace Game.Client.Interactions
             resolvedObjectId = objectId;
         }
 
-        /// <summary>조준 하이라이트: 밝기를 살짝 올려 조준 중임을 표시한다.</summary>
+        /// <summary>조준 하이라이트: 집을 수 있는 물건에 주황 2px 테두리를 켠다.</summary>
         public void SetAimed(bool aimed, float intensity)
         {
-            renderers ??= GetComponentsInChildren<Renderer>();
-            propertyBlock ??= new MaterialPropertyBlock();
-            foreach (var itemRenderer in renderers)
+            _ = intensity;
+            if (aimed)
             {
-                var baseColor = itemRenderer.sharedMaterial != null
-                    && itemRenderer.sharedMaterial.HasProperty(BaseColorId)
-                    ? itemRenderer.sharedMaterial.GetColor(BaseColorId)
-                    : Color.white;
-
-                if (aimed)
-                {
-                    propertyBlock.SetColor(BaseColorId, baseColor * intensity);
-                    itemRenderer.SetPropertyBlock(propertyBlock);
-                }
-                else
-                {
-                    itemRenderer.SetPropertyBlock(null);
-                }
+                focusOutline ??= GetComponent<InteractableFocusOutline>() ??
+                                 gameObject.AddComponent<InteractableFocusOutline>();
+                focusOutline.SetVisible(true);
+                assignedOutline?.SetVisible(false);
+                return;
             }
+
+            focusOutline?.SetVisible(false);
+            assignedOutline?.SetVisible(assignedHighlightVisible);
         }
 
         private void SetCollidersEnabled(bool isEnabled)
