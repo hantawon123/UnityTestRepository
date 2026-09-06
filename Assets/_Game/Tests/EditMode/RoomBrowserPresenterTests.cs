@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -285,7 +285,6 @@ namespace Game.Tests.EditMode
             public event Action<string> SearchTextChanged;
             public event Action RefreshRequested;
             public event Action<string> RoomCodeEntered;
-            public event Action CreateRoomRequested;
             public event Action BackRequested;
             public event Action<string> RoomSelected;
             public event Action DisconnectionAcknowledged;
@@ -341,6 +340,10 @@ namespace Game.Tests.EditMode
             public int RoomBrowserOpenCount { get; private set; }
 
             public int LobbyOpenCount { get; private set; }
+
+            public void CreateRoom(string title, bool isPublic, int maxPlayers)
+            {
+            }
 
             public void OpenLobby()
             {

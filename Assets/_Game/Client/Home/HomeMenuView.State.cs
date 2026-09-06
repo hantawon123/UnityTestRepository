@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Game.Core.Home;
 using TMPro;
@@ -9,48 +9,136 @@ namespace Game.Client.Home
 {
     public sealed partial class HomeMenuView
     {
+        [Header("Art")]
         [SerializeField]
-        private string title = "로고 or 이름 두둥";
+        private Sprite backgroundSprite;
 
         [SerializeField]
+        private Sprite friendIcon;
+
+        [SerializeField]
+        private Sprite serverIcon;
+
+        [SerializeField]
+        private Sprite checkIcon;
+
+        [SerializeField]
+        private Sprite searchIcon;
+
+        [SerializeField]
+        private Sprite clearIcon;
+
+        [SerializeField]
+        private Sprite refreshIcon;
+
+        [SerializeField]
+        private Sprite steamIcon;
+
+        [SerializeField]
+        private Sprite acceptIcon;
+
+        [SerializeField]
+        private Sprite rejectIcon;
+
+        [SerializeField]
+        private Sprite closeIcon;
+
+        [Header("Fonts")]
+        [SerializeField]
         private TMP_FontAsset fontAsset;
+
+        /// <summary>
+        /// The menu is drawn in SemiBold where the rest of the screen is not,
+        /// so it is a second asset rather than a style flag: TextMeshPro fakes a
+        /// bold weight by smearing the glyph, and the mock-up wants the weight
+        /// the type designer drew.
+        /// </summary>
+        [SerializeField]
+        private TMP_FontAsset semiBoldFont;
 
         [SerializeField]
         private TMP_Text nicknameText;
 
+        private RectTransform profileChip;
+
         private readonly List<Button> menuButtons = new List<Button>();
-        private readonly List<FriendRow> onlineRows = new List<FriendRow>();
-        private readonly List<FriendRow> offlineRows = new List<FriendRow>();
-        private readonly List<SearchRow> searchRows = new List<SearchRow>();
-        private readonly List<RequestRow> requestRows = new List<RequestRow>();
-        private readonly List<RequestRow> sentRows = new List<RequestRow>();
         private TMP_FontAsset koreanFont;
         private GameObject friendListRoot;
         private GameObject friendListBody;
         private GameObject friendSearchBody;
-        private GameObject addFriendButton;
-        private GameObject closeSearchButton;
-        private TMP_Text panelHeaderText;
         private TMP_Text onlineSectionText;
         private TMP_Text offlineSectionText;
+        private TMP_Text searchSectionText;
+        private TMP_Text requestSectionText;
         private RectTransform onlineItemsRoot;
         private RectTransform offlineItemsRoot;
         private RectTransform searchItemsRoot;
-        private GameObject requestsSection;
-        private RectTransform requestsItemsRoot;
-        private GameObject sentSection;
-        private RectTransform sentItemsRoot;
-        private TMP_Text requestsEmptyText;
-        private TMP_Text friendActionErrorText;
-        private TMP_Text sentEmptyText;
-        private GameObject refreshButton;
+        private RectTransform requestItemsRoot;
+        private RectTransform listContentRoot;
+        private RectTransform requestContentRoot;
+        private TMP_Text friendListTab;
+        private TMP_Text friendRequestTab;
+        private Image listRule;
+        private Image requestRule;
+        private GameObject requestBadge;
+        private TMP_Text requestBadgeText;
+        private bool isRequestTabOpen;
+
+        /// <summary>
+        /// The syllable the IME is still building, which never reaches the
+        /// input field's own text.
+        /// </summary>
+        private string composingText = string.Empty;
         private TMP_InputField friendSearchInput;
         private TMP_Text searchEmptyText;
+        private TMP_Text onlineEmptyText;
+        private TMP_Text offlineEmptyText;
+        private int shownOnlineCount;
+        private int shownOfflineCount;
         private Button dismissButton;
         private GameObject profileSettingsRoot;
+        private GameObject serverSettingsRoot;
+        private GameObject createRoomRoot;
+        private TMP_InputField roomNameInput;
+        private TMP_Text roomNameCounter;
+        private TMP_Text privateSegment;
+        private TMP_Text publicSegment;
+        private RectTransform scopeIndicator;
+        private TMP_Text playerCountText;
+        private Button decreaseButton;
+        private Button increaseButton;
+        private Button createRoomButton;
+        private Image createRoomFill;
+        private TMP_Text createRoomLabel;
+        private bool isPublicRoom = true;
+        private int playerCount = 6;
         private TMP_InputField profileNicknameInput;
-        private TMP_Text appliedFeedbackText;
-        private TMP_Text nicknameErrorText;
+        private TMP_Text nicknameMessageText;
+        private TMP_Text nicknameCounterText;
+        private Image searchAllowFill;
+        private Image searchAllowKnobImage;
+        private RectTransform searchAllowKnob;
+        private TMP_Text searchAllowMessageText;
+        private Game.Client.Common.ConnectionToast connectionToast;
+        private Button applyButton;
+        private Image applyFill;
+        private TMP_Text applyLabel;
+        private bool isSearchAllowed;
+
+        /// <summary>
+        /// Set while the field is being corrected, so the edit handler does not
+        /// answer its own rewrite.
+        /// </summary>
+        private bool isRewritingNickname;
+
+        /// <summary>
+        /// The name in use, so the apply button can tell a change from a
+        /// re-typing of what is already there.
+        /// </summary>
+        private string currentNickname = string.Empty;
+        private bool currentNicknameSet;
+        private bool isConfirmingNickname;
+        private GameObject confirmRow;
 
         public event Action<HomeMenuAction> ActionClicked;
 
@@ -70,17 +158,6 @@ namespace Game.Client.Home
 
         public event Action<string> FriendRequestClicked;
 
-        public event Action<string> FriendRequestAccepted;
-
-        public event Action<string> FriendRequestDeclined;
-
-        public event Action<string> FriendRequestCancelled;
-
-        public event Action FriendListRefreshRequested;
-
-        public event Action<string> FriendRemoved;
-
-
         private void Awake()
         {
             EnsureEventSystem();
@@ -91,24 +168,12 @@ namespace Game.Client.Home
 
             SetFriendListVisible(false);
             SetProfileSettingsVisible(false);
-            SetNicknameAppliedFeedbackVisible(false);
         }
 
         private void OnDestroy()
         {
             ClearButtons(menuButtons);
-            for (var index = 0; index < searchRows.Count; index++)
-            {
-                if (searchRows[index].RequestButton != null)
-                {
-                    searchRows[index].RequestButton.onClick.RemoveAllListeners();
-                }
-            }
-
-            ClearRequestRows(requestRows);
-            ClearRequestRows(sentRows);
-            ClearFriendRows(onlineRows);
-            ClearFriendRows(offlineRows);
+            ClearRowButtons(requestRows);
 
             if (dismissButton != null)
             {
@@ -124,6 +189,8 @@ namespace Game.Client.Home
             {
                 profileNicknameInput.onValueChanged.RemoveAllListeners();
             }
+
+            WatchComposition(false);
         }
 
         public void SetNickname(string nickname)
@@ -131,12 +198,46 @@ namespace Game.Client.Home
             if (nicknameText != null)
             {
                 nicknameText.text = nickname;
+
+                // The chip is only as wide as the name inside it, so a longer
+                // one has to move the chip's own edge before it is drawn.
+                nicknameText.ForceMeshUpdate();
+                ResizeProfileChip();
             }
 
+            // The field opens on the name the player already has, which is what
+            // the design calls the default.
             if (profileNicknameInput != null && profileNicknameInput.text != nickname)
             {
                 profileNicknameInput.text = nickname;
             }
+
+            currentNickname = nickname ?? string.Empty;
+            UpdateNicknameCounter(currentNickname);
+            ClearNicknameMessage();
+            UpdateNicknameApplyEnabled();
+        }
+
+        /// <summary>
+        /// Nothing to draw. The revised design shows no level anywhere on Home
+        /// — the chip carries the name alone, and the profile panel is only
+        /// about the nickname.
+        /// </summary>
+        /// <remarks>
+        /// Kept because <see cref="IHomeMenuView"/> still declares it and the
+        /// presenter still binds the profile. Dropping it from the interface is
+        /// a change to the presenter and its tests, not to this screen.
+        /// </remarks>
+        public void SetLevel(int level)
+        {
+        }
+
+        /// <summary>
+        /// Nothing to draw. The revised panel answers with the message line
+        /// under the field rather than a separate "applied" note.
+        /// </summary>
+        public void SetNicknameAppliedFeedbackVisible(bool visible)
+        {
         }
 
         public void SetProfileSettingsVisible(bool visible)
@@ -149,40 +250,6 @@ namespace Game.Client.Home
             profileSettingsRoot.SetActive(visible);
         }
 
-        public void SetNicknameError(string message)
-        {
-            if (nicknameErrorText == null)
-            {
-                return;
-            }
-
-            var hasMessage = !string.IsNullOrEmpty(message);
-            nicknameErrorText.text = message ?? string.Empty;
-            nicknameErrorText.gameObject.SetActive(hasMessage);
-
-            // The two never show together. One says the name was taken and the
-            // other says it was saved, and both at once is a contradiction.
-            if (hasMessage && appliedFeedbackText != null)
-            {
-                appliedFeedbackText.gameObject.SetActive(false);
-            }
-        }
-
-        public void SetNicknameAppliedFeedbackVisible(bool visible)
-        {
-            if (appliedFeedbackText == null)
-            {
-                return;
-            }
-
-            appliedFeedbackText.gameObject.SetActive(visible);
-
-            if (visible && nicknameErrorText != null)
-            {
-                nicknameErrorText.gameObject.SetActive(false);
-            }
-        }
-
         public void SetFriendListVisible(bool visible)
         {
             if (friendListRoot == null)
@@ -192,6 +259,10 @@ namespace Game.Client.Home
 
             SetFriendSearchVisible(false);
             friendListRoot.SetActive(visible);
+
+            // The keyboard is the whole application's, so the panel stops
+            // listening to it the moment it goes away.
+            WatchComposition(visible);
         }
 
         public void SetFriends(
@@ -208,19 +279,13 @@ namespace Game.Client.Home
                 throw new ArgumentNullException(nameof(offlineFriends));
             }
 
-            if (onlineSectionText == null || offlineSectionText == null)
-            {
-                return;
-            }
-
-            onlineSectionText.text = $"온라인 {onlineFriends.Count}";
-            offlineSectionText.text = $"오프라인 {offlineFriends.Count}";
-            BindRows(onlineRows, onlineItemsRoot, onlineFriends);
-            BindRows(offlineRows, offlineItemsRoot, offlineFriends);
+            BindFriendRows(onlineItemsRoot, onlineFriends, online: true);
+            BindFriendRows(offlineItemsRoot, offlineFriends, online: false);
         }
 
         public void SetFriendSearchVisible(bool visible)
         {
+            isRequestTabOpen = visible;
             if (friendListBody == null || friendSearchBody == null)
             {
                 return;
@@ -228,39 +293,14 @@ namespace Game.Client.Home
 
             friendListBody.SetActive(!visible);
             friendSearchBody.SetActive(visible);
-            if (panelHeaderText != null)
-            {
-                panelHeaderText.text = visible ? "친구 검색" : "친구";
-            }
+            ApplyTabColours();
 
-            if (addFriendButton != null)
-            {
-                addFriendButton.SetActive(!visible);
-            }
+            // The box is shared by both tabs, so what was typed on one would
+            // otherwise still be filtering the other.
+            ClearFriendSearch();
+            WatchComposition(true);
 
-            if (refreshButton != null)
-            {
-                refreshButton.SetActive(!visible);
-            }
-
-            if (closeSearchButton != null)
-            {
-                closeSearchButton.SetActive(visible);
-            }
-
-            if (visible && friendSearchInput != null)
-            {
-                friendSearchInput.text = string.Empty;
-            }
-
-            // Whichever way the panel is going, a message about what happened
-            // last time should not be waiting when it is opened again.
-            SetFriendActionError(string.Empty);
-
-            if (visible)
-            {
-                UpdateSearchEmptyHint(Array.Empty<FriendSearchHit>());
-            }
+            UpdateSearchEmptyHint(Array.Empty<FriendSearchHit>());
         }
 
         public void SetFriendSearchResults(IReadOnlyList<FriendSearchHit> results)
@@ -270,115 +310,10 @@ namespace Game.Client.Home
                 throw new ArgumentNullException(nameof(results));
             }
 
-            if (searchItemsRoot == null)
-            {
-                return;
-            }
-
             BindSearchRows(results);
             UpdateSearchEmptyHint(results);
         }
 
-        /// <remarks>
-        /// The section stays on screen either way. It used to disappear when it
-        /// held nothing, which saved room but hid the fact that requests can be
-        /// accepted here at all.
-        /// </remarks>
-        private static void ShowEmptyLine(TMP_Text line, bool isEmpty)
-        {
-            if (line != null)
-            {
-                line.gameObject.SetActive(isEmpty);
-            }
-        }
-
-        private static void ClearFriendRows(List<FriendRow> rows)
-        {
-            for (var index = 0; index < rows.Count; index++)
-            {
-                if (rows[index].RemoveButton != null)
-                {
-                    rows[index].RemoveButton.onClick.RemoveAllListeners();
-                }
-            }
-        }
-
-        private static void ClearRequestRows(List<RequestRow> rows)
-        {
-            for (var index = 0; index < rows.Count; index++)
-            {
-                if (rows[index].AcceptButton != null)
-                {
-                    rows[index].AcceptButton.onClick.RemoveAllListeners();
-                }
-
-                if (rows[index].DeclineButton != null)
-                {
-                    rows[index].DeclineButton.onClick.RemoveAllListeners();
-                }
-            }
-        }
-
-        public void SetFriendActionError(string message)
-        {
-            if (friendActionErrorText == null)
-            {
-                return;
-            }
-
-            var hasMessage = !string.IsNullOrEmpty(message);
-            friendActionErrorText.text = message ?? string.Empty;
-            friendActionErrorText.gameObject.SetActive(hasMessage);
-        }
-
-        public void SetOutgoingRequests(IReadOnlyList<FriendRequestSummary> requests)
-        {
-            if (requests == null)
-            {
-                throw new ArgumentNullException(nameof(requests));
-            }
-
-            if (sentItemsRoot == null || sentSection == null)
-            {
-                return;
-            }
-
-            ShowEmptyLine(sentEmptyText, requests.Count == 0);
-            BindRequestRows(sentRows, sentItemsRoot, requests, sent: true);
-        }
-
-        public void SetIncomingRequests(IReadOnlyList<FriendRequestSummary> requests)
-        {
-            if (requests == null)
-            {
-                throw new ArgumentNullException(nameof(requests));
-            }
-
-            if (requestsItemsRoot == null || requestsSection == null)
-            {
-                return;
-            }
-
-            ShowEmptyLine(requestsEmptyText, requests.Count == 0);
-            BindRequestRows(requestRows, requestsItemsRoot, requests, sent: false);
-        }
-
-        private void UpdateSearchEmptyHint(IReadOnlyList<FriendSearchHit> results)
-        {
-            if (searchEmptyText == null)
-            {
-                return;
-            }
-
-            var hasQuery = friendSearchInput != null && !string.IsNullOrWhiteSpace(friendSearchInput.text);
-            searchEmptyText.gameObject.SetActive(results.Count == 0);
-            if (results.Count > 0)
-            {
-                return;
-            }
-
-            searchEmptyText.text = hasQuery ? "검색 결과가 없습니다" : "아이디를 검색해 보세요";
-        }
 
     }
 }

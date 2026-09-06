@@ -1,4 +1,5 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using Game.Client.Common;
 using Game.Core.Rooms;
 using TMPro;
 using UnityEngine;
@@ -49,9 +50,7 @@ namespace Game.Client.Rooms
         private ScrollRect roomScroll;
         private CanvasGroup refreshGroup;
         private CanvasGroup listGroup;
-        private CanvasGroup toastGroup;
-        private TMP_Text toastBody;
-        private float toastHidesAt;
+        private ConnectionToast toast;
         private TMP_Text emptyStateText;
         private Image enterButtonBackground;
         private TMP_Text enterButtonLabel;
@@ -680,89 +679,19 @@ namespace Game.Client.Rooms
             {
                 RefreshButtonState();
             }
-
-            if (toastGroup != null &&
-                toastGroup.gameObject.activeSelf &&
-                Time.unscaledTime >= toastHidesAt)
-            {
-                toastGroup.gameObject.SetActive(false);
-            }
         }
 
-        /// <summary>
-        /// The failure notice. Hidden until something goes wrong, and never
-        /// clickable: it reports, and the player carries on behind it.
-        /// </summary>
         private void BuildToast(RectTransform parent)
         {
-            var toast = RoomBrowserUi.CreateImage(
-                "Toast",
-                parent,
-                RoomBrowserStyle.Palette.ToastBase,
-                RoomBrowserUi.Rounded(RoomBrowserStyle.Radius.Toast));
-
-            toast.raycastTarget = false;
-            toast.rectTransform.Anchor(
-                new Vector2(0.5f, 1f),
-                new Vector2(0f, -RoomBrowserStyle.Layout.ToastTopMargin),
-                RoomBrowserStyle.Layout.ToastSize);
-
-            // The warm cast over the base, and under the text: the mock-up
-            // stacks these two fills rather than blending them into one.
-            var tint = RoomBrowserUi.CreateImage(
-                "Tint",
-                toast.transform,
-                RoomBrowserStyle.Palette.ToastTint,
-                RoomBrowserUi.Rounded(RoomBrowserStyle.Radius.Toast));
-
-            tint.raycastTarget = false;
-            tint.rectTransform.Stretch();
-
-            var title = RoomBrowserUi.CreateText(
-                "Title",
-                toast.transform,
-                ResolveFont(semiBoldFont),
-                RoomBrowserStyle.FontSize.ToastTitle,
-                RoomBrowserStyle.Palette.ToastTitle,
-                TextAlignmentOptions.Center);
-            title.text = RoomEntryMessages.Title;
-            title.rectTransform.Anchor(
-                new Vector2(0.5f, 0.5f),
-                new Vector2(0f, RoomBrowserStyle.Layout.ToastTitleOffsetY),
-                new Vector2(RoomBrowserStyle.Layout.ToastSize.x, 40f));
-
-            toastBody = RoomBrowserUi.CreateText(
-                "Body",
-                toast.transform,
-                ResolveFont(mediumFont),
-                RoomBrowserStyle.FontSize.ToastBody,
-                RoomBrowserStyle.Palette.ToastBody,
-                TextAlignmentOptions.Center);
-            toastBody.rectTransform.Anchor(
-                new Vector2(0.5f, 0.5f),
-                new Vector2(0f, RoomBrowserStyle.Layout.ToastBodyOffsetY),
-                new Vector2(RoomBrowserStyle.Layout.ToastSize.x, 32f));
-
-            toastGroup = toast.gameObject.AddComponent<CanvasGroup>();
-            toastGroup.blocksRaycasts = false;
-            toastGroup.interactable = false;
-            toast.gameObject.SetActive(false);
+            toast = ConnectionToast.AttachTo(parent);
         }
 
         /// <summary>
-        /// Shows the notice, and restarts its three seconds if one is already up:
-        /// the newest failure is the one the player just caused.
+        /// Shows the notice under the heading every room failure shares.
         /// </summary>
         private void ShowToast(string message)
         {
-            if (toastGroup == null)
-            {
-                return;
-            }
-
-            toastBody.text = message;
-            toastHidesAt = Time.unscaledTime + RoomBrowserStyle.Layout.ToastSeconds;
-            toastGroup.gameObject.SetActive(true);
+            toast?.Show(RoomEntryMessages.Title, message);
         }
 
         private void BuildRoomList(RectTransform panel)

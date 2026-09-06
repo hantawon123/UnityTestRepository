@@ -1,3 +1,4 @@
+﻿using Game.Client.Common;
 using System;
 using System.Collections.Generic;
 using Game.Core.Rooms;
@@ -47,7 +48,6 @@ namespace Game.Client.Rooms
         public event Action<string> SearchTextChanged;
         public event Action RefreshRequested;
         public event Action<string> RoomCodeEntered;
-        public event Action CreateRoomRequested;
         public event Action BackRequested;
         public event Action<string> RoomSelected;
         public event Action DisconnectionAcknowledged;
@@ -234,11 +234,6 @@ namespace Game.Client.Rooms
             BeginRefreshCooldown();
             RefreshRequested?.Invoke();
         }
-
-        // Rooms are opened from the home menu now, so nothing on this screen
-        // raises this. It stays until that move lands, because the presenter
-        // still listens for it.
-        private void OnCreateRoomButtonClicked() => CreateRoomRequested?.Invoke();
 
         private void OnBackButtonClicked() => BackRequested?.Invoke();
 

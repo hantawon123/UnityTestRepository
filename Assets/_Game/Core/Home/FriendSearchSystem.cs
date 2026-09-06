@@ -264,10 +264,17 @@ namespace Game.Core.Home
             ResultsChanged?.Invoke();
         }
 
+        /// <summary>
+        /// The whole nickname, exactly, case included.
+        /// </summary>
+        /// <remarks>
+        /// A prefix or substring match would let someone sweep the user table a
+        /// letter at a time, and the nickname rule makes upper and lower case
+        /// different names, so "Player" must not find "player".
+        /// </remarks>
         private static bool Matches(FriendSummary user, string query)
         {
-            return user.Nickname.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0
-                || user.PlayerId.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+            return string.Equals(user.Nickname, query, StringComparison.Ordinal);
         }
     }
 }

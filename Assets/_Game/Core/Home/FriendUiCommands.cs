@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -157,12 +157,14 @@ namespace Game.Core.Home
             ListIncomingRequestsAsync(CancellationToken cancellation)
         {
             var answer = await gateway.ListIncomingRequestsAsync(cancellation);
-            if (answer.Ok)
+            if (!answer.Ok)
             {
-                search.ExcludeIncomingRequests(RequesterIds(answer.Value));
+                return answer;
             }
 
-            return answer;
+            search.ExcludeIncomingRequests(RequesterIds(answer.Value));
+            return BackendResult<IReadOnlyList<FriendRequestSummary>>.Success(
+                FriendRequestOrder.Arrange(answer.Value));
         }
 
         private static IReadOnlyList<string> RequesterIds(
@@ -205,7 +207,11 @@ namespace Game.Core.Home
         public async UniTask<BackendResult<IReadOnlyList<FriendRequestSummary>>>
             ListOutgoingRequestsAsync(CancellationToken cancellation)
         {
-            return await gateway.ListOutgoingRequestsAsync(cancellation);
+            var answer = await gateway.ListOutgoingRequestsAsync(cancellation);
+            return answer.Ok
+                ? BackendResult<IReadOnlyList<FriendRequestSummary>>.Success(
+                    FriendRequestOrder.Arrange(answer.Value))
+                : answer;
         }
 
         /// <summary>

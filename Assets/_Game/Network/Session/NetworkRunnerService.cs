@@ -154,7 +154,12 @@ namespace Game.Network.Session
         /// has nowhere to go rather than failing to construct.
         /// </summary>
         private readonly NetworkScenes _scenes;
-        private readonly string _networkRegion;
+        /// <summary>
+        /// Where the player chose to play. Read at connect time rather than
+        /// held as a string, so a region picked while the game is running is
+        /// the one the next connection uses.
+        /// </summary>
+        private readonly ServerRegionSystem _regions;
 
         /// <summary>
         /// Raised on every peer once a networked scene has finished loading.
@@ -269,7 +274,7 @@ namespace Game.Network.Session
             PlayerSpawner spawner,
             PlayerProfile profile,
             NetworkScenes scenes = null,
-            string networkRegion = null)
+            ServerRegionSystem regions = null)
         {
             _roomListSink = roomListSink;
             _sessionSink = sessionSink;
@@ -278,9 +283,7 @@ namespace Game.Network.Session
             _spawner = spawner;
             _profile = profile;
             _scenes = scenes;
-            _networkRegion = string.IsNullOrWhiteSpace(networkRegion)
-                ? null
-                : networkRegion.Trim();
+            _regions = regions;
         }
 
         /// <summary>
@@ -1288,6 +1291,26 @@ namespace Game.Network.Session
         /// Leaves the current session. Fusion tears the runner down itself, so
         /// this does not await anything.
         /// </summary>
+        /// <summary>
+        /// Drops the lobby connection so the next one is made afresh.
+        /// </summary>
+        /// <remarks>
+        /// Photon fixes the region when it connects, so a region chosen while
+        /// a lobby is already open changes nothing until that lobby is let go.
+        /// Only the browsing connection is dropped: a runner that is in a room
+        /// is in a game, and that is not something a settings panel may end.
+        /// </remarks>
+        public bool DropMatchmakingConnection()
+        {
+            if (_matchmakingClient == null)
+            {
+                return false;
+            }
+
+            ReleaseMatchmakingClient(_matchmakingClient, disconnect: true);
+            return true;
+        }
+
         public void Shutdown()
         {
             _hostMigrationRevision++;
@@ -1489,7 +1512,7 @@ namespace Game.Network.Session
                 Fusion.Photon.Realtime.PhotonAppSettings.Global.AppSettings;
             // The deployment supplies its region through ProjectLifetimeScope,
             // so changing regions does not require recompiling network code.
-            settings.FixedRegion = _networkRegion;
+            settings.FixedRegion = _regions?.Current.Code;
             return settings;
         }
 

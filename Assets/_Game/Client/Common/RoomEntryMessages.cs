@@ -1,6 +1,6 @@
-using Game.Core.Rooms;
+﻿using Game.Core.Rooms;
 
-namespace Game.Client.Rooms
+namespace Game.Client.Common
 {
     /// <summary>
     /// Which way into a room a refusal came back from.
@@ -15,6 +15,13 @@ namespace Game.Client.Rooms
     {
         RoomList,
         RoomCode,
+
+        /// <summary>
+        /// The create-room form on the home screen. Opening a room is entering
+        /// it too, so the same failures come back — but a room that is full or
+        /// gone means something different when the player is the one making it.
+        /// </summary>
+        RoomCreate,
     }
 
     /// <summary>
@@ -40,17 +47,39 @@ namespace Game.Client.Rooms
             switch (failure)
             {
                 case RoomEntryFailure.NotFound:
+                    if (source == RoomEntrySource.RoomCreate)
+                    {
+                        // The room was made and then lost before this client
+                        // could get into it. Nothing to refresh and no code to
+                        // check: the only thing to do is make it again.
+                        return "방을 만들지 못했어요. 다시 시도해 주세요.";
+                    }
+
                     return source == RoomEntrySource.RoomCode
                         ? "그런 방이 없어요. 코드를 다시 확인해 주세요."
                         : "사라진 방이에요. 목록을 새로고침 해주세요.";
 
                 case RoomEntryFailure.Full:
+                    if (source == RoomEntrySource.RoomCreate)
+                    {
+                        return "방을 만들지 못했어요. 다시 시도해 주세요.";
+                    }
+
                     return source == RoomEntrySource.RoomCode
                         ? "방이 가득 찼어요."
                         : "방이 가득 찼어요. 다른 방을 골라주세요.";
 
                 case RoomEntryFailure.Closed:
-                    return "이미 게임이 시작된 방이에요.";
+                    return source == RoomEntrySource.RoomCreate
+                        ? "방을 만들지 못했어요. 다시 시도해 주세요."
+                        : "이미 게임이 시작된 방이에요.";
+
+                case RoomEntryFailure.InvalidRequest when source == RoomEntrySource.RoomCreate:
+                    // The form checks the name and the player count before it
+                    // sends, so reaching this means the two disagree. Said
+                    // plainly rather than blamed on the player.
+                    return "방 설정을 확인해 주세요.";
+
 
                 case RoomEntryFailure.InvalidCode:
                     return "방 코드를 다시 확인해 주세요.";
