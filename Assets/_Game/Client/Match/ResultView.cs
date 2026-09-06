@@ -8,12 +8,15 @@ namespace Game.Client.Match
     public interface IResultView
     {
         void SetText(string value);
+        void SetOutcome(string headline, string subtitle);
     }
 
     public sealed class ResultView : MonoBehaviour, IResultView
     {
         [SerializeField] private TMP_FontAsset font;
         private TMP_Text label;
+        private TMP_Text headline;
+        private TMP_Text subtitle;
 
         public void Initialize()
         {
@@ -23,24 +26,163 @@ namespace Game.Client.Match
                 throw new System.InvalidOperationException("ResultView: Paperlogy TMP 폰트를 찾지 못했습니다.");
             }
 
-            if (label != null)
+            if (label != null && headline != null && subtitle != null)
             {
                 label.font = font;
+                headline.font = HomeUiFonts.ApplyBlack() ?? font;
+                subtitle.font = font;
+                ApplyOutcomePlacement();
                 return;
             }
-            var canvasObject = new GameObject("Result Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
-            canvasObject.transform.SetParent(transform, false);
+
+            var canvasObject = transform.Find("Result Canvas")?.gameObject;
+            if (canvasObject == null)
+            {
+                canvasObject = new GameObject(
+                    "Result Canvas",
+                    typeof(RectTransform),
+                    typeof(Canvas),
+                    typeof(CanvasScaler));
+                canvasObject.transform.SetParent(transform, false);
+            }
+
             var canvas = canvasObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 100;
             var scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
+            EnsureBackground(canvasObject.transform);
+
+            label = canvasObject.transform.Find("Result Text")?.GetComponent<TMP_Text>();
+            if (label == null)
+            {
+                label = CreateText(
+                    canvasObject.transform,
+                    "Result Text",
+                    40f,
+                    Color.white,
+                    font);
+            }
+            else
+            {
+                label.font = font;
+            }
+
+            headline = canvasObject.transform.Find("Result Headline")?.GetComponent<TMP_Text>();
+            if (headline == null)
+            {
+                headline = CreateText(
+                    canvasObject.transform,
+                    "Result Headline",
+                    MatchTimerView.TimerFontSize,
+                    MatchTimerView.TimerColor,
+                    HomeUiFonts.ApplyBlack() ?? font);
+            }
+
+            subtitle = canvasObject.transform.Find("Result Subtitle")?.GetComponent<TMP_Text>();
+            if (subtitle == null)
+            {
+                subtitle = CreateText(
+                    canvasObject.transform,
+                    "Result Subtitle",
+                    MatchTimerView.HintFontSize,
+                    MatchTimerView.ResultSubtitleColor,
+                    font);
+            }
+
+            ApplyOutcomePlacement();
+            label.gameObject.SetActive(false);
+        }
+
+        public void SetText(string value)
+        {
+            if (headline != null)
+            {
+                headline.gameObject.SetActive(false);
+            }
+
+            if (subtitle != null)
+            {
+                subtitle.gameObject.SetActive(false);
+            }
+
+            if (label != null)
+            {
+                label.gameObject.SetActive(true);
+                label.text = value ?? string.Empty;
+            }
+        }
+
+        public void SetOutcome(string headlineText, string subtitleText)
+        {
+            if (label != null)
+            {
+                label.gameObject.SetActive(false);
+            }
+
+            if (headline != null)
+            {
+                headline.gameObject.SetActive(true);
+                headline.text = headlineText ?? string.Empty;
+                headline.font = HomeUiFonts.ApplyBlack() ?? headline.font;
+                headline.color = MatchTimerView.TimerColor;
+            }
+
+            if (subtitle != null)
+            {
+                subtitle.gameObject.SetActive(true);
+                subtitle.text = subtitleText ?? string.Empty;
+                subtitle.color = MatchTimerView.ResultSubtitleColor;
+            }
+
+            ApplyOutcomePlacement();
+        }
+
+        private void ApplyOutcomePlacement()
+        {
+            if (headline != null)
+            {
+                PlaceTop(
+                    headline.rectTransform,
+                    new Vector2(0f, -HidingActiveHudView.TopPadding),
+                    new Vector2(980f, MatchTimerView.TimerHeight));
+                headline.fontSize = MatchTimerView.TimerFontSize;
+                headline.alignment = TextAlignmentOptions.Center;
+            }
+
+            if (subtitle != null)
+            {
+                PlaceTop(
+                    subtitle.rectTransform,
+                    new Vector2(0f, -(HidingActiveHudView.TopPadding + MatchTimerView.TimerHeight)),
+                    new Vector2(1200f, MatchTimerView.HintHeight));
+                subtitle.fontSize = MatchTimerView.HintFontSize;
+                subtitle.alignment = TextAlignmentOptions.Center;
+            }
+
+            if (label != null)
+            {
+                PlaceTop(
+                    label.rectTransform,
+                    new Vector2(0f, -240f),
+                    new Vector2(1400f, 240f));
+            }
+        }
+
+        private static void EnsureBackground(Transform parent)
+        {
+            var existing = parent.Find("Result Background");
+            if (existing != null)
+            {
+                return;
+            }
+
             var backgroundObject = new GameObject(
                 "Result Background",
                 typeof(RectTransform),
                 typeof(Image));
-            backgroundObject.transform.SetParent(canvasObject.transform, false);
+            backgroundObject.transform.SetParent(parent, false);
             var background = backgroundObject.GetComponent<Image>();
             background.color = new Color(0.04f, 0.04f, 0.04f, 1f);
             background.raycastTarget = false;
@@ -48,21 +190,36 @@ namespace Game.Client.Match
             backgroundRect.anchorMin = Vector2.zero;
             backgroundRect.anchorMax = Vector2.one;
             backgroundRect.offsetMin = backgroundRect.offsetMax = Vector2.zero;
-            var textObject = new GameObject("Result Text", typeof(RectTransform), typeof(TextMeshProUGUI));
-            textObject.transform.SetParent(canvasObject.transform, false);
-            label = textObject.GetComponent<TextMeshProUGUI>();
-            label.font = font;
-            label.fontSize = 40;
-            label.alignment = TextAlignmentOptions.Center;
-            label.color = Color.white;
-            label.richText = false;
-            label.raycastTarget = false;
-            var rect = label.rectTransform;
-            rect.anchorMin = new Vector2(0.1f, 0.1f);
-            rect.anchorMax = new Vector2(0.9f, 0.9f);
-            rect.offsetMin = rect.offsetMax = Vector2.zero;
         }
 
-        public void SetText(string value) => label.text = value ?? string.Empty;
+        private static TMP_Text CreateText(
+            Transform parent,
+            string name,
+            float fontSize,
+            Color color,
+            TMP_FontAsset font)
+        {
+            var textObject = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
+            textObject.transform.SetParent(parent, false);
+            var text = textObject.GetComponent<TextMeshProUGUI>();
+            text.font = font;
+            text.fontSize = fontSize;
+            text.alignment = TextAlignmentOptions.Center;
+            text.color = color;
+            text.richText = false;
+            text.raycastTarget = false;
+            text.enableWordWrapping = false;
+            text.overflowMode = TextOverflowModes.Overflow;
+            return text;
+        }
+
+        private static void PlaceTop(RectTransform rect, Vector2 anchoredPosition, Vector2 size)
+        {
+            rect.anchorMin = new Vector2(0.5f, 1f);
+            rect.anchorMax = new Vector2(0.5f, 1f);
+            rect.pivot = new Vector2(0.5f, 1f);
+            rect.anchoredPosition = anchoredPosition;
+            rect.sizeDelta = size;
+        }
     }
 }
