@@ -1,4 +1,5 @@
 using Game.Client.Players;
+using Game.Core.Lobby;
 using Game.SOAP.Config;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -27,7 +28,12 @@ namespace Game.Client.Interactions
     {
         private const int MaxAimHits = 8;
         public bool HudVisible { get; private set; } = true;
-        public void SetHudVisible(bool visible) => HudVisible = visible;
+
+        public void SetHudVisible(bool visible)
+        {
+            HudVisible = visible;
+            RefreshInteractionCue();
+        }
 
         [SerializeField]
         private InputActionAsset inputActions;
@@ -80,6 +86,8 @@ namespace Game.Client.Interactions
         private InputAction attackAction;
         private Transform cameraTransform;
         private Component aimedTarget;
+        private CarryableItem highlightedItem;
+        private InteractionPromptView promptView;
         private PlayerMovement playerMovement;
         private bool isAimingThrow;
         private IPlayerInteractionCommands commands;
@@ -130,6 +138,19 @@ namespace Game.Client.Interactions
         private void OnEnable()
         {
             playerMap?.Enable();
+        }
+
+        private void OnDisable()
+        {
+            ClearInteractionCue();
+        }
+
+        private void OnDestroy()
+        {
+            if (promptView != null)
+            {
+                Destroy(promptView.gameObject);
+            }
         }
 
         private void Update()
@@ -358,23 +379,77 @@ namespace Game.Client.Interactions
 
         private void UpdateAim()
         {
-            var newAimedTarget = FindAimedTarget();
-            if (newAimedTarget == aimedTarget)
+            aimedTarget = FindAimedTarget();
+            RefreshInteractionCue();
+        }
+
+        private void RefreshInteractionCue()
+        {
+            var nextHighlight = HudVisible &&
+                                aimedTarget is CarryableItem item &&
+                                CarriedItem == null &&
+                                item.CanInteract(this)
+                ? item
+                : null;
+
+            if (highlightedItem != nextHighlight)
             {
+                highlightedItem?.SetAimed(false, 1f);
+                nextHighlight?.SetAimed(true, interactionConfig.AimedHighlightIntensity);
+                highlightedItem = nextHighlight;
+            }
+
+            if (!TryGetPrompt(out var key, out var action, out var follow))
+            {
+                promptView?.Hide();
                 return;
             }
 
-            if (aimedTarget is CarryableItem previousItem)
+            PromptView.Show(key, action, follow);
+        }
+
+        private bool TryGetPrompt(out string key, out string action, out Transform follow)
+        {
+            key = null;
+            action = null;
+            follow = null;
+
+            if (!HudVisible ||
+                aimedTarget is not IInteractable interactable ||
+                !interactable.CanInteract(this) ||
+                (CarriedItem != null && aimedTarget is CarryableItem))
             {
-                previousItem.SetAimed(false, 1f);
+                return false;
             }
 
-            aimedTarget = newAimedTarget;
+            key = InteractKeyLabel();
+            action = interactable.InteractionPrompt;
+            follow = aimedTarget.transform;
+            return true;
+        }
 
-            if (aimedTarget is CarryableItem currentItem)
+        private InteractionPromptView PromptView =>
+            promptView != null ? promptView : promptView = InteractionPromptView.Create();
+
+        private void ClearInteractionCue()
+        {
+            highlightedItem?.SetAimed(false, 1f);
+            highlightedItem = null;
+            promptView?.Hide();
+        }
+
+        private static string InteractKeyLabel()
+        {
+            for (var index = 0; index < ControlKeyGuide.Bindings.Count; index++)
             {
-                currentItem.SetAimed(true, interactionConfig.AimedHighlightIntensity);
+                var binding = ControlKeyGuide.Bindings[index];
+                if (binding.InputActionPath == "Player/Interact")
+                {
+                    return binding.KeyLabel;
+                }
             }
+
+            return "F";
         }
 
         private Component FindAimedTarget()

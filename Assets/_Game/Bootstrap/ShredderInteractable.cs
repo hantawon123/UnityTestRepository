@@ -29,7 +29,7 @@ namespace Game.Bootstrap
         private IMatchClock clock;
         private int playerIndex;
 
-        public string InteractionPrompt => "들고 있는 물건 투입 [F]";
+        public string InteractionPrompt => "파괴하기";
 
         public void Bind(
             MatchSessionCoordinator matchSession,
