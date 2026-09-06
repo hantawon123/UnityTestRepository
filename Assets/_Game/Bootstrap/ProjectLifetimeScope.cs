@@ -43,20 +43,21 @@ namespace Game.Bootstrap
             // whoever last played on the developer's machine.
             var store = new PlayerPrefsProfileStore();
 
+            // Built here for the same reason the profile store is: it reads
+            // this machine's preferences, and a test container must not pick up
+            // whichever region the developer last chose. The deployment's own
+            // region seeds it, so a build shipped for one region still starts
+            // there before anybody picks another.
+            var regionStore = new PlayerPrefsServerRegionStore();
+
             RegisterServices(
                 builder,
                 _networkPrefabs,
                 _networkScenes,
                 LoadProfile(store),
-                _networkRegion);
+                new ServerRegionSystem(regionStore, _networkRegion));
             builder.RegisterInstance<IProfileStore>(store);
-
-            // Built here for the same reason the profile store is: it reads
-            // this machine's preferences, and a test container must not pick up
-            // whichever region the developer last chose.
-            var regionStore = new PlayerPrefsServerRegionStore();
             builder.RegisterInstance<IServerRegionStore>(regionStore);
-            builder.RegisterInstance(new ServerRegionSystem(regionStore));
             // Shared across Playground and Result so scene unloading cannot reveal gameplay.
             var transition = new GameObject("Highlight Transition").AddComponent<HighlightTransitionView>();
             transition.transform.SetParent(transform, false);
@@ -144,13 +145,19 @@ namespace Game.Bootstrap
             NetworkPrefabs networkPrefabs = null,
             NetworkScenes networkScenes = null,
             PlayerProfile profile = null,
-            string networkRegion = null)
+            ServerRegionSystem regions = null)
         {
             builder.Register<AppFlowSystem>(Lifetime.Singleton);
             builder.Register<HomeMenuSystem>(Lifetime.Singleton);
             builder.Register<FriendListSystem>(Lifetime.Singleton);
             builder.Register<FriendSearchSystem>(Lifetime.Singleton);
             builder.Register<FriendRequestSystem>(Lifetime.Singleton);
+
+            // Registered here so every container has one, with a store that
+            // forgets when the process does. The application replaces it with
+            // one backed by this machine's preferences.
+            builder.RegisterInstance(
+                regions ?? new ServerRegionSystem(new InMemoryServerRegionStore()));
 
             // One instance for the whole application. The home screen edits this
             // one and the network reads this one, so a rename is visible in both
@@ -187,7 +194,7 @@ namespace Game.Bootstrap
                         c.Resolve<PlayerSpawner>(),
                         c.Resolve<PlayerProfile>(),
                         networkScenes,
-                        networkRegion),
+                        c.Resolve<ServerRegionSystem>()),
                     Lifetime.Singleton)
                 .AsSelf()
                 .As<INetworkMatchRuntimeSource>()

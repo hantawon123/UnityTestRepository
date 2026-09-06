@@ -131,6 +131,51 @@ namespace Game.Bootstrap
         }
 
         /// <summary>
+        /// Reconnects the lobby when the player picks a different region.
+        /// </summary>
+        /// <remarks>
+        /// The design gives the picker no apply button, so the choice has to
+        /// take effect as it is made. Photon settles on a region when it
+        /// connects, so the standing lobby connection is dropped and opened
+        /// again: without that the panel would show one region while the room
+        /// list still came from another.
+        /// </remarks>
+        private sealed class RegionSwitcher : IStartable, System.IDisposable
+        {
+            private readonly ServerRegionSystem regions;
+            private readonly NetworkRunnerService network;
+            private readonly RoomUiCommands rooms;
+
+            public RegionSwitcher(
+                ServerRegionSystem regions,
+                NetworkRunnerService network,
+                RoomUiCommands rooms)
+            {
+                this.regions = regions;
+                this.network = network;
+                this.rooms = rooms;
+            }
+
+            public void Start()
+            {
+                regions.Changed += OnRegionChanged;
+            }
+
+            public void Dispose()
+            {
+                regions.Changed -= OnRegionChanged;
+            }
+
+            private void OnRegionChanged(ServerRegion region)
+            {
+                Debug.Log($"[Region] Switching to {region.Code}.");
+                network.DropMatchmakingConnection();
+                rooms.RefreshAsync(CancellationToken.None)
+                    .Forget(exception => Debug.LogException(exception));
+            }
+        }
+
+        /// <summary>
         /// Starts matchmaking beside the Room scene load instead of waiting for
         /// that scene to finish before opening the Photon lobby.
         /// </summary>
