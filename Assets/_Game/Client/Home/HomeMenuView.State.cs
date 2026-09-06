@@ -88,6 +88,10 @@ namespace Game.Client.Home
         private string composingText = string.Empty;
         private TMP_InputField friendSearchInput;
         private TMP_Text searchEmptyText;
+        private TMP_Text onlineEmptyText;
+        private TMP_Text offlineEmptyText;
+        private int shownOnlineCount;
+        private int shownOfflineCount;
         private Button dismissButton;
         private GameObject profileSettingsRoot;
         private GameObject serverSettingsRoot;

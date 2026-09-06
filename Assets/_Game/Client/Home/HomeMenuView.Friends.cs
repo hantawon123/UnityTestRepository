@@ -47,6 +47,8 @@ namespace Game.Client.Home
             public Button Row;
         }
 
+        private const string FriendsEmptyMessage = "친구가 없어요";
+
         private void CreateFriendListRoot(RectTransform canvas)
         {
             var root = CreateRect("FriendListRoot", canvas);
@@ -369,14 +371,19 @@ namespace Game.Client.Home
             friendListBody = CreateScrollBody(panel, "ListBody", out var listContent);
             onlineSectionText = CreateSectionTitle(listContent, "온라인", true, leading: false);
             onlineItemsRoot = CreateItemGroup(listContent, "OnlineItems");
+            onlineEmptyText = CreateEmptyMessage(
+                listContent, "OnlineEmptyMessage", FriendsEmptyMessage);
             offlineSectionText = CreateSectionTitle(listContent, "오프라인", false);
             offlineItemsRoot = CreateItemGroup(listContent, "OfflineItems");
+            offlineEmptyText = CreateEmptyMessage(
+                listContent, "OfflineEmptyMessage", FriendsEmptyMessage);
             listContentRoot = listContent;
 
             friendSearchBody = CreateScrollBody(panel, "RequestBody", out var requestContent);
             searchSectionText = CreateSectionTitle(requestContent, "검색된 친구", true, leading: false);
             searchItemsRoot = CreateItemGroup(requestContent, "SearchItems");
-            searchEmptyText = CreateEmptyMessage(requestContent, "플레이어를 찾을 수 없습니다.");
+            searchEmptyText = CreateEmptyMessage(
+                requestContent, "SearchEmptyMessage", "플레이어를 찾을 수 없습니다.");
             requestSectionText = CreateSectionTitle(requestContent, "요청이 온 친구 (0)", false);
             requestItemsRoot = CreateItemGroup(requestContent, "RequestItems");
             requestContentRoot = requestContent;
@@ -510,12 +517,12 @@ namespace Game.Client.Home
         /// The line that stands in for a result. Centred, where a heading is
         /// ranged left, so it does not read as another section of the list.
         /// </summary>
-        private TMP_Text CreateEmptyMessage(RectTransform parent, string label)
+        private TMP_Text CreateEmptyMessage(RectTransform parent, string name, string label)
         {
             var line = HomeStyle.FontSize.Section * 1.4f;
             var height = line + HomeStyle.Friends.SectionHeaderGap;
 
-            var rect = CreateRect("EmptyMessage", parent);
+            var rect = CreateRect(name, parent);
             rect.sizeDelta = new Vector2(0f, height);
             var element = rect.gameObject.AddComponent<LayoutElement>();
             element.preferredHeight = height;
@@ -755,6 +762,50 @@ namespace Game.Client.Home
                         friends[index].Presence == FriendPresence.SteamOnline
                         && steamIcon != null;
                 }
+            }
+
+            if (online)
+            {
+                shownOnlineCount = friends.Count;
+            }
+            else
+            {
+                shownOfflineCount = friends.Count;
+            }
+
+            UpdateFriendSections();
+        }
+
+        /// <summary>
+        /// Puts a line under whichever section came back empty.
+        /// </summary>
+        /// <remarks>
+        /// Both headings stay whatever happens, so the panel always reads as
+        /// two lists rather than rearranging itself around what is missing. The
+        /// reason for an empty one matters: with something typed the friends
+        /// exist and are merely filtered out, and "친구가 없어요" would be wrong.
+        /// </remarks>
+        private void UpdateFriendSections()
+        {
+            var message = TypedFriendSearch.Length > 0
+                ? "플레이어를 찾을 수 없습니다."
+                : FriendsEmptyMessage;
+
+            ShowSectionEmpty(onlineEmptyText, shownOnlineCount == 0, message);
+            ShowSectionEmpty(offlineEmptyText, shownOfflineCount == 0, message);
+        }
+
+        private static void ShowSectionEmpty(TMP_Text text, bool empty, string message)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            text.gameObject.SetActive(empty);
+            if (empty)
+            {
+                text.text = message;
             }
         }
 

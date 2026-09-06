@@ -129,6 +129,47 @@ namespace Game.Tests.EditMode
                 Is.EqualTo(HomeStyle.Layout.ChipMaxWidth).Within(0.01f));
         }
 
+        [Test]
+        public void FriendList_WithNobodyInIt_SaysSoUnderBothHeadings()
+        {
+            using var home = new BuiltHome();
+            var view = (IHomeMenuView)home.View;
+
+            view.SetFriends(
+                System.Array.Empty<FriendSummary>(), System.Array.Empty<FriendSummary>());
+
+            foreach (var name in new[] { "OnlineEmptyMessage", "OfflineEmptyMessage" })
+            {
+                var empty = home.Rect(name);
+                Assert.That(empty.gameObject.activeSelf, Is.True, name);
+                Assert.That(
+                    empty.GetComponent<TMPro.TMP_Text>().text, Is.EqualTo("친구가 없어요"), name);
+            }
+        }
+
+        [Test]
+        public void FriendList_KeepsBothHeadingsAndMarksOnlyTheEmptyOne()
+        {
+            using var home = new BuiltHome();
+            var view = (IHomeMenuView)home.View;
+
+            view.SetFriends(
+                new[] { new FriendSummary("p1", "가나다", FriendPresence.Online) },
+                System.Array.Empty<FriendSummary>());
+
+            Assert.That(
+                home.Section("온라인").gameObject.activeSelf,
+                Is.True,
+                "머리글은 비어 있든 아니든 남는다.");
+            Assert.That(home.Section("오프라인").gameObject.activeSelf, Is.True);
+
+            Assert.That(
+                home.Rect("OnlineEmptyMessage").gameObject.activeSelf,
+                Is.False,
+                "친구가 있는 섹션에 없다는 안내가 뜨면 안 된다.");
+            Assert.That(home.Rect("OfflineEmptyMessage").gameObject.activeSelf, Is.True);
+        }
+
         /// <summary>
         /// A Home screen assembled in memory, torn down with the test.
         /// </summary>
@@ -160,6 +201,24 @@ namespace Game.Tests.EditMode
                 }
 
                 Assert.Fail($"Home does not draw anything named {name}.");
+                return null;
+            }
+
+            /// <summary>
+            /// A section heading, found by the words it shows rather than by
+            /// name: every heading is called "Section".
+            /// </summary>
+            public RectTransform Section(string label)
+            {
+                foreach (var candidate in root.GetComponentsInChildren<TMPro.TMP_Text>(true))
+                {
+                    if (candidate.text == label)
+                    {
+                        return candidate.rectTransform;
+                    }
+                }
+
+                Assert.Fail($"Home does not draw a section headed {label}.");
                 return null;
             }
 
