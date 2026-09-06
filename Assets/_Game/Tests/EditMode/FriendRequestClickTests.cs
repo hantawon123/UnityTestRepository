@@ -213,13 +213,16 @@ namespace Game.Architecture.Tests
             public UniTask<BackendResult<AccountSnapshot>> RenameAsync(
                 string nickname, CancellationToken cancellation) => Account();
 
+            public UniTask<BackendResult<AccountSnapshot>> SetSearchableAsync(
+                bool searchable, CancellationToken cancellation) => Account();
+
             public UniTask<BackendResult> DeleteAccountAsync(CancellationToken cancellation) =>
                 UniTask.FromResult(BackendResult.Success());
 
             private static UniTask<BackendResult<AccountSnapshot>> Account() =>
                 UniTask.FromResult(
                     BackendResult<AccountSnapshot>.Success(
-                        new AccountSnapshot("me", "나", true)));
+                        new AccountSnapshot("me", "나", true, true)));
         }
 
         private sealed class RecordingGateway : IFriendGateway
