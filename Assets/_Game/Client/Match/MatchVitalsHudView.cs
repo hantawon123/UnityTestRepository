@@ -565,7 +565,7 @@ namespace Game.Client.Match
             text.alignment = TextAlignmentOptions.Center;
             text.color = Color.white;
             text.raycastTarget = false;
-            text.enableWordWrapping = false;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
             text.overflowMode = TextOverflowModes.Overflow;
             text.font = HomeUiFonts.Apply();
             text.fontStyle = FontStyles.Italic;
