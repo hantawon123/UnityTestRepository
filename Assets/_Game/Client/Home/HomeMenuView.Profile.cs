@@ -251,105 +251,136 @@ namespace Game.Client.Home
             applyButton = apply.gameObject.AddComponent<Button>();
             applyButton.targetGraphic = applyFill;
             applyButton.transition = Selectable.Transition.None;
-            applyButton.onClick.AddListener(OnChangeNicknameClicked);
+            applyButton.onClick.AddListener(OnApplyClicked);
             menuButtons.Add(applyButton);
             SetNicknameApplyEnabled(false);
+
+            CreateConfirmRow(panel);
         }
 
         /// <summary>
-        /// Filters what was typed and reports on it, without letting anything
-        /// the rules forbid stay in the field.
+        /// The second press: cancel on the left, where apply used to be, and
+        /// confirm beside it.
         /// </summary>
         /// <remarks>
-        /// Rejecting by rewriting the field re-enters this handler, so the
-        /// second pass is skipped rather than allowed to fight the first.
+        /// The order is deliberate. People double-click buttons, and a change
+        /// that cannot be undone must not be reachable by the second half of a
+        /// double-click. Putting cancel under the cursor makes that stray press
+        /// harmless.
         /// </remarks>
-        private void OnNicknameEdited(string value)
+        private void CreateConfirmRow(RectTransform panel)
         {
-            if (isRewritingNickname)
-            {
-                return;
-            }
+            var row = CreateRect("ConfirmRow", panel);
+            SetAnchor(row, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f));
+            row.anchoredPosition = new Vector2(
+                HomeStyle.Profile.SidePadding, HomeStyle.Profile.ApplyTop);
+            row.sizeDelta = HomeStyle.Profile.ApplySize;
+            confirmRow = row.gameObject;
 
-            var accepted = NicknamePolicy.Filter(value, out var hadBadCharacter, out var wasTooLong);
-            if (accepted != value)
-            {
-                isRewritingNickname = true;
-                profileNicknameInput.text = accepted;
-                profileNicknameInput.caretPosition = accepted.Length;
-                isRewritingNickname = false;
-            }
+            var half = (HomeStyle.Profile.ApplySize.x - HomeStyle.Profile.ConfirmGap) * 0.5f;
 
-            if (hadBadCharacter)
-            {
-                ShowNicknameMessage(
-                    HomeStyle.Profile.BadCharacterMessage, HomeStyle.Palette.MessageRejected);
-            }
-            else if (wasTooLong)
-            {
-                ShowNicknameMessage(
-                    HomeStyle.Profile.TooLongMessage, HomeStyle.Palette.MessageRejected);
-            }
-            else
-            {
-                ClearNicknameMessage();
-            }
+            CreateConfirmHalf(
+                row, "Cancel", "취소", 0f, half,
+                HomeStyle.Palette.ApplyOffFill, HomeStyle.Palette.ApplyOffLabel,
+                CancelNicknameConfirm);
 
-            UpdateNicknameCounter(accepted);
-            UpdateNicknameApplyEnabled();
-            NicknameEdited?.Invoke(accepted);
+            CreateConfirmHalf(
+                row, "Confirm", "변경",
+                half + HomeStyle.Profile.ConfirmGap, half,
+                HomeStyle.Palette.ApplyOnFill, HomeStyle.Palette.ApplyOnLabel,
+                ConfirmNicknameChange);
+
+            row.gameObject.SetActive(false);
         }
 
-        /// <summary>
-        /// Says how the attempt went. Only a refusal is worth a line: a name
-        /// that was accepted is already showing on the chip.
-        /// </summary>
-        public void SetNicknameAvailability(NicknameCheckOutcome outcome)
+        private void CreateConfirmHalf(
+            RectTransform row,
+            string name,
+            string label,
+            float left,
+            float width,
+            Color fillColour,
+            Color labelColour,
+            Action onClicked)
         {
-            if (outcome == NicknameCheckOutcome.Available)
-            {
-                ClearNicknameMessage();
-                return;
-            }
+            var half = CreateRect(name, row);
+            SetAnchor(half, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0.5f));
+            half.anchoredPosition = new Vector2(left, 0f);
+            half.sizeDelta = new Vector2(width, 0f);
 
-            ShowNicknameMessage(DescribeOutcome(outcome), HomeStyle.Palette.MessageRejected);
+            var fill = AddImage(
+                half,
+                fillColour,
+                HomeUiFonts.Rounded(HomeStyle.Radius.Input),
+                raycastTarget: true);
+            fill.type = Image.Type.Sliced;
+            fill.pixelsPerUnitMultiplier = 1f;
+
+            var labelRect = CreateRect("Label", half);
+            SetAnchor(labelRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            labelRect.offsetMin = Vector2.zero;
+            labelRect.offsetMax = Vector2.zero;
+            var text = AddText(
+                labelRect,
+                label,
+                HomeStyle.FontSize.Apply,
+                FontStyles.Normal,
+                TextAlignmentOptions.Center);
+            ApplyMenuFont(text);
+            text.color = labelColour;
+
+            var button = half.gameObject.AddComponent<Button>();
+            button.targetGraphic = fill;
+            button.transition = Selectable.Transition.None;
+            button.onClick.AddListener(() => onClicked());
+            menuButtons.Add(button);
         }
 
-        /// <summary>
-        /// Apply is open for any name the rule allows that is not the one
-        /// already in use.
-        /// </summary>
-        /// <remarks>
-        /// Excluding the current name matters: asking whether your own nickname
-        /// is taken comes back yes, and the panel would answer a press with
-        /// "이미 존재하는 닉네임입니다" about the name you already own.
-        /// </remarks>
-        private void UpdateNicknameApplyEnabled()
+        private void OnApplyClicked()
         {
             var typed = profileNicknameInput != null
                 ? profileNicknameInput.text
                 : string.Empty;
 
-            SetNicknameApplyEnabled(
-                NicknamePolicy.IsValid(typed)
-                && !string.Equals(typed, currentNickname, StringComparison.Ordinal));
+            // Half-composed Hangul is allowed into the field so a Korean
+            // keyboard can build a syllable; it must not leave it.
+            if (!NicknamePolicy.IsValid(typed))
+            {
+                ShowNicknameMessage(
+                    HomeStyle.Profile.BadCharacterMessage, HomeStyle.Palette.MessageRejected);
+                return;
+            }
+
+            SetNicknameConfirming(true);
+            ShowNicknameMessage(
+                $"\"{typed}\"로 정할까요? 되돌릴 수 없어요",
+                HomeStyle.Palette.MessageRejected);
         }
 
-        private static string DescribeOutcome(NicknameCheckOutcome outcome)
+        private void CancelNicknameConfirm()
         {
-            switch (outcome)
+            SetNicknameConfirming(false);
+            ClearNicknameMessage();
+        }
+
+        private void ConfirmNicknameChange()
+        {
+            SetNicknameConfirming(false);
+            NicknameChangeRequested?.Invoke(
+                profileNicknameInput != null ? profileNicknameInput.text : string.Empty);
+        }
+
+        private void SetNicknameConfirming(bool confirming)
+        {
+            isConfirmingNickname = confirming;
+            if (applyButton != null)
             {
-                case NicknameCheckOutcome.Available:
-                    return HomeStyle.Profile.AvailableMessage;
+                applyButton.gameObject.SetActive(!confirming);
+            }
 
-                case NicknameCheckOutcome.Taken:
-                    return HomeStyle.Profile.TakenMessage;
-
-                case NicknameCheckOutcome.Rejected:
-                    return HomeStyle.Profile.BadCharacterMessage;
-
-                default:
-                    return HomeStyle.Profile.UnreachableMessage;
+            if (confirmRow != null)
+            {
+                confirmRow.SetActive(confirming);
             }
         }
 
@@ -397,6 +428,55 @@ namespace Game.Client.Home
                 : HomeStyle.Palette.ApplyOffLabel;
         }
 
+        /// <summary>
+        /// Filters what was typed and reports on it, without letting anything
+        /// the rules forbid stay in the field.
+        /// </summary>
+        /// <remarks>
+        /// Rejecting by rewriting the field re-enters this handler, so the
+        /// second pass is skipped rather than allowed to fight the first.
+        /// </remarks>
+        private void OnNicknameEdited(string value)
+        {
+            if (isRewritingNickname)
+            {
+                return;
+            }
+
+            var accepted = NicknamePolicy.Filter(
+                value, out var hadBadCharacter, out var wasTooLong);
+            if (accepted != value)
+            {
+                isRewritingNickname = true;
+                profileNicknameInput.text = accepted;
+                profileNicknameInput.caretPosition = accepted.Length;
+                isRewritingNickname = false;
+            }
+
+            // Editing takes back a pending confirmation: what was about to be
+            // agreed to is no longer what the field says.
+            SetNicknameConfirming(false);
+
+            if (hadBadCharacter)
+            {
+                ShowNicknameMessage(
+                    HomeStyle.Profile.BadCharacterMessage, HomeStyle.Palette.MessageRejected);
+            }
+            else if (wasTooLong)
+            {
+                ShowNicknameMessage(
+                    HomeStyle.Profile.TooLongMessage, HomeStyle.Palette.MessageRejected);
+            }
+            else
+            {
+                ClearNicknameMessage();
+            }
+
+            UpdateNicknameCounter(accepted);
+            UpdateNicknameApplyEnabled();
+            NicknameEdited?.Invoke(accepted);
+        }
+
         private void UpdateNicknameCounter(string value)
         {
             if (nicknameCounterText != null)
@@ -419,29 +499,94 @@ namespace Game.Client.Home
 
         private void ClearNicknameMessage()
         {
-            ShowNicknameMessage(string.Empty, HomeStyle.Palette.MessageRejected);
+            ShowNicknameMessage(
+                currentNicknameSet
+                    ? HomeStyle.Profile.AlreadySetMessage
+                    : HomeStyle.Profile.OneChangeMessage,
+                HomeStyle.Palette.Counter);
         }
 
         /// <summary>
-        /// Hands the name over. Whether anyone else has it is the presenter's
-        /// question to ask.
+        /// Says how the attempt to take a name went. Only a refusal is worth a
+        /// line: a name that was accepted is already showing on the chip.
         /// </summary>
-        private void OnChangeNicknameClicked()
+        public void SetNicknameAvailability(NicknameCheckOutcome outcome)
         {
+            if (outcome == NicknameCheckOutcome.Available)
+            {
+                ClearNicknameMessage();
+                return;
+            }
+
+            ShowNicknameMessage(DescribeOutcome(outcome), HomeStyle.Palette.MessageRejected);
+        }
+
+        private static string DescribeOutcome(NicknameCheckOutcome outcome)
+        {
+            switch (outcome)
+            {
+                case NicknameCheckOutcome.Available:
+                    return HomeStyle.Profile.AvailableMessage;
+
+                case NicknameCheckOutcome.Taken:
+                    return HomeStyle.Profile.TakenMessage;
+
+                case NicknameCheckOutcome.Rejected:
+                    return HomeStyle.Profile.BadCharacterMessage;
+
+                default:
+                    return HomeStyle.Profile.UnreachableMessage;
+            }
+        }
+
+        /// <summary>
+        /// Locks the panel once the one change has been spent.
+        /// </summary>
+        /// <remarks>
+        /// The field is switched off rather than hidden: the player should see
+        /// the name they settled on, and that it can no longer be edited.
+        /// </remarks>
+        public void SetNicknameSettled(bool settled)
+        {
+            currentNicknameSet = settled;
+            if (profileNicknameInput != null)
+            {
+                profileNicknameInput.interactable = !settled;
+            }
+
+            if (settled)
+            {
+                SetNicknameConfirming(false);
+            }
+
+            ClearNicknameMessage();
+            UpdateNicknameApplyEnabled();
+        }
+
+        /// <summary>
+        /// Apply is open for any name the rule allows that is not the one
+        /// already in use, and only while the change is still available.
+        /// </summary>
+        /// <remarks>
+        /// Excluding the current name matters: asking whether your own nickname
+        /// is taken comes back yes, and the panel would answer a press with
+        /// "이미 존재하는 닉네임입니다" about the name you already own.
+        /// </remarks>
+        private void UpdateNicknameApplyEnabled()
+        {
+            if (currentNicknameSet)
+            {
+                SetNicknameApplyEnabled(false);
+                return;
+            }
+
             var typed = profileNicknameInput != null
                 ? profileNicknameInput.text
                 : string.Empty;
 
-            // Half-composed Hangul is allowed into the field so a Korean
-            // keyboard can build a syllable; it must not leave it.
-            if (!NicknamePolicy.IsValid(typed))
-            {
-                ShowNicknameMessage(
-                    HomeStyle.Profile.BadCharacterMessage, HomeStyle.Palette.MessageRejected);
-                return;
-            }
-
-            NicknameChangeRequested?.Invoke(typed);
+            SetNicknameApplyEnabled(
+                NicknamePolicy.IsValid(typed)
+                && !string.Equals(typed, currentNickname, StringComparison.Ordinal));
         }
     }
 }

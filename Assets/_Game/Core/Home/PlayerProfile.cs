@@ -36,6 +36,32 @@ namespace Game.Core.Home
         public string Nickname { get; private set; }
         public int Level { get; private set; }
 
+        /// <summary>
+        /// Whether this player has settled on a name. False means the server's
+        /// temporary one is still in use and the one change is still available.
+        /// </summary>
+        /// <remarks>
+        /// The server owns this — its account response carries
+        /// <c>nicknameSet</c> — so this is the client's copy of that answer, not
+        /// its own count. Until the account API is wired it only lasts as long
+        /// as the process.
+        /// </remarks>
+        public bool NicknameSet { get; private set; }
+
+        /// <summary>
+        /// Takes the server's word for whether the name has been settled.
+        /// </summary>
+        public void MarkNicknameSet(bool settled)
+        {
+            if (NicknameSet == settled)
+            {
+                return;
+            }
+
+            NicknameSet = settled;
+            Changed?.Invoke(this);
+        }
+
         public event Action<PlayerProfile> Changed;
 
         public bool TryChangeNickname(
@@ -60,6 +86,10 @@ namespace Game.Core.Home
             }
 
             Nickname = trimmed;
+
+            // The one change is spent by a change that worked. A name refused
+            // because someone else has it must leave the chance intact.
+            NicknameSet = true;
             error = PlayerProfileError.None;
             Changed?.Invoke(this);
             return true;

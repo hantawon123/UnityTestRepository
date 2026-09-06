@@ -56,12 +56,16 @@ namespace Game.Client.Home
 
         void SetProfileSettingsVisible(bool visible);
 
-        void SetNicknameAppliedFeedbackVisible(bool visible);
 
         /// <summary>
         /// How the attempt to take a name went.
         /// </summary>
         void SetNicknameAvailability(NicknameCheckOutcome outcome);
+
+        /// <summary>
+        /// Whether the one nickname change has been spent.
+        /// </summary>
+        void SetNicknameSettled(bool settled);
 
         void SetServerSettingsVisible(bool visible);
 

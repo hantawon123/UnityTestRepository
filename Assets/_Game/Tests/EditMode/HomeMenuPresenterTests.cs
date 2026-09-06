@@ -163,20 +163,17 @@ namespace Game.Tests.EditMode
             using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
 
             Assert.That(view.ProfileSettingsVisible, Is.False);
-            Assert.That(view.NicknameAppliedFeedbackVisible, Is.False);
 
             view.Raise(HomeMenuAction.ProfileSettings);
             Assert.That(view.ProfileSettingsVisible, Is.True);
             Assert.That(view.FriendListVisible, Is.False);
             Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"));
-            Assert.That(view.NicknameAppliedFeedbackVisible, Is.False);
 
             view.Raise(HomeMenuAction.ProfileSettings);
             Assert.That(view.ProfileSettingsVisible, Is.True);
 
             view.RaiseProfileSettingsDismissed();
             Assert.That(view.ProfileSettingsVisible, Is.False);
-            Assert.That(view.NicknameAppliedFeedbackVisible, Is.False);
         }
 
         [Test]
@@ -206,43 +203,7 @@ namespace Game.Tests.EditMode
             view.Raise(HomeMenuAction.FindRoom);
 
             Assert.That(view.ProfileSettingsVisible, Is.False);
-            Assert.That(view.NicknameAppliedFeedbackVisible, Is.False);
             Assert.That(host.RoomBrowserOpenCount, Is.EqualTo(1));
-        }
-
-        [Test]
-        public void Presenter_ChangeNickname_ShowsAppliedFeedbackUntilTextDiffers()
-        {
-            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
-            view.Raise(HomeMenuAction.ProfileSettings);
-
-            view.RaiseNicknameChangeRequested("새닉네임");
-            Assert.That(view.Nickname, Is.EqualTo("새닉네임"));
-            Assert.That(view.NicknameAppliedFeedbackVisible, Is.True);
-
-            view.RaiseNicknameEdited("새닉네임");
-            Assert.That(view.NicknameAppliedFeedbackVisible, Is.True);
-
-            view.RaiseNicknameEdited("새닉네임 ");
-            Assert.That(view.NicknameAppliedFeedbackVisible, Is.False);
-
-            view.RaiseNicknameChangeRequested("새닉네임");
-            Assert.That(view.NicknameAppliedFeedbackVisible, Is.True);
-
-            view.RaiseNicknameEdited("새닉네임!");
-            Assert.That(view.NicknameAppliedFeedbackVisible, Is.False);
-            Assert.That(view.Nickname, Is.EqualTo("새닉네임"));
-        }
-
-        [Test]
-        public void Presenter_EmptyNickname_DoesNotShowAppliedFeedback()
-        {
-            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
-            view.Raise(HomeMenuAction.ProfileSettings);
-
-            view.RaiseNicknameChangeRequested(" ");
-            Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"));
-            Assert.That(view.NicknameAppliedFeedbackVisible, Is.False);
         }
 
         [Test]
@@ -253,38 +214,7 @@ namespace Game.Tests.EditMode
             view.RaiseNicknameChangeRequested("해킹닉네임");
 
             Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"));
-            Assert.That(view.NicknameAppliedFeedbackVisible, Is.False);
             Assert.That(view.ProfileSettingsVisible, Is.False);
-        }
-
-        [Test]
-        public void Presenter_ReopeningProfileSettings_HidesPreviousAppliedFeedback()
-        {
-            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
-            view.Raise(HomeMenuAction.ProfileSettings);
-            view.RaiseNicknameChangeRequested("새닉네임");
-            Assert.That(view.NicknameAppliedFeedbackVisible, Is.True);
-
-            view.RaiseProfileSettingsDismissed();
-            view.Raise(HomeMenuAction.ProfileSettings);
-
-            Assert.That(view.ProfileSettingsVisible, Is.True);
-            Assert.That(view.NicknameAppliedFeedbackVisible, Is.False);
-            Assert.That(view.Nickname, Is.EqualTo("새닉네임"));
-        }
-
-        [Test]
-        public void Presenter_ChangeNicknameAgain_ShowsAppliedFeedback()
-        {
-            using var presenter = CreateStartedPresenter(out var view, out _, out _, out _, out _);
-            view.Raise(HomeMenuAction.ProfileSettings);
-            view.RaiseNicknameChangeRequested("새닉네임");
-            view.RaiseNicknameEdited("다른닉");
-            Assert.That(view.NicknameAppliedFeedbackVisible, Is.False);
-
-            view.RaiseNicknameChangeRequested("다른닉");
-            Assert.That(view.Nickname, Is.EqualTo("다른닉"));
-            Assert.That(view.NicknameAppliedFeedbackVisible, Is.True);
         }
 
         [Test]
@@ -769,6 +699,39 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Presenter_TakingAName_SpendsTheOneChange()
+        {
+            using var presenter = CreateStartedPresenter(
+                out var view, out _, out _, out _, out _, out var availability);
+            view.Raise(HomeMenuAction.ProfileSettings);
+            Assert.That(view.NicknameSettled, Is.False);
+
+            availability.Answer = NicknameCheckOutcome.Available;
+            view.RaiseNicknameChangeRequested("새로운이름");
+
+            Assert.That(view.NicknameSettled, Is.True);
+        }
+
+        [Test]
+        public void Presenter_ANameRefusedBecauseItIsTaken_LeavesTheChanceIntact()
+        {
+            using var presenter = CreateStartedPresenter(
+                out var view, out _, out _, out _, out _, out var availability);
+            view.Raise(HomeMenuAction.ProfileSettings);
+
+            availability.Answer = NicknameCheckOutcome.Taken;
+            view.RaiseNicknameChangeRequested("금오산냥냥이");
+
+            // Losing the only change to a name somebody else already had would
+            // leave the player on the server's temporary name for good.
+            Assert.That(view.NicknameSettled, Is.False);
+
+            availability.Answer = NicknameCheckOutcome.Available;
+            view.RaiseNicknameChangeRequested("다른이름");
+            Assert.That(view.Nickname, Is.EqualTo("다른이름"));
+        }
+
+        [Test]
         public void Presenter_ApplyingIsIgnoredUntilProfileSettingsIsOpen()
         {
             using var presenter = CreateStartedPresenter(
@@ -999,9 +962,10 @@ namespace Game.Tests.EditMode
 
             public bool ProfileSettingsVisible { get; private set; }
 
-            public bool NicknameAppliedFeedbackVisible { get; private set; }
 
             public NicknameCheckOutcome? LastAvailability { get; private set; }
+
+            public bool NicknameSettled { get; private set; }
 
             public IReadOnlyList<FriendSummary> IncomingRequests { get; private set; } =
                 Array.Empty<FriendSummary>();
@@ -1059,14 +1023,14 @@ namespace Game.Tests.EditMode
                 ProfileSettingsVisible = visible;
             }
 
-            public void SetNicknameAppliedFeedbackVisible(bool visible)
-            {
-                NicknameAppliedFeedbackVisible = visible;
-            }
-
             public void SetNicknameAvailability(NicknameCheckOutcome outcome)
             {
                 LastAvailability = outcome;
+            }
+
+            public void SetNicknameSettled(bool settled)
+            {
+                NicknameSettled = settled;
             }
 
             public void SetServerSettingsVisible(bool visible)

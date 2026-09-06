@@ -337,7 +337,6 @@ namespace Game.Client.Home
 
             if (!string.Equals(nickname, profile.Nickname, StringComparison.Ordinal))
             {
-                view.SetNicknameAppliedFeedbackVisible(false);
             }
         }
 
@@ -477,7 +476,7 @@ namespace Game.Client.Home
             isProfileSettingsVisible = true;
             view.SetNickname(profile.Nickname);
             view.SetLevel(profile.Level);
-            view.SetNicknameAppliedFeedbackVisible(false);
+            view.SetNicknameSettled(profile.NicknameSet);
             view.SetProfileSettingsVisible(true);
         }
 
@@ -485,7 +484,6 @@ namespace Game.Client.Home
         {
             isProfileSettingsVisible = false;
             view.SetNickname(profile.Nickname);
-            view.SetNicknameAppliedFeedbackVisible(false);
             view.SetProfileSettingsVisible(false);
         }
 
@@ -576,6 +574,7 @@ namespace Game.Client.Home
         {
             view.SetNickname(source.Nickname);
             view.SetLevel(source.Level);
+            view.SetNicknameSettled(source.NicknameSet);
         }
     }
 }

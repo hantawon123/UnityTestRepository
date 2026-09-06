@@ -219,6 +219,19 @@ namespace Game.Client.Home
             public const string AvailableMessage = "사용 가능한 닉네임입니다";
 
             /// <summary>
+            /// Shown whenever nothing has gone wrong, so the one-shot nature of
+            /// the change is on screen before it is spent rather than after.
+            /// </summary>
+            public const string OneChangeMessage = "닉네임은 한 번만 변경할 수 있어요";
+
+            public const string AlreadySetMessage = "이미 닉네임을 변경했어요";
+
+            /// <summary>
+            /// The gap between the two halves of the confirm row.
+            /// </summary>
+            public const float ConfirmGap = 12f;
+
+            /// <summary>
             /// Not given by the design, which has no picture for a server that
             /// did not answer. Says to try again rather than to pick another
             /// name, because the name may well be fine.

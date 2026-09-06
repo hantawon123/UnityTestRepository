@@ -134,6 +134,9 @@ namespace Game.Client.Home
         /// re-typing of what is already there.
         /// </summary>
         private string currentNickname = string.Empty;
+        private bool currentNicknameSet;
+        private bool isConfirmingNickname;
+        private GameObject confirmRow;
 
         public event Action<HomeMenuAction> ActionClicked;
 
@@ -163,7 +166,6 @@ namespace Game.Client.Home
 
             SetFriendListVisible(false);
             SetProfileSettingsVisible(false);
-            SetNicknameAppliedFeedbackVisible(false);
         }
 
         private void OnDestroy()
@@ -236,15 +238,6 @@ namespace Game.Client.Home
             }
 
             profileSettingsRoot.SetActive(visible);
-        }
-
-        /// <summary>
-        /// Nothing to draw, for the same reason as <see cref="SetLevel"/>: the
-        /// revised panel answers with the check message rather than with a
-        /// separate "applied" line.
-        /// </summary>
-        public void SetNicknameAppliedFeedbackVisible(bool visible)
-        {
         }
 
         public void SetFriendListVisible(bool visible)
