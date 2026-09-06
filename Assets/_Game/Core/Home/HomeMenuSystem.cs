@@ -4,10 +4,12 @@ namespace Game.Core.Home
 {
     public enum HomeMenuAction
     {
-        QuickPlay,
+        CreateRoom,
         FindRoom,
+        Character,
         ProfileSettings,
         Friends,
+        ServerSettings,
         Settings,
         Quit
     }

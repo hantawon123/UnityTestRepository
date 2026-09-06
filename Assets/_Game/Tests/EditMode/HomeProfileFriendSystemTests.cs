@@ -84,7 +84,11 @@ namespace Game.Tests.EditMode
                 new FriendSummary("player-2", "검색유저", FriendPresence.Offline)
             });
 
+            // 부분 일치는 더 이상 아무도 찾지 못한다.
             search.Search("검색", new[] { "player-1" });
+            Assert.That(search.Results, Is.Empty);
+
+            search.Search("검색유저", new[] { "player-1" });
             Assert.That(search.Results.Count, Is.EqualTo(1));
             Assert.That(search.Results[0].Nickname, Is.EqualTo("검색유저"));
             Assert.That(search.Results[0].IsPending, Is.False);
@@ -101,7 +105,7 @@ namespace Game.Tests.EditMode
                 () => search.ReplaceDirectory(null),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => search.Search("검색", null),
+                () => search.Search("검색유저", null),
                 Throws.TypeOf<ArgumentNullException>());
         }
     }

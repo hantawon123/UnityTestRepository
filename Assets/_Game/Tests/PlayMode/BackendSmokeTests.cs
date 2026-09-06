@@ -66,7 +66,7 @@ namespace Game.Tests.PlayMode
                     Assert.That(again.Value.UserId, Is.EqualTo(one.UserId));
                     Assert.That(again.Value.NicknameSet, Is.True, "the rename stuck");
 
-                    var found = await one.Friends.SearchAsync(run, CancellationToken.None);
+                    var found = await one.Friends.SearchAsync(two.Nickname, CancellationToken.None);
                     Assert.That(found.Ok, Is.True, "search");
                     Assert.That(found.Value.Count, Is.EqualTo(1), "search excludes the caller");
                     Assert.That(found.Value[0].PlayerId, Is.EqualTo(two.UserId));
@@ -129,6 +129,74 @@ namespace Game.Tests.PlayMode
                 {
                     await one.DeleteAsync();
                     await two.DeleteAsync();
+                }
+            });
+
+        /// <summary>
+        /// Turning search off, against a real server.
+        /// </summary>
+        /// <remarks>
+        /// The EditMode tests pin what this client sends and the backend tests pin
+        /// what that server accepts, but each is written against the other's
+        /// picture. A path or a field name that is wrong in both agrees with
+        /// itself and both suites stay green. This is the only place the two
+        /// actually meet.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TurningSearchOff_HidesTheAccountFromNicknameSearch() =>
+            UniTask.ToCoroutine(async () =>
+            {
+                var transport = new UnityWebRequestTransport();
+                await SkipUnlessListening(transport);
+
+                var run = Guid.NewGuid().ToString("N").Substring(0, 6);
+                var seeker = new Player(transport, run + "a");
+                var hider = new Player(transport, run + "b");
+
+                try
+                {
+                    await seeker.SignInAsync();
+                    await seeker.RenameAsync();
+
+                    var joined = await hider.SignInAsync();
+                    Assert.That(joined.Value.Searchable, Is.True, "accounts start visible");
+                    await hider.RenameAsync();
+
+                    var before = await seeker.Friends.SearchAsync(hider.Nickname, CancellationToken.None);
+                    Assert.That(before.Ok, Is.True, "search");
+                    Assert.That(before.Value.Count, Is.EqualTo(1), "the other one is findable");
+
+                    var hidden = await hider.Accounts.SetSearchableAsync(
+                        false, CancellationToken.None);
+                    Assert.That(hidden.Ok, Is.True, "turn search off");
+                    Assert.That(hidden.Value.Searchable, Is.False, "the server kept it");
+
+                    // Gone from the answer itself, not filtered on this side.
+                    var after = await seeker.Friends.SearchAsync(hider.Nickname, CancellationToken.None);
+                    Assert.That(after.Ok, Is.True, "search again");
+                    Assert.That(after.Value, Is.Empty, "hidden accounts are not sent");
+
+                    // Reading the account back agrees. Without this the screen
+                    // would draw the checkbox on again after a restart.
+                    var reread = await hider.Accounts.RefreshAsync(CancellationToken.None);
+                    Assert.That(reread.Value.Searchable, Is.False);
+
+                    // Hiding is not blocking. Anyone holding the id can still ask.
+                    var asked = await seeker.Friends.SendRequestAsync(
+                        hider.UserId, CancellationToken.None);
+                    Assert.That(asked.Ok, Is.True, "a hidden account still takes requests");
+
+                    var shown = await hider.Accounts.SetSearchableAsync(
+                        true, CancellationToken.None);
+                    Assert.That(shown.Value.Searchable, Is.True);
+
+                    var back = await seeker.Friends.SearchAsync(hider.Nickname, CancellationToken.None);
+                    Assert.That(back.Value.Count, Is.EqualTo(1), "turning it back on restores");
+                }
+                finally
+                {
+                    await seeker.DeleteAsync();
+                    await hider.DeleteAsync();
                 }
             });
 
@@ -223,12 +291,22 @@ namespace Game.Tests.PlayMode
                     HttpMethod.Get, LocalBackend + "/actuator/health", null, null, 2),
                 CancellationToken.None);
 
-            if (health.Outcome != HttpOutcome.Completed || health.StatusCode != 200)
+            if (health.Outcome != HttpOutcome.Completed)
             {
                 Assert.Ignore(
                     "No backend on " + LocalBackend
                     + ". Start one in backend/: docker compose -f compose.local.yml up -d, then ./gradlew bootRun.");
             }
+
+            // A server that answered but not with 200 is broken, not absent, and
+            // skipping would report it as green. Locking down /actuator/health by
+            // accident does exactly this: every smoke test quietly opts out and
+            // nothing looks wrong.
+            Assert.That(
+                health.StatusCode,
+                Is.EqualTo(200),
+                "Something is answering on " + LocalBackend
+                + " but health is not 200. That is a broken server, not a missing one.");
         }
 
         private static async UniTask Reports(Player player, string sessionId)
@@ -259,9 +337,9 @@ namespace Game.Tests.PlayMode
                 Presence = new PresenceGateway(client);
 
                 // Letters and digits only, inside the server's twelve, and
-                // starting with the run's tag: the server matches a prefix, not
-                // a substring, so a name with anything in front of it would not
-                // come back from a search for that tag.
+                // unique to this run. The server matches the whole nickname
+                // exactly, so a test searches for the other player's full name
+                // rather than a shared tag.
                 Nickname = tag;
             }
 

@@ -14,10 +14,15 @@ public record AccountResponse(
         String userId,
         String nickname,
         boolean nicknameSet,
+        boolean searchable,
         String createdAt
 ) {
     public static AccountResponse from(User user) {
         return new AccountResponse(
-                user.getPublicId(), user.getNickname(), user.isNicknameSet(), user.getCreatedAt());
+                user.getPublicId(),
+                user.getNickname(),
+                user.isNicknameSet(),
+                user.isSearchable(),
+                user.getCreatedAt());
     }
 }

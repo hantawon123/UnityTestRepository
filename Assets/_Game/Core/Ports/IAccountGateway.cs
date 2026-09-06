@@ -42,6 +42,21 @@ namespace Game.Core.Ports
             string nickname, CancellationToken cancellation);
 
         /// <summary>
+        /// Decides whether this player turns up in nickname searches.
+        /// </summary>
+        /// <remarks>
+        /// Idempotent. Setting what is already set is not an error, which is
+        /// what a checkbox needs — pressing it twice lands back where it
+        /// started and neither press should fail.
+        /// <para>
+        /// Answers with the whole account, so the screen redraws from the reply
+        /// rather than asking again.
+        /// </para>
+        /// </remarks>
+        UniTask<BackendResult<AccountSnapshot>> SetSearchableAsync(
+            bool searchable, CancellationToken cancellation);
+
+        /// <summary>
         /// Deletes this account, its friendships and its presence.
         /// </summary>
         /// <remarks>

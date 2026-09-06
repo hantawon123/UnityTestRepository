@@ -7,14 +7,15 @@ namespace Game.Client.Match
 {
     public interface IHidingTurnStartView
     {
-        void Show(double remainingSeconds);
+        void Show(double remainingSeconds, string bannerText = null);
         void Hide();
         void SetRemainingSeconds(double remainingSeconds);
     }
 
     /// <summary>
-    /// The first beat of your hiding turn: a large stopwatch and a banner.
-    /// After one second the presenter will swap this for the corner HUD.
+    /// The first beat of a timed warning: a large stopwatch and a banner.
+    /// Hiding uses this at the start of a turn; searching reuses it when the
+    /// last thirty seconds begin. After one second the presenter hides it.
     /// </summary>
     [ExecuteAlways]
     [DisallowMultipleComponent]
@@ -22,6 +23,7 @@ namespace Game.Client.Match
     {
         public const float VisibleSeconds = 1f;
         public const string BannerText = "제한 시간 안에 물건을 숨겨주세요!";
+        public const string FinalWarningBannerText = "서둘러 자신의 물건을 확보하세요!";
         public const float TimerFontSize = 48f;
         public const float BannerFontSize = 55f;
         public const float BannerCornerRadius = 24f;
@@ -49,6 +51,7 @@ namespace Game.Client.Match
 
         private int lastTotalSeconds = -1;
         private bool shown;
+        private string currentBannerText = BannerText;
 
         public static string FormatTimer(double remainingSeconds)
         {
@@ -79,9 +82,12 @@ namespace Game.Client.Match
             }
         }
 
-        public void Show(double remainingSeconds)
+        public void Show(double remainingSeconds, string bannerText = null)
         {
             shown = true;
+            currentBannerText = string.IsNullOrWhiteSpace(bannerText)
+                ? BannerText
+                : bannerText;
             if (!gameObject.activeSelf)
             {
                 gameObject.SetActive(true);
@@ -130,7 +136,7 @@ namespace Game.Client.Match
             bannerText.fontStyle = FontStyles.Normal;
             bannerText.textWrappingMode = TextWrappingModes.NoWrap;
             bannerText.overflowMode = TextOverflowModes.Overflow;
-            bannerText.text = BannerText;
+            bannerText.text = currentBannerText;
             if (timerText != null)
             {
                 timerText.font = font;

@@ -46,7 +46,7 @@ namespace Game.Tests.PlayMode
                     // What the search box does: ask the server, then narrow to
                     // people who are not already friends.
                     Assert.That(
-                        await one.Commands.SearchAsync(run, one.Commands.FriendIds(), Token),
+                        await one.Commands.SearchAsync(two.Nickname, one.Commands.FriendIds(), Token),
                         Is.EqualTo(BackendFailure.None));
                     Assert.That(one.Search.Results.Count, Is.EqualTo(1));
                     Assert.That(one.Search.Results[0].PlayerId, Is.EqualTo(two.UserId));
@@ -76,7 +76,7 @@ namespace Game.Tests.PlayMode
                     Assert.That(one.Friends.OfflineFriends.Count, Is.EqualTo(1));
 
                     // Searching again no longer offers to befriend them.
-                    await one.Commands.SearchAsync(run, one.Commands.FriendIds(), Token);
+                    await one.Commands.SearchAsync(two.Nickname, one.Commands.FriendIds(), Token);
                     Assert.That(one.Search.Results, Is.Empty);
                 }
                 finally
@@ -102,10 +102,10 @@ namespace Game.Tests.PlayMode
                     await one.SignInAsync();
                     await two.SignInAsync();
 
-                    await one.Commands.SearchAsync(run, one.Commands.FriendIds(), Token);
+                    await one.Commands.SearchAsync(two.Nickname, one.Commands.FriendIds(), Token);
                     await one.Commands.SendRequestAsync(two.UserId, Token);
 
-                    await two.Commands.SearchAsync(run, two.Commands.FriendIds(), Token);
+                    await two.Commands.SearchAsync(one.Nickname, two.Commands.FriendIds(), Token);
                     var failure = await two.Commands.SendRequestAsync(one.UserId, Token);
 
                     Assert.That(failure, Is.EqualTo(BackendFailure.None));
@@ -137,7 +137,7 @@ namespace Game.Tests.PlayMode
                 {
                     await one.SignInAsync();
                     await two.SignInAsync();
-                    await one.Commands.SearchAsync(run, one.Commands.FriendIds(), Token);
+                    await one.Commands.SearchAsync(two.Nickname, one.Commands.FriendIds(), Token);
 
                     // Held before the delete. Deleting clears that screen's
                     // session, so afterwards it no longer knows its own id.
@@ -169,12 +169,22 @@ namespace Game.Tests.PlayMode
                 new HttpCall(HttpMethod.Get, LocalBackend + "/actuator/health", null, null, 2),
                 CancellationToken.None);
 
-            if (health.Outcome != HttpOutcome.Completed || health.StatusCode != 200)
+            if (health.Outcome != HttpOutcome.Completed)
             {
                 Assert.Ignore(
                     "No backend on " + LocalBackend
                     + ". Start one in backend/: docker compose -f compose.local.yml up -d, then ./gradlew bootRun.");
             }
+
+            // A server that answered but not with 200 is broken, not absent, and
+            // skipping would report it as green. Locking down /actuator/health by
+            // accident does exactly this: every smoke test quietly opts out and
+            // nothing looks wrong.
+            Assert.That(
+                health.StatusCode,
+                Is.EqualTo(200),
+                "Something is answering on " + LocalBackend
+                + " but health is not 200. That is a broken server, not a missing one.");
         }
 
         /// <summary>One player's screen: their account and the systems it binds.</summary>

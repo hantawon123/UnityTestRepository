@@ -12,7 +12,8 @@ namespace Game.Core.Backend
     /// </remarks>
     public readonly struct AccountSnapshot
     {
-        public AccountSnapshot(string userId, string nickname, bool nicknameSet)
+        public AccountSnapshot(
+            string userId, string nickname, bool nicknameSet, bool searchable)
         {
             if (string.IsNullOrWhiteSpace(userId))
             {
@@ -27,6 +28,7 @@ namespace Game.Core.Backend
             UserId = userId.Trim();
             Nickname = nickname.Trim();
             NicknameSet = nicknameSet;
+            Searchable = searchable;
         }
 
         /// <summary>
@@ -46,5 +48,17 @@ namespace Game.Core.Backend
         /// moment the server changes how it builds temporary names.
         /// </remarks>
         public bool NicknameSet { get; }
+
+        /// <summary>
+        /// Whether this player turns up when someone searches nicknames.
+        /// </summary>
+        /// <remarks>
+        /// Only the search. A friend already on the list still shows there, a
+        /// pending request still names its sender, and anyone holding this
+        /// account's user id can still ask to be friends. Hiding the name
+        /// everywhere would break the screens of people who already know each
+        /// other.
+        /// </remarks>
+        public bool Searchable { get; }
     }
 }

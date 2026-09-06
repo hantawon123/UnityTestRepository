@@ -18,7 +18,7 @@ namespace Game.Architecture.Tests
     {
         [TestCase(false)]
         [TestCase(true)]
-        public void GameEnd_CountsDownBeforeBlackTransition(bool phaseFirst)
+        public void GameEnd_FadesOutThenCoversBeforeResult(bool phaseFirst)
         {
             var network = new FakeNetwork { ServerTime = 100d };
             var view = new FakeView();
@@ -39,17 +39,19 @@ namespace Game.Architecture.Tests
                 Assert.DoesNotThrow(() => presenter.Tick());
                 Assert.DoesNotThrow(() => playback.Tick());
                 network.IsRuntimeReady = true;
-                for (var second = 0; second < 3; second++)
-                {
-                    network.ServerTime = 100d + second;
-                    presenter.Tick();
-                    playback.Tick();
-                    Assert.That(view.NoticeVisible, Is.True);
-                    Assert.That(view.Notice, Is.EqualTo("게임이 종료되었습니다!"));
-                    Assert.That(view.EndCountdown, Is.EqualTo(3 - second));
-                    Assert.That(transition.Opacity, Is.Zero);
-                }
-                network.ServerTime = 103d;
+                presenter.Tick();
+                playback.Tick();
+                Assert.That(view.EndHeadline, Is.Null.Or.Empty);
+                Assert.That(view.EndCountdown, Is.Zero);
+                Assert.That(transition.Opacity, Is.Zero);
+
+                network.ServerTime = 100d + (HighlightPresentationTiming.FadeSeconds * 0.5d);
+                presenter.Tick();
+                playback.Tick();
+                Assert.That(transition.Opacity, Is.EqualTo(0.5f).Within(0.001f));
+                Assert.That(view.EndHeadline, Is.Null.Or.Empty);
+
+                network.ServerTime = 100d + HighlightPresentationTiming.FadeSeconds;
                 presenter.Tick();
                 playback.Tick();
                 Assert.That(view.NoticeVisible, Is.False);
@@ -490,6 +492,7 @@ namespace Game.Architecture.Tests
                 Assert.That(view.MatchChatVisible, Is.False);
                 Assert.That(view.PlayerStatusVisible, Is.False);
                 Assert.That(view.HidingTurnStartSeconds, Is.EqualTo(30d));
+                Assert.That(view.HidingTurnStartBanner, Is.EqualTo(HidingTurnStartView.BannerText));
 
                 network.ServerTime = 70.9d;
                 presenter.Tick();
@@ -656,6 +659,7 @@ namespace Game.Architecture.Tests
                 presenter.Tick();
                 Assert.That(view.SearchingIntroVisible, Is.True);
                 Assert.That(view.SearchingIntroItem, Is.EqualTo("탄산음료"));
+                Assert.That(view.HidingTurnStartVisible, Is.False);
 
                 network.ServerTime = 102.9d;
                 presenter.Tick();
@@ -726,6 +730,78 @@ namespace Game.Architecture.Tests
                 network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 400d));
                 presenter.Tick();
                 Assert.That(view.SearchingIntroVisible, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void SearchingFinalWarning_ReusesHidingTurnStartOverlay()
+        {
+            var network = new FakeNetwork { ServerTime = 370d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 400d));
+                presenter.Tick();
+                Assert.That(view.HidingTurnStartVisible, Is.True);
+                Assert.That(view.HidingTurnStartSeconds, Is.EqualTo(30d));
+                Assert.That(
+                    view.HidingTurnStartBanner,
+                    Is.EqualTo(HidingTurnStartView.FinalWarningBannerText));
+                Assert.That(view.TopHudVisible, Is.False);
+
+                network.ServerTime = 370.9d;
+                presenter.Tick();
+                Assert.That(view.HidingTurnStartVisible, Is.True);
+                Assert.That(view.HidingTurnStartSeconds, Is.EqualTo(29.1d).Within(0.001d));
+
+                network.ServerTime = 371d;
+                presenter.Tick();
+                Assert.That(view.HidingTurnStartVisible, Is.False);
+                Assert.That(view.TopHudVisible, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rules);
+            }
+        }
+
+        [Test]
+        public void SearchingFinalWarning_DoesNotOpenAfterTheOpeningWindow()
+        {
+            var network = new FakeNetwork { ServerTime = 372d };
+            var view = new FakeView();
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[]
+            {
+                new MatchParticipant("host", 0),
+                new MatchParticipant("client", 1),
+            });
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(
+                    network, network, room, rules, view);
+                presenter.Start();
+
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 400d));
+                presenter.Tick();
+                Assert.That(view.HidingTurnStartVisible, Is.False);
+                Assert.That(view.TopHudVisible, Is.True);
             }
             finally
             {
@@ -919,7 +995,24 @@ namespace Game.Architecture.Tests
             public MatchPhase Phase { get; private set; }
             public double RemainingSeconds { get; private set; }
             public double EndCountdown { get; private set; }
-            public void SetEndCountdown(double value) => EndCountdown = value;
+            public string EndHeadline { get; private set; }
+            public string EndSubtitle { get; private set; }
+
+            public void SetEndCountdown(double value)
+            {
+                EndCountdown = value;
+                if (value <= 0d)
+                {
+                    EndHeadline = null;
+                    EndSubtitle = null;
+                }
+            }
+
+            public void SetEndResult(string headline, string subtitle)
+            {
+                EndHeadline = headline;
+                EndSubtitle = subtitle;
+            }
             public string Notice { get; private set; }
             public bool NoticeVisible { get; private set; }
             public string AssignedItem { get; private set; }
@@ -987,10 +1080,15 @@ namespace Game.Architecture.Tests
             public bool TopHudVisible { get; private set; } = true;
             public bool MatchChatVisible { get; private set; } = true;
 
-            public void ShowHidingTurnStart(double remainingSeconds)
+            public string HidingTurnStartBanner { get; private set; }
+
+            public void ShowHidingTurnStart(double remainingSeconds, string bannerText = null)
             {
                 HidingTurnStartVisible = true;
                 HidingTurnStartSeconds = remainingSeconds;
+                HidingTurnStartBanner = string.IsNullOrWhiteSpace(bannerText)
+                    ? HidingTurnStartView.BannerText
+                    : bannerText;
                 TopHudVisible = false;
             }
 

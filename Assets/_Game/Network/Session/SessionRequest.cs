@@ -35,6 +35,28 @@ namespace Game.Network.Session
         /// </summary>
         public const string HostNickname = "host";
 
+        /// <summary>
+        /// When the room was opened, in seconds since the Unix epoch.
+        /// </summary>
+        /// <remarks>
+        /// Written once by the host, because the room list is ordered newest
+        /// first and a session listing carries no age of its own. Seconds rather
+        /// than ticks: a session property holds an int, and seconds fit one for
+        /// another decade.
+        /// </remarks>
+        public const string OpenedAt = "opened";
+
+        /// <summary>
+        /// Whether the room is playing rather than waiting.
+        /// </summary>
+        /// <remarks>
+        /// The room list needs this and has nothing else to read it from: a
+        /// session in a match looks exactly like one in its lobby from outside,
+        /// and hiding the session instead would make a running match vanish from
+        /// the list rather than show as unavailable.
+        /// </remarks>
+        public const string Playing = "playing";
+
         /// <summary>Whether the room requires a password.</summary>
         public const string Locked = "locked";
     }

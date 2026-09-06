@@ -12,7 +12,18 @@
           "nicknameSet" : {
             "type" : "boolean"
           },
+          "searchable" : {
+            "type" : "boolean"
+          },
           "userId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "AdminSession" : {
+        "properties" : {
+          "username" : {
             "type" : "string"
           }
         },
@@ -114,6 +125,106 @@
         ],
         "type" : "object"
       },
+      "ListResponse" : {
+        "properties" : {
+          "reports" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ReportDetail"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "ReportDetail" : {
+        "properties" : {
+          "createdAt" : {
+            "type" : "string"
+          },
+          "memo" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ReportedUserListResponse" : {
+        "properties" : {
+          "users" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ReportedUserSummary"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "ReportedUserSummary" : {
+        "properties" : {
+          "fromDeletedAccounts" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "lastReportedAt" : {
+            "type" : "string"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "reasons" : {
+            "additionalProperties" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "type" : "object"
+          },
+          "reportCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "reporterCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "userId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ReviewReportRequest" : {
+        "properties" : {
+          "decision" : {
+            "type" : "boolean"
+          },
+          "status" : {
+            "enum" : [
+              "PENDING",
+              "ACTIONED",
+              "DISMISSED"
+            ],
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "status"
+        ],
+        "type" : "object"
+      },
+      "ReviewResult" : {
+        "properties" : {
+          "reviewed" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "SendFriendRequestRequest" : {
         "properties" : {
           "userId" : {
@@ -208,6 +319,17 @@
             "type" : "string"
           }
         },
+        "type" : "object"
+      },
+      "UpdateSearchableRequest" : {
+        "properties" : {
+          "searchable" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [
+          "searchable"
+        ],
         "type" : "object"
       },
       "UserSearchResponse" : {
@@ -365,6 +487,183 @@
         },
         "tags" : [
           "account-controller"
+        ]
+      }
+    },
+    "/api/v1/accounts/me/searchable" : {
+      "put" : {
+        "operationId" : "setSearchable",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateSearchableRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "account-controller"
+        ]
+      }
+    },
+    "/api/v1/admin/reports" : {
+      "get" : {
+        "operationId" : "list_2",
+        "parameters" : [
+          {
+            "in" : "query",
+            "name" : "status",
+            "required" : false,
+            "schema" : {
+              "default" : "PENDING",
+              "enum" : [
+                "PENDING",
+                "ACTIONED",
+                "DISMISSED"
+              ],
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReportedUserListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-report-controller"
+        ]
+      }
+    },
+    "/api/v1/admin/reports/{userId}" : {
+      "get" : {
+        "operationId" : "detail",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "userId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "query",
+            "name" : "status",
+            "required" : false,
+            "schema" : {
+              "enum" : [
+                "PENDING",
+                "ACTIONED",
+                "DISMISSED"
+              ],
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-report-controller"
+        ]
+      },
+      "patch" : {
+        "operationId" : "review",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "userId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReviewReportRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReviewResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-report-controller"
+        ]
+      }
+    },
+    "/api/v1/admin/session" : {
+      "get" : {
+        "operationId" : "current",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminSession"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-session-controller"
         ]
       }
     },

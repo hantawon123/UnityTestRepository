@@ -319,6 +319,56 @@ namespace Game.Architecture.Tests
             return result.Failure;
         }
 
+        [Test]
+        public async Task SetSearchable_PutsTheFlagOnTheAccountsOwnPath()
+        {
+            // 화면이 부를 유일한 경로입니다. 오타가 나면 404 가 오는데, 클라이언트에는
+            // "처리하지 못했습니다" 로만 보여서 무엇이 틀렸는지 드러나지 않습니다.
+            var transport = new FakeTransport();
+            transport.Answer(200, Account("나", false));
+            var accounts = new AccountGateway(SignedIn(transport, out _));
+
+            var result = await accounts.SetSearchableAsync(false, CancellationToken.None);
+
+            Assert.That(result.Ok, Is.True);
+            Assert.That(transport.LastCall.Method, Is.EqualTo(HttpMethod.Put));
+            Assert.That(transport.LastCall.Url, Does.EndWith("/api/v1/accounts/me/searchable"));
+            Assert.That(transport.LastCall.JsonBody, Does.Contain("\"searchable\":false"));
+            Assert.That(Header(transport.LastCall, "X-User-Id"), Is.EqualTo(UserId));
+        }
+
+        [Test]
+        public async Task TheAccount_CarriesWhetherSearchIsOn()
+        {
+            // 서버가 보내는데 클라이언트가 안 읽으면 체크박스가 늘 켜진 채로 그려집니다.
+            // 껐다가 다시 들어오면 안 꺼진 것처럼 보이는 종류의 버그입니다.
+            var transport = new FakeTransport();
+            transport.Answer(200, Account("나", false));
+            var accounts = new AccountGateway(SignedIn(transport, out _));
+
+            var result = await accounts.RefreshAsync(CancellationToken.None);
+
+            Assert.That(result.Value.Searchable, Is.False);
+        }
+
+        [Test]
+        public async Task AnAccountThatIsSearchable_ReadsAsSuch()
+        {
+            // 위 테스트만 있으면 Searchable 을 늘 false 로 두어도 통과합니다.
+            var transport = new FakeTransport();
+            transport.Answer(200, Account("나", true));
+            var accounts = new AccountGateway(SignedIn(transport, out _));
+
+            var result = await accounts.RefreshAsync(CancellationToken.None);
+
+            Assert.That(result.Value.Searchable, Is.True);
+        }
+
+        private static string Account(string nickname, bool searchable) =>
+            "{\"userId\":\"" + UserId + "\",\"nickname\":\"" + nickname
+            + "\",\"nicknameSet\":true,\"searchable\":" + (searchable ? "true" : "false")
+            + ",\"createdAt\":\"20260101000000\"}";
+
         private static BackendClient Client(IHttpTransport transport, out BackendSession session)
         {
             session = new BackendSession(DeviceId);

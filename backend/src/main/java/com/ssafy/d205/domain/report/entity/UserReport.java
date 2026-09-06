@@ -75,6 +75,15 @@ public class UserReport {
     @Column(name = "reviewed_at", length = 14)
     private String reviewedAt;
 
+    /**
+     * 검토한 관리자의 이름. 아직 안 봤으면 null 입니다.
+     *
+     * <p>지금은 계정이 하나라 값이 늘 같습니다. 사람마다 계정을 나눌 일이 생겼을 때
+     * 스키마를 다시 고치지 않으려고 미리 둡니다.
+     */
+    @Column(name = "reviewed_by", length = 32)
+    private String reviewedBy;
+
     private UserReport(Integer reporterSeq, Integer reportedSeq,
                        ReportReason reason, String memo, String now) {
         this.reporterSeq = reporterSeq;
@@ -100,8 +109,9 @@ public class UserReport {
      * 것을 고칠 방법이 없어집니다. 대신 이전 판단이 무엇이었는지는 남지 않으므로,
      * 이력이 필요해지면 이 행이 아니라 별도 기록이 있어야 합니다.
      */
-    public void review(ReportStatus decision, String now) {
+    public void review(ReportStatus decision, String reviewer, String now) {
         this.status = decision;
+        this.reviewedBy = reviewer;
         this.reviewedAt = now;
     }
 }

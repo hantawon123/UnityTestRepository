@@ -29,6 +29,8 @@ namespace Game.Editor
         private const string RequestPath =
             "Assets/_Game/Editor/InGameHudInstallRequest.txt";
         private const string HudName = "InGameHud";
+        private const string FontPath =
+            "Assets/_Game/Content/Fonts/Paperlogy-5Medium SDF.asset";
 
         static InGameHudLayoutMenu()
         {
@@ -162,7 +164,7 @@ namespace Game.Editor
                 "03:00",
                 MatchTimerView.TimerFontSize,
                 TextAlignmentOptions.Center);
-            timerText.color = MatchTimerView.TimerColor;
+            timerText.color = Color.white;
             Place(timerText.rectTransform, new Vector2(0.5f, 1f),
                 new Vector2(0f, -HidingActiveHudView.TopPadding), new Vector2(420f, MatchTimerView.TimerHeight));
             var timerView = timerText.gameObject.AddComponent<MatchTimerView>();

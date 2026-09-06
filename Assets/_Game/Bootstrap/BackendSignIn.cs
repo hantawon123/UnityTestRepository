@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Backend;
@@ -47,6 +47,19 @@ namespace Game.Bootstrap
         /// </remarks>
         public UniTask<bool> Ready => signedIn.Task;
 
+        /// <summary>
+        /// The account this machine signed in as, or null when it could not.
+        /// </summary>
+        /// <remarks>
+        /// Kept so the screens that open right afterwards can draw what the
+        /// account already said — whether the name has been settled, whether
+        /// this player turns up in searches — instead of each asking the server
+        /// for the answer sign-in has already been given. Read it after
+        /// awaiting <see cref="Ready"/>; before that it is null because nothing
+        /// has answered yet, not because there is no account.
+        /// </remarks>
+        public AccountSnapshot? Account { get; private set; }
+
         public async UniTask StartAsync(CancellationToken cancellation)
         {
             try
@@ -63,6 +76,7 @@ namespace Game.Bootstrap
                     return;
                 }
 
+                Account = result.Value;
                 AdoptServerNickname(result.Value);
                 signedIn.TrySetResult(true);
             }
@@ -93,6 +107,11 @@ namespace Game.Bootstrap
         /// </remarks>
         private void AdoptServerNickname(AccountSnapshot account)
         {
+            // Mirrored first, and whether the name itself changed or not: a
+            // player who renamed on another machine comes back with the same
+            // name and a chance that is already spent.
+            profile.MarkNicknameSet(account.NicknameSet);
+
             if (string.Equals(profile.Nickname, account.Nickname, StringComparison.Ordinal))
             {
                 return;

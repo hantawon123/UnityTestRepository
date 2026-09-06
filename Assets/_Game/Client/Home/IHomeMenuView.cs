@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Game.Core.Home;
 
@@ -16,6 +16,18 @@ namespace Game.Client.Home
 
         event Action<string> NicknameEdited;
 
+        /// <summary>
+        /// The search-allow toggle was pressed, carrying the setting the player
+        /// asked for rather than the one showing.
+        /// </summary>
+        /// <remarks>
+        /// The knob has not moved yet. The server owns this value, so whoever
+        /// handles this calls <see cref="SetNicknameSearchAllowed"/> with what
+        /// the server settled on — which, when the call fails, is the setting
+        /// that was already there.
+        /// </remarks>
+        event Action<bool> NicknameSearchAllowedChanged;
+
         event Action FriendSearchOpened;
 
         event Action FriendSearchClosed;
@@ -27,6 +39,16 @@ namespace Game.Client.Home
         event Action<string> FriendRequestAccepted;
 
         event Action<string> FriendRequestDeclined;
+
+        event Action ServerSettingsDismissed;
+
+        /// <summary>The code of the region the player picked.</summary>
+        event Action<string> RegionSelected;
+
+        /// <summary>The player filled the room form in and pressed create.</summary>
+        event Action<string, bool, int> RoomCreationRequested;
+
+        event Action CreateRoomDismissed;
 
         /// <summary>A request this player sent, taken back.</summary>
         event Action<string> FriendRequestCancelled;
@@ -50,6 +72,26 @@ namespace Game.Client.Home
         /// Says why a rename was refused. An empty message clears it.
         /// </summary>
         void SetNicknameError(string message);
+
+        /// <summary>
+        /// Puts the search-allow toggle where the account says it is.
+        /// </summary>
+        void SetNicknameSearchAllowed(bool allowed);
+
+        /// <summary>
+        /// Says the toggle did not take. An empty message clears it.
+        /// </summary>
+        void SetNicknameSearchAllowedError(string message);
+
+        /// <summary>
+        /// Reports that something did not connect, over whatever is on screen.
+        /// </summary>
+        /// <remarks>
+        /// For the failures that belong to no panel — making a room, opening
+        /// the room browser. A refusal that belongs to a panel is said in that
+        /// panel, where the player is looking.
+        /// </remarks>
+        void ShowConnectionError(string message);
 
         void SetFriendListVisible(bool visible);
 
@@ -78,5 +120,18 @@ namespace Game.Client.Home
         /// message clears it.
         /// </summary>
         void SetFriendActionError(string message);
+
+        void SetServerSettingsVisible(bool visible);
+
+        /// <summary>
+        /// Marks which region is in use. A code the picker does not list leaves
+        /// every row unmarked.
+        /// </summary>
+        void SetSelectedRegion(string code);
+
+        void SetCreateRoomVisible(bool visible);
+
+        /// <summary>Whether the one nickname change has been spent.</summary>
+        void SetNicknameSettled(bool settled);
     }
 }

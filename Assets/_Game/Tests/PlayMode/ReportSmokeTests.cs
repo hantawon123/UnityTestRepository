@@ -172,12 +172,22 @@ namespace Game.Tests.PlayMode
                 new HttpCall(HttpMethod.Get, LocalBackend + "/actuator/health", null, null, 2),
                 CancellationToken.None);
 
-            if (health.Outcome != HttpOutcome.Completed || health.StatusCode != 200)
+            if (health.Outcome != HttpOutcome.Completed)
             {
                 Assert.Ignore(
                     "No backend on " + LocalBackend
                     + ". Start one in backend/: docker compose -f compose.local.yml up -d, then ./gradlew bootRun.");
             }
+
+            // A server that answered but not with 200 is broken, not absent, and
+            // skipping would report it as green. Locking down /actuator/health by
+            // accident does exactly this: every smoke test quietly opts out and
+            // nothing looks wrong.
+            Assert.That(
+                health.StatusCode,
+                Is.EqualTo(200),
+                "Something is answering on " + LocalBackend
+                + " but health is not 200. That is a broken server, not a missing one.");
         }
 
         private sealed class Player
