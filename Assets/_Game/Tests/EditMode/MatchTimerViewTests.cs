@@ -1,3 +1,5 @@
+using System.Reflection;
+using Game.Client.Home;
 using Game.Client.Match;
 using NUnit.Framework;
 using TMPro;
@@ -32,7 +34,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void SetRemainingSeconds_UsesBlackSixtyFourAndHintFromThirtySeconds()
+        public void SetRemainingSeconds_UsesOrangeBlackWeightAndHintFromThirtySeconds()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
             try
@@ -44,13 +46,18 @@ namespace Game.Architecture.Tests
                 Assert.That(timer.text, Is.EqualTo("00:31"));
                 Assert.That(timer.fontSize, Is.EqualTo(HidingActiveHudView.TimerFontSize));
                 Assert.That(timer.color, Is.EqualTo(Color.white));
+                Assert.That(timer.font, Is.EqualTo(HomeUiFonts.Apply()));
                 Assert.That(view.transform.Find("Hint").gameObject.activeSelf, Is.False);
                 Assert.That(MatchTimerView.IsWarning(31d), Is.False);
+                InvokeUpdate(view);
+                Assert.That(view.transform.localScale, Is.EqualTo(Vector3.one));
 
                 view.SetRemainingSeconds(30d);
                 Assert.That(timer.text, Is.EqualTo("00:30"));
                 Assert.That(timer.fontSize, Is.EqualTo(MatchTimerView.TimerFontSize));
                 Assert.That(timer.color, Is.EqualTo(MatchTimerView.TimerColor));
+                Assert.That(timer.color, Is.EqualTo(MatchTimerView.WarningColor));
+                Assert.That(timer.font, Is.EqualTo(HomeUiFonts.ApplyBlack()));
 
                 var hint = view.transform.Find("Hint")?.GetComponent<TMP_Text>();
                 Assert.That(hint, Is.Not.Null);
@@ -59,6 +66,10 @@ namespace Game.Architecture.Tests
                 Assert.That(hint.fontSize, Is.EqualTo(MatchTimerView.HintFontSize));
                 Assert.That(hint.color, Is.EqualTo(MatchTimerView.WarningColor));
                 Assert.That(MatchTimerView.IsWarning(30d), Is.True);
+                InvokeUpdate(view);
+                Assert.That(
+                    view.transform.localScale.x,
+                    Is.EqualTo(HidingActiveHudView.HeartbeatScale(Time.unscaledTime)).Within(0.0001f));
             }
             finally
             {
@@ -92,6 +103,13 @@ namespace Game.Architecture.Tests
                 typeof(TextMeshProUGUI));
             textObject.transform.SetParent(parent, false);
             return textObject.AddComponent<MatchTimerView>();
+        }
+
+        private static void InvokeUpdate(MatchTimerView view)
+        {
+            typeof(MatchTimerView)
+                .GetMethod("Update", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.Invoke(view, null);
         }
     }
 }

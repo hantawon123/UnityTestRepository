@@ -142,8 +142,10 @@ namespace Game.Client.Home
         private const string SemiBoldResource = "Fonts/Paperlogy-6SemiBold";
         private const string LightResource = "Fonts/Paperlogy-3Light";
         private const string RegularResource = "Fonts/Paperlogy-4Regular";
+        private const string BlackResource = "Fonts/Paperlogy-9Black";
         private static TMP_FontAsset koreanLightFont;
         private static TMP_FontAsset koreanRegularFont;
+        private static TMP_FontAsset koreanBlackFont;
         private static Font legacyFont;
 
         public static TMP_FontAsset Apply(TMP_FontAsset fontAsset = null)
@@ -159,6 +161,24 @@ namespace Game.Client.Home
         public static TMP_FontAsset ApplyRegular(TMP_FontAsset fontAsset = null)
         {
             return koreanRegularFont ??= LoadKorean(RegularResource, fontAsset);
+        }
+
+        public static TMP_FontAsset ApplyBlack(TMP_FontAsset fontAsset = null)
+        {
+            if (koreanBlackFont != null)
+            {
+                return koreanBlackFont;
+            }
+
+            try
+            {
+                koreanBlackFont = LoadKorean(BlackResource, fontAsset);
+                return koreanBlackFont;
+            }
+            catch (InvalidOperationException)
+            {
+                return Apply(fontAsset);
+            }
         }
 
         public static Font Legacy()
@@ -267,7 +287,7 @@ namespace Game.Client.Home
                 return baked;
             }
 
-            var source = Resources.Load<Font>(resourcePath);
+            var source = Resources.Load<Font>(resourcePath) ?? LoadEditorFont(resourcePath);
             var loaded = CreateRuntimeKorean(source);
             if (loaded != null)
             {
@@ -283,6 +303,24 @@ namespace Game.Client.Home
             throw new InvalidOperationException(
                 "Korean TMP font is missing. Add Paperlogy under " +
                 "Assets/_Game/Content/Resources/Fonts.");
+        }
+
+        private static Font LoadEditorFont(string resourcePath)
+        {
+#if UNITY_EDITOR
+            if (string.IsNullOrEmpty(resourcePath))
+            {
+                return null;
+            }
+
+            var fileName = resourcePath.StartsWith("Fonts/", StringComparison.Ordinal)
+                ? resourcePath.Substring("Fonts/".Length)
+                : resourcePath;
+            return UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(
+                $"Assets/_Game/Content/Fonts/{fileName}.ttf");
+#else
+            return null;
+#endif
         }
 
         public static TMP_FontAsset CreateRuntimeKorean(Font source, bool prewarmKorean = false)

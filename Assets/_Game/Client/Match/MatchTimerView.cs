@@ -12,7 +12,8 @@ namespace Game.Client.Match
 
     /// <summary>
     /// Top-of-screen searching clock. Matches the hiding timer until the last
-    /// thirty seconds, then grows to black 64 type and shows an orange prompt.
+    /// thirty seconds, then grows to orange 64 Black type, shows an orange
+    /// prompt, and pulses both lines.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class MatchTimerView : MonoBehaviour, IMatchTimerView
@@ -23,7 +24,7 @@ namespace Game.Client.Match
         public const float TimerHeight = 80f;
         public const float HintHeight = 48f;
         public const string HintText = "서둘러 자신의 물건을 확보하세요 !";
-        public static readonly Color TimerColor = Color.black;
+        public static readonly Color TimerColor = HidingActiveHudView.WarningColor;
         public static readonly Color WarningColor = HidingActiveHudView.WarningColor;
 
         [SerializeField]
@@ -44,6 +45,23 @@ namespace Game.Client.Match
         private void Awake()
         {
             EnsureLayout();
+        }
+
+        private void OnDisable()
+        {
+            warningActive = false;
+            ResetPulseScale();
+        }
+
+        private void Update()
+        {
+            if (!warningActive)
+            {
+                ResetPulseScale();
+                return;
+            }
+
+            ApplyPulseScale(Vector3.one * HidingActiveHudView.HeartbeatScale(Time.unscaledTime));
         }
 
         public void SetRemainingSeconds(double remainingSeconds)
@@ -101,7 +119,7 @@ namespace Game.Client.Match
                 return;
             }
 
-            timerText.font = HomeUiFonts.Apply();
+            ApplyTimerTypeface();
             timerText.fontStyle = FontStyles.Normal;
             timerText.alignment = TextAlignmentOptions.Center;
             timerText.enableWordWrapping = false;
@@ -184,9 +202,52 @@ namespace Game.Client.Match
                     ? TimerFontSize
                     : HidingActiveHudView.TimerFontSize;
                 timerText.color = warningActive ? TimerColor : Color.white;
+                ApplyTimerTypeface();
+            }
+
+            if (!warningActive)
+            {
+                ResetPulseScale();
             }
 
             ApplyHintVisibility();
+        }
+
+        private void ApplyTimerTypeface()
+        {
+            if (timerText == null)
+            {
+                return;
+            }
+
+            timerText.font = warningActive
+                ? HomeUiFonts.ApplyBlack()
+                : HomeUiFonts.Apply();
+        }
+
+        private void ApplyPulseScale(Vector3 scale)
+        {
+            var timerOnSelf = timerText != null && timerText.transform == transform;
+            if (timerOnSelf)
+            {
+                transform.localScale = scale;
+                return;
+            }
+
+            if (timerText != null)
+            {
+                timerText.transform.localScale = scale;
+            }
+
+            if (hintText != null && hintText.gameObject.activeSelf)
+            {
+                hintText.transform.localScale = scale;
+            }
+        }
+
+        private void ResetPulseScale()
+        {
+            ApplyPulseScale(Vector3.one);
         }
 
         private void ApplyHintVisibility()
