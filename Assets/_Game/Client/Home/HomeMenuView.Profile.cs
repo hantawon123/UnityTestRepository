@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Game.Core.Home;
 using TMPro;
 using UnityEngine;
@@ -129,6 +129,41 @@ namespace Game.Client.Home
             button.transition = Selectable.Transition.None;
             button.onClick.AddListener(ToggleSearchAllowed);
             menuButtons.Add(button);
+
+            // To the right of the toggle, on its row. Empty unless the server
+            // refused, so it costs nothing when everything works.
+            var message = CreateRect("SearchAllowMessage", panel);
+            SetAnchor(message, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 0.5f));
+            message.anchoredPosition = new Vector2(
+                -HomeStyle.Profile.SidePadding, HomeStyle.Profile.ToggleRowCentreY);
+            message.sizeDelta = new Vector2(
+                HomeStyle.Profile.PanelSize.x
+                    - HomeStyle.Profile.ToggleLeft
+                    - HomeStyle.Profile.ToggleSize.x
+                    - (HomeStyle.Profile.SidePadding * 2f),
+                HomeStyle.Profile.MessageHeight);
+            searchAllowMessageText = AddText(
+                message,
+                string.Empty,
+                HomeStyle.FontSize.Message,
+                FontStyles.Normal,
+                TextAlignmentOptions.MidlineRight);
+            ApplyMenuFont(searchAllowMessageText);
+            searchAllowMessageText.color = HomeStyle.Palette.MessageRejected;
+        }
+
+        /// <summary>
+        /// Says the server would not take the new setting. An empty message
+        /// clears it.
+        /// </summary>
+        public void SetNicknameSearchAllowedError(string message)
+        {
+            if (searchAllowMessageText == null)
+            {
+                return;
+            }
+
+            searchAllowMessageText.text = message ?? string.Empty;
         }
 
         private void CreateNicknameField(RectTransform panel)
@@ -406,10 +441,19 @@ namespace Game.Client.Home
                 HomeStyle.Profile.ToggleKnobInset + (allowed ? travel : 0f), 0f);
         }
 
+        /// <summary>
+        /// Asks for the other setting. The knob does not move yet.
+        /// </summary>
+        /// <remarks>
+        /// Moving it here and putting it back on a refusal makes the toggle
+        /// flick, and on a slow connection it sits in the wrong position for as
+        /// long as the call takes. The server owns this value, so the knob
+        /// waits for <see cref="SetNicknameSearchAllowed"/> to carry its answer.
+        /// </remarks>
         private void ToggleSearchAllowed()
         {
-            SetNicknameSearchAllowed(!isSearchAllowed);
-            NicknameSearchAllowedChanged?.Invoke(isSearchAllowed);
+            SetNicknameSearchAllowedError(string.Empty);
+            NicknameSearchAllowedChanged?.Invoke(!isSearchAllowed);
         }
 
         private void SetNicknameApplyEnabled(bool enabled)

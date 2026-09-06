@@ -374,6 +374,12 @@ namespace Game.Architecture.Tests
 
             public void SetCreateRoomVisible(bool visible) { }
 
+            public event Action<bool> NicknameSearchAllowedChanged;
+
+            public void SetNicknameSearchAllowed(bool allowed) { }
+
+            public void SetNicknameSearchAllowedError(string message) { }
+
             /// <remarks>Declared to satisfy the interface; this test raises one.</remarks>
             public void Unused()
             {
@@ -394,6 +400,7 @@ namespace Game.Architecture.Tests
                 RegionSelected?.Invoke(null);
                 RoomCreationRequested?.Invoke(null, false, 0);
                 CreateRoomDismissed?.Invoke();
+                NicknameSearchAllowedChanged?.Invoke(false);
             }
         }
     }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Game.Core.Home;
 
@@ -15,6 +15,18 @@ namespace Game.Client.Home
         event Action<string> NicknameChangeRequested;
 
         event Action<string> NicknameEdited;
+
+        /// <summary>
+        /// The search-allow toggle was pressed, carrying the setting the player
+        /// asked for rather than the one showing.
+        /// </summary>
+        /// <remarks>
+        /// The knob has not moved yet. The server owns this value, so whoever
+        /// handles this calls <see cref="SetNicknameSearchAllowed"/> with what
+        /// the server settled on — which, when the call fails, is the setting
+        /// that was already there.
+        /// </remarks>
+        event Action<bool> NicknameSearchAllowedChanged;
 
         event Action FriendSearchOpened;
 
@@ -60,6 +72,16 @@ namespace Game.Client.Home
         /// Says why a rename was refused. An empty message clears it.
         /// </summary>
         void SetNicknameError(string message);
+
+        /// <summary>
+        /// Puts the search-allow toggle where the account says it is.
+        /// </summary>
+        void SetNicknameSearchAllowed(bool allowed);
+
+        /// <summary>
+        /// Says the toggle did not take. An empty message clears it.
+        /// </summary>
+        void SetNicknameSearchAllowedError(string message);
 
         void SetFriendListVisible(bool visible);
 

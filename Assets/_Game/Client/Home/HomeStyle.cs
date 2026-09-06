@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace Game.Client.Home
 {
@@ -199,6 +199,13 @@ namespace Game.Client.Home
             /// chosen so the knob clears the 3 pixel stroke on both sides.
             /// </summary>
             public const float ToggleKnobInset = 5f;
+
+            /// <summary>
+            /// Said on the toggle's own row rather than on the nickname message
+            /// line below, which sits under the name field and would read as a
+            /// verdict on the name.
+            /// </summary>
+            public const string SearchAllowFailedMessage = "바꾸지 못했어요";
 
             public const float InputTop = -78f;
             public static readonly Vector2 InputSize = new Vector2(472f, 52f);

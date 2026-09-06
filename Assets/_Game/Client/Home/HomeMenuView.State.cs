@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Game.Core.Home;
 using TMPro;
@@ -118,6 +118,7 @@ namespace Game.Client.Home
         private Image searchAllowFill;
         private Image searchAllowKnobImage;
         private RectTransform searchAllowKnob;
+        private TMP_Text searchAllowMessageText;
         private Button applyButton;
         private Image applyFill;
         private TMP_Text applyLabel;

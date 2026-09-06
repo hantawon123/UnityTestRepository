@@ -141,6 +141,80 @@ namespace Game.Architecture.Tests
             Assert.That(view.NicknameError, Is.EqualTo("서버에 연결되어 있지 않습니다"));
         }
 
+        [Test]
+        public async Task TheAccountsSettings_AreOnScreenOnceSignInAnswers()
+        {
+            var accounts = new FakeAccounts("서버이름")
+            {
+                NicknameSet = true,
+                Searchable = false
+            };
+            var view = new FakeView();
+
+            using var bridge = await StartAsync(view, accounts, new PlayerProfile("서버이름"));
+            await UniTask.Yield();
+
+            // The panel is built before the server answers, so it starts with
+            // the toggle off and the name unsettled. Neither is known to be
+            // true, and leaving the guess up is how a player ends up believing
+            // they can still rename themselves.
+            Assert.That(view.SearchAllowed, Is.False);
+            Assert.That(view.NicknameSettled, Is.True);
+        }
+
+        [Test]
+        public async Task TurningSearchOff_TellsTheAccount()
+        {
+            var accounts = new FakeAccounts("서버이름");
+            var view = new FakeView();
+            using var bridge = await StartAsync(view, accounts, new PlayerProfile("서버이름"));
+            await UniTask.Yield();
+            Assert.That(view.SearchAllowed, Is.True, "계정은 검색 허용으로 시작한다.");
+
+            view.RaiseSearchAllowedChanged(false);
+            await UniTask.Yield();
+
+            Assert.That(accounts.Searchable, Is.False);
+            Assert.That(view.SearchAllowed, Is.False);
+            Assert.That(view.SearchAllowedError, Is.Empty);
+        }
+
+        [Test]
+        public async Task ARefusedSetting_LeavesTheToggleWhereItWas()
+        {
+            var accounts = new FakeAccounts("서버이름") { SearchableFailure = BackendFailure.Offline };
+            var view = new FakeView();
+            using var bridge = await StartAsync(view, accounts, new PlayerProfile("서버이름"));
+            await UniTask.Yield();
+
+            LogAssert.Expect(
+                LogType.Warning,
+                new System.Text.RegularExpressions.Regex("Search setting refused"));
+            view.RaiseSearchAllowedChanged(false);
+            await UniTask.Yield();
+
+            // The screen never moved the knob, so there is nothing to roll back
+            // — it is still showing the setting that is actually in force.
+            Assert.That(accounts.Searchable, Is.True);
+            Assert.That(view.SearchAllowed, Is.True);
+            Assert.That(view.SearchAllowedError, Is.Not.Empty);
+        }
+
+        [Test]
+        public async Task WithoutAnAccount_TheSettingIsNotSent()
+        {
+            var accounts = new FakeAccounts("서버이름") { SignInFails = true };
+            var view = new FakeView();
+            using var bridge = await StartAsync(view, accounts, new PlayerProfile("서버이름"));
+            await UniTask.Yield();
+
+            view.RaiseSearchAllowedChanged(false);
+            await UniTask.Yield();
+
+            Assert.That(accounts.Searchable, Is.True, "보내지 않았다.");
+            Assert.That(view.SearchAllowedError, Is.EqualTo("서버에 연결되어 있지 않습니다"));
+        }
+
         private static async UniTask<HomeProfileBridge> StartAsync(
             FakeView view, FakeAccounts accounts, PlayerProfile profile)
         {
@@ -181,10 +255,12 @@ namespace Game.Architecture.Tests
 
             public BackendFailure RefreshFailure { get; set; } = BackendFailure.None;
 
+            public BackendFailure SearchableFailure { get; set; } = BackendFailure.None;
+
             public string Renamed { get; private set; }
 
-            /// <summary>What the last SetSearchableAsync asked for.</summary>
-            public bool Searchable { get; private set; } = true;
+            /// <summary>Whether this account turns up in nickname searches.</summary>
+            public bool Searchable { get; set; } = true;
 
             public UniTask<BackendResult<AccountSnapshot>> SignInAsync(
                 CancellationToken cancellation)
@@ -229,6 +305,12 @@ namespace Game.Architecture.Tests
             public UniTask<BackendResult<AccountSnapshot>> SetSearchableAsync(
                 bool searchable, CancellationToken cancellation)
             {
+                if (SearchableFailure != BackendFailure.None)
+                {
+                    return UniTask.FromResult(
+                        BackendResult<AccountSnapshot>.Failed(SearchableFailure));
+                }
+
                 Searchable = searchable;
                 return UniTask.FromResult(
                     BackendResult<AccountSnapshot>.Success(
@@ -249,6 +331,10 @@ namespace Game.Architecture.Tests
             public bool AppliedFeedbackVisible { get; private set; }
 
             public bool NicknameSettled { get; private set; }
+
+            public bool SearchAllowed { get; private set; }
+
+            public string SearchAllowedError { get; private set; } = string.Empty;
 
             public event Action<HomeMenuAction> ActionClicked;
             public event Action FriendListDismissed;
@@ -312,6 +398,16 @@ namespace Game.Architecture.Tests
             public void SetSelectedRegion(string code) { }
 
             public void SetCreateRoomVisible(bool visible) { }
+
+            public event Action<bool> NicknameSearchAllowedChanged;
+
+            public void RaiseSearchAllowedChanged(bool allowed) =>
+                NicknameSearchAllowedChanged?.Invoke(allowed);
+
+            public void SetNicknameSearchAllowed(bool allowed) => SearchAllowed = allowed;
+
+            public void SetNicknameSearchAllowedError(string message) =>
+                SearchAllowedError = message ?? string.Empty;
 
             /// <remarks>
             /// Declared so the compiler stops warning that nothing raises them.

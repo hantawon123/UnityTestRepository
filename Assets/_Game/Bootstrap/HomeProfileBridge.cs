@@ -11,7 +11,8 @@ using VContainer.Unity;
 namespace Game.Bootstrap
 {
     /// <summary>
-    /// Carries a rename from the profile screen to the account it belongs to.
+    /// Carries what the profile screen changes to the account it belongs to: a
+    /// rename, and whether this player turns up in nickname searches.
     /// </summary>
     /// <remarks>
     /// The screen changes the name locally the moment it is asked, because a
@@ -47,18 +48,100 @@ namespace Game.Bootstrap
         public void Start()
         {
             view.NicknameChangeRequested += OnNicknameChangeRequested;
+            view.NicknameSearchAllowedChanged += OnSearchAllowedChanged;
+            ShowSignedInAccountAsync().Forget();
         }
 
         public void Dispose()
         {
             view.NicknameChangeRequested -= OnNicknameChangeRequested;
+            view.NicknameSearchAllowedChanged -= OnSearchAllowedChanged;
             lifetime.Cancel();
             lifetime.Dispose();
+        }
+
+        /// <summary>
+        /// Draws what sign-in already learned, once it has.
+        /// </summary>
+        /// <remarks>
+        /// The panel is built before the server answers and has to show
+        /// something meanwhile, so it starts with the toggle off and the name
+        /// unsettled. Neither is known to be true — this replaces both with the
+        /// account's own answer rather than leaving the guess on screen.
+        /// </remarks>
+        private async UniTaskVoid ShowSignedInAccountAsync()
+        {
+            if (!await signIn.Ready || lifetime.IsCancellationRequested)
+            {
+                return;
+            }
+
+            var account = signIn.Account;
+            if (account.HasValue)
+            {
+                Show(account.Value);
+            }
         }
 
         private void OnNicknameChangeRequested(string nickname)
         {
             RenameAsync(nickname).Forget();
+        }
+
+        private void OnSearchAllowedChanged(bool searchable)
+        {
+            SetSearchableAsync(searchable).Forget();
+        }
+
+        /// <summary>
+        /// Asks the account to turn nickname search on or off.
+        /// </summary>
+        /// <remarks>
+        /// The knob has not moved: the screen raised what was asked for and
+        /// left the setting alone. So there is nothing to roll back here — a
+        /// refusal only has to say so, and the toggle is already showing the
+        /// setting that is still in force.
+        /// <para>
+        /// Idempotent on the server, so a double press is two calls that land
+        /// where the second one asked rather than an error.
+        /// </para>
+        /// </remarks>
+        private async UniTaskVoid SetSearchableAsync(bool searchable)
+        {
+            if (lifetime.IsCancellationRequested || !await signIn.Ready)
+            {
+                Refuse("서버에 연결되어 있지 않습니다");
+                return;
+            }
+
+            if (lifetime.IsCancellationRequested)
+            {
+                return;
+            }
+
+            var result = await accounts.SetSearchableAsync(searchable, lifetime.Token);
+
+            if (result.Ok)
+            {
+                // From the answer, not from what was asked. The two agree today
+                // and the account is the one that decides.
+                view.SetNicknameSearchAllowed(result.Value.Searchable);
+                view.SetNicknameSearchAllowedError(string.Empty);
+                return;
+            }
+
+            if (result.Failure == BackendFailure.Cancelled)
+            {
+                return;
+            }
+
+            Refuse(HomeStyle.Profile.SearchAllowFailedMessage);
+            Debug.LogWarning($"[Profile] Search setting refused: {result.Failure}.");
+        }
+
+        private void Refuse(string message)
+        {
+            view.SetNicknameSearchAllowedError(message);
         }
 
         private async UniTaskVoid RenameAsync(string nickname)
@@ -152,6 +235,7 @@ namespace Game.Bootstrap
             profile.MarkNicknameSet(account.NicknameSet);
             view.SetNickname(account.Nickname);
             view.SetNicknameSettled(account.NicknameSet);
+            view.SetNicknameSearchAllowed(account.Searchable);
         }
 
         /// <remarks>

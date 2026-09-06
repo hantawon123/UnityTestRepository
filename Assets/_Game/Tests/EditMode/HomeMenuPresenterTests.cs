@@ -761,6 +761,24 @@ namespace Game.Tests.EditMode
                 CreateRoomVisible = visible;
             }
 
+            public event Action<bool> NicknameSearchAllowedChanged;
+
+            public bool SearchAllowed { get; private set; }
+
+            public void RaiseSearchAllowedChanged(bool allowed)
+            {
+                NicknameSearchAllowedChanged?.Invoke(allowed);
+            }
+
+            public void SetNicknameSearchAllowed(bool allowed)
+            {
+                SearchAllowed = allowed;
+            }
+
+            public void SetNicknameSearchAllowedError(string message)
+            {
+            }
+
             public void RaiseRoomCreationRequested(string title, bool isPublic, int maxPlayers)
             {
                 RoomCreationRequested?.Invoke(title, isPublic, maxPlayers);
