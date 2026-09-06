@@ -39,42 +39,53 @@ class UserSearchApiTest extends IntegrationTest {
     JdbcTemplate jdbcTemplate;
 
     @Test
-    @DisplayName("닉네임 접두사로 다른 사용자를 찾는다")
-    void findsByNicknamePrefix() throws Exception {
+    @DisplayName("닉네임이 정확히 일치하면 찾는다")
+    void findsByExactNickname() throws Exception {
+        String name = newPrefix() + "AA";
+        createUser(name);
+        String me = createUser(newPrefix() + "ME");
+
+        mvc.perform(searchRequest(me, name, null))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.users.length()").value(1))
+                .andExpect(jsonPath("$.users[0].nickname").value(name));
+    }
+
+    @Test
+    @DisplayName("앞글자만으로는 찾지 못한다")
+    void aPrefixNoLongerFinds() throws Exception {
+        // 예전에는 이것이 되는 것이 기능이었습니다. 몇 글자만 쳐도 모르는 사람이 걸려
+        // 나오는 것을 막으려고 바꿨습니다.
         String prefix = newPrefix();
         createUser(prefix + "AA");
-        createUser(prefix + "BB");
         String me = createUser(newPrefix() + "ME");
 
         mvc.perform(searchRequest(me, prefix, null))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.users.length()").value(2));
+                .andExpect(jsonPath("$.users.length()").value(0));
     }
 
     @Test
-    @DisplayName("검색은 대소문자를 무시한다")
-    void searchIsCaseInsensitive() throws Exception {
-        // V6이 만든 nickname_lower 컬럼이 없으면 이 테스트가 깨집니다. V4로 nickname이
-        // 대소문자를 구분하게 됐으므로, 소문자 컬럼 없이는 대문자로 저장된 닉네임을
-        // 소문자 검색어로 찾을 수 없습니다.
-        String prefix = newPrefix();
-        createUser(prefix + "AA");
+    @DisplayName("대소문자가 다르면 찾지 못한다")
+    void searchIsCaseSensitive() throws Exception {
+        // nickname 컬럼이 as_cs 라 player 와 Player 는 서로 다른 사람입니다. 검색이
+        // 대소문자를 무시하면 한 번의 검색이 서로 다른 두 사람을 함께 내놓습니다.
+        String name = newPrefix() + "AA";
+        createUser(name);
         String me = createUser(newPrefix() + "ME");
 
-        mvc.perform(searchRequest(me, prefix.toLowerCase(Locale.ROOT), null))
+        mvc.perform(searchRequest(me, name.toLowerCase(Locale.ROOT), null))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.users.length()").value(1));
+                .andExpect(jsonPath("$.users.length()").value(0));
 
-        mvc.perform(searchRequest(me, prefix.toUpperCase(Locale.ROOT), null))
+        mvc.perform(searchRequest(me, name.toUpperCase(Locale.ROOT), null))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.users.length()").value(1));
+                .andExpect(jsonPath("$.users.length()").value(0));
     }
 
     @Test
-    @DisplayName("접두사가 아닌 부분 일치는 찾지 못한다")
+    @DisplayName("가운데 일치도 찾지 못한다")
     void doesNotMatchInTheMiddle() throws Exception {
-        // 의도한 동작입니다. LIKE '%query%' 는 인덱스를 타지 못하므로 접두사로
-        // 정했습니다. 부분 일치로 바꾸기로 하면 이 테스트를 뒤집어야 합니다.
         String prefix = newPrefix();
         createUser(prefix + "AA");
         String me = createUser(newPrefix() + "ME");
@@ -87,14 +98,13 @@ class UserSearchApiTest extends IntegrationTest {
     @Test
     @DisplayName("자기 자신은 결과에 담기지 않는다")
     void excludesCaller() throws Exception {
-        String prefix = newPrefix();
-        String me = createUser(prefix + "ME");
-        createUser(prefix + "AA");
+        // 자기 닉네임을 정확히 쳐도 자기는 안 나옵니다.
+        String myName = newPrefix() + "ME";
+        String me = createUser(myName);
 
-        mvc.perform(searchRequest(me, prefix, null))
+        mvc.perform(searchRequest(me, myName, null))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.users.length()").value(1))
-                .andExpect(jsonPath("$.users[0].userId").value(org.hamcrest.Matchers.not(me)));
+                .andExpect(jsonPath("$.users.length()").value(0));
     }
 
     @Test
@@ -109,17 +119,18 @@ class UserSearchApiTest extends IntegrationTest {
     }
 
     @Test
-    @DisplayName("limit 이 결과 개수를 제한한다")
-    void limitCapsResults() throws Exception {
-        String prefix = newPrefix();
-        createUser(prefix + "AA");
-        createUser(prefix + "BB");
-        createUser(prefix + "CC");
+    @DisplayName("limit 은 결과에 영향을 주지 않는다")
+    void limitNoLongerMatters() throws Exception {
+        // 유니크 제약 때문에 결과가 많아야 한 건입니다. 파라미터는 계약을 깨지 않으려고
+        // 남겨 두었을 뿐이고, 값이 무엇이든 답이 같아야 합니다.
+        String name = newPrefix() + "AA";
+        createUser(name);
         String me = createUser(newPrefix() + "ME");
 
-        mvc.perform(searchRequest(me, prefix, 2))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.users.length()").value(2));
+        mvc.perform(searchRequest(me, name, 1))
+                .andExpect(jsonPath("$.users.length()").value(1));
+        mvc.perform(searchRequest(me, name, 50))
+                .andExpect(jsonPath("$.users.length()").value(1));
     }
 
     @ParameterizedTest
@@ -183,19 +194,25 @@ class UserSearchApiTest extends IntegrationTest {
     }
 
     @Test
-    @DisplayName("접두사 검색은 nickname_lower 인덱스를 쓸 수 있고 부분 일치는 쓸 수 없다")
-    void prefixSearchCanUseIndex() {
-        // V6이 존재하는 이유를 지키는 테스트입니다. 기능 테스트만으로는 누군가
-        // LIKE '%q%' 로 바꿔도 전부 통과하고 성능만 조용히 죽습니다.
+    @DisplayName("정확히 일치 검색은 유니크 인덱스를 쓸 수 있다")
+    void exactSearchCanUseTheUniqueIndex() throws Exception {
+        // 기능 테스트만으로는 누군가 LIKE 로 되돌려도 전부 통과하고 성능만 조용히
+        // 죽습니다. 쿼리 모양 자체를 지킵니다.
         //
         // 실제로 고른 인덱스(key)가 아니라 쓸 수 있는 후보(possible_keys)를 봅니다.
-        // 테스트 DB는 행이 수십 개뿐이라 옵티마이저가 전체 스캔을 더 싸게 보고
-        // 인덱스를 안 고를 수 있는데, 그건 쿼리 모양의 문제가 아닙니다.
-        assertThat(possibleKeysFor("u.nickname_lower LIKE CONCAT('qa', '%')"))
-                .contains("ix_users_nickname_lower");
+        // 테스트 DB 는 행이 수십 개뿐이라 옵티마이저가 전체 스캔을 더 싸게 볼 수
+        // 있는데, 그건 쿼리 모양의 문제가 아닙니다.
+        // 실제로 있는 닉네임이어야 합니다. 없는 값으로 물으면 MySQL 이 유니크 조회를
+        // 최적화 단계에서 끝내고 "no matching row in const table" 로 계획 자체를
+        // 세우지 않아, 인덱스를 못 쓰는 것과 구분되지 않습니다.
+        String name = newPrefix() + "IX";
+        createUser(name);
 
-        // 앞에 와일드카드가 붙으면 후보에서 사라집니다. 이게 접두사로 정한 이유입니다.
-        assertThat(possibleKeysFor("u.nickname_lower LIKE CONCAT('%', 'qa', '%')"))
+        assertThat(possibleKeysFor("u.nickname = '" + name + "'"))
+                .contains("uk_users_nickname");
+
+        // 앞에 와일드카드가 붙으면 후보에서 사라집니다. 되돌리면 안 되는 이유입니다.
+        assertThat(possibleKeysFor("u.nickname LIKE CONCAT('%', '" + name + "', '%')"))
                 .isNull();
     }
 
@@ -208,32 +225,34 @@ class UserSearchApiTest extends IntegrationTest {
     @Test
     @DisplayName("검색을 끈 사람은 결과에 담기지 않는다")
     void hiddenUsersAreLeftOut() throws Exception {
-        String prefix = newPrefix();
-        String hidden = createUser(prefix + "AA");
-        createUser(prefix + "BB");
+        String hiddenName = newPrefix() + "AA";
+        String hidden = createUser(hiddenName);
         String me = createUser(newPrefix() + "ME");
+
+        // 끄기 전에는 정확히 치면 나옵니다.
+        mvc.perform(searchRequest(me, hiddenName, null))
+                .andExpect(jsonPath("$.users.length()").value(1));
 
         setSearchable(hidden, false);
 
         // 화면에서 가리는 것이 아니라 응답 자체에 없어야 합니다. 담아 보내고 클라이언트가
         // 거르는 방식이면 네트워크를 보는 것만으로 드러납니다.
-        mvc.perform(searchRequest(me, prefix, null))
+        mvc.perform(searchRequest(me, hiddenName, null))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.users.length()").value(1))
-                .andExpect(jsonPath("$.users[0].nickname").value(prefix + "BB"));
+                .andExpect(jsonPath("$.users.length()").value(0));
     }
 
     @Test
     @DisplayName("다시 켜면 다시 나온다")
     void turningItBackOnRestoresThem() throws Exception {
-        String prefix = newPrefix();
-        String user = createUser(prefix + "AA");
+        String name = newPrefix() + "AA";
+        String user = createUser(name);
         String me = createUser(newPrefix() + "ME");
 
         setSearchable(user, false);
         setSearchable(user, true);
 
-        mvc.perform(searchRequest(me, prefix, null))
+        mvc.perform(searchRequest(me, name, null))
                 .andExpect(jsonPath("$.users.length()").value(1));
     }
 
@@ -265,11 +284,11 @@ class UserSearchApiTest extends IntegrationTest {
     void newAccountsAreSearchable() throws Exception {
         // 위와 달리 이쪽이 보는 것은 엔티티의 초기값입니다. 둘 중 하나만 있으면 새
         // 계정과 기존 계정 가운데 한쪽이 검증되지 않은 채로 남습니다.
-        String prefix = newPrefix();
-        createUser(prefix + "AA");
+        String name = newPrefix() + "AA";
+        createUser(name);
         String me = createUser(newPrefix() + "ME");
 
-        mvc.perform(searchRequest(me, prefix, null))
+        mvc.perform(searchRequest(me, name, null))
                 .andExpect(jsonPath("$.users.length()").value(1));
     }
 

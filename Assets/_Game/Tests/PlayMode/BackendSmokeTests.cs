@@ -66,7 +66,7 @@ namespace Game.Tests.PlayMode
                     Assert.That(again.Value.UserId, Is.EqualTo(one.UserId));
                     Assert.That(again.Value.NicknameSet, Is.True, "the rename stuck");
 
-                    var found = await one.Friends.SearchAsync(run, CancellationToken.None);
+                    var found = await one.Friends.SearchAsync(two.Nickname, CancellationToken.None);
                     Assert.That(found.Ok, Is.True, "search");
                     Assert.That(found.Value.Count, Is.EqualTo(1), "search excludes the caller");
                     Assert.That(found.Value[0].PlayerId, Is.EqualTo(two.UserId));
@@ -162,7 +162,7 @@ namespace Game.Tests.PlayMode
                     Assert.That(joined.Value.Searchable, Is.True, "accounts start visible");
                     await hider.RenameAsync();
 
-                    var before = await seeker.Friends.SearchAsync(run, CancellationToken.None);
+                    var before = await seeker.Friends.SearchAsync(hider.Nickname, CancellationToken.None);
                     Assert.That(before.Ok, Is.True, "search");
                     Assert.That(before.Value.Count, Is.EqualTo(1), "the other one is findable");
 
@@ -172,7 +172,7 @@ namespace Game.Tests.PlayMode
                     Assert.That(hidden.Value.Searchable, Is.False, "the server kept it");
 
                     // Gone from the answer itself, not filtered on this side.
-                    var after = await seeker.Friends.SearchAsync(run, CancellationToken.None);
+                    var after = await seeker.Friends.SearchAsync(hider.Nickname, CancellationToken.None);
                     Assert.That(after.Ok, Is.True, "search again");
                     Assert.That(after.Value, Is.Empty, "hidden accounts are not sent");
 
@@ -190,7 +190,7 @@ namespace Game.Tests.PlayMode
                         true, CancellationToken.None);
                     Assert.That(shown.Value.Searchable, Is.True);
 
-                    var back = await seeker.Friends.SearchAsync(run, CancellationToken.None);
+                    var back = await seeker.Friends.SearchAsync(hider.Nickname, CancellationToken.None);
                     Assert.That(back.Value.Count, Is.EqualTo(1), "turning it back on restores");
                 }
                 finally
@@ -337,9 +337,9 @@ namespace Game.Tests.PlayMode
                 Presence = new PresenceGateway(client);
 
                 // Letters and digits only, inside the server's twelve, and
-                // starting with the run's tag: the server matches a prefix, not
-                // a substring, so a name with anything in front of it would not
-                // come back from a search for that tag.
+                // unique to this run. The server matches the whole nickname
+                // exactly, so a test searches for the other player's full name
+                // rather than a shared tag.
                 Nickname = tag;
             }
 
