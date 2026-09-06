@@ -70,9 +70,19 @@ class UserSearchApiTest extends IntegrationTest {
     void searchIsCaseSensitive() throws Exception {
         // nickname 컬럼이 as_cs 라 player 와 Player 는 서로 다른 사람입니다. 검색이
         // 대소문자를 무시하면 한 번의 검색이 서로 다른 두 사람을 함께 내놓습니다.
-        String name = newPrefix() + "AA";
+        //
+        // 끝을 "aA" 로 두는 것이 이 테스트의 전제입니다. 앞이 "Q" + 16진수라 그 다섯
+        // 자리가 모두 숫자로 나오면(약 10%) 대문자로 바꿔도 원본과 같아집니다. 그러면
+        // 같은 이름으로 검색하는 셈이라 당연히 걸리고, 열 번에 한 번 깨집니다.
+        // 소문자 하나와 대문자 하나를 함께 두면 어느 쪽으로 바꿔도 반드시 달라집니다.
+        String name = newPrefix() + "aA";
         createUser(name);
         String me = createUser(newPrefix() + "ME");
+
+        // 전제를 테스트가 스스로 지킵니다. newPrefix 가 바뀌어 다시 같아지면, 조용히
+        // 통과하거나 가끔 깨지는 대신 여기서 곧바로 실패합니다.
+        assertThat(name.toLowerCase(Locale.ROOT)).isNotEqualTo(name);
+        assertThat(name.toUpperCase(Locale.ROOT)).isNotEqualTo(name);
 
         mvc.perform(searchRequest(me, name.toLowerCase(Locale.ROOT), null))
                 .andExpect(status().isOk())
