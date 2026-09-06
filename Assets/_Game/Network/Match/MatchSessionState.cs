@@ -16,13 +16,15 @@ namespace Game.Network.Match
         public PlayerInteractionStateSnapshot(
             int playerIndex,
             double stunEndsAt,
-            int remainingDestructionUses)
+            int remainingDestructionUses,
+            int hitCount = 0)
         {
             if (playerIndex < 0 ||
                 double.IsNaN(stunEndsAt) ||
                 double.IsInfinity(stunEndsAt) ||
                 stunEndsAt < 0d ||
-                remainingDestructionUses < 0)
+                remainingDestructionUses < 0 ||
+                hitCount < 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(playerIndex));
             }
@@ -30,11 +32,13 @@ namespace Game.Network.Match
             PlayerIndex = playerIndex;
             StunEndsAt = stunEndsAt;
             RemainingDestructionUses = remainingDestructionUses;
+            HitCount = hitCount;
         }
 
         public int PlayerIndex { get; }
         public double StunEndsAt { get; }
         public int RemainingDestructionUses { get; }
+        public int HitCount { get; }
         public bool IsStunned(double serverTime) => serverTime < StunEndsAt;
     }
 
@@ -176,6 +180,9 @@ namespace Game.Network.Match
         [Networked, Capacity(MaxParticipants)]
         public NetworkArray<int> RemainingDestructionUses => default;
 
+        [Networked, Capacity(MaxParticipants)]
+        public NetworkArray<int> HitCounts => default;
+
         [Networked]
         public int PlayerInteractionStateRevision { get; set; }
 
@@ -313,6 +320,7 @@ namespace Game.Network.Match
                 ParticipantActive.Set(index, false);
                 StunEndsAt.Set(index, 0d);
                 RemainingDestructionUses.Set(index, 0);
+                HitCounts.Set(index, 0);
             }
 
             for (var index = 0; index < WinnerCount; index++)
@@ -383,6 +391,7 @@ namespace Game.Network.Match
                 RemainingDestructionUses.Set(
                     playerIndex,
                     remainingDestructionUses[playerIndex]);
+                HitCounts.Set(playerIndex, 0);
             }
 
             PlayerInteractionStateRevision++;
@@ -414,6 +423,18 @@ namespace Game.Network.Match
             }
 
             RemainingDestructionUses.Set(playerIndex, remainingUses);
+            PlayerInteractionStateRevision++;
+            return true;
+        }
+
+        public bool TrySetHitCount(int playerIndex, int hitCount)
+        {
+            if (!CanWritePlayerInteractionState(playerIndex) || hitCount < 0)
+            {
+                return false;
+            }
+
+            HitCounts.Set(playerIndex, hitCount);
             PlayerInteractionStateRevision++;
             return true;
         }
@@ -958,7 +979,8 @@ namespace Game.Network.Match
                 snapshots[playerIndex] = new PlayerInteractionStateSnapshot(
                     playerIndex,
                     StunEndsAt.Get(playerIndex),
-                    RemainingDestructionUses.Get(playerIndex));
+                    RemainingDestructionUses.Get(playerIndex),
+                    HitCounts.Get(playerIndex));
             }
 
             StarterOf(Runner)?.PublishPlayerInteractionStates(snapshots);

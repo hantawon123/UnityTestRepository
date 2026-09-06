@@ -19,7 +19,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.ssafy.d205.domain.presence.dto.UpdatePresenceRequest;
 import com.ssafy.d205.domain.presence.entity.PresenceStatus;
+import com.ssafy.d205.domain.report.entity.ReportReason;
 import com.ssafy.d205.domain.presence.entity.PresenceTimeout;
+import com.ssafy.d205.domain.invite.entity.InviteExpiry;
+import com.ssafy.d205.domain.invite.entity.RoomCodePolicy;
 import com.ssafy.d205.global.common.Timestamps;
 
 /**
@@ -69,6 +72,17 @@ class ClientGuideTest {
     }
 
     @Test
+    @DisplayName("신고 사유가 전부 문서화되어 있다")
+    void everyReportReasonIsDocumented() throws IOException {
+        List<String> names = Arrays.stream(ReportReason.values()).map(Enum::name).toList();
+
+        assertThat(guide())
+                .as("ReportReason 에 값을 추가했으면 문서의 표에도 넣으세요. 클라이언트가 이 이름을 "
+                        + "그대로 보내므로, 표에 없는 값은 아무도 고를 수 없습니다.")
+                .contains(names);
+    }
+
+    @Test
     @DisplayName("하트비트 타임아웃 값이 문서와 같다")
     void timeoutMatchesDocument() throws IOException {
         // 문서는 이 값을 근거로 "30초마다 보내면 두 번 놓쳐도 버틴다"고 말합니다.
@@ -79,6 +93,29 @@ class ClientGuideTest {
                 .as("PresenceTimeout.TIMEOUT 이 " + seconds + " 로 바뀌었습니다. 문서의 "
                         + "하트비트 주기 설명도 함께 고쳐야 합니다.")
                 .contains(seconds);
+    }
+
+    @Test
+    @DisplayName("초대 만료 시간이 문서와 같다")
+    void inviteLifetimeMatchesDocument() throws IOException {
+        // 문서는 이 값을 근거로 "로비에서 기다리는 동안은 유효하다"고 말합니다.
+        // 서버 값만 바꾸면 그 설명이 조용히 틀리게 됩니다.
+        String minutes = InviteExpiry.LIFETIME.toMinutes() + "분";
+
+        assertThat(guide())
+                .as("InviteExpiry.LIFETIME 이 " + minutes + " 로 바뀌었습니다. "
+                        + "문서의 초대 절도 함께 고쳐야 합니다.")
+                .contains(minutes);
+    }
+
+    @Test
+    @DisplayName("방 코드 길이가 문서와 같다")
+    void roomCodeLengthMatchesDocument() throws IOException {
+        String length = RoomCodePolicy.LENGTH + "자";
+
+        assertThat(guide())
+                .as("RoomCodePolicy.LENGTH 가 " + length + " 로 바뀌었습니다. 문서도 고치세요.")
+                .contains(length);
     }
 
     @Test

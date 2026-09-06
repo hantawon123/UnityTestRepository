@@ -24,13 +24,32 @@ namespace Game.Client.Home
 
         event Action<string> FriendRequestClicked;
 
-        void SetNickname(string nickname);
+        event Action<string> FriendRequestAccepted;
 
-        void SetLevel(int level);
+        event Action<string> FriendRequestDeclined;
+
+        /// <summary>A request this player sent, taken back.</summary>
+        event Action<string> FriendRequestCancelled;
+
+        /// <summary>The friend list, asked for again.</summary>
+        event Action FriendListRefreshRequested;
+
+        /// <summary>
+        /// A friendship, ended. Raised on the first press: either player can ask
+        /// again afterwards, so there is nothing here to confirm.
+        /// </summary>
+        event Action<string> FriendRemoved;
+
+        void SetNickname(string nickname);
 
         void SetProfileSettingsVisible(bool visible);
 
         void SetNicknameAppliedFeedbackVisible(bool visible);
+
+        /// <summary>
+        /// Says why a rename was refused. An empty message clears it.
+        /// </summary>
+        void SetNicknameError(string message);
 
         void SetFriendListVisible(bool visible);
 
@@ -41,5 +60,23 @@ namespace Game.Client.Home
         void SetFriendSearchVisible(bool visible);
 
         void SetFriendSearchResults(IReadOnlyList<FriendSearchHit> results);
+
+        /// <summary>
+        /// Shows the requests waiting for this player to answer. An empty list
+        /// hides the section rather than leaving an empty heading behind.
+        /// </summary>
+        void SetIncomingRequests(IReadOnlyList<FriendRequestSummary> requests);
+
+        /// <summary>
+        /// Shows the requests this player is waiting on an answer to. An empty
+        /// list hides the section.
+        /// </summary>
+        void SetOutgoingRequests(IReadOnlyList<FriendRequestSummary> requests);
+
+        /// <summary>
+        /// Says why the last thing the player asked for did not happen. An empty
+        /// message clears it.
+        /// </summary>
+        void SetFriendActionError(string message);
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using Game.Client.Home;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -78,6 +79,15 @@ namespace Game.Client.Voice
             }
 
             muteButton.onClick.AddListener(HandleMuteClicked);
+            if (label != null && HomeUiFonts.Legacy() != null)
+            {
+                label.font = HomeUiFonts.Legacy();
+            }
+
+            if (tmpLabel != null)
+            {
+                tmpLabel.font = HomeUiFonts.Apply();
+            }
         }
 
         private void OnDisable()

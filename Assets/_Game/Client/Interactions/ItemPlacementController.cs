@@ -30,6 +30,8 @@ namespace Game.Client.Interactions
         [SerializeField]
         private Material ghostInvalidMaterial;
 
+        public const string PlaceActionLabel = "배치";
+
         public bool IsPlacing { get; private set; }
 
         private PlayerInteractor interactor;
@@ -49,6 +51,7 @@ namespace Game.Client.Interactions
         private Quaternion previewRotation;
         private Vector3 placementCenterOffset;
         private Vector3 placementHalfExtents;
+        private InteractionPromptView promptView;
 
         private void Awake()
         {
@@ -77,6 +80,14 @@ namespace Game.Client.Interactions
         private void OnDisable()
         {
             ExitPlacementMode();
+        }
+
+        private void OnDestroy()
+        {
+            if (promptView != null)
+            {
+                Destroy(promptView.gameObject);
+            }
         }
 
         private void Update()
@@ -148,6 +159,8 @@ namespace Game.Client.Interactions
                 ghost = null;
                 ghostRenderers = null;
             }
+
+            promptView?.Hide();
         }
 
         private void ReadAdjustInput()
@@ -179,6 +192,7 @@ namespace Game.Client.Interactions
         {
             if (!TryEnsureCamera() || ghost == null)
             {
+                promptView?.Hide();
                 return;
             }
 
@@ -238,6 +252,7 @@ namespace Game.Client.Interactions
             // 보정 한도까지 올려도 겹치면 그때만 배치 불가(빨간색).
             isCurrentPoseValid = !IsOverlapping() && HasSupport();
             ApplyGhostMaterial(isCurrentPoseValid ? ghostValidMaterial : ghostInvalidMaterial);
+            RefreshPlacementPrompt();
         }
 
         // 고스트가 차지할 공간에 다른 물체가 있는지 검사한다.
@@ -363,6 +378,28 @@ namespace Game.Client.Interactions
                 ghostRenderer.sharedMaterials = materials;
             }
         }
+
+        private void RefreshPlacementPrompt()
+        {
+            if (!IsPlacing ||
+                !isCurrentPoseValid ||
+                ghost == null ||
+                interactor == null ||
+                !interactor.HudVisible)
+            {
+                promptView?.Hide();
+                return;
+            }
+
+            PromptView.Show(
+                string.Empty,
+                PlaceActionLabel,
+                ghost.transform,
+                InteractionPromptView.LoadLeftClickIcon());
+        }
+
+        private InteractionPromptView PromptView =>
+            promptView != null ? promptView : promptView = InteractionPromptView.Create();
 
         private bool TryEnsureCamera()
         {

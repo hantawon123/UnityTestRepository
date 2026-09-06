@@ -90,7 +90,16 @@ namespace Game.Bootstrap
         public void Start()
         {
             transition.SetOpacity(1f);
-            subscription = result.ResultText.Subscribe(view.SetText);
+            subscription = result.ResultText.Subscribe(_ =>
+            {
+                if (string.IsNullOrEmpty(result.ResultHeadline))
+                {
+                    view.SetText(result.ResultSubtitle);
+                    return;
+                }
+
+                view.SetOutcome(result.ResultHeadline, result.ResultSubtitle);
+            });
         }
 
         public void Tick() => Tick(Time.unscaledDeltaTime);

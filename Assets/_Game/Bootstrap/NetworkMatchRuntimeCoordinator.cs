@@ -72,6 +72,7 @@ namespace Game.Bootstrap
         private MatchPhase synchronizedPhase = (MatchPhase)(-1);
         private int synchronizedHidingTurn = -1;
         private bool hidingInitialPlacementDone;
+        private bool hasPublishedAssignmentNotices;
         private bool hasSynchronizedPlayers;
         private bool hasPublishedSnapshot;
         private bool hasPublishedHighlightReplay;
@@ -295,6 +296,7 @@ namespace Game.Bootstrap
             synchronizedPhase = session.CurrentPhase;
             synchronizedHidingTurn = session.GetCurrentHidingTurnIndex(network.ServerTime);
             hidingInitialPlacementDone = synchronizedPhase == MatchPhase.Hiding;
+            hasPublishedAssignmentNotices = synchronizedPhase == MatchPhase.Hiding;
             initializedAssignments = new bool[migration.Players.Length];
             for (var i = 0; i < migration.Players.Length; i++)
             {
@@ -336,6 +338,13 @@ namespace Game.Bootstrap
             if (phase != MatchPhase.Hiding)
             {
                 hidingInitialPlacementDone = false;
+                hasPublishedAssignmentNotices = false;
+            }
+
+            if (phase == MatchPhase.Hiding && !hasPublishedAssignmentNotices)
+            {
+                PublishAssignmentNotices(session);
+                hasPublishedAssignmentNotices = true;
             }
 
             if (phase == MatchPhase.Hiding && hidingTurn >= 0 &&
@@ -470,14 +479,9 @@ namespace Game.Bootstrap
                 // 숨기기 대기자도 로비처럼 밖에서 이동하고 공격 모션을
                 // 사용할 수 있다. 실제 기절 판정은 MatchSessionCoordinator가
                 // 찾기 페이즈에만 적용한다.
-                var isEndCountdown = phase == MatchPhase.Highlight &&
-                                     session.TryGetResult(out var matchResult) &&
-                                     now < matchResult.EndedAt +
-                                     MatchSessionCoordinator.HighlightPostRollSeconds;
                 var enabled = phase == MatchPhase.Hiding ||
                                (phase == MatchPhase.Searching &&
-                                !session.IsPlayerStunned(playerIndex, now)) ||
-                               isEndCountdown;
+                                !session.IsPlayerStunned(playerIndex, now));
                 if (hasSynchronizedPlayers &&
                     synchronizedControls[playerIndex] == enabled)
                 {
@@ -496,6 +500,20 @@ namespace Game.Bootstrap
             synchronizedPhase = phase;
             synchronizedHidingTurn = hidingTurn;
             hasSynchronizedPlayers = true;
+        }
+
+        private void PublishAssignmentNotices(MatchSessionCoordinator session)
+        {
+            for (var playerIndex = 0; playerIndex < session.Assignments.Count; playerIndex++)
+            {
+                if (!session.Players.IsActive(playerIndex))
+                {
+                    continue;
+                }
+
+                assignmentBuffer[0] = session.Assignments[playerIndex];
+                network.TryPublishItemAssignments(assignmentBuffer);
+            }
         }
 
         private void InitializeCurrentAssignment(

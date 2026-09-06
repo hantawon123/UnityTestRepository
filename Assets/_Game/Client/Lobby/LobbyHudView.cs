@@ -1,3 +1,4 @@
+using Game.Client.Home;
 using UnityEngine;
 
 namespace Game.Client.Lobby
@@ -27,5 +28,11 @@ namespace Game.Client.Lobby
 
         [SerializeField]
         private RectTransform voiceButton;
+
+        private void OnEnable()
+        {
+            var canvas = GetComponentInParent<Canvas>();
+            HomeUiFonts.ApplyLegacy(canvas != null ? canvas.transform : transform);
+        }
     }
 }

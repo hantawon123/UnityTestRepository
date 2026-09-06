@@ -18,26 +18,9 @@
         },
         "type" : "object"
       },
-      "BlockListResponse" : {
+      "AdminSession" : {
         "properties" : {
-          "blocked" : {
-            "items" : {
-              "$ref" : "#/components/schemas/BlockedUserSummary"
-            },
-            "type" : "array"
-          }
-        },
-        "type" : "object"
-      },
-      "BlockedUserSummary" : {
-        "properties" : {
-          "blockedAt" : {
-            "type" : "string"
-          },
-          "nickname" : {
-            "type" : "string"
-          },
-          "userId" : {
+          "username" : {
             "type" : "string"
           }
         },
@@ -98,6 +81,34 @@
         },
         "type" : "object"
       },
+      "InviteListResponse" : {
+        "properties" : {
+          "invites" : {
+            "items" : {
+              "$ref" : "#/components/schemas/InviteSummary"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "InviteSummary" : {
+        "properties" : {
+          "invitedAt" : {
+            "type" : "string"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "roomCode" : {
+            "type" : "string"
+          },
+          "userId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "IssueAccountRequest" : {
         "properties" : {
           "deviceId" : {
@@ -134,6 +145,54 @@
             "type" : "string"
           }
         },
+        "type" : "object"
+      },
+      "SendInviteRequest" : {
+        "properties" : {
+          "roomCode" : {
+            "minLength" : 1,
+            "pattern" : "^[0-9A-HJKMNPQRSTVWXYZ]{6}$",
+            "type" : "string"
+          },
+          "userId" : {
+            "maxLength" : 36,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "roomCode",
+          "userId"
+        ],
+        "type" : "object"
+      },
+      "SendReportRequest" : {
+        "properties" : {
+          "memo" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "reason" : {
+            "enum" : [
+              "ABUSE",
+              "CHEATING",
+              "SPAM",
+              "INAPPROPRIATE_NAME",
+              "OTHER"
+            ],
+            "type" : "string"
+          },
+          "userId" : {
+            "maxLength" : 36,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "reason",
+          "userId"
+        ],
         "type" : "object"
       },
       "UpdateNicknameRequest" : {
@@ -317,25 +376,15 @@
         ]
       }
     },
-    "/api/v1/blocks" : {
+    "/api/v1/admin/session" : {
       "get" : {
-        "operationId" : "list_2",
-        "parameters" : [
-          {
-            "in" : "header",
-            "name" : "X-User-Id",
-            "required" : true,
-            "schema" : {
-              "type" : "string"
-            }
-          }
-        ],
+        "operationId" : "current",
         "responses" : {
           "200" : {
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/BlockListResponse"
+                  "$ref" : "#/components/schemas/AdminSession"
                 }
               }
             },
@@ -343,67 +392,7 @@
           }
         },
         "tags" : [
-          "block-controller"
-        ]
-      }
-    },
-    "/api/v1/blocks/{userId}" : {
-      "delete" : {
-        "operationId" : "unblock",
-        "parameters" : [
-          {
-            "in" : "header",
-            "name" : "X-User-Id",
-            "required" : true,
-            "schema" : {
-              "type" : "string"
-            }
-          },
-          {
-            "in" : "path",
-            "name" : "userId",
-            "required" : true,
-            "schema" : {
-              "type" : "string"
-            }
-          }
-        ],
-        "responses" : {
-          "204" : {
-            "description" : "No Content"
-          }
-        },
-        "tags" : [
-          "block-controller"
-        ]
-      },
-      "put" : {
-        "operationId" : "block",
-        "parameters" : [
-          {
-            "in" : "header",
-            "name" : "X-User-Id",
-            "required" : true,
-            "schema" : {
-              "type" : "string"
-            }
-          },
-          {
-            "in" : "path",
-            "name" : "userId",
-            "required" : true,
-            "schema" : {
-              "type" : "string"
-            }
-          }
-        ],
-        "responses" : {
-          "204" : {
-            "description" : "No Content"
-          }
-        },
-        "tags" : [
-          "block-controller"
+          "admin-session-controller"
         ]
       }
     },
@@ -447,7 +436,7 @@
         ]
       },
       "post" : {
-        "operationId" : "send",
+        "operationId" : "send_1",
         "parameters" : [
           {
             "in" : "header",
@@ -608,6 +597,98 @@
         ]
       }
     },
+    "/api/v1/invites" : {
+      "get" : {
+        "operationId" : "inbox",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InviteListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "invite-controller"
+        ]
+      },
+      "post" : {
+        "operationId" : "send",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SendInviteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created"
+          }
+        },
+        "tags" : [
+          "invite-controller"
+        ]
+      }
+    },
+    "/api/v1/invites/{userId}" : {
+      "delete" : {
+        "operationId" : "decline",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "path",
+            "name" : "userId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "tags" : [
+          "invite-controller"
+        ]
+      }
+    },
     "/api/v1/presence" : {
       "delete" : {
         "operationId" : "goOffline",
@@ -659,6 +740,39 @@
         },
         "tags" : [
           "presence-controller"
+        ]
+      }
+    },
+    "/api/v1/reports" : {
+      "post" : {
+        "operationId" : "report_1",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SendReportRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created"
+          }
+        },
+        "tags" : [
+          "report-controller"
         ]
       }
     },
