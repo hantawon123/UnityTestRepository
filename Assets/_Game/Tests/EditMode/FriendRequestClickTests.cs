@@ -380,6 +380,8 @@ namespace Game.Architecture.Tests
 
             public void SetNicknameSearchAllowedError(string message) { }
 
+            public void ShowConnectionError(string message) { }
+
             /// <remarks>Declared to satisfy the interface; this test raises one.</remarks>
             public void Unused()
             {

@@ -409,6 +409,8 @@ namespace Game.Architecture.Tests
             public void SetNicknameSearchAllowedError(string message) =>
                 SearchAllowedError = message ?? string.Empty;
 
+            public void ShowConnectionError(string message) { }
+
             /// <remarks>
             /// Declared so the compiler stops warning that nothing raises them.
             /// This bridge listens to one event and the rest are here to satisfy

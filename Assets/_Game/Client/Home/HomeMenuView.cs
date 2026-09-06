@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using Game.Client.Common;
 using Game.Core.Home;
 using TMPro;
 using UnityEngine;
@@ -63,6 +64,20 @@ namespace Game.Client.Home
             CreateProfileChip(canvas);
             CreateFriendButton(canvas);
             CreateServerButton(canvas);
+
+            // Last, so it draws over the panels. It never takes a click, so
+            // being on top costs the controls underneath nothing.
+            connectionToast = ConnectionToast.AttachTo(canvas);
+        }
+
+        /// <summary>
+        /// Says that something did not connect. Home has four ways to reach the
+        /// network — making a room, finding one, the friend panel, a rename —
+        /// and until this existed the first two only wrote to the log.
+        /// </summary>
+        public void ShowConnectionError(string message)
+        {
+            connectionToast?.Show(HomeStyle.ConnectionErrorTitle, message);
         }
 
         private RectTransform CreateCanvas()

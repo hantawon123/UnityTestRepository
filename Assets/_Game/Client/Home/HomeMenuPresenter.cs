@@ -400,12 +400,21 @@ namespace Game.Client.Home
         /// Closes the modal before asking for the room, so the screen is not
         /// left with a live form over a lobby that is loading behind it.
         /// </summary>
+        /// <summary>
+        /// Sends the filled-in form on, once the flow allows leaving for a
+        /// lobby at all.
+        /// </summary>
+        /// <remarks>
+        /// Asked, not moved. Opening a room is a network call that can be
+        /// refused, and a flow already moved to Lobby cannot come back to Home
+        /// — the rules have no such move — so a refusal would leave the player
+        /// on this screen with the app believing they are in a lobby. The host
+        /// moves the flow when a room actually opens.
+        /// </remarks>
         private void OnRoomCreationRequested(string title, bool isPublic, int maxPlayers)
         {
-            // The flow state is asked before the room is, the way the room
-            // browser does it: a screen only leaves for a move the app allows.
             if (appFlow.CurrentState != AppFlowState.Lobby &&
-                !appFlow.TryTransitionTo(AppFlowState.Lobby))
+                !appFlow.CanTransitionTo(AppFlowState.Lobby))
             {
                 Debug.LogError($"Cannot open a room from {appFlow.CurrentState}.");
                 return;

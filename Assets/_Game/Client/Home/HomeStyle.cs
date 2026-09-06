@@ -19,6 +19,13 @@ namespace Game.Client.Home
     /// </remarks>
     public static class HomeStyle
     {
+        /// <summary>
+        /// Over every connection failure this screen reports. The same heading
+        /// as the room browser uses: from the player's side these are one
+        /// event, which is that the game could not reach the server.
+        /// </summary>
+        public const string ConnectionErrorTitle = "게임 접속 오류";
+
         public static readonly Vector2 ReferenceResolution = new Vector2(1920f, 1080f);
 
         public static class Palette

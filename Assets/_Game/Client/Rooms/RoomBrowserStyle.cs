@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace Game.Client.Rooms
 {
@@ -75,10 +75,6 @@ namespace Game.Client.Rooms
             /// panels are: this project composites in linear colour and lets
             /// more of the background through at the same number.
             /// </remarks>
-            public static readonly Color ToastBase = FromHex(0x000000, 0.97f);
-            public static readonly Color ToastTint = FromHex(0xFF9A6A, 0.2f);
-            public static readonly Color ToastTitle = FromHex(0xFF7032);
-            public static readonly Color ToastBody = Color.white;
         }
 
         /// <summary>
@@ -93,7 +89,6 @@ namespace Game.Client.Rooms
             public const int EnterButton = 10;
             public const int CodeCell = 15;
             public const int Scrollbar = 18;
-            public const int Toast = 20;
         }
 
         public static class Layout
@@ -189,16 +184,11 @@ namespace Game.Client.Rooms
             /// <summary>
             /// The failure notice, centred under the top edge of the screen.
             /// </summary>
-            public static readonly Vector2 ToastSize = new Vector2(590f, 136f);
-            public const float ToastTopMargin = 48f;
-            public const float ToastTitleOffsetY = 26f;
-            public const float ToastBodyOffsetY = -22f;
 
             /// <summary>
             /// Long enough to read two lines and short enough not to sit over
             /// the list while the player tries the next room.
             /// </summary>
-            public const float ToastSeconds = 3f;
 
             public const float ScrollbarWidth = 10f;
             public const float ScrollbarRightPadding = 10f;
@@ -212,8 +202,6 @@ namespace Game.Client.Rooms
             public const float Search = 24f;
             public const float CodeCell = 24f;
             public const float Refresh = 18f;
-            public const float ToastTitle = 30f;
-            public const float ToastBody = 20f;
             public const float RoomStatus = 20f;
             public const float RoomTitle = 24f;
             public const float MapName = 20f;

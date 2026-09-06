@@ -1,4 +1,4 @@
-using Game.Client.Rooms;
+﻿using Game.Client.Common;
 using Game.Core.Rooms;
 using NUnit.Framework;
 
@@ -54,6 +54,58 @@ namespace Game.Tests.EditMode
             Assert.That(
                 RoomEntryMessages.Describe(failure, RoomEntrySource.RoomList),
                 Is.EqualTo(RoomEntryMessages.Generic));
+        }
+
+        [TestCase(RoomEntryFailure.NotFound)]
+        [TestCase(RoomEntryFailure.Full)]
+        [TestCase(RoomEntryFailure.Closed)]
+        public void MakingARoom_IsNeverToldToLookAtTheList(RoomEntryFailure failure)
+        {
+            var said = RoomEntryMessages.Describe(failure, RoomEntrySource.RoomCreate);
+
+            // These three are about a room somebody else made. Reaching them
+            // from the create form means the room this player just asked for
+            // did not survive being made, and there is no list to refresh, no
+            // code to check and no other room to pick.
+            Assert.That(said, Does.Not.Contain("목록"));
+            Assert.That(said, Does.Not.Contain("코드"));
+            Assert.That(said, Does.Not.Contain("다른 방"));
+            Assert.That(said, Does.Not.Contain("골라"));
+        }
+
+        [Test]
+        public void SettingsTheServerRefuses_AreOnlyMentionedToTheOneWhoTypedThem()
+        {
+            // The form checks the name and the player count before it sends, so
+            // this only happens when the two disagree.
+            Assert.That(
+                RoomEntryMessages.Describe(
+                    RoomEntryFailure.InvalidRequest, RoomEntrySource.RoomCreate),
+                Is.EqualTo("방 설정을 확인해 주세요."));
+
+            // Nobody entering a room chose its settings, so there is nothing
+            // for them to go and fix.
+            Assert.That(
+                RoomEntryMessages.Describe(
+                    RoomEntryFailure.InvalidRequest, RoomEntrySource.RoomList),
+                Is.EqualTo(RoomEntryMessages.Generic));
+        }
+
+        [Test]
+        public void EveryFailure_IsGivenSomethingToSayFromEveryDirection()
+        {
+            foreach (RoomEntrySource source in
+                System.Enum.GetValues(typeof(RoomEntrySource)))
+            {
+                foreach (RoomEntryFailure failure in
+                    System.Enum.GetValues(typeof(RoomEntryFailure)))
+                {
+                    Assert.That(
+                        RoomEntryMessages.Describe(failure, source),
+                        Is.Not.Null.And.Not.Empty,
+                        $"{failure} has no wording from {source}.");
+                }
+            }
         }
 
         [Test]

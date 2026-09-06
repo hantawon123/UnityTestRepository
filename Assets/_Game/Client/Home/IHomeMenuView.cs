@@ -83,6 +83,16 @@ namespace Game.Client.Home
         /// </summary>
         void SetNicknameSearchAllowedError(string message);
 
+        /// <summary>
+        /// Reports that something did not connect, over whatever is on screen.
+        /// </summary>
+        /// <remarks>
+        /// For the failures that belong to no panel — making a room, opening
+        /// the room browser. A refusal that belongs to a panel is said in that
+        /// panel, where the player is looking.
+        /// </remarks>
+        void ShowConnectionError(string message);
+
         void SetFriendListVisible(bool visible);
 
         void SetFriends(

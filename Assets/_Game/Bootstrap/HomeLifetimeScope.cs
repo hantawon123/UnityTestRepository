@@ -1,6 +1,8 @@
 ﻿using System.Threading;
 using Cysharp.Threading.Tasks;
+using Game.Client.Common;
 using Game.Client.Home;
+using Game.Core.Flow;
 using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Maps;
@@ -163,27 +165,62 @@ namespace Game.Bootstrap
             private readonly RoomUiCommands rooms;
             private readonly FrontendSceneCoordinator scenes;
             private readonly NetworkRunnerService network;
+            private readonly IHomeMenuView view;
+            private readonly AppFlowSystem appFlow;
             private readonly UnityHomeApplicationHost fallback = new();
 
             public NetworkHomeApplicationHost(
                 RoomUiCommands rooms,
                 FrontendSceneCoordinator scenes,
-                NetworkRunnerService network)
+                NetworkRunnerService network,
+                IHomeMenuView view,
+                AppFlowSystem appFlow)
             {
                 this.rooms = rooms;
                 this.scenes = scenes;
                 this.network = network;
+                this.view = view;
+                this.appFlow = appFlow;
             }
 
             public void Quit() => fallback.Quit();
 
             public void OpenHome() => scenes.OpenHome();
 
+            /// <summary>
+            /// Opens the room browser, and starts filling its list on the way.
+            /// </summary>
+            /// <remarks>
+            /// The list is asked for here rather than by the browser scene, so
+            /// the Photon handshake runs beside the scene load instead of after
+            /// it. A refusal is said on this screen because it is the one still
+            /// on it when the answer comes back.
+            /// </remarks>
             public void OpenRoomBrowser()
             {
-                rooms.RefreshAsync(CancellationToken.None)
-                    .Forget(exception => Debug.LogException(exception));
+                OpenRoomBrowserAsync().Forget(exception => Debug.LogException(exception));
+            }
+
+            private async UniTask OpenRoomBrowserAsync()
+            {
                 scenes.OpenRoomBrowser();
+
+                try
+                {
+                    await rooms.RefreshAsync(CancellationToken.None);
+                }
+                catch (System.OperationCanceledException)
+                {
+                    // Home was left while the list was being read. The browser
+                    // asks again for itself.
+                }
+                catch (System.Exception failure)
+                {
+                    Debug.LogException(failure);
+                    view.ShowConnectionError(
+                        RoomEntryMessages.Describe(
+                            RoomEntryFailure.ConnectionFailed, RoomEntrySource.RoomList));
+                }
             }
 
             /// <summary>
@@ -212,10 +249,24 @@ namespace Game.Bootstrap
                 var result = await rooms.CreateAsync(request, CancellationToken.None);
                 if (!result.Ok)
                 {
-                    // The room browser shows these failures; Home has nowhere to
-                    // put one yet, so it is logged rather than swallowed.
                     Debug.LogWarning($"[Home] Room creation failed: {result.Failure}.");
+
+                    // The form stays open behind the notice, with what was typed
+                    // still in it: the player is one press from trying again,
+                    // and none of these failures are about what they typed.
+                    view.ShowConnectionError(
+                        RoomEntryMessages.Describe(
+                            result.Failure, RoomEntrySource.RoomCreate));
                     return;
+                }
+
+                // Moved now rather than when the form was sent. There is a room
+                // to be in as of this line, and the flow rules have no way back
+                // from Lobby to Home for a room that never opened.
+                if (appFlow.CurrentState != AppFlowState.Lobby &&
+                    !appFlow.TryTransitionTo(AppFlowState.Lobby))
+                {
+                    Debug.LogError($"[Home] Opened a room from {appFlow.CurrentState}.");
                 }
 
                 OpenLobby();

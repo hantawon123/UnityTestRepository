@@ -119,6 +119,7 @@ namespace Game.Client.Home
         private Image searchAllowKnobImage;
         private RectTransform searchAllowKnob;
         private TMP_Text searchAllowMessageText;
+        private Game.Client.Common.ConnectionToast connectionToast;
         private Button applyButton;
         private Image applyFill;
         private TMP_Text applyLabel;

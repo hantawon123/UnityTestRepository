@@ -362,7 +362,23 @@ namespace Game.Tests.EditMode
             Assert.That(host.CreatedPublic, Is.False);
             Assert.That(host.CreatedMaxPlayers, Is.EqualTo(4));
             Assert.That(view.CreateRoomVisible, Is.False);
-            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Lobby));
+        }
+
+        [Test]
+        public void Presenter_AskingForARoom_DoesNotMoveTheFlowYet()
+        {
+            using var presenter = CreateStartedPresenter(
+                out var view, out _, out var appFlow, out _, out _);
+            view.Raise(HomeMenuAction.CreateRoom);
+
+            view.RaiseRoomCreationRequested("우리방", false, 4);
+
+            // Opening a room is a call that can be refused, and there is no way
+            // back from Lobby to Home. Moving here left a refused player sitting
+            // on this screen while the app believed they were in a lobby, and
+            // the flow could only go on to a room browser or a match from
+            // there. The host moves it when a room actually opens.
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Home));
         }
 
         [Test]
@@ -370,8 +386,8 @@ namespace Game.Tests.EditMode
         {
             using var presenter = CreateStartedPresenter(out var view, out var host, out var appFlow, out _, out _);
 
-            // Highlight is the one state with no way back to a lobby: it only
-            // goes on to the result. InGame does allow it, for the rematch.
+            // Highlight is the one state with no way on to a lobby: it only
+            // goes to the result. InGame does allow it, for the rematch.
             Assert.That(appFlow.TryTransitionTo(AppFlowState.RoomBrowser), Is.True);
             Assert.That(appFlow.TryTransitionTo(AppFlowState.Lobby), Is.True);
             Assert.That(appFlow.TryTransitionTo(AppFlowState.InGame), Is.True);
@@ -777,6 +793,13 @@ namespace Game.Tests.EditMode
 
             public void SetNicknameSearchAllowedError(string message)
             {
+            }
+
+            public string ConnectionError { get; private set; } = string.Empty;
+
+            public void ShowConnectionError(string message)
+            {
+                ConnectionError = message ?? string.Empty;
             }
 
             public void RaiseRoomCreationRequested(string title, bool isPublic, int maxPlayers)
