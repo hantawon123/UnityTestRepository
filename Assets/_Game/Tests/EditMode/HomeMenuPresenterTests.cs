@@ -22,7 +22,9 @@ namespace Game.Tests.EditMode
             var requestedActions = new List<HomeMenuAction>();
             menu.ActionRequested += requestedActions.Add;
 
-            using (var presenter = new HomeMenuPresenter(profile, menu, view, host, appFlow, friends, search))
+            using (var presenter = new HomeMenuPresenter(
+                profile, menu, view, host, appFlow, friends, search,
+                new FakeNicknameAvailabilityCheck()))
             {
                 presenter.Start();
                 Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"));
@@ -324,6 +326,53 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Presenter_DuplicateCheck_AsksAndReportsBack()
+        {
+            using var presenter = CreateStartedPresenter(
+                out var view, out _, out _, out _, out _, out var availability);
+            view.Raise(HomeMenuAction.ProfileSettings);
+
+            availability.Answer = NicknameCheckOutcome.Taken;
+            view.RaiseDuplicateCheck("금오산냥냥이");
+
+            Assert.That(availability.LastAsked, Is.EqualTo("금오산냥냥이"));
+            Assert.That(view.LastAvailability, Is.EqualTo(NicknameCheckOutcome.Taken));
+        }
+
+        [Test]
+        public void Presenter_DuplicateCheck_IgnoredUntilProfileSettingsIsOpen()
+        {
+            using var presenter = CreateStartedPresenter(
+                out var view, out _, out _, out _, out _, out var availability);
+
+            view.RaiseDuplicateCheck("금오산냥냥이");
+
+            Assert.That(availability.AskCount, Is.Zero);
+            Assert.That(view.LastAvailability, Is.Null);
+        }
+
+        [Test]
+        public void Presenter_DuplicateCheck_AnswerAfterClosingIsDropped()
+        {
+            using var presenter = CreateStartedPresenter(
+                out var view, out _, out _, out _, out _, out var availability);
+            view.Raise(HomeMenuAction.ProfileSettings);
+
+            availability.Defer = true;
+            availability.Answer = NicknameCheckOutcome.Available;
+            view.RaiseDuplicateCheck("금오산냥냥이");
+            Assert.That(view.LastAvailability, Is.Null, "답이 오기 전인데 이미 반영되었다.");
+
+            view.RaiseProfileSettingsDismissed();
+            availability.AnswerNow();
+
+            Assert.That(
+                view.LastAvailability,
+                Is.Null,
+                "닫힌 패널에 늦게 온 답이 반영되면 다음에 열 때 적용 버튼이 켜져 있다.");
+        }
+
+        [Test]
         public void Presenter_RequiresDependencies()
         {
             var profile = new PlayerProfile("사용자닉네임", 1);
@@ -333,27 +382,31 @@ namespace Game.Tests.EditMode
             var appFlow = new AppFlowSystem();
             var friends = new FriendListSystem();
             var search = new FriendSearchSystem();
+            var availability = new FakeNicknameAvailabilityCheck();
 
             Assert.That(
-                () => new HomeMenuPresenter(null, menu, view, host, appFlow, friends, search),
+                () => new HomeMenuPresenter(null, menu, view, host, appFlow, friends, search, availability),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, null, view, host, appFlow, friends, search),
+                () => new HomeMenuPresenter(profile, null, view, host, appFlow, friends, search, availability),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, null, host, appFlow, friends, search),
+                () => new HomeMenuPresenter(profile, menu, null, host, appFlow, friends, search, availability),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, null, appFlow, friends, search),
+                () => new HomeMenuPresenter(profile, menu, view, null, appFlow, friends, search, availability),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, host, null, friends, search),
+                () => new HomeMenuPresenter(profile, menu, view, host, null, friends, search, availability),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, host, appFlow, null, search),
+                () => new HomeMenuPresenter(profile, menu, view, host, appFlow, null, search, availability),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => new HomeMenuPresenter(profile, menu, view, host, appFlow, friends, null),
+                () => new HomeMenuPresenter(profile, menu, view, host, appFlow, friends, null, availability),
+                Throws.TypeOf<ArgumentNullException>());
+            Assert.That(
+                () => new HomeMenuPresenter(profile, menu, view, host, appFlow, friends, search, null),
                 Throws.TypeOf<ArgumentNullException>());
         }
 
@@ -364,6 +417,18 @@ namespace Game.Tests.EditMode
             out FriendListSystem friends,
             out FriendSearchSystem search)
         {
+            return CreateStartedPresenter(
+                out view, out host, out appFlow, out friends, out search, out _);
+        }
+
+        private static HomeMenuPresenter CreateStartedPresenter(
+            out FakeHomeMenuView view,
+            out FakeHomeApplicationHost host,
+            out AppFlowSystem appFlow,
+            out FriendListSystem friends,
+            out FriendSearchSystem search,
+            out FakeNicknameAvailabilityCheck availability)
+        {
             var profile = new PlayerProfile("사용자닉네임", 1);
             var menu = new HomeMenuSystem();
             view = new FakeHomeMenuView();
@@ -371,9 +436,51 @@ namespace Game.Tests.EditMode
             appFlow = new AppFlowSystem();
             friends = new FriendListSystem();
             search = new FriendSearchSystem();
-            var presenter = new HomeMenuPresenter(profile, menu, view, host, appFlow, friends, search);
+            availability = new FakeNicknameAvailabilityCheck();
+            var presenter = new HomeMenuPresenter(
+                profile, menu, view, host, appFlow, friends, search, availability);
             presenter.Start();
             return presenter;
+        }
+
+        /// <summary>
+        /// Answers whatever the test told it to, when the test says so.
+        /// </summary>
+        private sealed class FakeNicknameAvailabilityCheck : INicknameAvailabilityCheck
+        {
+            private Action<NicknameCheckOutcome> pending;
+
+            public string LastAsked { get; private set; }
+
+            public int AskCount { get; private set; }
+
+            public NicknameCheckOutcome Answer { get; set; } = NicknameCheckOutcome.Available;
+
+            /// <summary>
+            /// Holds the answer back so a test can close the panel first, the
+            /// way a slow server would.
+            /// </summary>
+            public bool Defer { get; set; }
+
+            public void Check(string nickname, Action<NicknameCheckOutcome> onAnswered)
+            {
+                LastAsked = nickname;
+                AskCount++;
+                if (Defer)
+                {
+                    pending = onAnswered;
+                    return;
+                }
+
+                onAnswered(Answer);
+            }
+
+            public void AnswerNow()
+            {
+                var callback = pending;
+                pending = null;
+                callback?.Invoke(Answer);
+            }
         }
 
         private sealed class FakeHomeMenuView : IHomeMenuView
@@ -399,6 +506,8 @@ namespace Game.Tests.EditMode
 
             public bool NicknameAppliedFeedbackVisible { get; private set; }
 
+            public NicknameCheckOutcome? LastAvailability { get; private set; }
+
             public event Action<HomeMenuAction> ActionClicked;
 
             public event Action FriendListDismissed;
@@ -406,6 +515,8 @@ namespace Game.Tests.EditMode
             public event Action ProfileSettingsDismissed;
 
             public event Action<string> NicknameChangeRequested;
+
+            public event Action<string> NicknameDuplicateCheckRequested;
 
             public event Action<string> NicknameEdited;
 
@@ -435,6 +546,16 @@ namespace Game.Tests.EditMode
             public void SetNicknameAppliedFeedbackVisible(bool visible)
             {
                 NicknameAppliedFeedbackVisible = visible;
+            }
+
+            public void SetNicknameAvailability(NicknameCheckOutcome outcome)
+            {
+                LastAvailability = outcome;
+            }
+
+            public void RaiseDuplicateCheck(string nickname)
+            {
+                NicknameDuplicateCheckRequested?.Invoke(nickname);
             }
 
             public void SetFriendListVisible(bool visible)

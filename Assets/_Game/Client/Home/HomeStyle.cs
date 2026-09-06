@@ -176,13 +176,17 @@ namespace Game.Client.Home
             public const float ApplyTop = -167f;
             public static readonly Vector2 ApplySize = new Vector2(472f, 52f);
 
-            public const int MinNicknameLength = 2;
-            public const int MaxNicknameLength = 12;
-
             public const string TooLongMessage = "최대 12글자 작성가능합니다";
             public const string BadCharacterMessage = "한글/영어/숫자만 작성가능합니다";
             public const string TakenMessage = "이미 존재하는 닉네임입니다";
             public const string AvailableMessage = "사용 가능한 닉네임입니다";
+
+            /// <summary>
+            /// Not given by the design, which has no picture for a server that
+            /// did not answer. Says to try again rather than to pick another
+            /// name, because the name may well be fine.
+            /// </summary>
+            public const string UnreachableMessage = "확인하지 못했어요. 잠시 후 다시 시도해주세요";
         }
 
         public static class Radius

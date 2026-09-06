@@ -106,6 +106,7 @@ namespace Game.Client.Home
         private readonly IHomeMenuView view;
         private readonly IHomeApplicationHost applicationHost;
         private readonly AppFlowSystem appFlow;
+        private readonly INicknameAvailabilityCheck availability;
         private bool isFriendListVisible;
         private bool isProfileSettingsVisible;
 
@@ -116,7 +117,8 @@ namespace Game.Client.Home
             IHomeApplicationHost applicationHost,
             AppFlowSystem appFlow,
             FriendListSystem friends,
-            FriendSearchSystem search)
+            FriendSearchSystem search,
+            INicknameAvailabilityCheck availability)
         {
             this.profile = profile ?? throw new ArgumentNullException(nameof(profile));
             this.menu = menu ?? throw new ArgumentNullException(nameof(menu));
@@ -126,6 +128,8 @@ namespace Game.Client.Home
             this.appFlow = appFlow ?? throw new ArgumentNullException(nameof(appFlow));
             this.friends = friends ?? throw new ArgumentNullException(nameof(friends));
             this.search = search ?? throw new ArgumentNullException(nameof(search));
+            this.availability = availability
+                ?? throw new ArgumentNullException(nameof(availability));
         }
 
         public void Start()
@@ -134,6 +138,7 @@ namespace Game.Client.Home
             view.FriendListDismissed += HideFriendList;
             view.ProfileSettingsDismissed += HideProfileSettings;
             view.NicknameChangeRequested += OnNicknameChangeRequested;
+            view.NicknameDuplicateCheckRequested += OnNicknameDuplicateCheckRequested;
             view.NicknameEdited += OnNicknameEdited;
             view.FriendSearchOpened += OnFriendSearchOpened;
             view.FriendSearchClosed += OnFriendSearchClosed;
@@ -154,6 +159,7 @@ namespace Game.Client.Home
             view.FriendListDismissed -= HideFriendList;
             view.ProfileSettingsDismissed -= HideProfileSettings;
             view.NicknameChangeRequested -= OnNicknameChangeRequested;
+            view.NicknameDuplicateCheckRequested -= OnNicknameDuplicateCheckRequested;
             view.NicknameEdited -= OnNicknameEdited;
             view.FriendSearchOpened -= OnFriendSearchOpened;
             view.FriendSearchClosed -= OnFriendSearchClosed;
@@ -207,6 +213,31 @@ namespace Game.Client.Home
             {
                 view.SetNicknameAppliedFeedbackVisible(true);
             }
+        }
+
+        /// <summary>
+        /// Passes the question on, and hands whatever comes back to the panel.
+        /// </summary>
+        /// <remarks>
+        /// The answer may arrive later than the ask, so the panel is only told
+        /// while it is still the thing on screen: a reply that lands after the
+        /// player has closed it would light up an apply button nobody can see,
+        /// and it would still be lit the next time they open the panel.
+        /// </remarks>
+        private void OnNicknameDuplicateCheckRequested(string nickname)
+        {
+            if (!isProfileSettingsVisible)
+            {
+                return;
+            }
+
+            availability.Check(nickname, outcome =>
+            {
+                if (isProfileSettingsVisible)
+                {
+                    view.SetNicknameAvailability(outcome);
+                }
+            });
         }
 
         private void OnNicknameEdited(string nickname)

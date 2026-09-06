@@ -6,6 +6,12 @@ namespace Game.Core.Home
     {
         None,
         NicknameRequired,
+
+        /// <summary>
+        /// There was a name, but not one the rule allows.
+        /// </summary>
+        NicknameNotAllowed,
+
         InvalidLevel
     }
 
@@ -42,7 +48,18 @@ namespace Game.Core.Home
                 return false;
             }
 
-            Nickname = nickname.Trim();
+            // The panel refuses a name the rule forbids long before it gets
+            // here, and the server refuses it again afterwards. This is the
+            // rule holding in the middle, for the callers that are not the
+            // panel — the debug overlay is one.
+            var trimmed = nickname.Trim();
+            if (!NicknamePolicy.IsValid(trimmed))
+            {
+                error = PlayerProfileError.NicknameNotAllowed;
+                return false;
+            }
+
+            Nickname = trimmed;
             error = PlayerProfileError.None;
             Changed?.Invoke(this);
             return true;

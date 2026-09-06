@@ -1,5 +1,5 @@
 using System;
-using System.Text;
+using Game.Core.Home;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -257,7 +257,7 @@ namespace Game.Client.Home
             counterRect.sizeDelta = new Vector2(120f, HomeStyle.Profile.MessageHeight);
             nicknameCounterText = AddText(
                 counterRect,
-                $"0/{HomeStyle.Profile.MaxNicknameLength}",
+                $"0/{NicknamePolicy.MaxLength}",
                 HomeStyle.FontSize.Counter,
                 FontStyles.Normal,
                 TextAlignmentOptions.MidlineRight);
@@ -315,7 +315,7 @@ namespace Game.Client.Home
                 return;
             }
 
-            var accepted = Filter(value, out var hadBadCharacter, out var wasTooLong);
+            var accepted = NicknamePolicy.Filter(value, out var hadBadCharacter, out var wasTooLong);
             if (accepted != value)
             {
                 isRewritingNickname = true;
@@ -347,67 +347,27 @@ namespace Game.Client.Home
             NicknameEdited?.Invoke(accepted);
         }
 
-        /// <summary>
-        /// Keeps the Hangul, Latin letters and digits, up to the length limit.
-        /// </summary>
-        /// <remarks>
-        /// Counted in characters rather than bytes, and Hangul syllables are
-        /// one character each in UTF-16, so twelve of them is twelve here.
-        /// </remarks>
-        private static string Filter(string value, out bool hadBadCharacter, out bool wasTooLong)
-        {
-            hadBadCharacter = false;
-            wasTooLong = false;
-            var accepted = new StringBuilder(value.Length);
-
-            foreach (var character in value)
-            {
-                if (!IsAllowed(character))
-                {
-                    hadBadCharacter = true;
-                    continue;
-                }
-
-                if (accepted.Length == HomeStyle.Profile.MaxNicknameLength)
-                {
-                    wasTooLong = true;
-                    continue;
-                }
-
-                accepted.Append(character);
-            }
-
-            return accepted.ToString();
-        }
-
-        private static bool IsAllowed(char character)
-        {
-            if (character >= '0' && character <= '9')
-            {
-                return true;
-            }
-
-            if ((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z'))
-            {
-                return true;
-            }
-
-            // Complete syllables, and the jamo an IME shows mid-composition.
-            return (character >= '가' && character <= '힣')
-                || (character >= 'ᄀ' && character <= 'ᇿ')
-                || (character >= '㄰' && character <= '㆏');
-        }
-
         private void OnDuplicateCheckClicked()
         {
             var nickname = profileNicknameInput != null
                 ? profileNicknameInput.text
                 : string.Empty;
-            if (nickname.Length < HomeStyle.Profile.MinNicknameLength)
+            if (nickname.Length < NicknamePolicy.MinLength)
             {
                 ShowNicknameMessage(
-                    $"최소 {HomeStyle.Profile.MinNicknameLength}글자 이상 작성해주세요",
+                    $"최소 {NicknamePolicy.MinLength}글자 이상 작성해주세요",
                     HomeStyle.Palette.MessageRejected);
+                SetNicknameApplyEnabled(false);
+                return;
+            }
+
+            // Typing lets bare jamo through so a Korean keyboard can compose;
+            // the server does not. Anything left half-composed is refused here
+            // rather than spending a round trip to be told the same.
+            if (!NicknamePolicy.IsValid(nickname))
+            {
+                ShowNicknameMessage(
+                    HomeStyle.Profile.BadCharacterMessage, HomeStyle.Palette.MessageRejected);
                 SetNicknameApplyEnabled(false);
                 return;
             }
@@ -416,17 +376,36 @@ namespace Game.Client.Home
         }
 
         /// <summary>
-        /// Answers the check: says whether the name is free and opens or shuts
-        /// the apply button to match.
+        /// Answers the check: says what came back and opens or shuts the apply
+        /// button to match.
         /// </summary>
-        public void SetNicknameAvailability(bool available)
+        public void SetNicknameAvailability(NicknameCheckOutcome outcome)
         {
+            var available = outcome == NicknameCheckOutcome.Available;
             ShowNicknameMessage(
-                available ? HomeStyle.Profile.AvailableMessage : HomeStyle.Profile.TakenMessage,
+                DescribeOutcome(outcome),
                 available
                     ? HomeStyle.Palette.MessageAccepted
                     : HomeStyle.Palette.MessageRejected);
             SetNicknameApplyEnabled(available);
+        }
+
+        private static string DescribeOutcome(NicknameCheckOutcome outcome)
+        {
+            switch (outcome)
+            {
+                case NicknameCheckOutcome.Available:
+                    return HomeStyle.Profile.AvailableMessage;
+
+                case NicknameCheckOutcome.Taken:
+                    return HomeStyle.Profile.TakenMessage;
+
+                case NicknameCheckOutcome.Rejected:
+                    return HomeStyle.Profile.BadCharacterMessage;
+
+                default:
+                    return HomeStyle.Profile.UnreachableMessage;
+            }
         }
 
         public void SetNicknameSearchAllowed(bool allowed)
@@ -478,7 +457,7 @@ namespace Game.Client.Home
             if (nicknameCounterText != null)
             {
                 nicknameCounterText.text =
-                    $"{value.Length}/{HomeStyle.Profile.MaxNicknameLength}";
+                    $"{value.Length}/{NicknamePolicy.MaxLength}";
             }
         }
 

@@ -31,6 +31,14 @@ namespace Game.Bootstrap
                 .As<IHomeApplicationHost>();
             builder.RegisterEntryPoint<RoomBrowserWarmup>();
             builder.RegisterComponent(homeMenuView).As<IHomeMenuView>();
+
+            // Placeholder until the server grows an endpoint for this, in the
+            // same spirit as the preview friends below: the panel and its
+            // presenter are finished, and only this registration changes when
+            // the real check arrives.
+            builder.RegisterInstance(
+                    new InMemoryNicknameAvailabilityCheck(new[] { "금오산냥냥이", "관리자" }))
+                .As<INicknameAvailabilityCheck>();
             builder.RegisterEntryPoint<HomeMenuPresenter>();
 
             // Placeholder rows until a Steam adapter calls FriendListSystem.ReplaceFriends.
