@@ -1,4 +1,5 @@
 using Game.Client.Home;
+using TMPro;
 using UnityEngine;
 
 namespace Game.Client.Lobby
@@ -29,31 +30,70 @@ namespace Game.Client.Lobby
 
         [SerializeField]
         private RectTransform voiceButton;
-        private UnityEngine.UI.Text countdown;
+        private TextMeshProUGUI countdown;
+        private string lastCountdownText;
 
         public void SetStartCountdown(double remaining)
         {
             if (remaining <= 0d)
             {
-                if (countdown != null) countdown.gameObject.SetActive(false);
+                if (countdown != null && countdown.gameObject.activeSelf)
+                {
+                    countdown.gameObject.SetActive(false);
+                }
+
+                lastCountdownText = null;
                 return;
             }
+
+            var text = $"{System.Math.Ceiling(remaining)}초 뒤 게임이 시작됩니다";
             if (countdown == null)
             {
-                var root = new GameObject("Start countdown", typeof(RectTransform), typeof(UnityEngine.UI.Text));
-                root.transform.SetParent(transform, false);
-                var rect = (RectTransform)root.transform;
-                rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.75f);
-                rect.sizeDelta = new Vector2(700, 90);
-                countdown = root.GetComponent<UnityEngine.UI.Text>();
-                countdown.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                countdown.fontSize = 44;
-                countdown.alignment = TextAnchor.MiddleCenter;
-                countdown.raycastTarget = false;
-                HomeUiFonts.ApplyLegacy(root.transform);
+                countdown = CreateCountdown();
             }
-            countdown.gameObject.SetActive(true);
-            countdown.text = $"게임 시작까지 {System.Math.Ceiling(remaining)}초";
+
+            if (!countdown.gameObject.activeSelf)
+            {
+                countdown.gameObject.SetActive(true);
+            }
+
+            if (lastCountdownText == text)
+            {
+                return;
+            }
+
+            lastCountdownText = text;
+            countdown.text = text;
+        }
+
+        private TextMeshProUGUI CreateCountdown()
+        {
+            var font = HomeUiFonts.Apply();
+            var root = new GameObject("Start countdown");
+            root.SetActive(false);
+            root.transform.SetParent(transform, false);
+            var rect = root.AddComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 1f);
+            rect.pivot = new Vector2(0.5f, 1f);
+            rect.anchoredPosition = new Vector2(0f, -60f);
+            rect.sizeDelta = new Vector2(1600f, 80f);
+            var label = root.AddComponent<TextMeshProUGUI>();
+            if (font != null)
+            {
+                label.font = font;
+                if (font.material != null)
+                {
+                    label.fontSharedMaterial = font.material;
+                }
+            }
+
+            label.fontSize = 55f;
+            label.alignment = TextAlignmentOptions.Top;
+            label.color = Color.white;
+            label.raycastTarget = false;
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+            label.overflowMode = TextOverflowModes.Overflow;
+            return label;
         }
 
         public void EnsureSharedGuide()
