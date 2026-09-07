@@ -1,8 +1,4 @@
 using Game.Backend;
-using Game.Client.Accessibility;
-using Game.Client.Audio;
-using Game.Client.Controls;
-using Game.Client.Graphics;
 using Game.Core.Flow;
 using Game.Client.Home;
 using Game.Client.Match;
@@ -59,8 +55,7 @@ namespace Game.Bootstrap
                 _networkPrefabs,
                 _networkScenes,
                 null,
-                new ServerRegionSystem(regionStore, _networkRegion),
-                InputSystem.actions);
+                new ServerRegionSystem(regionStore, _networkRegion));
             builder.RegisterInstance<IServerRegionStore>(regionStore);
 
             // Built here rather than in RegisterServices: the device identifier
@@ -175,53 +170,17 @@ namespace Game.Bootstrap
         /// null: sign-in replaces it with the account's nickname as soon as the
         /// server answers, and until then the default stands in.
         /// </param>
-        /// <param name="inputActions">
-        /// Project-wide actions in play mode. Tests omit this so the applier
-        /// does not touch the .inputactions asset during Edit Mode.
-        /// </param>
         public static void RegisterServices(
             IContainerBuilder builder,
             NetworkPrefabs networkPrefabs = null,
             NetworkScenes networkScenes = null,
             PlayerProfile profile = null,
-            ServerRegionSystem regions = null,
-            InputActionAsset inputActions = null)
+            ServerRegionSystem regions = null)
         {
             builder.Register<AppFlowSystem>(Lifetime.Singleton);
             builder.Register<HomeMenuSystem>(Lifetime.Singleton);
             builder.Register<FriendListSystem>(Lifetime.Singleton);
             builder.Register<FriendSearchSystem>(Lifetime.Singleton);
-            builder.Register<PlayerPrefsAudioSettingsStore>(Lifetime.Singleton)
-                .As<IAudioSettingsStore>();
-            builder.Register<UnityAudioSettingsApplier>(Lifetime.Singleton)
-                .As<IAudioSettingsApplier>();
-            builder.Register<AudioSettingsService>(Lifetime.Singleton)
-                .As<IAudioSettings>();
-            builder.Register<PlayerPrefsAccessibilitySettingsStore>(Lifetime.Singleton)
-                .As<IAccessibilitySettingsStore>();
-            builder.Register<UnityAccessibilitySettingsApplier>(Lifetime.Singleton)
-                .As<IAccessibilitySettingsApplier>();
-            builder.Register<AccessibilitySettingsService>(Lifetime.Singleton)
-                .As<IAccessibilitySettings>();
-            builder.Register<PlayerPrefsGraphicsSettingsStore>(Lifetime.Singleton)
-                .As<IGraphicsSettingsStore>();
-            builder.Register<UnityGraphicsSettingsApplier>(Lifetime.Singleton)
-                .As<IGraphicsSettingsApplier>();
-            builder.Register<GraphicsSettingsService>(Lifetime.Singleton)
-                .As<IGraphicsSettings>();
-            builder.Register<PlayerPrefsControlSettingsStore>(Lifetime.Singleton)
-                .As<IControlSettingsStore>();
-            builder.Register(_ => new UnityControlSettingsApplier(inputActions), Lifetime.Singleton)
-                .As<IControlSettingsApplier>();
-            builder.Register<ControlSettingsService>(Lifetime.Singleton)
-                .As<IControlSettings>();
-            builder.RegisterBuildCallback(container =>
-            {
-                container.Resolve<IAudioSettings>();
-                container.Resolve<IAccessibilitySettings>();
-                container.Resolve<IGraphicsSettings>();
-                container.Resolve<IControlSettings>();
-            });
 
             // Registered here so every container has one, with a store that
             // forgets when the process does. The application replaces it with

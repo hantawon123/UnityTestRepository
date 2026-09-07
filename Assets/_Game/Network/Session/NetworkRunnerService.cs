@@ -302,13 +302,6 @@ namespace Game.Network.Session
         /// The authority's own name comes from its profile: it never connected to
         /// itself, so it presented no token.
         /// </remarks>
-        private string AccountIdOf(NetworkRunner runner, PlayerRef player)
-        {
-            if (player == runner.LocalPlayer) return _profile?.AccountId ?? string.Empty;
-            SessionConnectionTokenCodec.Decode(runner.GetPlayerConnectionToken(player), out _, out _, out var accountId);
-            return accountId;
-        }
-
         private string NicknameOf(NetworkRunner runner, PlayerRef player)
         {
             if (player == runner.LocalPlayer)
@@ -744,7 +737,6 @@ namespace Game.Network.Session
             var args = new StartGameArgs
             {
                 Config = ConfigureSession(NetworkProjectConfig.Global),
-                CustomPhotonAppSettings = GetPhotonSettings(),
                 GameMode = request.Mode,
                 PlayerUniqueId = _playerUniqueId,
                 SessionName = request.RoomCode,
@@ -754,7 +746,7 @@ namespace Game.Network.Session
                     SanitiseNickname(_profile?.Nickname)),
                 ConnectionToken = SessionConnectionTokenCodec.Encode(
                     request.Password,
-                    _profile?.Nickname, _profile?.AccountId),
+                    _profile?.Nickname),
                 EnableClientSessionCreation = request.AllowCreate,
                 SceneManager = sceneManager,
                 Scene = CaptureCurrentScene(),
@@ -1483,6 +1475,7 @@ namespace Game.Network.Session
         {
             _hostLossShutdownPending = false;
             _isClientSession = false;
+            GetPhotonSettings();
 
             _runnerObject = new GameObject(RunnerObjectName);
             UnityEngine.Object.DontDestroyOnLoad(_runnerObject);
@@ -1529,10 +1522,8 @@ namespace Game.Network.Session
 
         private Fusion.Photon.Realtime.FusionAppSettings GetPhotonSettings()
         {
-            var settings = new Fusion.Photon.Realtime.FusionAppSettings();
-            Fusion.Photon.Realtime.PhotonAppSettings.Global.AppSettings.CopyTo(settings);
-            // AccountId changes PlayerAvatar's network layout. Keep incompatible builds in separate lobbies.
-            settings.AppVersion = (settings.AppVersion ?? string.Empty) + ".account-roster-v2";
+            var settings =
+                Fusion.Photon.Realtime.PhotonAppSettings.Global.AppSettings;
             // The deployment supplies its region through ProjectLifetimeScope,
             // so changing regions does not require recompiling network code.
             settings.FixedRegion = _regions?.Current.Code;

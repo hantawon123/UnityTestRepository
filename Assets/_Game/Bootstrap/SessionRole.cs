@@ -46,7 +46,7 @@ namespace Game.Bootstrap
             get
             {
 #if UNITY_EDITOR
-                var tags = CurrentPlayer.Tags;
+                var tags = CurrentPlayer.ReadOnlyTags();
 
                 if (tags == null)
                 {
