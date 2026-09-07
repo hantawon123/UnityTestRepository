@@ -12,6 +12,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param queueCapacity     상한 큐 용량. 넘치면 버립니다. 절대 블로킹하지 않습니다
  * @param flushIntervalMs   큐를 비우는 주기
  * @param flushBatchSize    한 번에 insert 하는 최대 행 수
+ * @param flushMaxBatchesPerTick 한 주기에 연달아 넣는 배치 수의 상한. 처리량 상한이
+ *                          flushBatchSize × 이 값 / flushIntervalMs 로 정해집니다. 부하 테스트(863)에서
+ *                          이 값이 1이던 때 초당 5,000행에서 큐가 넘쳤고 DB 는 CPU 13%로 놀고 있었습니다
  * @param batchMaxSize      한 요청에 허용하는 이벤트 수
  * @param rateLimitPerMinute IP 하나가 분당 보낼 수 있는 요청 수
  * @param occurredAtPastDays occurred_at 이 이보다 과거면 거부. 스풀이 묵을 수 있는 최대 기간
@@ -23,6 +26,7 @@ public record AnalyticsProperties(
         int queueCapacity,
         long flushIntervalMs,
         int flushBatchSize,
+        int flushMaxBatchesPerTick,
         int batchMaxSize,
         int rateLimitPerMinute,
         int occurredAtPastDays,
