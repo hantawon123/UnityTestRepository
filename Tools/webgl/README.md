@@ -37,6 +37,8 @@ EC2의 `unity-webgl` 전용 에이전트를 사용한다. 기존 백엔드 작�
 같은 장비·Unity 버전·프로필로 최초 실행과 반복 실행을 구분한다. 동일 코드, 작은 C# 변경, UI 변경을 각각 측정한다.
 캐시 없는 최초 실행을 평균에서 숨기지 않고 각 실행 시간과 최대값을 기록한다. 5분 타임아웃으로 실패시키는 것은 목표 달성이 아니다.
 `FAST_BUILD`의 속도 이득과 인게임 성능은 별도로 검증한 후 기본 적용 여부를 결정한다.
+`FAST_BUILD`는 IL2CPP `OptimizeSize`와 WebAssembly `BuildTimes`를 함께 적용하고 종료 시 기존 설정으로 복원한다.
+프로필을 바꾸는 첫 실행은 컴파일 캐시를 다시 준비할 수 있으므로 동일 프로필 반복과 구분한다.
 `WEBGL_TEST_ONLY=1 bash Tools/webgl/build.sh`로 빌드 없이 계약 테스트만 실행할 수 있다.
 로컬 테스트 환경의 설정 경로는 `WEBGL_CONFIG_DIR`, `WEBGL_UNITY_HOME`으로 지정한다.
 

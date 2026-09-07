@@ -28,6 +28,9 @@ namespace Game.Editor
             var hashes = PlayerSettings.WebGL.nameFilesAsHashes;
             var version = PlayerSettings.bundleVersion;
             var codeGeneration = PlayerSettings.GetIl2CppCodeGeneration(NamedBuildTarget.WebGL);
+#if UNITY_WEBGL
+            var webOptimization = UnityEditor.WebGL.UserBuildSettings.codeOptimization;
+#endif
             try
             {
                 PlayerSettings.bundleVersion = Environment.GetEnvironmentVariable("WEBGL_REVISION") ?? version;
@@ -35,8 +38,13 @@ namespace Game.Editor
                 PlayerSettings.WebGL.decompressionFallback = false;
                 PlayerSettings.WebGL.nameFilesAsHashes = true;
                 if (Environment.GetEnvironmentVariable("WEBGL_FAST_BUILD") == "1")
+                {
                     PlayerSettings.SetIl2CppCodeGeneration(NamedBuildTarget.WebGL,
                         UnityEditor.Build.Il2CppCodeGeneration.OptimizeSize);
+#if UNITY_WEBGL
+                    UnityEditor.WebGL.UserBuildSettings.codeOptimization = UnityEditor.WebGL.WasmCodeOptimization.BuildTimes;
+#endif
+                }
                 var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
                 {
                     scenes = scenes,
@@ -50,6 +58,9 @@ namespace Game.Editor
                     revision = PlayerSettings.bundleVersion,
                     unityVersion = Application.unityVersion,
                     codeGeneration = PlayerSettings.GetIl2CppCodeGeneration(NamedBuildTarget.WebGL).ToString(),
+#if UNITY_WEBGL
+                    webOptimization = UnityEditor.WebGL.UserBuildSettings.codeOptimization.ToString(),
+#endif
                     result = report.summary.result.ToString(),
                     seconds = report.summary.totalTime.TotalSeconds,
                     steps = report.steps.Select(step => new StepMetrics
@@ -68,13 +79,16 @@ namespace Game.Editor
                 PlayerSettings.WebGL.nameFilesAsHashes = hashes;
                 PlayerSettings.bundleVersion = version;
                 PlayerSettings.SetIl2CppCodeGeneration(NamedBuildTarget.WebGL, codeGeneration);
+#if UNITY_WEBGL
+                UnityEditor.WebGL.UserBuildSettings.codeOptimization = webOptimization;
+#endif
             }
         }
 
         [Serializable]
         private sealed class BuildMetrics
         {
-            public string revision, unityVersion, codeGeneration, result;
+            public string revision, unityVersion, codeGeneration, webOptimization, result;
             public double seconds;
             public StepMetrics[] steps;
         }

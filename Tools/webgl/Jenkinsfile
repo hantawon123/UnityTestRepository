@@ -7,7 +7,7 @@ pipeline {
         booleanParam(name: 'FORCE_BUILD', defaultValue: false,
             description: '변경 없는 커밋도 다시 빌드하여 캐시 효과를 측정합니다.')
         booleanParam(name: 'FAST_BUILD', defaultValue: false,
-            description: '빌드 시간 비교용 IL2CPP 옵션. 실행 성능 검증 전 기본 배포 설정으로 사용하지 않습니다.')
+            description: 'IL2CPP·WebAssembly 빌드 시간 우선 옵션. 실행 성능 검증 전 기본 배포 설정으로 사용하지 않습니다.')
     }
     options {
         skipDefaultCheckout(true)
