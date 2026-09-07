@@ -12,6 +12,7 @@ EC2가 날아가면 같이 사라집니다.
 | `install-jenkins.sh` | (서버에서 실행) | Jenkins 설치, docker 그룹 등록 |
 | `jenkins/override.conf` | `/etc/systemd/system/jenkins.service.d/` | Jenkins 포트·바인딩·프리픽스 |
 | `verify.sh` | (서버에서 실행) | 배포 상태 한 번에 확인 |
+| `mysql/init/01-analytics-grant.sh` | (compose.local 이 마운트, 테스트가 복사) | 앱 계정에 분석 스키마 권한 |
 
 파이프라인 정의는 이 디렉터리가 아니라 `../Jenkinsfile`에 있습니다.
 
@@ -25,7 +26,13 @@ EC2가 날아가면 같이 사라집니다.
         └─ :443 ──▶ nginx ─┬─ /jenkins/ ─▶ 127.0.0.1:9090  Jenkins
                             └─ /         ─▶ 127.0.0.1:8080  앱 컨테이너
                                                               └▶ d205-mysql (포트 미공개)
+                                                                  ├─ d205            게임 (풀 10)
+                                                                  └─ d205_analytics  플레이 로그 (풀 3)
 ```
+
+한 MySQL 인스턴스에 스키마가 둘입니다. 앱은 커넥션 풀을 따로 두어 로그 쓰기가 막혀도
+게임 API 가 기다리지 않게 합니다. 별도 서비스로 나누지 않은 이유는 지라 에픽
+S15P21D205-780 에 있습니다.
 
 ## 적용 방법
 
@@ -40,6 +47,20 @@ ssh d205 'sudo install -o root -g root -m 644 /tmp/d205.conf /etc/nginx/sites-av
 ```
 
 `nginx -t`가 실패하면 `&&`가 끊겨 reload까지 가지 않으므로 기존 설정이 유지됩니다.
+
+분석 스키마 권한 (플레이 로그 수집을 처음 배포하기 전에 **한 번**):
+
+```
+ssh d205 'cd ~/S15P21D205/backend 2>/dev/null || cd $(dirname $(docker inspect d205-mysql --format "{{index .Config.Labels \"com.docker.compose.project.working_dir\"}}")); set -a; . ./.env; set +a; docker exec d205-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e "GRANT ALL PRIVILEGES ON \`d205_analytics\`.* TO '"'"'$DB_USERNAME'"'"'@'"'"'%'"'"'; FLUSH PRIVILEGES;"'
+```
+
+위 한 줄이 하는 일은 `deploy/mysql/init/01-analytics-grant.sh`와 같습니다. 그 스크립트는
+MySQL 이 데이터 볼륨을 처음 만들 때만 돌아서, 이미 초기화된 운영 볼륨에는 적용되지
+않습니다. 스키마와 테이블은 앱이 첫 접속에서 만듭니다(`createDatabaseIfNotExist`, Flyway).
+
+권한 없이 배포해도 앱은 뜹니다. 대신 이벤트가 전부 버려지고 로그에 30초마다
+`분석 DB 를 준비하지 못했습니다` ERROR 가 남습니다. 그 로그가 보이면 위 명령을 실행하면
+되고, 앱을 다시 띄울 필요는 없습니다.
 
 Jenkins 설치:
 

@@ -4,7 +4,10 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.mysql.MySQLContainer;
+import org.testcontainers.utility.MountableFile;
 
 /**
  * 실제 MySQL에 대고 도는 테스트의 공통 설정입니다.
@@ -22,6 +25,9 @@ import org.testcontainers.mysql.MySQLContainer;
 @ActiveProfiles("test")
 public abstract class IntegrationTest {
 
+    /** 분석 스키마 이름. 운영과 같습니다. 다르게 두면 GRANT 스크립트가 다른 이름을 줘야 합니다. */
+    protected static final String ANALYTICS_SCHEMA = "d205_analytics";
+
     /**
      * 컨테이너를 static 초기화로 직접 띄우고 JUnit에 맡기지 않습니다.
      *
@@ -38,12 +44,35 @@ public abstract class IntegrationTest {
      * 구분하지 않습니다. V4가 nickname 컬럼만 as_cs로 바꾸는데, 기본값이 무엇이냐에
      * 따라 <b>다른 컬럼들의 동작이 테스트와 운영에서 갈라질 수 있습니다.</b> 운영
      * compose와 같은 값을 박아 두면 그때 테스트가 먼저 알려줍니다.
+     *
+     * <p>분석 스키마 권한 스크립트를 운영·로컬 compose 와 <b>같은 파일</b>로 넣습니다. 테스트용
+     * 사본을 두면 둘이 어긋나도 아무도 모릅니다. 작업 디렉터리는 backend/ 입니다(Gradle 기본값).
      */
     @ServiceConnection
     static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4")
-            .withCommand("--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci");
+            .withCommand("--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci")
+            .withCopyFileToContainer(
+                    MountableFile.forHostPath("deploy/mysql/init/01-analytics-grant.sh"),
+                    "/docker-entrypoint-initdb.d/01-analytics-grant.sh");
 
     static {
         MYSQL.start();
+    }
+
+    /**
+     * 분석 DB 접속 정보. &#64;ServiceConnection 은 spring.datasource 만 채우므로 두 번째 접속은
+     * 여기서 직접 넣습니다. 같은 컨테이너, 같은 계정, 다른 스키마입니다.
+     *
+     * <p>URL 옵션은 application-prod.yml 과 같아야 합니다. 특히 createDatabaseIfNotExist 가
+     * 없으면 첫 접속이 Unknown database 로 실패해 분석 쪽 테스트가 전부 죽습니다.
+     */
+    @DynamicPropertySource
+    static void analyticsDatasource(DynamicPropertyRegistry registry) {
+        registry.add("analytics.datasource.url", () -> "jdbc:mysql://" + MYSQL.getHost() + ":"
+                + MYSQL.getFirstMappedPort() + "/" + ANALYTICS_SCHEMA
+                + "?createDatabaseIfNotExist=true&characterEncoding=UTF-8&serverTimezone=UTC"
+                + "&rewriteBatchedStatements=true");
+        registry.add("analytics.datasource.username", MYSQL::getUsername);
+        registry.add("analytics.datasource.password", MYSQL::getPassword);
     }
 }

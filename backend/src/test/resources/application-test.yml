@@ -34,3 +34,8 @@ springdoc:
 admin:
   username: test-admin
   password: test-password
+
+# 플레이 로그 큐를 자주 비웁니다. 기본 1초를 기다리는 테스트가 여럿 쌓이면 스위트가 느려집니다.
+# 접속 정보(analytics.datasource)는 여기 없습니다. IntegrationTest 가 컨테이너에서 받아 넣습니다.
+analytics:
+  flush-interval-ms: 200
