@@ -254,7 +254,10 @@ namespace Game.Editor
                    StartsWithAny(prefabName, SmallRoomPropPrefixes);
         }
 
-        private static GameObject GetOrCreateVariant(string sourcePath)
+        /// <summary>
+        /// 원본 프리팹 경로로 Carryable Variant를 찾거나 만든다. 로비 메뉴도 같은 규칙을 쓴다.
+        /// </summary>
+        internal static GameObject GetOrCreateVariant(string sourcePath)
         {
             var source = AssetDatabase.LoadAssetAtPath<GameObject>(sourcePath);
             if (source == null)
@@ -364,7 +367,7 @@ namespace Game.Editor
                 : AssetDatabase.GetAssetPath(source).Replace('\\', '/');
         }
 
-        private static void EnsureVariantFolder()
+        internal static void EnsureVariantFolder()
         {
             if (!AssetDatabase.IsValidFolder(VariantFolder))
             {
