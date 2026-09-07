@@ -79,6 +79,14 @@ namespace Game.Bootstrap
 
             public void OpenRoomBrowser() => scenes.OpenRoomBrowser();
 
+            /// <summary>
+            /// Not from here. The room screen has its own way of opening a
+            /// room; this host answers the Home presenter's interface only
+            /// because the two screens share it.
+            /// </summary>
+            public void CreateRoom(string title, bool isPublic, int maxPlayers) =>
+                fallback.CreateRoom(title, isPublic, maxPlayers);
+
             public void OpenLobby()
             {
                 if (!network.EnterLobbyScene())

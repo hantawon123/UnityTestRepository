@@ -228,7 +228,7 @@ namespace Game.Client.Match
                 question.alignment = TextAlignmentOptions.Center;
                 question.color = QuestionColor;
                 question.raycastTarget = false;
-                question.enableWordWrapping = false;
+                question.textWrappingMode = TextWrappingModes.NoWrap;
 
                 var previewObject = new GameObject(
                     "Preview",

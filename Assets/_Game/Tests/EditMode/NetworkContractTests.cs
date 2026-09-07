@@ -24,6 +24,26 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkContractTests
     {
+        [Test]
+        public void SessionRequest_ServerIsExplicitAndHostRemainsDefault()
+        {
+            var host = SessionRequest.Create("room", "title", "map", 6, null);
+            Assert.That(host.Mode, Is.EqualTo(Fusion.GameMode.Host));
+            Assert.That(host.IsVisible, Is.True);
+
+            var server = SessionRequest.CreateServer("room", "title", "map", 6);
+            Assert.That(server.Mode, Is.EqualTo(Fusion.GameMode.Server));
+            Assert.That(server.AllowCreate, Is.True);
+            Assert.That(server.IsVisible, Is.False);
+            Assert.That(server.MaxPlayers, Is.EqualTo(6));
+            Assert.That(server.RoomCode, Is.EqualTo(host.RoomCode));
+            Assert.That(server.MapId, Is.EqualTo(host.MapId));
+
+            var client = SessionRequest.Join("room", null);
+            Assert.That(client.Mode, Is.EqualTo(Fusion.GameMode.Client));
+            Assert.That(client.AllowCreate, Is.False);
+        }
+
         [TestCase(true, true, "guest", true)]
         [TestCase(true, true, "padded-guest", true)]
         [TestCase(false, true, "guest", false)]
@@ -232,6 +252,10 @@ namespace Game.Architecture.Tests
             public void OpenRoomBrowser() => OpenCount++;
             public void Quit() { }
             public void OpenHome() { }
+            public void CreateRoom(string title, bool isPublic, int maxPlayers)
+            {
+            }
+
             public void OpenLobby() { }
         }
 

@@ -193,6 +193,9 @@ namespace Game.Network.Match
         public double PhaseEndsAt { get; set; }
 
         [Networked]
+        public double StartCountdownEndsAt { get; set; }
+
+        [Networked]
         public int ObjectStateCount { get; set; }
 
         [Networked, Capacity(MaxReplicatedObjects)]
@@ -339,6 +342,7 @@ namespace Game.Network.Match
             PlayerInteractionStateRevision++;
             Phase = MatchPhase.Waiting;
             PhaseEndsAt = 0d;
+            StartCountdownEndsAt = 0d;
             ObjectStateRevision++;
             HasResult = false;
             ResultEndReason = default;
@@ -657,6 +661,11 @@ namespace Game.Network.Match
             return true;
         }
 
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        public void RPC_RequestCompleteHidingTurn(RpcInfo info = default)
+        {
+            StarterOf(Runner)?.TryCompleteHidingTurn(info.Source);
+        }
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
         public void RPC_RequestHold(string objectId, RpcInfo info = default)
         {

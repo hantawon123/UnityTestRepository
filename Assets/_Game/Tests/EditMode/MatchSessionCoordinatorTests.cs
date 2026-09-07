@@ -59,6 +59,37 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void CompleteHiding_RejectsMissingPlacementOtherTurnAndRepeatedRequest()
+        {
+            session.Start(10d);
+            Assert.That(session.TryCompleteHidingTurn(-1, 11d), Is.False);
+            Assert.That(session.TryCompleteHidingTurn(0, 11d), Is.False);
+            Assert.That(session.TryCompleteHidingTurn(1, 11d), Is.False);
+            Assert.That(session.TryRecordItemPlacement(0, new Pose(new Vector3(2, 0, 0), Quaternion.identity), 11d), Is.True);
+            Assert.That(session.TryCompleteHidingTurn(0, 12d), Is.True);
+            Assert.That(session.GetCurrentHidingTurnIndex(12d), Is.EqualTo(1));
+            Assert.That(session.TryCompleteHidingTurn(0, 12d), Is.False);
+            Assert.That(session.TryCompleteHidingTurn(1, 12d), Is.False);
+        }
+
+        [Test]
+        public void CompleteHiding_RejectsHeldItemAndInvalidPlacement_ThenStartsSearching()
+        {
+            session.Start(10d);
+            Assert.That(session.TryInitializeAssignedItem(0), Is.True);
+            Assert.That(session.TryCompleteHidingTurn(0, 11d), Is.False);
+            Assert.That(session.TryRecordItemPlacement(0, new Pose(new Vector3(-1, 0, 0), Quaternion.identity), 11d), Is.False);
+            for (var i = 0; i < session.Assignments.Count; i++)
+            {
+                var now = 12d + i;
+                Assert.That(session.TryRecordItemPlacement(i, new Pose(new Vector3(i, 0, 0), Quaternion.identity), now), Is.True);
+                Assert.That(session.TryCompleteHidingTurn(i, now), Is.True);
+            }
+            session.AdvanceTime(17d, lastKnownPositions);
+            Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Searching));
+            Assert.That(session.AllItemsPlaced, Is.True);
+        }
+        [Test]
         public void AdvanceTime_FinalizesEachHidingTurnAndStartsSearching()
         {
             session.Start(10d);

@@ -7,6 +7,19 @@ namespace Game.Architecture.Tests
     public sealed class SessionPropertyMapperTests
     {
         [Test]
+        public void PrivateSession_IsInvisibleWithoutPassword_AndCodeJoinCannotCreate()
+        {
+            var request = SessionRequest.Create("ROOM01", "비공개", "Playground", 6, null, isPrivate: true);
+            Assert.That(request.IsVisible, Is.False);
+            Assert.That(request.Password, Is.Null);
+            Assert.That(SessionRequest.Create("ROOM02", "공개", "Playground", 6, null).IsVisible, Is.True);
+            Assert.That(SessionRequest.Join("ROOM01", null).AllowCreate, Is.False);
+            var properties = SessionPropertyMapper.BuildForStart(request, "방장");
+            Assert.That((bool)properties[SessionPropertyKeys.Locked], Is.False);
+            Assert.That(properties.Count, Is.LessThanOrEqualTo(10));
+        }
+
+        [Test]
         public void JoinRequest_DoesNotWriteSessionProperties()
         {
             var request = SessionRequest.Join("ROOM01", "secret");

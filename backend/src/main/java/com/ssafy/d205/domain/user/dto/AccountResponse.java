@@ -1,6 +1,7 @@
 package com.ssafy.d205.domain.user.dto;
 
 import com.ssafy.d205.domain.user.entity.User;
+import com.ssafy.d205.domain.user.entity.UserAppearance;
 
 /**
  * @param nicknameSet 사용자가 닉네임을 직접 정했는지. false면 서버가 지어준 임시
@@ -9,15 +10,37 @@ import com.ssafy.d205.domain.user.entity.User;
  *               Photon UserId로도 같은 값을 씁니다.
  *               <p>내부 seq와 provider_user_id는 여기에 담지 않습니다. 전자는 가입자
  *               수와 다른 계정을 노출하고, 후자는 자격증명입니다.
+ * @param appearanceSet 옷장에서 외형을 한 번이라도 저장했는지. false 면 {@code appearance}
+ *                      는 null 이고 클라이언트가 기본 파츠를 씁니다.
+ *                      <p>{@code appearance == null} 만으로 판별하게 두지 않은 이유는
+ *                      Unity 의 JsonUtility 가 null 객체를 만들지 않기 때문입니다. 그쪽에서는
+ *                      필드가 빈 객체가 됩니다. 불리언은 그 함정이 없습니다. nicknameSet 과
+ *                      같은 자리입니다.
+ * @param appearance 저장한 외형. 저장한 적이 없으면 null.
  */
 public record AccountResponse(
         String userId,
         String nickname,
         boolean nicknameSet,
+        boolean searchable,
+        boolean appearanceSet,
+        AppearanceResponse appearance,
         String createdAt
 ) {
+    /** 외형을 아직 고르지 않은 계정. 새로 만든 계정은 늘 여기입니다. */
     public static AccountResponse from(User user) {
+        return from(user, null);
+    }
+
+    /** @param appearance 저장된 외형. 없으면 null. */
+    public static AccountResponse from(User user, UserAppearance appearance) {
         return new AccountResponse(
-                user.getPublicId(), user.getNickname(), user.isNicknameSet(), user.getCreatedAt());
+                user.getPublicId(),
+                user.getNickname(),
+                user.isNicknameSet(),
+                user.isSearchable(),
+                appearance != null,
+                appearance == null ? null : AppearanceResponse.from(appearance),
+                user.getCreatedAt());
     }
 }

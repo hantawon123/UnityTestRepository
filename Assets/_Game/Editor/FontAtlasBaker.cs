@@ -28,27 +28,47 @@ namespace Game.Editor
     /// fit one 2048 square page at a sampling size the screens never exceed.
     /// </para>
     /// <para>
-    /// This rewrites the Paperlogy Regular SDF asset in place instead of
-    /// recreating it, so existing references keep their guid.
+    /// This rewrites the asset in place instead of recreating it. Two scenes
+    /// assign the font and its material to text components directly — 24
+    /// references between them — and TMP Settings names it as the project
+    /// default. Deleting and recreating the asset would reissue its guid and
+    /// leave every one of those pointing at nothing.
     /// </para>
     /// <para>
-    /// Re-run this after replacing
-    /// <c>Assets/_Game/Content/Resources/Fonts/Paperlogy-4Regular.ttf</c>
-    /// or after editing the character set file. Nothing else needs to run it.
+    /// One run bakes every weight the interface asks for. A weight missing its
+    /// asset is created; a weight that has one is rewritten in place, because
+    /// scenes and TMP Settings reach these by guid.
+    /// </para>
+    /// <para>
+    /// Re-run this after replacing a source font or editing the character set
+    /// file. Nothing else needs to run it.
     /// </para>
     /// </remarks>
     public static class FontAtlasBaker
     {
-        private const string CharacterSetPath =
-            "Assets/_Game/Editor/FontAtlasCharacterSet.txt";
+        private const string MenuPath = "Game/Fonts/Bake Static Atlases";
+
+        private const string FontDirectory = "Assets/_Game/Content/Fonts/";
 
         /// <summary>
-        /// Atlas edge in pixels. Unity serialises the texture into the asset as
-        /// hexadecimal text at two characters per byte, so a 2048 square alpha
-        /// atlas costs about 8 MB of file. Committed once, that is cheaper than
-        /// the dynamic atlas rewriting 6 MB on an unpredictable schedule.
+        /// The weights the interface actually draws. Each carries the whole
+        /// Korean set.
         /// </summary>
-        private const int AtlasSize = 2048;
+        /// <remarks>
+        /// Only weights in this table are baked, because each costs about 10 MB
+        /// on disk and 1.5 MB committed. The other six Paperlogy files stay in
+        /// the project as fonts; a screen that wants one adds a line here and
+        /// runs the menu, which is a minute's work and no loss in the meantime.
+        /// </remarks>
+        private static readonly Target[] Targets =
+        {
+            new Target("Paperlogy-5Medium"),
+            new Target("Paperlogy-6SemiBold"),
+            new Target("Paperlogy-7Bold"),
+        };
+
+        private const string CharacterSetPath =
+            "Assets/_Game/Editor/FontAtlasCharacterSet.txt";
 
         /// <summary>
         /// Size the glyphs are rendered at while packing. Scenes draw this font
@@ -74,67 +94,39 @@ namespace Game.Editor
         /// </summary>
         private const int MissingCharacterLimit = 200;
 
-        private const string PaperlogyRegularMenuPath =
-            "Game/Fonts/Bake Paperlogy Regular Atlas";
-
-        private const string PaperlogyRegularSourcePath =
-            "Assets/_Game/Content/Resources/Fonts/Paperlogy-4Regular.ttf";
-
-        private const string PaperlogyRegularAssetPath =
-            "Assets/_Game/Content/Resources/Fonts/Paperlogy-4Regular SDF.asset";
-
-        [InitializeOnLoadMethod]
-        private static void QueuePaperlogyRegularBakeIfMissing()
+        [MenuItem(MenuPath)]
+        public static void BakeStaticAtlases()
         {
-            EditorApplication.playModeStateChanged -= BakePaperlogyRegularWhenEditMode;
-            EditorApplication.playModeStateChanged += BakePaperlogyRegularWhenEditMode;
-            EditorApplication.delayCall += BakePaperlogyRegularIfMissing;
-        }
-
-        private static void BakePaperlogyRegularWhenEditMode(PlayModeStateChange state)
-        {
-            if (state == PlayModeStateChange.EnteredEditMode)
+            foreach (var target in Targets)
             {
-                EditorApplication.delayCall += BakePaperlogyRegularIfMissing;
-            }
-        }
-
-        private static void BakePaperlogyRegularIfMissing()
-        {
-            if (EditorApplication.isPlayingOrWillChangePlaymode ||
-                EditorApplication.isCompiling ||
-                EditorApplication.isUpdating)
-            {
-                return;
+                Bake(target);
             }
 
-            if (AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(PaperlogyRegularAssetPath) != null)
-            {
-                return;
-            }
-
-            Debug.Log("[Fonts] Paperlogy Regular SDF가 없어 Static 아틀라스를 굽습니다.");
-            BakePaperlogyRegular();
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
         }
 
-        [MenuItem(PaperlogyRegularMenuPath)]
-        public static void BakePaperlogyRegular()
+        private static void Bake(Target target)
         {
-            var sourceFont = AssetDatabase.LoadAssetAtPath<Font>(PaperlogyRegularSourcePath);
+            var sourceFont = AssetDatabase.LoadAssetAtPath<Font>(target.SourceFontPath);
             if (sourceFont == null)
             {
                 throw new InvalidOperationException(
-                    $"No source font at '{PaperlogyRegularSourcePath}'.");
+                    $"No source font at '{target.SourceFontPath}'.");
             }
 
             var characters = ReadCharacterSet();
+
+            // Pack into a throwaway asset first. Its tables, glyph rectangles
+            // and atlas all come out consistent, which is hard to guarantee
+            // when mutating the live asset field by field.
             var baked = TMP_FontAsset.CreateFontAsset(
                 sourceFont,
                 SamplingPointSize,
                 Padding,
                 GlyphRenderMode.SDFAA,
-                AtlasSize,
-                AtlasSize,
+                target.AtlasSize,
+                target.AtlasSize,
                 AtlasPopulationMode.Dynamic,
                 enableMultiAtlasSupport: false);
 
@@ -151,71 +143,61 @@ namespace Game.Editor
                     characters,
                     out var missing,
                     includeFontFeatures: true);
-                RejectOverfilledAtlas(missing);
 
-                baked.name = "Paperlogy-4Regular SDF";
-                baked.atlasPopulationMode = AtlasPopulationMode.Static;
-                baked.ReadFontAssetDefinition();
+                RejectOverfilledAtlas(target, missing);
 
-                var existing = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
-                    PaperlogyRegularAssetPath);
-                if (existing != null)
-                {
-                    TransferInto(existing, baked);
-                    ReportResult(existing, characters, missing);
-                    return;
-                }
+                var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+                    target.AssetPath) ?? CreateAsset(target, sourceFont);
 
-                SaveNewFontAsset(baked, PaperlogyRegularAssetPath);
-                ReportResult(baked, characters, missing);
-                baked = null;
+                TransferInto(fontAsset, baked);
+                ReportResult(fontAsset, target, characters, missing);
             }
             finally
             {
-                if (baked != null)
-                {
-                    DiscardBakedAsset(baked);
-                }
+                DiscardBakedAsset(baked);
             }
         }
 
-        private static void SaveNewFontAsset(TMP_FontAsset fontAsset, string assetPath)
+        /// <summary>
+        /// Writes an empty asset for a weight that has none yet, so the bake
+        /// itself has one path: fill in what is already on disk.
+        /// </summary>
+        /// <remarks>
+        /// The atlas texture and the material live inside the asset file as
+        /// sub-objects, which is how TextMeshPro's own creator leaves them and
+        /// what lets a later bake refill them without reissuing an id.
+        /// </remarks>
+        private static TMP_FontAsset CreateAsset(Target target, Font sourceFont)
         {
-            AssetDatabase.CreateAsset(fontAsset, assetPath);
-            if (fontAsset.atlasTextures != null)
-            {
-                for (var index = 0; index < fontAsset.atlasTextures.Length; index++)
-                {
-                    var atlas = fontAsset.atlasTextures[index];
-                    if (atlas == null)
-                    {
-                        continue;
-                    }
+            var fontAsset = TMP_FontAsset.CreateFontAsset(
+                sourceFont,
+                SamplingPointSize,
+                Padding,
+                GlyphRenderMode.SDFAA,
+                target.AtlasSize,
+                target.AtlasSize,
+                AtlasPopulationMode.Dynamic,
+                enableMultiAtlasSupport: false);
 
-                    atlas.name = fontAsset.name + (index == 0 ? " Atlas" : $" Atlas {index}");
-                    AssetDatabase.AddObjectToAsset(atlas, fontAsset);
-                }
+            fontAsset.name = target.AssetName;
+            AssetDatabase.CreateAsset(fontAsset, target.AssetPath);
+
+            var atlas = fontAsset.atlasTextures[0];
+            atlas.name = target.AssetName + " Atlas";
+            AssetDatabase.AddObjectToAsset(atlas, fontAsset);
+
+            var material = fontAsset.material;
+            if (material == null)
+            {
+                material = new Material(Shader.Find("TextMeshPro/Distance Field"));
+                fontAsset.material = material;
             }
 
-            if (fontAsset.material != null)
-            {
-                fontAsset.material.name = fontAsset.name + " Material";
-                AssetDatabase.AddObjectToAsset(fontAsset.material, fontAsset);
-                if (fontAsset.atlasTextures is { Length: > 0 } &&
-                    fontAsset.atlasTextures[0] != null)
-                {
-                    RefreshMaterial(
-                        fontAsset.material,
-                        fontAsset,
-                        fontAsset.atlasTextures[0]);
-                }
-            }
+            material.name = target.AssetName + " Material";
+            AssetDatabase.AddObjectToAsset(material, fontAsset);
 
-            fontAsset.atlasPopulationMode = AtlasPopulationMode.Static;
-            fontAsset.ReadFontAssetDefinition();
-            EditorUtility.SetDirty(fontAsset);
             AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
+            return fontAsset;
         }
 
         /// <summary>
@@ -301,7 +283,7 @@ namespace Game.Editor
             }
         }
 
-        private static void RejectOverfilledAtlas(string missing)
+        private static void RejectOverfilledAtlas(Target target, string missing)
         {
             if (string.IsNullOrEmpty(missing) ||
                 missing.Length <= MissingCharacterLimit)
@@ -310,10 +292,10 @@ namespace Game.Editor
             }
 
             throw new InvalidOperationException(
-                $"{missing.Length} characters did not fit a {AtlasSize} square " +
-                $"atlas at sampling size {SamplingPointSize}. Lower " +
-                "SamplingPointSize or trim the character set, then rerun. The " +
-                "font asset was left untouched.");
+                $"{missing.Length} characters of {target.AssetName} did not fit " +
+                $"a {target.AtlasSize} square atlas at sampling size " +
+                $"{SamplingPointSize}. Lower SamplingPointSize or trim the " +
+                "character set, then rerun. The font asset was left untouched.");
         }
 
         /// <summary>
@@ -359,14 +341,16 @@ namespace Game.Editor
         }
 
         private static void ReportResult(TMP_FontAsset fontAsset,
+                                         Target target,
                                          string requested,
                                          string missing)
         {
             var summary =
-                $"[Fonts] Baked {fontAsset.characterTable.Count} of " +
-                $"{requested.Length} characters into a {AtlasSize} square " +
-                $"atlas at sampling size {SamplingPointSize}. The asset is now " +
-                "Static and will stop rewriting itself.";
+                $"[Fonts] {target.AssetName}: baked " +
+                $"{fontAsset.characterTable.Count} of {requested.Length} " +
+                $"characters into a {target.AtlasSize} square atlas at sampling " +
+                "size " + SamplingPointSize + ". The asset is now Static and " +
+                "will stop rewriting itself.";
 
             if (string.IsNullOrEmpty(missing))
             {
@@ -380,6 +364,34 @@ namespace Game.Editor
                 $"{summary}\nNot in the source font ({missing.Length}): " +
                 missing,
                 fontAsset);
+        }
+
+        /// <summary>
+        /// One weight to bake, named by its font file. The asset sits beside the
+        /// font under the same name, so the two never have to be matched up by
+        /// hand.
+        /// </summary>
+        private readonly struct Target
+        {
+            public Target(string fontName)
+            {
+                SourceFontPath = FontDirectory + fontName + ".ttf";
+                AssetPath = FontDirectory + fontName + " SDF.asset";
+                AssetName = fontName + " SDF";
+            }
+
+            public string SourceFontPath { get; }
+            public string AssetPath { get; }
+            public string AssetName { get; }
+
+            /// <summary>
+            /// Atlas edge in pixels. Unity serialises the texture into the asset
+            /// as hexadecimal text at two characters per byte, so a 2048 square
+            /// alpha atlas costs about 8 MB of file. Committed once, that is
+            /// cheaper than a dynamic atlas rewriting 6 MB on an unpredictable
+            /// schedule.
+            /// </summary>
+            public int AtlasSize => 2048;
         }
     }
 }

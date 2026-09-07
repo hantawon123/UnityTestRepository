@@ -94,7 +94,7 @@ class ReportApiTest extends IntegrationTest {
 
         int seq = (int) (long) (Long) onlyReportAbout(seqOf(other)).get("user_reports_seq");
         UserReport found = userReportRepository.findById(seq).orElseThrow();
-        found.review(ReportStatus.DISMISSED, "20260905120000");
+        found.review(ReportStatus.DISMISSED, "tester", "20260905120000");
         userReportRepository.saveAndFlush(found);
 
         Map<String, Object> row = onlyReportAbout(seqOf(other));

@@ -461,7 +461,7 @@ namespace Game.Server.Match
                 totalSourceDuration += segmentEndedAt - startedAt;
             }
 
-            var playbackSpeed = Math.Max(1d, totalSourceDuration / rules.HighlightClipDurationSeconds);
+            var playbackSpeed = Math.Max(1d, totalSourceDuration / Math.Min(10d, rules.HighlightClipDurationSeconds));
             if (playbackSpeed > 1d)
             {
                 for (var index = 0; index < segments.Count; index++)

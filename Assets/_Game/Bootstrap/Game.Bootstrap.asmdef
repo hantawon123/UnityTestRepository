@@ -6,6 +6,7 @@
         "Game.Backend",
         "Game.Core",
         "Game.Network",
+        "Photon.Realtime",
         "Game.Server",
         "Game.SOAP",
         "UniTask",

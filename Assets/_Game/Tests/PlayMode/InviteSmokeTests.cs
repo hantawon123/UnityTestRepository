@@ -118,7 +118,7 @@ namespace Game.Tests.PlayMode
 
         private static async UniTask Befriend(Player one, Player two, string run)
         {
-            await one.Commands.SearchAsync(run, one.Commands.FriendIds(), Token);
+            await one.Commands.SearchAsync(two.Nickname, one.Commands.FriendIds(), Token);
             await one.Commands.SendRequestAsync(two.UserId, Token);
             await two.Commands.AcceptRequestAsync(one.UserId, Token);
         }

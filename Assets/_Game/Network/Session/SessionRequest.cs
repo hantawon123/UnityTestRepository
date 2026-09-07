@@ -35,6 +35,28 @@ namespace Game.Network.Session
         /// </summary>
         public const string HostNickname = "host";
 
+        /// <summary>
+        /// When the room was opened, in seconds since the Unix epoch.
+        /// </summary>
+        /// <remarks>
+        /// Written once by the host, because the room list is ordered newest
+        /// first and a session listing carries no age of its own. Seconds rather
+        /// than ticks: a session property holds an int, and seconds fit one for
+        /// another decade.
+        /// </remarks>
+        public const string OpenedAt = "opened";
+
+        /// <summary>
+        /// Whether the room is playing rather than waiting.
+        /// </summary>
+        /// <remarks>
+        /// The room list needs this and has nothing else to read it from: a
+        /// session in a match looks exactly like one in its lobby from outside,
+        /// and hiding the session instead would make a running match vanish from
+        /// the list rather than show as unavailable.
+        /// </remarks>
+        public const string Playing = "playing";
+
         /// <summary>Whether the room requires a password.</summary>
         public const string Locked = "locked";
     }
@@ -73,6 +95,7 @@ namespace Game.Network.Session
         /// room instead of reporting that the code is wrong.
         /// </summary>
         public readonly bool AllowCreate;
+        public readonly bool IsVisible;
 
         private SessionRequest(
             GameMode mode,
@@ -81,7 +104,8 @@ namespace Game.Network.Session
             string mapId,
             int maxPlayers,
             string password,
-            bool allowCreate)
+            bool allowCreate,
+            bool isVisible = true)
         {
             Mode = mode;
             RoomCode = roomCode;
@@ -90,6 +114,7 @@ namespace Game.Network.Session
             MaxPlayers = maxPlayers;
             Password = password;
             AllowCreate = allowCreate;
+            IsVisible = isVisible;
         }
 
         /// <summary>Opens a new room as the authority.</summary>
@@ -98,10 +123,25 @@ namespace Game.Network.Session
             string displayName,
             string mapId,
             int maxPlayers,
-            string password)
+            string password,
+            bool isPrivate = false)
         {
             return new SessionRequest(
-                GameMode.Host, roomCode, displayName, mapId, maxPlayers, password, true);
+                GameMode.Host, roomCode, displayName, mapId, maxPlayers, password, true, !isPrivate);
+        }
+
+        /// <summary>
+        /// Opens a private room without a local player for explicit server runs.
+        /// The normal room creation flow continues to use Create (Host mode).
+        /// </summary>
+        public static SessionRequest CreateServer(
+            string roomCode,
+            string displayName,
+            string mapId,
+            int maxPlayers)
+        {
+            return new SessionRequest(
+                GameMode.Server, roomCode, displayName, mapId, maxPlayers, null, true, false);
         }
 
         /// <summary>Enters an existing room, failing if the code does not exist.</summary>

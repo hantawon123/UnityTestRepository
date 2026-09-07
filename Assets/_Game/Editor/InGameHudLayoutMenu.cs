@@ -29,6 +29,8 @@ namespace Game.Editor
         private const string RequestPath =
             "Assets/_Game/Editor/InGameHudInstallRequest.txt";
         private const string HudName = "InGameHud";
+        private const string FontPath =
+            "Assets/_Game/Content/Fonts/Paperlogy-5Medium SDF.asset";
 
         static InGameHudLayoutMenu()
         {

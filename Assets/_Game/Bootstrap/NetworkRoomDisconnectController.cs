@@ -2,6 +2,7 @@ using System;
 using Game.Client.Home;
 using Game.Core.Flow;
 using Game.Core.Lobby;
+using Game.Core.Rooms;
 using Game.Network.Session;
 using R3;
 using VContainer.Unity;
@@ -38,7 +39,12 @@ namespace Game.Bootstrap
             // Its old scene manager must finish teardown before the browser reconnects.
             if (!pending || network.HasRoomSession || network.IsRoomExitPending) return;
             pending = false;
-            if (!room.IsInRoom.CurrentValue && flow.TryExitSession()) application.OpenRoomBrowser();
+            if (room.IsInRoom.CurrentValue) return;
+            var destination = room.LastExit.CurrentValue == RoomExitReason.Kicked
+                ? AppFlowState.RoomBrowser : AppFlowState.Home;
+            if (!flow.TryExitSession(destination)) return;
+            if (destination == AppFlowState.Home) application.OpenHome();
+            else application.OpenRoomBrowser();
         }
 
         public void Dispose()

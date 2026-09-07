@@ -56,10 +56,11 @@ namespace Game.Core.Flow
         }
 
         /// <summary>A terminated room can leave from any phase without replaying intermediate states.</summary>
-        public bool TryExitSession()
+        public bool TryExitSession(AppFlowState destination = AppFlowState.Home)
         {
+            if (destination != AppFlowState.Home && destination != AppFlowState.RoomBrowser) return false;
             if (!IsSessionState(CurrentState)) return false;
-            CurrentState = AppFlowState.RoomBrowser;
+            CurrentState = destination;
             StateChanged?.Invoke(CurrentState);
             return true;
         }

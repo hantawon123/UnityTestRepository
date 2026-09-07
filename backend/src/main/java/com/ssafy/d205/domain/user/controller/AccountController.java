@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,7 +18,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.ssafy.d205.domain.user.dto.AccountResponse;
 import com.ssafy.d205.domain.user.dto.IssueAccountRequest;
 import com.ssafy.d205.domain.user.dto.IssuedAccount;
+import com.ssafy.d205.domain.user.dto.UpdateAppearanceRequest;
 import com.ssafy.d205.domain.user.dto.UpdateNicknameRequest;
+import com.ssafy.d205.domain.user.dto.UpdateSearchableRequest;
 import com.ssafy.d205.domain.user.service.AccountService;
 
 @RestController
@@ -67,6 +70,61 @@ public class AccountController {
     public AccountResponse rename(@RequestHeader(USER_ID_HEADER) String userId,
                                   @Valid @RequestBody UpdateNicknameRequest request) {
         return accountService.rename(userId, request.nickname());
+    }
+
+    /**
+     * 닉네임 검색에 나올지 정합니다.
+     *
+     * <p>PUT 인 이유는 멱등해야 하기 때문입니다. 이미 꺼 둔 것을 또 끄는 것은
+     * "꺼진 상태로 두라"는 요청이 이미 달성된 상황이라 오류가 아닙니다.
+     *
+     * <p>닉네임 변경(PATCH /me)에 합치지 않은 이유가 둘입니다. 합치려면 nickname 이
+     * 필수에서 선택이 되어야 하는데, 그러면 <b>빈 요청이 지금의 400 대신 조용한 200</b>
+     * 이 됩니다. 클라이언트에서 닉네임 변수가 비었을 때 화면은 성공이라고 뜨고 아무것도
+     * 바뀌지 않아, 원인을 찾기 어렵습니다.
+     *
+     * <p>다른 하나는 닉네임이 중복이라 409 가 날 때 이 설정까지 함께 롤백된다는
+     * 것입니다. 사용자는 체크박스만 껐는데 그것도 안 먹힙니다.
+     *
+     * <p>바뀐 계정을 그대로 돌려줍니다. 화면이 응답으로 체크박스를 다시 그리면 되고,
+     * 따로 조회할 필요가 없습니다.
+     */
+    @PutMapping("/me/searchable")
+    public AccountResponse setSearchable(@RequestHeader(USER_ID_HEADER) String userId,
+                                         @Valid @RequestBody UpdateSearchableRequest request) {
+        return accountService.setSearchable(userId, request.searchable());
+    }
+
+    /**
+     * 옷장에서 고른 외형을 저장합니다. 파츠 넷이 모두 필수입니다.
+     *
+     * <p>PUT 인 이유는 검색 허용 설정과 같습니다. 처음 저장과 덮어쓰기가 한 요청이고, 같은 값을
+     * 다시 보내도 성공입니다.
+     *
+     * <p>서버는 파츠 id 의 뜻을 모릅니다. 형식만 보고 그대로 저장하며, 클라이언트가 모르는
+     * id 를 돌려받으면 기본 파츠로 대체해야 합니다.
+     *
+     * <p>바뀐 계정을 그대로 돌려줍니다. 화면이 응답으로 캐릭터를 다시 그리면 됩니다.
+     */
+    @PutMapping("/me/appearance")
+    public AccountResponse setAppearance(@RequestHeader(USER_ID_HEADER) String userId,
+                                         @Valid @RequestBody UpdateAppearanceRequest request) {
+        return accountService.setAppearance(userId, request);
+    }
+
+    /**
+     * 외형을 초기화합니다. "아직 고르지 않은" 상태로 돌아가고 appearance 는 null 이 됩니다.
+     *
+     * <p>클라이언트가 기본 파츠로 PUT 하는 것과 다릅니다. 그러면 기본 파츠가 나중에 바뀌어도
+     * 초기화한 사람은 옛 값에 남습니다. 지우면 그때의 기본값이 쓰입니다.
+     *
+     * <p>이미 없는 것을 지워도 200 입니다. 초기화 버튼을 두 번 눌러도 오류가 아닙니다.
+     * 204 가 아니라 계정을 돌려주는 것은 다른 설정 변경과 같은 모양을 유지해 화면이 응답으로
+     * 다시 그릴 수 있게 하기 위해서입니다.
+     */
+    @DeleteMapping("/me/appearance")
+    public AccountResponse clearAppearance(@RequestHeader(USER_ID_HEADER) String userId) {
+        return accountService.clearAppearance(userId);
     }
 
     /**

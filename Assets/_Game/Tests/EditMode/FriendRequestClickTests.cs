@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -36,7 +36,7 @@ namespace Game.Architecture.Tests
         {
             using var wiring = await Wiring.StartAsync();
 
-            await wiring.SearchAsync("나");
+            await wiring.SearchAsync("나그네");
             wiring.View.RaiseFriendRequestClicked("b");
             await wiring.Settle();
 
@@ -52,7 +52,7 @@ namespace Game.Architecture.Tests
         public async Task ARefusedRequest_SaysWhyOnTheScreen()
         {
             using var wiring = await Wiring.StartAsync();
-            await wiring.SearchAsync("나");
+            await wiring.SearchAsync("나그네");
 
             wiring.Gateway.Failure = BackendFailure.AlreadyFriends;
             LogAssert.Expect(
@@ -69,7 +69,7 @@ namespace Game.Architecture.Tests
         public async Task AMissingTarget_SaysSoWithoutGuessingWhy()
         {
             using var wiring = await Wiring.StartAsync();
-            await wiring.SearchAsync("나");
+            await wiring.SearchAsync("나그네");
 
             wiring.Gateway.Failure = BackendFailure.TargetNotFound;
             LogAssert.Expect(
@@ -86,7 +86,7 @@ namespace Game.Architecture.Tests
         public async Task ASuccessAfterAFailure_ClearsTheMessage()
         {
             using var wiring = await Wiring.StartAsync();
-            await wiring.SearchAsync("나");
+            await wiring.SearchAsync("나그네");
 
             wiring.Gateway.Failure = BackendFailure.Offline;
             LogAssert.Expect(
@@ -107,7 +107,7 @@ namespace Game.Architecture.Tests
         public async Task OnlyOnePlaceMarksTheRow()
         {
             using var wiring = await Wiring.StartAsync();
-            await wiring.SearchAsync("나");
+            await wiring.SearchAsync("나그네");
 
             // The presenter is started and listening. If it also answered this
             // click it would mark the row before the command ran, and the
@@ -151,7 +151,8 @@ namespace Game.Architecture.Tests
                     new SilentHost(),
                     new AppFlowSystem(),
                     friends,
-                    Search);
+                    Search,
+                    new ServerRegionSystem(new ForgetfulRegionStore()));
                 presenter.Start();
 
                 bridge = new HomeFriendBridge(View, Commands, signIn);
@@ -213,13 +214,16 @@ namespace Game.Architecture.Tests
             public UniTask<BackendResult<AccountSnapshot>> RenameAsync(
                 string nickname, CancellationToken cancellation) => Account();
 
+            public UniTask<BackendResult<AccountSnapshot>> SetSearchableAsync(
+                bool searchable, CancellationToken cancellation) => Account();
+
             public UniTask<BackendResult> DeleteAccountAsync(CancellationToken cancellation) =>
                 UniTask.FromResult(BackendResult.Success());
 
             private static UniTask<BackendResult<AccountSnapshot>> Account() =>
                 UniTask.FromResult(
                     BackendResult<AccountSnapshot>.Success(
-                        new AccountSnapshot("me", "나", true)));
+                        new AccountSnapshot("me", "나", true, true)));
         }
 
         private sealed class RecordingGateway : IFriendGateway
@@ -279,6 +283,18 @@ namespace Game.Architecture.Tests
                         Array.Empty<FriendRequestSummary>()));
         }
 
+        /// <summary>A region store that keeps nothing, for a test that is not about regions.</summary>
+        private sealed class ForgetfulRegionStore : IServerRegionStore
+        {
+            public bool TryLoad(out string code)
+            {
+                code = null;
+                return false;
+            }
+
+            public void Save(string code) { }
+        }
+
         private sealed class SilentHost : IHomeApplicationHost
         {
             public void Quit() { }
@@ -286,6 +302,8 @@ namespace Game.Architecture.Tests
             public void OpenHome() { }
 
             public void OpenRoomBrowser() { }
+
+            public void CreateRoom(string title, bool isPublic, int maxPlayers) { }
 
             public void OpenLobby() { }
         }
@@ -310,6 +328,10 @@ namespace Game.Architecture.Tests
             public event Action<string> FriendRequestCancelled;
             public event Action FriendListRefreshRequested;
             public event Action<string> FriendRemoved;
+            public event Action ServerSettingsDismissed;
+            public event Action<string> RegionSelected;
+            public event Action<string, bool, int> RoomCreationRequested;
+            public event Action CreateRoomDismissed;
 
             public void RaiseFriendRequestClicked(string playerId) =>
                 FriendRequestClicked?.Invoke(playerId);
@@ -344,6 +366,22 @@ namespace Game.Architecture.Tests
 
             public void SetOutgoingRequests(IReadOnlyList<FriendRequestSummary> requests) { }
 
+            public void SetNicknameSettled(bool settled) { }
+
+            public void SetServerSettingsVisible(bool visible) { }
+
+            public void SetSelectedRegion(string code) { }
+
+            public void SetCreateRoomVisible(bool visible) { }
+
+            public event Action<bool> NicknameSearchAllowedChanged;
+
+            public void SetNicknameSearchAllowed(bool allowed) { }
+
+            public void SetNicknameSearchAllowedError(string message) { }
+
+            public void ShowConnectionError(string message) { }
+
             /// <remarks>Declared to satisfy the interface; this test raises one.</remarks>
             public void Unused()
             {
@@ -360,6 +398,11 @@ namespace Game.Architecture.Tests
                 FriendRequestCancelled?.Invoke(null);
                 FriendListRefreshRequested?.Invoke();
                 FriendRemoved?.Invoke(null);
+                ServerSettingsDismissed?.Invoke();
+                RegionSelected?.Invoke(null);
+                RoomCreationRequested?.Invoke(null, false, 0);
+                CreateRoomDismissed?.Invoke();
+                NicknameSearchAllowedChanged?.Invoke(false);
             }
         }
     }

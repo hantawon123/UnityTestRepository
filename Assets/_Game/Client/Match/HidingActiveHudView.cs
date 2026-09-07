@@ -636,7 +636,7 @@ namespace Game.Client.Match
                 label.fontSize = KeyChipFontSize;
                 label.fontStyle = FontStyles.Normal;
                 label.color = Color.white;
-                label.enableWordWrapping = false;
+                label.textWrappingMode = TextWrappingModes.NoWrap;
                 label.overflowMode = TextOverflowModes.Overflow;
                 label.ForceMeshUpdate();
                 width = MeasureKeyChipWidth(label.text, label.preferredWidth);
@@ -728,7 +728,7 @@ namespace Game.Client.Match
             text.color = Color.white;
             text.raycastTarget = false;
             text.richText = true;
-            text.enableWordWrapping = false;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
             text.overflowMode = TextOverflowModes.Overflow;
             text.font = font != null ? font : HomeUiFonts.Apply();
             text.fontStyle = FontStyles.Normal;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Client.Rooms;
@@ -46,10 +46,9 @@ namespace Game.Bootstrap
 
         public void Start()
         {
-            screen.RoomCreateRequested += OnCreateRequested;
             screen.RoomJoinRequested += OnJoinRequested;
+            screen.RoomCodeEntryRequested += OnCodeEntryRequested;
             browserView.RefreshRequested += OnRefreshRequested;
-            browserView.CreateRoomRequested += OnCreateFormOpened;
             Refresh().Forget();
         }
 
@@ -64,24 +63,21 @@ namespace Game.Bootstrap
         /// </remarks>
         public void Dispose()
         {
-            screen.RoomCreateRequested -= OnCreateRequested;
             screen.RoomJoinRequested -= OnJoinRequested;
+            screen.RoomCodeEntryRequested -= OnCodeEntryRequested;
             browserView.RefreshRequested -= OnRefreshRequested;
-            browserView.CreateRoomRequested -= OnCreateFormOpened;
         }
 
         private void OnRefreshRequested() => Refresh().Forget();
 
-        private void OnCreateFormOpened() => network.PrepareLobbyScene();
-
-        private void OnCreateRequested(RoomCreateRequest request)
-        {
-            Create(request).Forget();
-        }
-
         private void OnJoinRequested(RoomId room, string password)
         {
             Enter(room, password).Forget();
+        }
+
+        private void OnCodeEntryRequested(string code)
+        {
+            EnterByCode(code).Forget();
         }
 
         private async UniTaskVoid Refresh()
@@ -114,21 +110,6 @@ namespace Game.Bootstrap
         /// The outcome is not returned anywhere: it is recorded on
         /// <see cref="RoomBrowserSystem"/>, which the screen already watches.
         /// </summary>
-        private async UniTaskVoid Create(RoomCreateRequest request)
-        {
-            try
-            {
-                await commands.CreateAsync(request, CancellationToken.None);
-            }
-            catch (OperationCanceledException)
-            {
-            }
-            catch (Exception failure)
-            {
-                Debug.LogError($"[Rooms] Could not open the room: {failure.Message}");
-            }
-        }
-
         private async UniTaskVoid Enter(RoomId room, string password)
         {
             try
@@ -141,6 +122,27 @@ namespace Game.Bootstrap
             catch (Exception failure)
             {
                 Debug.LogError($"[Rooms] Could not enter the room: {failure.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Enters by the code itself rather than by looking it up in the list.
+        /// A code is a room's session name, so this reaches rooms the list is
+        /// not currently holding.
+        /// </summary>
+        private async UniTaskVoid EnterByCode(string code)
+        {
+            try
+            {
+                await commands.EnterByCodeAsync(code, null, CancellationToken.None);
+            }
+            catch (OperationCanceledException)
+            {
+                // The screen closed while entering. Nothing to report.
+            }
+            catch (Exception failure)
+            {
+                Debug.LogError($"[Rooms] Could not enter by code: {failure.Message}");
             }
         }
     }

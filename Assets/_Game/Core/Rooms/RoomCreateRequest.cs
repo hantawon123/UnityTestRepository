@@ -17,10 +17,12 @@ namespace Game.Core.Rooms
             bool isLocked,
             string password,
             int maxPlayers,
-            string mapId)
+            string mapId,
+            bool isPrivate = false)
         {
             Title = title;
             IsLocked = isLocked;
+            IsPrivate = isPrivate;
             Password = isLocked ? password : null;
             MapId = mapId;
             MaxPlayers = maxPlayers;
@@ -29,6 +31,7 @@ namespace Game.Core.Rooms
         public string Title { get; }
         public string DisplayName => Title;
         public bool IsLocked { get; }
+        public bool IsPrivate { get; }
         public string Password { get; }
         public string MapId { get; }
         public int MaxPlayers { get; }
@@ -38,7 +41,7 @@ namespace Game.Core.Rooms
             out RoomSettings settings,
             out RoomSettingsError error)
         {
-            if (string.IsNullOrWhiteSpace(Title))
+            if (!RoomSettings.IsValidTitle(Title))
             {
                 settings = default;
                 error = RoomSettingsError.TitleRequired;

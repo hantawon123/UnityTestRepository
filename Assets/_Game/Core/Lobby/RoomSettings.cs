@@ -20,6 +20,10 @@ namespace Game.Core.Lobby
         public const int MinMatchPlayerCount = 1;
         public const int MinPlayerCount = 2;
         public const int MaxPlayerCount = 6;
+        public const int MaxTitleLength = 20;
+
+        public static bool IsValidTitle(string title) =>
+            !string.IsNullOrWhiteSpace(title) && title.Length <= MaxTitleLength;
 
         internal RoomSettings(string title, bool isLocked, int maxPlayers, string mapId)
         {

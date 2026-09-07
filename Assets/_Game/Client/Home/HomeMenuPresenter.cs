@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
 using Game.Core.Flow;
 using Game.Core.Home;
 using UnityEngine;
@@ -14,6 +15,17 @@ namespace Game.Client.Home
         void OpenHome();
 
         void OpenRoomBrowser();
+
+        /// <summary>
+        /// Opens a room with these settings and, if it opens, goes to its
+        /// lobby.
+        /// </summary>
+        /// <remarks>
+        /// Handed to the host rather than done in the presenter because
+        /// creating a room is a network call, and the presenter's job ends at
+        /// deciding that one should be made.
+        /// </remarks>
+        void CreateRoom(string title, bool isPublic, int maxPlayers);
 
         void OpenLobby();
     }
@@ -61,6 +73,17 @@ namespace Game.Client.Home
             LoadSceneAsync(RoomBrowserSceneName);
         }
 
+        /// <summary>
+        /// Nothing to do without a network runner. The scene that owns one
+        /// replaces this host; this fallback exists for the editor and for
+        /// tests, where there is no room to open.
+        /// </summary>
+        public void CreateRoom(string title, bool isPublic, int maxPlayers)
+        {
+            Debug.LogWarning(
+                "[Home] Cannot create a room without the networked host.");
+        }
+
         public void OpenLobby()
         {
             var source = SceneManager.GetActiveScene().name;
@@ -106,8 +129,18 @@ namespace Game.Client.Home
         private readonly IHomeMenuView view;
         private readonly IHomeApplicationHost applicationHost;
         private readonly AppFlowSystem appFlow;
+        private readonly ServerRegionSystem regions;
         private bool isFriendListVisible;
+        private bool isRequestTabOpen;
+
+        /// <summary>
+        /// What was typed while the list tab was showing. Held here because the
+        /// list is rebuilt from the friend system whenever it changes, and the
+        /// filter has to survive that.
+        /// </summary>
+        private string listFilter = string.Empty;
         private bool isProfileSettingsVisible;
+        private bool isServerSettingsVisible;
 
         public HomeMenuPresenter(
             PlayerProfile profile,
@@ -116,7 +149,8 @@ namespace Game.Client.Home
             IHomeApplicationHost applicationHost,
             AppFlowSystem appFlow,
             FriendListSystem friends,
-            FriendSearchSystem search)
+            FriendSearchSystem search,
+            ServerRegionSystem regions)
         {
             this.profile = profile ?? throw new ArgumentNullException(nameof(profile));
             this.menu = menu ?? throw new ArgumentNullException(nameof(menu));
@@ -126,6 +160,9 @@ namespace Game.Client.Home
             this.appFlow = appFlow ?? throw new ArgumentNullException(nameof(appFlow));
             this.friends = friends ?? throw new ArgumentNullException(nameof(friends));
             this.search = search ?? throw new ArgumentNullException(nameof(search));
+
+            this.regions = regions ?? throw new ArgumentNullException(nameof(regions));
+
         }
 
         public void Start()
@@ -133,6 +170,10 @@ namespace Game.Client.Home
             view.ActionClicked += OnActionClicked;
             view.FriendListDismissed += HideFriendList;
             view.ProfileSettingsDismissed += HideProfileSettings;
+            view.ServerSettingsDismissed += HideServerSettings;
+            view.RegionSelected += OnRegionSelected;
+            view.RoomCreationRequested += OnRoomCreationRequested;
+            view.CreateRoomDismissed += OnCreateRoomDismissed;
             view.NicknameChangeRequested += OnNicknameChangeRequested;
             view.NicknameEdited += OnNicknameEdited;
             view.FriendSearchOpened += OnFriendSearchOpened;
@@ -145,6 +186,9 @@ namespace Game.Client.Home
             BindFriends();
             HideFriendList();
             HideProfileSettings();
+            view.SetServerSettingsVisible(false);
+            view.SetCreateRoomVisible(false);
+            view.SetSelectedRegion(regions.Current.Code);
         }
 
         public void Dispose()
@@ -152,6 +196,10 @@ namespace Game.Client.Home
             view.ActionClicked -= OnActionClicked;
             view.FriendListDismissed -= HideFriendList;
             view.ProfileSettingsDismissed -= HideProfileSettings;
+            view.ServerSettingsDismissed -= HideServerSettings;
+            view.RegionSelected -= OnRegionSelected;
+            view.RoomCreationRequested -= OnRoomCreationRequested;
+            view.CreateRoomDismissed -= OnCreateRoomDismissed;
             view.NicknameChangeRequested -= OnNicknameChangeRequested;
             view.NicknameEdited -= OnNicknameEdited;
             view.FriendSearchOpened -= OnFriendSearchOpened;
@@ -171,9 +219,35 @@ namespace Game.Client.Home
                 return;
             }
 
+            if (action == HomeMenuAction.CreateRoom)
+            {
+                HideFriendList();
+                HideProfileSettings();
+                HideServerSettings();
+                view.SetCreateRoomVisible(true);
+                return;
+            }
+
+            if (action == HomeMenuAction.ServerSettings)
+            {
+                // The globe both opens and closes this one: the design gives
+                // the panel no other way out. Opening it puts away whatever
+                // else was up, so only one panel is ever on screen.
+                var opening = !isServerSettingsVisible;
+                if (opening)
+                {
+                    HideFriendList();
+                    HideProfileSettings();
+                }
+
+                SetServerSettingsVisible(opening);
+                return;
+            }
+
             if (action == HomeMenuAction.Friends)
             {
                 HideProfileSettings();
+                HideServerSettings();
                 ShowFriendList();
                 return;
             }
@@ -181,6 +255,7 @@ namespace Game.Client.Home
             if (action == HomeMenuAction.ProfileSettings)
             {
                 HideFriendList();
+                HideServerSettings();
                 ShowProfileSettings();
                 return;
             }
@@ -190,10 +265,19 @@ namespace Game.Client.Home
             {
                 HideFriendList();
                 HideProfileSettings();
+                HideServerSettings();
                 applicationHost.OpenRoomBrowser();
             }
         }
 
+        /// <summary>
+        /// Takes the name locally and lets the bridge carry it to the account.
+        /// </summary>
+        /// <remarks>
+        /// The screen changes at once because a field that waits on a round
+        /// trip feels broken; <c>HomeProfileBridge</c> puts the old name back
+        /// if the server refuses it.
+        /// </remarks>
         private void OnNicknameChangeRequested(string nickname)
         {
             if (!isProfileSettingsVisible)
@@ -201,12 +285,17 @@ namespace Game.Client.Home
                 return;
             }
 
-            if (profile.TryChangeNickname(nickname, out _))
-            {
-                view.SetNicknameAppliedFeedbackVisible(true);
-            }
+            profile.TryChangeNickname(nickname, out _);
         }
 
+        /// <summary>
+        /// Takes the message down as soon as the player types something else.
+        /// </summary>
+        /// <remarks>
+        /// "이미 사용 중인 이름입니다" is about the name that was applied. Left
+        /// up while a different one is being typed it reads as a verdict on
+        /// what is in the box now, which nobody has checked.
+        /// </remarks>
         private void OnNicknameEdited(string nickname)
         {
             if (!isProfileSettingsVisible)
@@ -216,25 +305,58 @@ namespace Game.Client.Home
 
             if (!string.Equals(nickname, profile.Nickname, StringComparison.Ordinal))
             {
-                view.SetNicknameAppliedFeedbackVisible(false);
+                view.SetNicknameError(string.Empty);
             }
         }
 
         private void OnFriendSearchOpened()
         {
+            // The box is shared, and the view empties it on the way across, so
+            // the list's filter goes with it.
+            isRequestTabOpen = true;
+            listFilter = string.Empty;
             search.ClearResults();
             view.SetFriendSearchVisible(true);
+            BindFriends();
             BindSearchResults();
         }
 
         private void OnFriendSearchClosed()
         {
+            isRequestTabOpen = false;
+            listFilter = string.Empty;
             HideFriendSearch();
+            BindFriends();
         }
 
+        /// <summary>
+        /// One box, two jobs: on the request tab it asks the directory for a
+        /// player, and on the list tab it narrows the friends already shown.
+        /// </summary>
         private void OnFriendSearchRequested(string query)
         {
-            search.Search(query, CollectFriendIds());
+            if (isRequestTabOpen)
+            {
+                search.Search(query, CollectFriendIds());
+                return;
+            }
+
+            listFilter = query == null ? string.Empty : query.Trim();
+            BindFriends();
+        }
+
+        /// <summary>
+        /// Reads the list again. With no service behind it yet this only
+        /// redraws, which is still worth having: it is the one control that
+        /// picks up a friend who came online while the panel was open.
+        /// </summary>
+        private void OnFriendListRefreshRequested()
+        {
+            BindFriends();
+            if (isRequestTabOpen)
+            {
+                BindSearchResults();
+            }
         }
 
         // Nothing here for a friend request. Marking the row was this class's
@@ -262,6 +384,67 @@ namespace Game.Client.Home
             view.SetFriendListVisible(false);
         }
 
+        /// <summary>
+        /// Records the pick. The panel has already moved its own mark, so this
+        /// only puts the mark back when the code was not one we offer.
+        /// </summary>
+        private void OnRegionSelected(string code)
+        {
+            if (!regions.TrySelect(code))
+            {
+                view.SetSelectedRegion(regions.Current.Code);
+            }
+        }
+
+        /// <summary>
+        /// Closes the modal before asking for the room, so the screen is not
+        /// left with a live form over a lobby that is loading behind it.
+        /// </summary>
+        /// <summary>
+        /// Sends the filled-in form on, once the flow allows leaving for a
+        /// lobby at all.
+        /// </summary>
+        /// <remarks>
+        /// Asked, not moved. Opening a room is a network call that can be
+        /// refused, and a flow already moved to Lobby cannot come back to Home
+        /// — the rules have no such move — so a refusal would leave the player
+        /// on this screen with the app believing they are in a lobby. The host
+        /// moves the flow when a room actually opens.
+        /// </remarks>
+        private void OnRoomCreationRequested(string title, bool isPublic, int maxPlayers)
+        {
+            if (appFlow.CurrentState != AppFlowState.Lobby &&
+                !appFlow.CanTransitionTo(AppFlowState.Lobby))
+            {
+                Debug.LogError($"Cannot open a room from {appFlow.CurrentState}.");
+                return;
+            }
+
+            view.SetCreateRoomVisible(false);
+            applicationHost.CreateRoom(title, isPublic, maxPlayers);
+        }
+
+        private void OnCreateRoomDismissed()
+        {
+            view.SetCreateRoomVisible(false);
+        }
+
+        private void SetServerSettingsVisible(bool visible)
+        {
+            if (isServerSettingsVisible == visible)
+            {
+                return;
+            }
+
+            isServerSettingsVisible = visible;
+            view.SetServerSettingsVisible(visible);
+        }
+
+        private void HideServerSettings()
+        {
+            SetServerSettingsVisible(false);
+        }
+
         private void ShowProfileSettings()
         {
             if (isProfileSettingsVisible)
@@ -271,7 +454,7 @@ namespace Game.Client.Home
 
             isProfileSettingsVisible = true;
             view.SetNickname(profile.Nickname);
-            view.SetNicknameAppliedFeedbackVisible(false);
+            view.SetNicknameSettled(profile.NicknameSet);
             view.SetProfileSettingsVisible(true);
         }
 
@@ -279,7 +462,6 @@ namespace Game.Client.Home
         {
             isProfileSettingsVisible = false;
             view.SetNickname(profile.Nickname);
-            view.SetNicknameAppliedFeedbackVisible(false);
             view.SetProfileSettingsVisible(false);
         }
 
@@ -291,8 +473,35 @@ namespace Game.Client.Home
 
         private void BindFriends()
         {
-            view.SetFriends(friends.OnlineFriends, friends.OfflineFriends);
+            view.SetFriends(
+                Filtered(friends.OnlineFriends), Filtered(friends.OfflineFriends));
         }
+
+        /// <summary>
+        /// The friends whose nickname contains what was typed. One character is
+        /// enough to start narrowing; nothing typed shows everyone.
+        /// </summary>
+        private IReadOnlyList<FriendSummary> Filtered(IReadOnlyList<FriendSummary> source)
+        {
+            if (listFilter.Length == 0)
+            {
+                return source;
+            }
+
+            var kept = new List<FriendSummary>();
+            for (var index = 0; index < source.Count; index++)
+            {
+                if (source[index].Nickname.IndexOf(listFilter, StringComparison.Ordinal) >= 0)
+                {
+                    kept.Add(source[index]);
+                }
+            }
+
+            return kept;
+        }
+
+
+
 
         private void BindSearchResults()
         {
@@ -319,6 +528,7 @@ namespace Game.Client.Home
         private void BindProfile(PlayerProfile source)
         {
             view.SetNickname(source.Nickname);
+            view.SetNicknameSettled(source.NicknameSet);
         }
     }
 }

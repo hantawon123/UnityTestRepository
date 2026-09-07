@@ -43,12 +43,20 @@ namespace Game.Bootstrap
 
         protected override void Configure(IContainerBuilder builder)
         {
+            // Built here rather than in RegisterServices: it reads this
+            // machine's preferences, and a test container must not pick up
+            // whichever region the developer last chose. The deployment's own
+            // region seeds it, so a build shipped for one region still starts
+            // there before anybody picks another.
+            var regionStore = new PlayerPrefsServerRegionStore();
+
             RegisterServices(
                 builder,
                 _networkPrefabs,
                 _networkScenes,
                 null,
-                _networkRegion);
+                new ServerRegionSystem(regionStore, _networkRegion));
+            builder.RegisterInstance<IServerRegionStore>(regionStore);
 
             // Built here rather than in RegisterServices: the device identifier
             // is this machine's saved credential, and a test container must not
@@ -167,12 +175,18 @@ namespace Game.Bootstrap
             NetworkPrefabs networkPrefabs = null,
             NetworkScenes networkScenes = null,
             PlayerProfile profile = null,
-            string networkRegion = null)
+            ServerRegionSystem regions = null)
         {
             builder.Register<AppFlowSystem>(Lifetime.Singleton);
             builder.Register<HomeMenuSystem>(Lifetime.Singleton);
             builder.Register<FriendListSystem>(Lifetime.Singleton);
             builder.Register<FriendSearchSystem>(Lifetime.Singleton);
+
+            // Registered here so every container has one, with a store that
+            // forgets when the process does. The application replaces it with
+            // one backed by this machine's preferences.
+            builder.RegisterInstance(
+                regions ?? new ServerRegionSystem(new InMemoryServerRegionStore()));
 
             // One instance for the whole application. The home screen edits this
             // one and the network reads this one, so a rename is visible in both
@@ -209,7 +223,7 @@ namespace Game.Bootstrap
                         c.Resolve<PlayerSpawner>(),
                         c.Resolve<PlayerProfile>(),
                         networkScenes,
-                        networkRegion),
+                        c.Resolve<ServerRegionSystem>()),
                     Lifetime.Singleton)
                 .AsSelf()
                 .As<INetworkMatchRuntimeSource>()

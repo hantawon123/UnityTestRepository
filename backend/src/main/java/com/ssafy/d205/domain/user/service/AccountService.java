@@ -10,8 +10,11 @@ import java.util.Optional;
 
 import com.ssafy.d205.domain.user.dto.AccountResponse;
 import com.ssafy.d205.domain.user.dto.IssuedAccount;
+import com.ssafy.d205.domain.user.dto.UpdateAppearanceRequest;
 import com.ssafy.d205.domain.user.entity.AuthProvider;
 import com.ssafy.d205.domain.user.entity.User;
+import com.ssafy.d205.domain.user.entity.UserAppearance;
+import com.ssafy.d205.domain.user.repository.UserAppearanceRepository;
 import com.ssafy.d205.domain.user.repository.UserIdentityRepository;
 import com.ssafy.d205.domain.user.repository.UserRepository;
 import com.ssafy.d205.global.common.TimeProvider;
@@ -33,6 +36,7 @@ public class AccountService {
     private final AccountRegistrar accountRegistrar;
     private final UserRepository userRepository;
     private final UserIdentityRepository userIdentityRepository;
+    private final UserAppearanceRepository userAppearanceRepository;
     private final TimeProvider timeProvider;
 
     /**
@@ -50,7 +54,7 @@ public class AccountService {
     public IssuedAccount issue(String deviceId) {
         Optional<User> existing = findByDevice(deviceId);
         if (existing.isPresent()) {
-            return new IssuedAccount(AccountResponse.from(existing.get()), false);
+            return new IssuedAccount(respond(existing.get()), false);
         }
 
         for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -67,7 +71,7 @@ public class AccountService {
                 // 없으면 2번으로 판단합니다. 상태를 보고 판단하는 쪽이 튼튼합니다.
                 Optional<User> winner = findByDevice(deviceId);
                 if (winner.isPresent()) {
-                    return new IssuedAccount(AccountResponse.from(winner.get()), false);
+                    return new IssuedAccount(respond(winner.get()), false);
                 }
             }
         }
@@ -76,9 +80,51 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public AccountResponse get(String userId) {
-        return userRepository.findByPublicId(userId)
-                .map(AccountResponse::from)
-                .orElseThrow(() -> new UnknownCallerException(userId));
+        return respond(caller(userId));
+    }
+
+    /**
+     * 옷장에서 고른 외형을 저장합니다. <b>멱등합니다.</b>
+     *
+     * <p>PUT 하나로 넣기와 덮어쓰기를 다 합니다. 처음 저장인지 아닌지를 클라이언트가 구분해
+     * 부를 이유가 없고, 같은 값을 다시 저장해도 성공입니다. 적용 버튼을 두 번 눌렀다고
+     * 오류가 날 이유가 없습니다.
+     *
+     * <p>파츠 id 가 실제로 있는지는 보지 않습니다. 형식은 요청 검증이 봤고, 목록은 서버가
+     * 모릅니다(AppearancePolicy).
+     */
+    @Transactional
+    public AccountResponse setAppearance(String userId, UpdateAppearanceRequest request) {
+        User user = caller(userId);
+
+        userAppearanceRepository.upsert(
+                user.getSeq(),
+                request.bodyColor(),
+                request.hood(),
+                request.shoes(),
+                request.face(),
+                timeProvider.now());
+
+        return respond(user);
+    }
+
+    /**
+     * 외형을 초기화합니다. 행을 지워 "아직 고르지 않은" 상태로 되돌립니다.
+     *
+     * <p>클라이언트가 기본 파츠로 PUT 하게 두지 않은 이유가 있습니다. 그렇게 하면 한 번
+     * 저장한 사람은 영원히 appearanceSet 이 true 이고, 나중에 기본 파츠가 바뀌어도 초기화를
+     * 누른 사람들은 옛 기본값에 못 박힙니다. 행이 없으면 클라이언트가 그때의 기본값을 씁니다.
+     *
+     * <p>없는 행을 지워도 성공입니다. 초기화를 두 번 눌러도 결과는 같습니다.
+     */
+    @Transactional
+    public AccountResponse clearAppearance(String userId) {
+        User user = caller(userId);
+
+        userAppearanceRepository.findById(user.getSeq())
+                .ifPresent(userAppearanceRepository::delete);
+
+        return AccountResponse.from(user);
     }
 
     /**
@@ -93,17 +139,35 @@ public class AccountService {
      * 합니다. equalsIgnoreCase로 두면 남이 쓰는 Player를 자기 것으로 착각해 중복
      * 검사를 건너뛰고, 제약 위반이 409가 아니라 500으로 나갑니다.
      */
+    /**
+     * 닉네임 검색에 나올지 정합니다.
+     *
+     * <p>닉네임 변경과 따로 둔 이유는 성질이 다르기 때문입니다. 닉네임은 남과 겹칠 수
+     * 있어 거절당하지만, 이 값은 나 혼자의 것이라 늘 성공합니다. 한 요청으로 묶으면
+     * 닉네임이 중복이라 409 가 날 때 이 설정까지 함께 되돌아갑니다 - 사용자는
+     * 체크박스만 껐는데 그것도 안 먹힌 셈이 됩니다.
+     *
+     * <p>같은 값을 다시 넣어도 성공합니다. 체크박스를 두 번 눌러 원래대로 돌아온
+     * 경우가 오류일 이유가 없습니다.
+     */
+    @Transactional
+    public AccountResponse setSearchable(String userId, boolean searchable) {
+        User user = caller(userId);
+
+        user.setSearchable(searchable, timeProvider.now());
+        return respond(user);
+    }
+
     @Transactional
     public AccountResponse rename(String userId, String nickname) {
-        User user = userRepository.findByPublicId(userId)
-                .orElseThrow(() -> new UnknownCallerException(userId));
+        User user = caller(userId);
 
         if (!user.getNickname().equals(nickname) && userRepository.existsByNickname(nickname)) {
             throw new NicknameTakenException(nickname);
         }
 
         user.rename(nickname, timeProvider.now());
-        return AccountResponse.from(user);
+        return respond(user);
     }
 
     /**
@@ -167,5 +231,22 @@ public class AccountService {
 
     private Optional<User> findByDevice(String deviceId) {
         return userIdentityRepository.findUserByProviderAndProviderUserId(AuthProvider.DEVICE, deviceId);
+    }
+
+    private User caller(String userId) {
+        return userRepository.findByPublicId(userId)
+                .orElseThrow(() -> new UnknownCallerException(userId));
+    }
+
+    /**
+     * 계정 응답을 만듭니다. 외형이 있으면 함께 싣습니다.
+     *
+     * <p>계정을 돌려주는 모든 경로가 이 메서드를 지납니다. 발급, 조회, 닉네임 변경, 검색 허용
+     * 변경 중 하나에서만 외형이 빠지면 클라이언트는 그 응답으로 화면을 다시 그리다가 옷장이
+     * 기본값으로 튀는 것을 봅니다.
+     */
+    private AccountResponse respond(User user) {
+        UserAppearance appearance = userAppearanceRepository.findById(user.getSeq()).orElse(null);
+        return AccountResponse.from(user, appearance);
     }
 }

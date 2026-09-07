@@ -19,6 +19,7 @@ namespace Game.Client.Lobby
         void SetVisible(bool visible);
         void SetStartVisible(bool visible);
         void SetPlaySettingsVisible(bool visible);
+        void ShowLeaveConfirmation(Action confirmed);
     }
 
     /// <summary>
@@ -66,6 +67,31 @@ namespace Game.Client.Lobby
         public event Action SettingsClicked;
         public event Action PlaySettingsClicked;
         public event Action KeyGuideClicked;
+
+        private LobbyConfirmView leaveConfirmation;
+        private Action pendingLeave;
+
+        public void ShowLeaveConfirmation(Action confirmed)
+        {
+            if (leaveConfirmation == null)
+            {
+                leaveConfirmation = LobbyConfirmView.Create(transform);
+                leaveConfirmation.Confirmed += () =>
+                {
+                    var action = pendingLeave;
+                    pendingLeave = null;
+                    leaveConfirmation.Hide();
+                    action?.Invoke();
+                };
+                leaveConfirmation.Cancelled += () =>
+                {
+                    pendingLeave = null;
+                    leaveConfirmation.Hide();
+                };
+            }
+            pendingLeave = confirmed;
+            leaveConfirmation.Show("정말 나가시겠습니까?\n(방장 이탈시 방이 사라집니다)");
+        }
 
         public bool IsOpen => panel != null && panel.activeSelf;
 
@@ -130,6 +156,11 @@ namespace Game.Client.Lobby
 
         public void SetVisible(bool visible)
         {
+            if (!visible)
+            {
+                pendingLeave = null;
+                if (leaveConfirmation != null) leaveConfirmation.Hide();
+            }
             if (panel != null)
             {
                 panel.SetActive(visible);

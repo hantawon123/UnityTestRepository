@@ -334,7 +334,7 @@ namespace Game.Client.Match
             text.color = Color.white;
             text.raycastTarget = false;
             text.richText = true;
-            text.enableWordWrapping = true;
+            text.textWrappingMode = TextWrappingModes.Normal;
             text.font = ResolveFont();
             text.fontStyle = FontStyles.Normal;
             return text;

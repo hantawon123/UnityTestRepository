@@ -7,6 +7,7 @@ using Game.Core.Match;
 using Game.Core.Ports;
 using Game.Core.Rooms;
 using Game.Network.Players;
+using Game.Network.Session;
 using Game.Server.Match;
 using UnityEngine;
 
@@ -58,6 +59,15 @@ namespace Game.Network.Match
         private bool _hasShredderEjectionPose;
         private bool _returningToLobby;
         private bool _lastPublishedStarted;
+        private string[] _countdownParticipants;
+        public bool IsStartPending => HasValidState && _state.StartCountdownEndsAt > 0d;
+        public double StartCountdownEndsAt => HasValidState ? _state.StartCountdownEndsAt : 0d;
+
+        /// <summary>
+        /// What the session listing was last told, so the same answer is not
+        /// sent to the cloud on every replication.
+        /// </summary>
+        private bool _publishedRoomStatus;
         private MatchPhase _lastPublishedPhase = MatchPhase.Waiting;
         public bool HasStartedMatch =>
             HasValidState ? _state.IsStarted : _lastPublishedStarted;
@@ -124,6 +134,7 @@ namespace Game.Network.Match
                 return;
             }
 
+            if (IsStartPending) return;
             var refusal = Evaluate(_state, runner);
 
             if (refusal != RoomStartResult.Started)
@@ -142,7 +153,31 @@ namespace Game.Network.Match
                 participantIds[index] = participants[index].PlayerId;
             }
 
-            state.Confirm(participantIds);
+            _countdownParticipants = participantIds;
+            state.StartCountdownEndsAt = runner.SimulationTime + 10d;
+        }
+
+        private void AdvanceStartCountdown()
+        {
+            if (!IsStartPending) return;
+            var runner = _state.Runner;
+            if (!runner.IsServer) return;
+            var valid = _countdownParticipants != null && Evaluate(_state, runner) == RoomStartResult.Started &&
+                _room.Count == _countdownParticipants.Length;
+            if (valid)
+                for (var i = 0; i < _room.Count; i++)
+                    if (_room[i].PlayerId != _countdownParticipants[i]) { valid = false; break; }
+            if (!valid)
+            {
+                _state.StartCountdownEndsAt = 0d;
+                _countdownParticipants = null;
+                return;
+            }
+            if (runner.SimulationTime < _state.StartCountdownEndsAt) return;
+            var participantIds = _countdownParticipants;
+            _countdownParticipants = null;
+            _state.StartCountdownEndsAt = 0d;
+            _state.Confirm(participantIds);
             Debug.Log($"[Match] Started with {participantIds.Length} players.");
 
             // After the line-up is frozen, not before: the map replaces this
@@ -164,6 +199,7 @@ namespace Game.Network.Match
 
             _state = state;
             _lastPublishedStarted = state.IsStarted;
+            PublishRoomStatus(state.IsStarted);
 
             _playing.Clear();
 
@@ -182,6 +218,45 @@ namespace Game.Network.Match
 
             _sink?.MatchStarted(_playing);
             LineUpReceived?.Invoke(_playing);
+        }
+
+        /// <summary>
+        /// Tells the lobby listing whether this room is playing, so the room
+        /// browser can show it as one nobody can join.
+        /// </summary>
+        /// <remarks>
+        /// Only the authority writes it, and only when the answer changes: a
+        /// session property update is a round trip to the cloud, and this is
+        /// published on every replication of the match state.
+        /// <para>
+        /// A failed update is not worth failing a match start over. The room
+        /// stays listed as waiting, someone tries to enter, and the session
+        /// refuses them — which is the same outcome, reached less kindly.
+        /// </para>
+        /// </remarks>
+        private void PublishRoomStatus(bool playing)
+        {
+            if (_publishedRoomStatus == playing)
+            {
+                return;
+            }
+
+            var runner = _state != null ? _state.Runner : null;
+            if (runner == null || !runner.IsServer || !runner.SessionInfo.IsValid)
+            {
+                return;
+            }
+
+            if (!runner.SessionInfo.UpdateCustomProperties(
+                    SessionPropertyMapper.BuildRoomStatus(playing)))
+            {
+                Debug.LogWarning(
+                    "[Match] Could not tell the lobby the room is "
+                    + (playing ? "playing." : "waiting."));
+                return;
+            }
+
+            _publishedRoomStatus = playing;
         }
 
         public void Publish(MatchMigrationCheckpoint checkpoint)
@@ -344,6 +419,7 @@ namespace Game.Network.Match
 
         public void PublishSimulationTick()
         {
+            AdvanceStartCountdown();
             SimulationTick?.Invoke();
             if (_session != null && _state != null)
             {
@@ -465,6 +541,19 @@ namespace Game.Network.Match
 
             _state.RPC_RequestThrow(pose.position, pose.rotation, initialVelocity);
             return true;
+        }
+
+        public bool RequestCompleteHidingTurn()
+        {
+            if (!HasValidState || _state.Phase != MatchPhase.Hiding) return false;
+            _state.RPC_RequestCompleteHidingTurn();
+            return true;
+        }
+
+        public bool TryCompleteHidingTurn(PlayerRef source)
+        {
+            return TryGetPlayerIndex(source, out var playerIndex) &&
+                _session.TryCompleteHidingTurn(playerIndex, ServerTime);
         }
 
         public bool RequestHitPlayer(int targetPlayerIndex)
@@ -749,6 +838,10 @@ namespace Game.Network.Match
         public bool TryHitPlayer(PlayerRef source, int targetPlayerIndex)
         {
             if (!TryGetPlayerIndex(source, out var attackerPlayerIndex) ||
+                !TryGetPlayingAvatar(attackerPlayerIndex, out var attacker) ||
+                !attacker.TryGetComponent<NetworkPlayerMotor>(out var motor) ||
+                !motor.ControlsEnabled ||
+                motor.Posture == Game.Core.Players.PlayerPosture.Prone ||
                 targetPlayerIndex < 0 ||
                 targetPlayerIndex >= _session.Players.Players.Count)
             {
@@ -1112,6 +1205,10 @@ namespace Game.Network.Match
         {
             _state = null;
             _lastPublishedStarted = false;
+
+            // The next room starts out listed as waiting, so that is what this
+            // has to believe was last published.
+            _publishedRoomStatus = false;
             _lastPublishedPhase = MatchPhase.Waiting;
             UnbindSession();
             _hasShredderEjectionPose = false;
