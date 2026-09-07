@@ -51,12 +51,18 @@ ssh d205 'sudo install -o root -g root -m 644 /tmp/d205.conf /etc/nginx/sites-av
 분석 스키마 권한 (플레이 로그 수집을 처음 배포하기 전에 **한 번**):
 
 ```
-ssh d205 'cd ~/S15P21D205/backend 2>/dev/null || cd $(dirname $(docker inspect d205-mysql --format "{{index .Config.Labels \"com.docker.compose.project.working_dir\"}}")); set -a; . ./.env; set +a; docker exec d205-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e "GRANT ALL PRIVILEGES ON \`d205_analytics\`.* TO '"'"'$DB_USERNAME'"'"'@'"'"'%'"'"'; FLUSH PRIVILEGES;"'
+scp backend/deploy/mysql/init/01-analytics-grant.sh d205:/tmp/01-analytics-grant.sh
+ssh d205 "docker cp /tmp/01-analytics-grant.sh d205-mysql:/tmp/analytics-grant.sh && docker exec d205-mysql bash /tmp/analytics-grant.sh"
 ```
 
-위 한 줄이 하는 일은 `deploy/mysql/init/01-analytics-grant.sh`와 같습니다. 그 스크립트는
-MySQL 이 데이터 볼륨을 처음 만들 때만 돌아서, 이미 초기화된 운영 볼륨에는 적용되지
-않습니다. 스키마와 테이블은 앱이 첫 접속에서 만듭니다(`createDatabaseIfNotExist`, Flyway).
+initdb 용 스크립트를 그대로 컨테이너 안에서 실행합니다. 컨테이너에는 compose 가 넘긴
+`MYSQL_USER` 와 `MYSQL_ROOT_PASSWORD` 가 있어서 스크립트가 그 값을 씁니다. 비밀번호를 명령줄에
+적지 않는 이유이기도 합니다. 성공하면 `[analytics-grant] <계정> 에게 d205_analytics 권한을
+주었습니다.` 가 찍힙니다. 이 스크립트는 MySQL 이 데이터 볼륨을 처음 만들 때만 자동으로 돌아서,
+이미 초기화된 운영 볼륨에는 이렇게 손으로 한 번 실행해야 합니다. 스키마와 테이블은 앱이
+첫 접속에서 만듭니다(`createDatabaseIfNotExist`, Flyway).
+
+GRANT 만 하는 스크립트라 두 번 실행해도 해가 없습니다.
 
 권한 없이 배포해도 앱은 뜹니다. 대신 이벤트가 전부 버려지고 로그에 30초마다
 `분석 DB 를 준비하지 못했습니다` ERROR 가 남습니다. 그 로그가 보이면 위 명령을 실행하면
