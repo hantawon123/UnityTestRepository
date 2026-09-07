@@ -12,6 +12,7 @@
 - `basement-wanted-posters.png` — 서벽의 탈 종류별 WANTED 포스터 4장(Rabbit/Bear/Cat/Dog)
 - `basement-ceiling-lights.png` — 천장 장선과 조명 배치, 동벽 계단·초록 문
 - `basement-boundary-colliders.png` — 벽에 붙인 보이지 않는 경계 콜라이더 6면(연두색 와이어)
+- `basement-lighting-bake-v1.png` — 1차 라이트맵 베이크 결과(전등 25개, 간접광·AO 적용). 이후 조정 시 v2로 추가
 - `posters/` — WANTED 포스터 원본 이미지 4종(1024×1536). 데칼 아틀라스 합성에 사용
 
 ## 제작 경과
@@ -63,9 +64,21 @@
 - **지붕 관통 수정**: 천장 콜라이더를 끄자 계단에서 점프하면 지붕 메시를 뚫고 올라감. 지붕은 계단 FBX 메시에 합쳐진 나무 판재라 그대로 두기로 결정하고, 지붕 밑면 선(계단 아래 y 2.54 → 문 쪽 y 5.12)에 맞춘 경사 BoxCollider `Walls/WallStairs_RoofFix`(폭 1.42, 두께 0.15) 추가. 계단 위 머리 공간 2.1~2.9 m, 층계참 2.26 m로 서서 이동은 자유롭고 점프만 막힘.
 - **교훈**: 팩 모듈에 비균등 스케일을 주면 회전된 자식 콜라이더가 어긋난다. 크기를 바꿔야 하면 콜라이더를 따로 만들거나 스케일 1로 두고 배치를 조정한다.
 
+### 7. 조명 베이크 1차 (2026-09-07, 614)
+
+- 에디터 메뉴 `Game/Lobby/Lighting/`(`LobbyLightingSetupMenu.cs`)로 설정·프로브·베이크를 한 번에 처리.
+  1. Setup: 조명 설정 에셋 `Assets/_Game/Content/Lighting/LobbyLighting.lighting` 생성·연결 + 방 내부 라이트 프로브 격자 `LobbyLightProbes`(수평 1.5 m, 높이 0.3/1.5/3.0/4.8 m, 벽·소품 속 제외 → 321개)
+  2. Bake: 라이트맵 + 리플렉션 프로브 2개 + 라이트 프로브 동시 베이크
+  3. Clear: 베이크 데이터 삭제
+- 설정: Progressive GPU, 20 texels/m, 최대 2048, Shadowmask, Directional, AO(0.5 m), 샘플 32/512/256, 바운스 3, 프로브 샘플 ×4. 팩 기본(40 texels/m, 4096)의 절반.
+- 결과: 라이트맵 2장(2048), 산출물 `Assets/_Game/Content/Scenes/Lobby/`(약 25 MB, exr는 LFS). URP는 레거시 라이트 프로브 방식(APV 아님)이라 캐릭터·들고 다니는 소품은 라이트 프로브로 조명받음.
+- 조명 25개: Realtime 9 · Baked 10 · Mixed 6. 렌더러 651 중 581이 ContributeGI.
+- **재베이크 규칙**: 소품 이동·추가·삭제, 벽·천장 모듈 변경, 전등 변경, Static 플래그 변경(Carryable 전환 포함) 뒤에는 메뉴 2번으로 반드시 재베이크. 결과가 어둡거나 얼룩이 보이면 `LobbyLighting.lighting`의 샘플/해상도를 올려 다시 굽는다.
+- 포스트프로세스(URP Volume: 비네트·색보정·블룸)는 아직 미적용. 분위기 조정과 함께 2차에서 진행.
+
 ## 다음 단계
 
 1. 계단 재테스트(끝까지 오르기, 층계참에서 서기, 점프 시 지붕에 막히는지) → 이상 없으면 617 종료.
-2. 조명 연출(614): Lobby 씬에서 라이트맵·Reflection Probe 베이크, URP Volume으로 포스트프로세스 구성.
+2. 조명 연출 2차(614): 베이크 결과 미세 조정, URP Volume 포스트프로세스(비네트·색보정·블룸), 창문 냉광·전구 온광 대비.
 3. 상자·콘·타이어·가스통을 Carryable 프리팹 변형으로 전환(615, 로비 네트워크 동기화 여부 확인 후).
 4. 방 설정 상호작용(619~621): 방장 전용 "작전 계획판"으로 설정/시작 화면 열기.
