@@ -36,6 +36,7 @@ namespace Game.Client.Match
         public const float InputFontSize = 16f;
         public const string PlaceholderText = "채팅 입력..";
         public const float InputWidth = 320f;
+        public const int PanelRadius = 10;
         public const float ContentPadding = 16f;
         public const float SendIconGap = 8f;
         public const float OpenCooldownSeconds = 0.12f;
@@ -60,7 +61,7 @@ namespace Game.Client.Match
         private readonly TMP_Text[] nameTexts = new TMP_Text[VisibleMessageCount];
         private readonly TMP_Text[] bodyTexts = new TMP_Text[VisibleMessageCount];
         private readonly CanvasGroup[] rowFades = new CanvasGroup[VisibleMessageCount];
-        private static Sprite verticalFadeSprite;
+        private static Sprite historyFadeSprite;
         private TMP_FontAsset cachedFont;
         private Sprite lastSendIcon;
         private Coroutine focusRoutine;
@@ -413,6 +414,7 @@ namespace Game.Client.Match
                 var message = list[first + index];
                 ApplyLine(nameTexts[index], message.SenderName, font, NameFontSize, NameColor);
                 ApplyLine(bodyTexts[index], message.Text, font, BodyFontSize, Color.white);
+                bodyTexts[index]?.ForceMeshUpdate();
             }
 
             ApplyRowFade();
@@ -636,6 +638,7 @@ namespace Game.Client.Match
             FitTextViewport();
             IsolateCanvases();
             EnsureHistoryFade();
+            ApplyRoundedPanels();
             ApplyFonts();
             layoutReady = true;
             ApplyInputOverflow();
@@ -814,6 +817,8 @@ namespace Game.Client.Match
                 rows[index] = row;
                 nameTexts[index] = row != null ? row.Find("Name")?.GetComponent<TMP_Text>() : null;
                 bodyTexts[index] = row != null ? row.Find("Body")?.GetComponent<TMP_Text>() : null;
+                ApplyWrap(nameTexts[index]);
+                ApplyWrap(bodyTexts[index]);
                 if (row == null)
                 {
                     rowFades[index] = null;
@@ -946,13 +951,6 @@ namespace Game.Client.Match
                 return;
             }
 
-            if (text.textWrappingMode == TextWrappingModes.Normal &&
-                text.overflowMode == TextOverflowModes.Overflow &&
-                !text.enableAutoSizing)
-            {
-                return;
-            }
-
             text.textWrappingMode = TextWrappingModes.Normal;
             text.overflowMode = TextOverflowModes.Overflow;
             text.enableAutoSizing = false;
@@ -963,6 +961,7 @@ namespace Game.Client.Match
                 layout.preferredHeight = -1f;
                 layout.preferredWidth = -1f;
                 layout.flexibleWidth = 1f;
+                layout.flexibleHeight = -1f;
             }
         }
 
@@ -998,27 +997,55 @@ namespace Game.Client.Match
             }
 
             Stretch(background);
-            var backgroundImage = background.GetComponent<Image>();
-            backgroundImage.sprite = VerticalFadeSprite;
-            backgroundImage.type = Image.Type.Simple;
-            backgroundImage.color = PanelColor;
-            backgroundImage.raycastTarget = false;
-            backgroundImage.preserveAspect = false;
+            ApplyHistoryBackground(background.GetComponent<Image>());
             background.SetSiblingIndex(0);
             itemRoot?.SetAsLastSibling();
         }
 
-        private static Sprite VerticalFadeSprite
+        private void ApplyRoundedPanels()
+        {
+            ApplyRoundedPanel(transform.Find("InputPanel")?.GetComponent<Image>());
+        }
+
+        private static void ApplyRoundedPanel(Image image)
+        {
+            if (image == null)
+            {
+                return;
+            }
+
+            image.sprite = HomeUiFonts.Rounded(PanelRadius);
+            image.type = Image.Type.Sliced;
+            image.color = PanelColor;
+            image.raycastTarget = true;
+            image.preserveAspect = false;
+        }
+
+        private static void ApplyHistoryBackground(Image image)
+        {
+            if (image == null)
+            {
+                return;
+            }
+
+            image.sprite = HistoryFadeSprite;
+            image.type = Image.Type.Simple;
+            image.color = PanelColor;
+            image.raycastTarget = false;
+            image.preserveAspect = false;
+        }
+
+        private static Sprite HistoryFadeSprite
         {
             get
             {
-                if (verticalFadeSprite != null)
+                if (historyFadeSprite != null)
                 {
-                    return verticalFadeSprite;
+                    return historyFadeSprite;
                 }
 
-                const int width = 8;
-                const int height = 128;
+                var width = Mathf.RoundToInt(InputWidth);
+                var height = Mathf.RoundToInt(HistoryHeight);
                 var texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
                 {
                     hideFlags = HideFlags.HideAndDontSave,
@@ -1026,27 +1053,46 @@ namespace Game.Client.Match
                     wrapMode = TextureWrapMode.Clamp
                 };
 
+                var halfWidth = width * 0.5f;
+                var halfHeight = height * 0.5f;
+                var radius = PanelRadius;
                 for (var y = 0; y < height; y++)
                 {
-                    var alpha = 1f - (y / (height - 1f));
-                    var color = new Color(1f, 1f, 1f, alpha);
+                    var fade = 1f - (y / (height - 1f));
                     for (var x = 0; x < width; x++)
                     {
-                        texture.SetPixel(x, y, color);
+                        var coverage = RoundedCoverage(x, y, halfWidth, halfHeight, radius);
+                        texture.SetPixel(x, y, new Color(1f, 1f, 1f, coverage * fade));
                     }
                 }
 
                 texture.Apply(false, false);
-                verticalFadeSprite = Sprite.Create(
+                historyFadeSprite = Sprite.Create(
                     texture,
                     new Rect(0f, 0f, width, height),
                     new Vector2(0.5f, 0.5f),
                     100f,
                     0,
                     SpriteMeshType.FullRect);
-                verticalFadeSprite.hideFlags = HideFlags.HideAndDontSave;
-                return verticalFadeSprite;
+                historyFadeSprite.hideFlags = HideFlags.HideAndDontSave;
+                return historyFadeSprite;
             }
+        }
+
+        private static float RoundedCoverage(
+            int x,
+            int y,
+            float halfWidth,
+            float halfHeight,
+            float radius)
+        {
+            var dx = Mathf.Abs(x + 0.5f - halfWidth) - (halfWidth - radius);
+            var dy = Mathf.Abs(y + 0.5f - halfHeight) - (halfHeight - radius);
+            var outside = Mathf.Sqrt(
+                (Mathf.Max(dx, 0f) * Mathf.Max(dx, 0f)) +
+                (Mathf.Max(dy, 0f) * Mathf.Max(dy, 0f)));
+            var distance = outside + Mathf.Min(Mathf.Max(dx, dy), 0f) - radius;
+            return Mathf.Clamp01(0.5f - distance);
         }
 
         private void ClearLegacyLayout()
@@ -1210,7 +1256,7 @@ namespace Game.Client.Match
                 typeof(Image));
             panel.transform.SetParent(parent, false);
             var image = panel.GetComponent<Image>();
-            image.sprite = HomeUiFonts.RoundedSprite;
+            image.sprite = HomeUiFonts.Rounded(PanelRadius);
             image.type = Image.Type.Sliced;
             image.color = PanelColor;
             image.raycastTarget = true;
@@ -1256,7 +1302,8 @@ namespace Game.Client.Match
             text.richText = false;
             var layout = gameObject.GetComponent<LayoutElement>();
             layout.minHeight = fontSize + 4f;
-            layout.preferredHeight = fontSize + 6f;
+            layout.preferredHeight = -1f;
+            layout.flexibleWidth = 1f;
             return text;
         }
 
