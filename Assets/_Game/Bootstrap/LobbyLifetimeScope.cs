@@ -196,7 +196,7 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<PlaySettingsPresenter>();
             builder.RegisterEntryPoint<VoicePresenter>();
             builder.RegisterEntryPoint<LobbyChatPresenter>();
-            builder.RegisterEntryPoint<LobbyChatBubbleBinder>();
+            builder.RegisterEntryPoint<ChatBubbleBinder>();
             builder.RegisterEntryPoint<InGamePlayerNameplatePresenter>();
             // Scene-owned: leaving the lobby also removes its entry cover.
             // Do not reuse the project-wide highlight/result transition's state.
@@ -532,49 +532,6 @@ namespace Game.Bootstrap
                 boundAvatar = avatars[i];
                 boundRig = cameraRig;
                 return;
-            }
-        }
-    }
-
-    internal sealed class LobbyChatBubbleBinder : IStartable, IDisposable
-    {
-        private readonly RoomBrowserSystem room;
-        private readonly IMatchChatBubbleView bubbles;
-        private IDisposable subscription;
-
-        public LobbyChatBubbleBinder(
-            RoomBrowserSystem room,
-            IMatchChatBubbleView bubbles)
-        {
-            this.room = room ?? throw new ArgumentNullException(nameof(room));
-            this.bubbles = bubbles ?? throw new ArgumentNullException(nameof(bubbles));
-        }
-
-        public void Start()
-        {
-            subscription = room.Participants.Subscribe(_ => Rebind());
-        }
-
-        public void Dispose()
-        {
-            subscription?.Dispose();
-            bubbles.Clear();
-        }
-
-        private void Rebind()
-        {
-            bubbles.Clear();
-
-            var avatars = UnityEngine.Object.FindObjectsByType<PlayerAvatar>(
-                FindObjectsInactive.Exclude,
-                FindObjectsSortMode.None);
-            Array.Sort(avatars, (left, right) => left.Seat.CompareTo(right.Seat));
-
-            for (var i = 0; i < avatars.Length; i++)
-            {
-                var avatar = avatars[i];
-                var playerId = PlayerRegistry.IdOf(avatar.Owner);
-                bubbles.BindPlayer(playerId, avatar.transform);
             }
         }
     }
