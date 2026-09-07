@@ -25,6 +25,37 @@ namespace Game.Architecture.Tests
     public sealed class NetworkContractTests
     {
         [Test]
+        public void LobbyBubbles_RebindSkipsUnspawnedAvatars()
+        {
+            using var room = new RoomBrowserSystem();
+            var first = new GameObject("unspawned-first");
+            var second = new GameObject("unspawned-second");
+            var viewObject = new GameObject("bubbles");
+            IDisposable binder = null;
+            try
+            {
+                first.AddComponent<PlayerAvatar>();
+                second.AddComponent<PlayerAvatar>();
+                var view = viewObject.AddComponent<Game.Client.Lobby.LobbyChatBubbleView>();
+                var type = typeof(Game.Bootstrap.LobbyLifetimeScope).Assembly
+                    .GetType("Game.Bootstrap.LobbyChatBubbleBinder", true);
+                binder = (IDisposable)Activator.CreateInstance(type, room, view);
+                var rebind = type.GetMethod("Rebind",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+                Assert.DoesNotThrow(() => rebind.Invoke(binder, null));
+                Assert.That(viewObject.transform.childCount, Is.Zero);
+            }
+            finally
+            {
+                binder?.Dispose();
+                UnityEngine.Object.DestroyImmediate(first);
+                UnityEngine.Object.DestroyImmediate(second);
+                UnityEngine.Object.DestroyImmediate(viewObject);
+            }
+        }
+
+        [Test]
         public void SessionRequest_ServerIsExplicitAndHostRemainsDefault()
         {
             var host = SessionRequest.Create("room", "title", "map", 6, null);

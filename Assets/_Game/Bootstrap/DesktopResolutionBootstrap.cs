@@ -7,7 +7,7 @@ namespace Game.Bootstrap
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void ApplyDesktopResolution()
         {
-#if UNITY_EDITOR
+#if UNITY_EDITOR || UNITY_WEBGL
             return;
 #else
             var width = Display.main.systemWidth;

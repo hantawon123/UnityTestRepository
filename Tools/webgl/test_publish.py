@@ -8,7 +8,7 @@ with tempfile.TemporaryDirectory() as directory:
     root = Path(directory) / 'site'
     build = Path(directory) / 'build'
     (build / 'Build').mkdir(parents=True)
-    (build / 'index.html').write_text('<body>game</body>')
+    (build / 'index.html').write_text('<html><head></head><body>game</body></html>')
     for suffix in ('.wasm.gz', '.data.gz', '.framework.js.gz', '.loader.js'):
         (build / 'Build' / ('test' + suffix)).write_bytes(b'fixture')
     first, second = 'a' * 40, 'b' * 40
@@ -38,4 +38,5 @@ with tempfile.TemporaryDirectory() as directory:
         raise AssertionError('Missing build was accepted')
     assert pointer.read_bytes() == before
     assert 'release-info.js' in (root / 'releases' / first / 'index.html').read_text()
+    assert 'width:min(960px,100vw)' in (root / 'releases' / first / 'index.html').read_text()
 print('Publication, ordering, rollback and failed-deployment checks passed')

@@ -51,8 +51,12 @@ def publish(root, sha, sequence=None, source=None):
                     staged = Path(temporary) / 'release'
                     shutil.copytree(source, staged)
                     index = staged / 'index.html'
-                    index.write_text(index.read_text(encoding='utf-8').replace(
-                        '</body>', '<script src="release-info.js"></script></body>'), encoding='utf-8')
+                    page = index.read_text(encoding='utf-8').replace(
+                        '</body>', '<script src="release-info.js"></script></body>')
+                    page = page.replace('</head>', '<style>#unity-container.unity-desktop{width:min(960px,100vw)}'
+                        '#unity-container.unity-desktop #unity-canvas{width:100%!important;height:auto!important}'
+                        '</style></head>')
+                    index.write_text(page, encoding='utf-8')
                     shutil.copyfile(Path(__file__).with_name('release-info.js'), staged / 'release-info.js')
                     # Jenkins may run with a restrictive umask; nginx needs read access.
                     for path in staged.rglob('*'):

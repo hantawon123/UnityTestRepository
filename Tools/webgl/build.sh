@@ -21,6 +21,7 @@ docker run --rm --cpus=1 --memory=1g --user "$uid:$gid" \
 
 # This is the actual EC2 host identity used during official activation.
 # Never copy another computer's machine-id or change the license XML.
+run_unity() {
 docker run --rm --cpus=2 --memory=8g --memory-swap=8g \
     --user "$uid:$gid" -e HOME=/home/unity -e WEBGL_REVISION="$revision" \
     --tmpfs "/home/unity:uid=$uid,gid=$gid,mode=700" \
@@ -28,7 +29,12 @@ docker run --rm --cpus=2 --memory=8g --memory-swap=8g \
     --mount "type=bind,src=$unity_home,dst=/home/unity/.config/unity3d/Unity" \
     --mount "type=bind,src=$project,dst=/workspace" -w /workspace \
     unityci/editor:ubuntu-6000.3.22f1-webgl-3@sha256:509149d9a3bf36e84ce6e2916f7de6168d3cded05502c3129fc511de6768a42a \
-    unity-editor -batchmode -nographics -quit -projectPath /workspace \
-    -buildTarget WebGL -executeMethod Game.Editor.WebBuild.Build -logFile /workspace/Logs/webgl-build.log
+    unity-editor -batchmode -nographics -projectPath /workspace -buildTarget WebGL "$@"
+}
+
+run_unity -runTests -testPlatform EditMode \
+    -testFilter Game.Architecture.Tests.NetworkContractTests \
+    -testResults /workspace/Logs/webgl-contract-results.xml -logFile /workspace/Logs/webgl-tests.log
+run_unity -quit -executeMethod Game.Editor.WebBuild.Build -logFile /workspace/Logs/webgl-build.log
 test -f Builds/WebGL/index.html
 test "$(cat Builds/WebGL/version.txt)" = "$revision"

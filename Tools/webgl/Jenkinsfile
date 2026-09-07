@@ -36,7 +36,7 @@ pipeline {
         }
     }
     post {
-        always { archiveArtifacts artifacts: 'Logs/webgl-build.log', allowEmptyArchive: true }
+        always { archiveArtifacts artifacts: 'Logs/webgl-*.log,Logs/webgl-contract-results.xml', allowEmptyArchive: true }
         success { archiveArtifacts artifacts: 'Builds/WebGL/**', fingerprint: true }
     }
 }
