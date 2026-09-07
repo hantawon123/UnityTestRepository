@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Game.Bootstrap;
 using Game.Client.Lobby;
+using Game.Client.Match;
 using Game.Client.Voice;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -60,10 +61,11 @@ namespace Game.Editor
             var voice = GetOrCreateSlot(root, "VoiceButton", new Color(0.25f, 0.25f, 0.28f, 0.9f));
 
             Place(playerList, Anchor.TopRight, new Vector2(-24f, -24f), new Vector2(300f, 420f));
-            // Lifted well clear of the floor and narrowed. The characters stand
-            // low and centre, which is where the camera looks, and a 720-wide
-            // panel on the bottom edge ran straight across them.
-            Place(chat, Anchor.BottomLeft, new Vector2(24f, 380f), new Vector2(640f, 240f));
+            Place(
+                chat,
+                Anchor.BottomLeft,
+                new Vector2(MatchChatView.Margin, MatchChatView.Margin),
+                new Vector2(MatchChatView.InputWidth, 306f));
             Place(voice, Anchor.BottomRight, new Vector2(-24f, 24f), new Vector2(72f, 72f));
 
             SetLabel(playerList, string.Empty);
@@ -169,25 +171,6 @@ namespace Game.Editor
             if (title != null)
             {
                 ApplyText(title, "참가자 목록", 22, TextAnchor.UpperCenter);
-            }
-
-            var chatSo = new SerializedObject(chatView);
-            chatSo.FindProperty("messageRoot").objectReferenceValue =
-                chat.Find("HistoryViewport/HistoryContent");
-            chatSo.FindProperty("inputField").objectReferenceValue =
-                chat.Find("InputField")?.GetComponent<InputField>();
-            chatSo.FindProperty("sendButton").objectReferenceValue =
-                chat.Find("SendButton")?.GetComponent<Button>();
-            chatSo.FindProperty("scrollRect").objectReferenceValue =
-                chat.Find("HistoryViewport")?.GetComponent<ScrollRect>();
-            chatSo.FindProperty("uiFont").objectReferenceValue = ResolveLobbyFont();
-            chatSo.ApplyModifiedPropertiesWithoutUndo();
-
-            var chatInput = chat.Find("InputField")?.GetComponent<InputField>();
-            if (chatInput != null)
-            {
-                chatInput.characterLimit = 80;
-                chatInput.lineType = InputField.LineType.SingleLine;
             }
 
             var scopeSo = new SerializedObject(scope);
@@ -817,100 +800,16 @@ namespace Game.Editor
                 leftoverLabel.gameObject.SetActive(false);
             }
 
-            var title = chat.Find("Title");
-            if (title == null)
+            DestroyIfExists(chat, "Title");
+            DestroyIfExists(chat, "HistoryViewport");
+            DestroyIfExists(chat, "InputField");
+            DestroyIfExists(chat, "SendButton");
+
+            var image = chat.GetComponent<Image>();
+            if (image != null)
             {
-                var titleGo = CreateTextChild(chat, "Title", "채팅", 20, TextAnchor.MiddleLeft);
-                var titleRect = titleGo.GetComponent<RectTransform>();
-                titleRect.anchorMin = new Vector2(0f, 1f);
-                titleRect.anchorMax = new Vector2(1f, 1f);
-                titleRect.pivot = new Vector2(0f, 1f);
-                titleRect.sizeDelta = new Vector2(-16f, 28f);
-                titleRect.anchoredPosition = new Vector2(12f, -8f);
-            }
-            else
-            {
-                ApplyText(title.GetComponent<Text>(), "채팅", 20, TextAnchor.MiddleLeft);
-            }
-
-            var viewport = chat.Find("HistoryViewport") as RectTransform;
-            if (viewport == null)
-            {
-                var vpGo = new GameObject(
-                    "HistoryViewport",
-                    typeof(RectTransform),
-                    typeof(Image),
-                    typeof(Mask),
-                    typeof(ScrollRect));
-                Undo.RegisterCreatedObjectUndo(vpGo, "Create HistoryViewport");
-                vpGo.transform.SetParent(chat, false);
-                viewport = vpGo.GetComponent<RectTransform>();
-                vpGo.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.2f);
-                vpGo.GetComponent<Mask>().showMaskGraphic = false;
-            }
-
-            viewport.anchorMin = new Vector2(0f, 0f);
-            viewport.anchorMax = new Vector2(1f, 1f);
-            viewport.offsetMin = new Vector2(10f, 52f);
-            viewport.offsetMax = new Vector2(-10f, -40f);
-
-            var history = viewport.Find("HistoryText") as RectTransform;
-            if (history != null)
-            {
-                history.gameObject.SetActive(false);
-            }
-
-            var content = viewport.Find("HistoryContent") as RectTransform;
-            if (content == null)
-            {
-                var contentGo = new GameObject(
-                    "HistoryContent",
-                    typeof(RectTransform),
-                    typeof(VerticalLayoutGroup),
-                    typeof(ContentSizeFitter));
-                Undo.RegisterCreatedObjectUndo(contentGo, "Create HistoryContent");
-                contentGo.transform.SetParent(viewport, false);
-                content = contentGo.GetComponent<RectTransform>();
-            }
-
-            content.anchorMin = new Vector2(0f, 1f);
-            content.anchorMax = new Vector2(1f, 1f);
-            content.pivot = new Vector2(0.5f, 1f);
-            content.anchoredPosition = Vector2.zero;
-            content.sizeDelta = new Vector2(0f, 160f);
-
-            var vertical = content.GetComponent<VerticalLayoutGroup>();
-            vertical.childAlignment = TextAnchor.UpperLeft;
-            vertical.childControlWidth = true;
-            vertical.childControlHeight = true;
-            vertical.childForceExpandWidth = true;
-            vertical.childForceExpandHeight = false;
-            vertical.spacing = 2f;
-            vertical.padding = new RectOffset(8, 8, 8, 8);
-
-            var contentFitter = content.GetComponent<ContentSizeFitter>();
-            contentFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-            contentFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            var scroll = viewport.GetComponent<ScrollRect>();
-            scroll.horizontal = false;
-            scroll.vertical = true;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
-            scroll.content = content;
-            scroll.viewport = viewport;
-
-            EnsureInputField(chat, "InputField", new Vector2(-40f, 22f), new Vector2(600f, 36f));
-            var input = chat.Find("InputField") as RectTransform;
-            if (input != null)
-            {
-                Place(input, Anchor.BottomLeft, new Vector2(12f, 10f), new Vector2(600f, 36f));
-            }
-
-            EnsureTextButton(chat, "SendButton", "전송", new Vector2(0f, 0f), new Vector2(80f, 36f));
-            var send = chat.Find("SendButton") as RectTransform;
-            if (send != null)
-            {
-                Place(send, Anchor.BottomRight, new Vector2(-12f, 10f), new Vector2(80f, 36f));
+                image.enabled = false;
+                image.raycastTarget = false;
             }
         }
 
@@ -929,135 +828,21 @@ namespace Game.Editor
                 rootGo = root.gameObject;
             }
 
+            for (var index = rootGo.transform.childCount - 1; index >= 0; index--)
+            {
+                var child = rootGo.transform.GetChild(index);
+                if (child.name.StartsWith("Head_", System.StringComparison.Ordinal))
+                {
+                    Undo.DestroyObjectImmediate(child.gameObject);
+                }
+            }
+
             var view = rootGo.GetComponent<LobbyChatBubbleView>();
             if (view == null)
             {
                 view = Undo.AddComponent<LobbyChatBubbleView>(rootGo);
             }
 
-            var samples = new[]
-            {
-                ("host-1", new Vector3(-1.5f, 1.6f, 2f)),
-                ("player-2", new Vector3(0f, 1.6f, 2f)),
-                ("player-3", new Vector3(1.5f, 1.6f, 2f)),
-            };
-
-            var anchors = new List<LobbyChatBubbleAnchor>();
-            for (var i = 0; i < samples.Length; i++)
-            {
-                var (playerId, position) = samples[i];
-                var head = rootGo.transform.Find($"Head_{playerId}");
-                if (head == null)
-                {
-                    var headGo = new GameObject($"Head_{playerId}");
-                    Undo.RegisterCreatedObjectUndo(headGo, $"Create Head_{playerId}");
-                    headGo.transform.SetParent(rootGo.transform, false);
-                    head = headGo.transform;
-                }
-
-                head.position = position;
-
-                var canvas = head.Find("BubbleCanvas") as RectTransform;
-                if (canvas == null)
-                {
-                    var canvasGo = new GameObject(
-                        "BubbleCanvas",
-                        typeof(RectTransform),
-                        typeof(Canvas),
-                        typeof(CanvasScaler),
-                        typeof(GraphicRaycaster));
-                    Undo.RegisterCreatedObjectUndo(canvasGo, "Create BubbleCanvas");
-                    canvasGo.transform.SetParent(head, false);
-                    canvas = canvasGo.GetComponent<RectTransform>();
-                    var worldCanvas = canvasGo.GetComponent<Canvas>();
-                    worldCanvas.renderMode = RenderMode.WorldSpace;
-                    worldCanvas.worldCamera = Camera.main;
-                    canvas.sizeDelta = new Vector2(440f, 240f);
-                    canvas.localScale = Vector3.one * 0.01f;
-                }
-                else
-                {
-                    canvas.sizeDelta = new Vector2(440f, 240f);
-                }
-
-                var bubble = canvas.Find("Bubble") as RectTransform;
-                if (bubble == null)
-                {
-                    bubble = GetOrCreateSlot(canvas, "Bubble", LobbyChatBubbleView.BubbleColor);
-                    SetLabel(bubble, string.Empty);
-                }
-
-                Place(bubble, Anchor.Center, Vector2.zero, new Vector2(220f, 72f));
-                var label = bubble.Find("Label")?.GetComponent<Text>();
-                if (label != null)
-                {
-                    ApplyText(label, string.Empty, 18, TextAnchor.MiddleCenter);
-                    label.horizontalOverflow = HorizontalWrapMode.Wrap;
-                    label.verticalOverflow = VerticalWrapMode.Overflow;
-                    var labelRect = label.rectTransform;
-                    labelRect.anchorMin = Vector2.zero;
-                    labelRect.anchorMax = Vector2.one;
-                    labelRect.offsetMin = new Vector2(12f, 10f);
-                    labelRect.offsetMax = new Vector2(-12f, -10f);
-                }
-
-                // 이름표는 말풍선과 같은 캔버스를 쓰되 늘 켜져 있다. 말풍선이
-                // 뜨는 자리를 비켜 아래에 둔다.
-                var nameplate = canvas.Find("Nameplate") as RectTransform;
-                if (nameplate == null)
-                {
-                    var nameplateGo = new GameObject("Nameplate", typeof(RectTransform));
-                    Undo.RegisterCreatedObjectUndo(nameplateGo, "Create Nameplate");
-                    nameplateGo.transform.SetParent(canvas, false);
-                    nameplate = nameplateGo.GetComponent<RectTransform>();
-                }
-
-                var nameLabel = nameplate.GetComponent<Text>();
-                if (nameLabel == null)
-                {
-                    nameLabel = Undo.AddComponent<Text>(nameplate.gameObject);
-                }
-
-                // 캔버스 중심은 이제 머리에서 2.6 위다. 캔버스 스케일이 0.01
-                // 이므로 -70 은 월드 -0.7, 즉 머리 바로 위에 놓인다. 말풍선은
-                // 중심에서 자라 위로 올라가고 이름표는 그 아래에 남는다.
-                Place(nameplate, Anchor.Center, new Vector2(0f, -70f), new Vector2(320f, 40f));
-                ApplyText(nameLabel, string.Empty, 22, TextAnchor.MiddleCenter);
-                nameLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
-                nameLabel.verticalOverflow = VerticalWrapMode.Overflow;
-                nameLabel.raycastTarget = false;
-
-                bubble.gameObject.SetActive(false);
-                anchors.Add(new LobbyChatBubbleAnchor
-                {
-                    playerId = playerId,
-                    headAnchor = head,
-                    bubbleRoot = bubble,
-                    bubbleText = label,
-                    nameText = nameLabel,
-                });
-            }
-
-            var so = new SerializedObject(view);
-            so.FindProperty("visibleSeconds").floatValue = 3.5f;
-
-            // 머리 위로 확실히 올린다. headAnchor 는 캐릭터의 Visual 루트여서
-            // 발밑에 가깝고, 1.35 로는 말풍선이 얼굴을 덮었다.
-            so.FindProperty("heightOffset").floatValue = 2.6f;
-            so.FindProperty("uiFont").objectReferenceValue = ResolveLobbyFont();
-            var anchorsProp = so.FindProperty("anchors");
-            anchorsProp.arraySize = anchors.Count;
-            for (var i = 0; i < anchors.Count; i++)
-            {
-                var element = anchorsProp.GetArrayElementAtIndex(i);
-                element.FindPropertyRelative("playerId").stringValue = anchors[i].playerId;
-                element.FindPropertyRelative("headAnchor").objectReferenceValue = anchors[i].headAnchor;
-                element.FindPropertyRelative("bubbleRoot").objectReferenceValue = anchors[i].bubbleRoot;
-                element.FindPropertyRelative("bubbleText").objectReferenceValue = anchors[i].bubbleText;
-                element.FindPropertyRelative("nameText").objectReferenceValue = anchors[i].nameText;
-            }
-
-            so.ApplyModifiedPropertiesWithoutUndo();
             return view;
         }
 

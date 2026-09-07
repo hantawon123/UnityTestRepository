@@ -69,14 +69,17 @@ namespace Game.Client.Match
         private float lastDeactivateUnscaledTime = -1f;
         private bool activated;
         private MatchChatHudMode mode = MatchChatHudMode.Full;
+        private bool keepChromeVisible;
         private bool layoutReady;
         private bool fontPrewarmed;
         private Coroutine prewarmRoutine;
+        private static bool pendingKeepChromeVisible;
 
         public event Action<string> SendRequested;
         public static bool BlocksPlayerInput { get; private set; }
         public bool IsActivated => activated;
         public MatchChatHudMode Mode => mode;
+        public bool KeepChromeVisible => keepChromeVisible;
         public bool IsInputFocused =>
             activated || (inputField != null && inputField.isFocused);
 
@@ -93,7 +96,7 @@ namespace Game.Client.Match
 
         private TMP_FontAsset ResolveFont() => cachedFont ??= ChatFont();
 
-        public static MatchChatView Create(Transform canvasParent)
+        public static MatchChatView Create(Transform canvasParent, bool keepChromeVisible = false)
         {
             var root = new GameObject(
                 "Match Chat",
@@ -113,7 +116,34 @@ namespace Game.Client.Match
                     CanvasScaler.ScaleMode.ScaleWithScreenSize;
             }
 
-            return root.AddComponent<MatchChatView>();
+            return AttachTo(root, keepChromeVisible);
+        }
+
+        public static MatchChatView AttachTo(GameObject host, bool keepChromeVisible)
+        {
+            if (host == null)
+            {
+                throw new ArgumentNullException(nameof(host));
+            }
+
+            pendingKeepChromeVisible = keepChromeVisible;
+            try
+            {
+                var view = host.GetComponent<MatchChatView>() ?? host.AddComponent<MatchChatView>();
+                view.SetKeepChromeVisible(keepChromeVisible);
+                return view;
+            }
+            finally
+            {
+                pendingKeepChromeVisible = false;
+            }
+        }
+
+        public void SetKeepChromeVisible(bool value)
+        {
+            keepChromeVisible = value;
+            EnsureLayout();
+            ApplyPresentation();
         }
 
         public static IReadOnlyList<LobbyChatMessage> VisibleMessages(
@@ -209,6 +239,7 @@ namespace Game.Client.Match
 
         private void Awake()
         {
+            keepChromeVisible = pendingKeepChromeVisible || keepChromeVisible;
             EnsureLayout();
             ApplyFonts();
             SetActivated(false);
@@ -219,6 +250,7 @@ namespace Game.Client.Match
             if (inputField != null)
             {
                 inputField.onSubmit.AddListener(HandleSubmit);
+                inputField.onSelect.AddListener(HandleInputSelected);
             }
 
             if (sendButton != null)
@@ -237,6 +269,7 @@ namespace Game.Client.Match
             if (inputField != null)
             {
                 inputField.onSubmit.RemoveListener(HandleSubmit);
+                inputField.onSelect.RemoveListener(HandleInputSelected);
             }
 
             if (sendButton != null)
@@ -447,6 +480,14 @@ namespace Game.Client.Match
             }
         }
 
+        private void HandleInputSelected(string _)
+        {
+            if (!activated && mode != MatchChatHudMode.Hidden)
+            {
+                SetActivated(true);
+            }
+        }
+
         private void HandleSendClicked()
         {
             HandleSubmit(inputField != null ? inputField.text : string.Empty);
@@ -513,14 +554,16 @@ namespace Game.Client.Match
                 ? historyRect.gameObject
                 : transform.Find("HistoryPanel")?.gameObject;
             var input = transform.Find("InputPanel")?.gameObject;
-            if (history != null && history.activeSelf != ShowsHistory(mode))
+            var showHistory = ShouldShowHistory();
+            var showInput = ShouldShowInput();
+            if (history != null && history.activeSelf != showHistory)
             {
-                history.SetActive(ShowsHistory(mode));
+                history.SetActive(showHistory);
             }
 
-            if (input != null && input.activeSelf != ShowsInput(mode, activated))
+            if (input != null && input.activeSelf != showInput)
             {
-                input.SetActive(ShowsInput(mode, activated));
+                input.SetActive(showInput);
             }
 
             if (transform is not RectTransform root)
@@ -528,8 +571,6 @@ namespace Game.Client.Match
                 return;
             }
 
-            var showHistory = ShowsHistory(mode);
-            var showInput = ShowsInput(mode, activated);
             var height = 0f;
             if (showHistory)
             {
@@ -548,6 +589,12 @@ namespace Game.Client.Match
 
             root.sizeDelta = new Vector2(InputWidth, height);
         }
+
+        private bool ShouldShowHistory() =>
+            keepChromeVisible || ShowsHistory(mode);
+
+        private bool ShouldShowInput() =>
+            keepChromeVisible || ShowsInput(mode, activated);
 
         private void RefreshSendIcon()
         {

@@ -157,6 +157,41 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void KeepChromeVisible_ShowsHistoryAndInputWhileDeactivated()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchChatView.Create(canvas.transform, keepChromeVisible: true);
+                view.SetMessages(new[]
+                {
+                    new LobbyChatMessage("a", "싸피생1", "하나")
+                });
+
+                Assert.That(view.KeepChromeVisible, Is.True);
+                Assert.That(view.IsActivated, Is.False);
+                Assert.That(
+                    view.transform.Find("HistoryPanel").gameObject.activeSelf,
+                    Is.True);
+                Assert.That(
+                    view.transform.Find("InputPanel").gameObject.activeSelf,
+                    Is.True);
+                view.Deactivate();
+                Assert.That(view.IsActivated, Is.False);
+                Assert.That(
+                    view.transform.Find("HistoryPanel").gameObject.activeSelf,
+                    Is.True);
+                Assert.That(
+                    view.transform.Find("InputPanel").gameObject.activeSelf,
+                    Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
         public void ShouldOpenOnEnter_IgnoresTheEnterThatClosedChat()
         {
             Assert.That(

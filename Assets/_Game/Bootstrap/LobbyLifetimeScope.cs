@@ -556,8 +556,7 @@ namespace Game.Bootstrap
             {
                 var avatar = avatars[i];
                 var playerId = PlayerRegistry.IdOf(avatar.Owner);
-                var head = avatar.transform.Find("Visual") ?? avatar.transform;
-                bubbles.BindPlayer(playerId, head, NicknameOf(seated, playerId));
+                bubbles.BindPlayer(playerId, avatar.transform, NicknameOf(seated, playerId));
             }
         }
 
