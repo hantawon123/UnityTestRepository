@@ -14,6 +14,7 @@ namespace Game.Client.Lobby
         private IDisposable hostSubscription;
         private IDisposable settingsSubscription;
         private bool isOpen;
+        private PlaySettingsDraft displayedSettings;
 
         public PlaySettingsPresenter(
             ILobbyHostSession hostSession,
@@ -55,7 +56,7 @@ namespace Game.Client.Lobby
             view.SetEditable(isHost);
             if (!isHost && isOpen)
             {
-                view.SetDraft(hostSession.Settings.CurrentValue);
+                DisplaySettings(hostSession.Settings.CurrentValue);
             }
         }
 
@@ -66,13 +67,14 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            view.SetDraft(draft);
+            DisplaySettings(draft);
         }
 
         private void Open()
         {
+            if (isOpen) return;
             view.SetEditable(hostSession.IsLocalHost.CurrentValue);
-            view.SetDraft(hostSession.Settings.CurrentValue);
+            DisplaySettings(hostSession.Settings.CurrentValue);
             isOpen = true;
             view.SetVisible(true);
         }
@@ -86,11 +88,23 @@ namespace Game.Client.Lobby
 
             if (hostSession.IsLocalHost.CurrentValue)
             {
-                hostSession.RequestApplySettings(view.ReadDraft());
+                var draft = view.ReadDraft();
+                // An untouched host view may be older than the accepted session settings.
+                if (!draft.Equals(displayedSettings) &&
+                    !draft.Equals(hostSession.Settings.CurrentValue))
+                {
+                    hostSession.RequestApplySettings(draft);
+                }
             }
 
             isOpen = false;
             view.SetVisible(false);
+        }
+
+        private void DisplaySettings(PlaySettingsDraft draft)
+        {
+            displayedSettings = draft;
+            view.SetDraft(draft);
         }
 
         private void CopyRoomCode()

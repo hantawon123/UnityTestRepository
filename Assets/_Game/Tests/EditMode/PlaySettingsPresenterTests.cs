@@ -11,6 +11,78 @@ namespace Game.Tests.EditMode
 {
     public sealed class PlaySettingsPresenterTests
     {
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Host_UnchangedOrRevertedDraft_DoesNotOverwriteNewSessionSettings(bool revertEdit)
+        {
+            using var session = new HostSession();
+            session.SetLocalHost(true);
+            var view = new SettingsView();
+            var menu = new PauseView();
+            using var presenter = new PlaySettingsPresenter(session, view, menu);
+            presenter.Start();
+            menu.OpenSettings();
+            if (revertEdit) { view.Draft = Draft(3); view.Draft = Draft(6); }
+            session.ReplaceSettings(Draft(5));
+            view.RequestClose();
+            Assert.That(session.ApplyCount, Is.Zero);
+            Assert.That(session.Settings.CurrentValue.MaxPlayers, Is.EqualTo(5));
+            menu.OpenSettings();
+            Assert.That(view.Draft.MaxPlayers, Is.EqualTo(5));
+        }
+
+        [Test]
+        public void Host_DraftAlreadyAccepted_DoesNotApplyAgain()
+        {
+            using var session = new HostSession();
+            session.SetLocalHost(true);
+            var view = new SettingsView();
+            var menu = new PauseView();
+            using var presenter = new PlaySettingsPresenter(session, view, menu);
+            presenter.Start();
+            menu.OpenSettings();
+            view.Draft = Draft(4);
+            session.ReplaceSettings(Draft(4));
+            view.RequestClose();
+            Assert.That(session.ApplyCount, Is.Zero);
+        }
+
+        [Test]
+        public void Host_RepeatedOpenPreservesEdit_AndRepeatedCloseAppliesOnce()
+        {
+            using var session = new HostSession();
+            session.SetLocalHost(true);
+            var view = new SettingsView();
+            var menu = new PauseView();
+            using var presenter = new PlaySettingsPresenter(session, view, menu);
+            presenter.Start();
+            menu.OpenSettings();
+            view.Draft = Draft(3);
+            menu.OpenSettings();
+            Assert.That(view.Draft.MaxPlayers, Is.EqualTo(3));
+            view.RequestClose();
+            view.RequestClose();
+            Assert.That(session.ApplyCount, Is.EqualTo(1));
+            Assert.That(session.Settings.CurrentValue.MaxPlayers, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void Host_RuleOnlyChange_IsApplied()
+        {
+            using var session = new HostSession();
+            session.SetLocalHost(true);
+            var view = new SettingsView();
+            var menu = new PauseView();
+            using var presenter = new PlaySettingsPresenter(session, view, menu);
+            presenter.Start();
+            menu.OpenSettings();
+            Assert.That(MatchRuleSettings.TryCreate(60, 10, 1.5f, 5, "food", out var rules, out _), Is.True);
+            view.Draft = new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "playground", rules);
+            view.RequestClose();
+            Assert.That(session.ApplyCount, Is.EqualTo(1));
+            Assert.That(session.Settings.CurrentValue.MatchRules, Is.EqualTo(rules));
+        }
+
         [Test]
         public void Guest_SeesLiveSettingsWithoutApplyingOnClose()
         {
