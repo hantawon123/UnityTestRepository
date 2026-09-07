@@ -10,6 +10,7 @@
         "Game.Server",
         "Game.SOAP",
         "Fusion.Addons.KCC",
+        "Unity.InputSystem",
         "R3.Unity",
         "UniTask",
         "VContainer",

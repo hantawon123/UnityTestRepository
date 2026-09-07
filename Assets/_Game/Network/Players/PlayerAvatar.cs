@@ -50,6 +50,10 @@ namespace Game.Network.Players
         [Networked]
         public NetworkString<_32> Nickname { get; set; }
 
+        // Public account identifier, not an authentication credential.
+        [Networked]
+        public NetworkString<_64> AccountId { get; set; }
+
         /// <summary>
         /// Whether the owner holds authority over the room. Replicated rather
         /// than derived: a peer can tell whether it is itself the host, but not

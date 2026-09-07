@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Backend;
@@ -77,6 +77,7 @@ namespace Game.Bootstrap
                 }
 
                 Account = result.Value;
+                profile.SetAccountId(result.Value.UserId);
                 AdoptServerNickname(result.Value);
                 signedIn.TrySetResult(true);
             }

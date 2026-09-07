@@ -3,13 +3,16 @@
     "rootNamespace": "Game.Client",
     "references": [
         "Game.Core",
+        "UniTask",
         "Game.SOAP",
         "R3.Unity",
         "Unity.InputSystem",
         "Unity.TextMeshPro",
         "UnityEngine.UI",
         "Unity.Cinemachine",
-        "VContainer"
+        "VContainer",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

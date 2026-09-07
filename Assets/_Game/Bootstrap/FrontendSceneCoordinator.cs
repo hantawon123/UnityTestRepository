@@ -33,6 +33,12 @@ namespace Game.Bootstrap
             SceneManager.sceneUnloaded += OnSceneUnloaded;
 
             var active = SceneManager.GetActiveScene();
+            if (active.name == UnityHomeApplicationHost.SettingsSceneName)
+            {
+                DisableDuplicateEventSystems(active);
+                ActivateSharedEventSystem();
+                return;
+            }
             if (!IsFrontend(active))
             {
                 sharedEventSystem.gameObject.SetActive(false);
@@ -72,6 +78,12 @@ namespace Game.Bootstrap
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
+            if (scene.name == UnityHomeApplicationHost.SettingsSceneName)
+            {
+                DisableDuplicateEventSystems(scene);
+                ActivateSharedEventSystem();
+                return;
+            }
             if (!IsFrontend(scene))
             {
                 SetRootsActive(GetLoadedScene(Home), false);
