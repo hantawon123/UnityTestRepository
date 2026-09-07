@@ -82,6 +82,14 @@ namespace Game.Bootstrap
         private bool highlightStaging;
         private bool stagingVisible;
 
+        private sealed class LobbyStartCountdown : ITickable
+        {
+            private readonly NetworkRunnerService network;
+            private readonly LobbyHudView view;
+            public LobbyStartCountdown(NetworkRunnerService network, LobbyHudView view)
+            { this.network = network; this.view = view; }
+            public void Tick() => view.SetStartCountdown(network.StartCountdownRemaining);
+        }
         protected override void Awake()
         {
             // Fusion can merge additive content into its runner scene after
@@ -146,6 +154,7 @@ namespace Game.Bootstrap
 
             builder.Register<UnityHomeApplicationHost>(Lifetime.Scoped).As<IHomeApplicationHost>();
             builder.RegisterComponent(hudView);
+            builder.RegisterEntryPoint<LobbyStartCountdown>();
             builder.RegisterComponent(keyGuideView).As<IKeyGuideView>();
             builder.RegisterComponent(pauseMenuView).As<ILobbyPauseMenuView>();
             builder.RegisterComponent(playerListView).As<ILobbyPlayerListView>();

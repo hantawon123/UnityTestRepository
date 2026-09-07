@@ -922,7 +922,7 @@ namespace Game.Network.Session
             if ((title != null && !RoomSettings.IsValidTitle(title)) ||
                 !IsRuntimeReady || _browsingLobby || _runner.IsSceneManagerBusy ||
                 _scenes == null || !IsOnlyScene(_runner.SceneInfo, _scenes.LobbyScene) ||
-                _matchStarter == null || _matchStarter.HasStartedMatch ||
+                _matchStarter == null || _matchStarter.HasStartedMatch || _matchStarter.IsStartPending ||
                 !TryValidateLobbySettingsRequest(
                     IsServer,
                     _runner.SessionInfo.IsValid,
@@ -1288,6 +1288,12 @@ namespace Game.Network.Session
                 objectId,
                 pose,
                 expectedVersion);
+
+        public double StartCountdownRemaining => IsRuntimeReady && _matchStarter != null &&
+            _matchStarter.IsStartPending ? Math.Max(0d, _matchStarter.StartCountdownEndsAt - ServerTime) : 0d;
+
+        public bool RequestCompleteHidingTurn() =>
+            IsRuntimeReady && _matchStarter != null && _matchStarter.RequestCompleteHidingTurn();
 
         public bool RequestHitPlayer(int targetPlayerIndex) =>
             _matchStarter != null && _matchStarter.RequestHitPlayer(targetPlayerIndex);

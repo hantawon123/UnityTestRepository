@@ -59,6 +59,9 @@ namespace Game.Network.Match
         private bool _hasShredderEjectionPose;
         private bool _returningToLobby;
         private bool _lastPublishedStarted;
+        private string[] _countdownParticipants;
+        public bool IsStartPending => HasValidState && _state.StartCountdownEndsAt > 0d;
+        public double StartCountdownEndsAt => HasValidState ? _state.StartCountdownEndsAt : 0d;
 
         /// <summary>
         /// What the session listing was last told, so the same answer is not
@@ -131,6 +134,7 @@ namespace Game.Network.Match
                 return;
             }
 
+            if (IsStartPending) return;
             var refusal = Evaluate(_state, runner);
 
             if (refusal != RoomStartResult.Started)
@@ -149,7 +153,31 @@ namespace Game.Network.Match
                 participantIds[index] = participants[index].PlayerId;
             }
 
-            state.Confirm(participantIds);
+            _countdownParticipants = participantIds;
+            state.StartCountdownEndsAt = runner.SimulationTime + 10d;
+        }
+
+        private void AdvanceStartCountdown()
+        {
+            if (!IsStartPending) return;
+            var runner = _state.Runner;
+            if (!runner.IsServer) return;
+            var valid = _countdownParticipants != null && Evaluate(_state, runner) == RoomStartResult.Started &&
+                _room.Count == _countdownParticipants.Length;
+            if (valid)
+                for (var i = 0; i < _room.Count; i++)
+                    if (_room[i].PlayerId != _countdownParticipants[i]) { valid = false; break; }
+            if (!valid)
+            {
+                _state.StartCountdownEndsAt = 0d;
+                _countdownParticipants = null;
+                return;
+            }
+            if (runner.SimulationTime < _state.StartCountdownEndsAt) return;
+            var participantIds = _countdownParticipants;
+            _countdownParticipants = null;
+            _state.StartCountdownEndsAt = 0d;
+            _state.Confirm(participantIds);
             Debug.Log($"[Match] Started with {participantIds.Length} players.");
 
             // After the line-up is frozen, not before: the map replaces this
@@ -391,6 +419,7 @@ namespace Game.Network.Match
 
         public void PublishSimulationTick()
         {
+            AdvanceStartCountdown();
             SimulationTick?.Invoke();
             if (_session != null && _state != null)
             {
@@ -512,6 +541,19 @@ namespace Game.Network.Match
 
             _state.RPC_RequestThrow(pose.position, pose.rotation, initialVelocity);
             return true;
+        }
+
+        public bool RequestCompleteHidingTurn()
+        {
+            if (!HasValidState || _state.Phase != MatchPhase.Hiding) return false;
+            _state.RPC_RequestCompleteHidingTurn();
+            return true;
+        }
+
+        public bool TryCompleteHidingTurn(PlayerRef source)
+        {
+            return TryGetPlayerIndex(source, out var playerIndex) &&
+                _session.TryCompleteHidingTurn(playerIndex, ServerTime);
         }
 
         public bool RequestHitPlayer(int targetPlayerIndex)
@@ -796,6 +838,10 @@ namespace Game.Network.Match
         public bool TryHitPlayer(PlayerRef source, int targetPlayerIndex)
         {
             if (!TryGetPlayerIndex(source, out var attackerPlayerIndex) ||
+                !TryGetPlayingAvatar(attackerPlayerIndex, out var attacker) ||
+                !attacker.TryGetComponent<NetworkPlayerMotor>(out var motor) ||
+                !motor.ControlsEnabled ||
+                motor.Posture == Game.Core.Players.PlayerPosture.Prone ||
                 targetPlayerIndex < 0 ||
                 targetPlayerIndex >= _session.Players.Players.Count)
             {
