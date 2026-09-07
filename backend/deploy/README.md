@@ -13,6 +13,7 @@ EC2가 날아가면 같이 사라집니다.
 | `jenkins/override.conf` | `/etc/systemd/system/jenkins.service.d/` | Jenkins 포트·바인딩·프리픽스 |
 | `verify.sh` | (서버에서 실행) | 배포 상태 한 번에 확인 |
 | `mysql/init/01-analytics-grant.sh` | (compose.local 이 마운트, 테스트가 복사) | 앱 계정에 분석 스키마 권한 |
+| `mysql/init/02-analytics-accounts.sh` | (같음) | Metabase 용 읽기 계정 `d205_reader` 와 설정 저장용 `metabase` 계정 |
 
 파이프라인 정의는 이 디렉터리가 아니라 `../Jenkinsfile`에 있습니다.
 
@@ -27,8 +28,13 @@ EC2가 날아가면 같이 사라집니다.
                             └─ /         ─▶ 127.0.0.1:8080  앱 컨테이너
                                                               └▶ d205-mysql (포트 미공개)
                                                                   ├─ d205            게임 (풀 10)
-                                                                  └─ d205_analytics  플레이 로그 (풀 3)
+                                                                  ├─ d205_analytics  플레이 로그 (풀 3)
+                                                                  └─ metabase        대시보드 설정
+        └─ :8443 ──▶ nginx (Basic Auth) ─▶ 127.0.0.1:3000  Metabase ─▶ d205-mysql (d205_reader, SELECT 만)
 ```
+
+대시보드가 `/analytics/` 가 아니라 8443 포트인 이유는 `nginx/d205.conf` 의 8443 블록 주석에
+있습니다. 한 줄로 요약하면 Metabase 는 하위 경로 아래에서 동작하지 못합니다.
 
 한 MySQL 인스턴스에 스키마가 둘입니다. 앱은 커넥션 풀을 따로 두어 로그 쓰기가 막혀도
 게임 API 가 기다리지 않게 합니다. 별도 서비스로 나누지 않은 이유는 지라 에픽
@@ -67,6 +73,57 @@ GRANT 만 하는 스크립트라 두 번 실행해도 해가 없습니다.
 권한 없이 배포해도 앱은 뜹니다. 대신 이벤트가 전부 버려지고 로그에 30초마다
 `분석 DB 를 준비하지 못했습니다` ERROR 가 남습니다. 그 로그가 보이면 위 명령을 실행하면
 되고, 앱을 다시 띄울 필요는 없습니다.
+
+### 대시보드 (Metabase) 처음 올리기
+
+순서가 중요합니다. `.env` 가 먼저고, 계정이 그다음이고, 배포는 마지막입니다.
+`compose.prod.yml` 이 `METABASE_DB_PASSWORD` 를 `:?` 로 요구하므로 `.env` 에 없으면
+Jenkins 의 compose 단계가 그 자리에서 멈춥니다.
+
+**1. `.env` 에 두 줄 추가** (서버에서. 값은 길고 무작위로):
+
+```
+ANALYTICS_READER_PASSWORD=...
+METABASE_DB_PASSWORD=...
+```
+
+**2. MySQL 계정 만들기** (한 번. 두 번 해도 무해):
+
+```
+scp backend/deploy/mysql/init/02-analytics-accounts.sh d205:/tmp/02-analytics-accounts.sh
+ssh d205 "set -a; . /home/ubuntu/d205/.env; set +a; docker cp /tmp/02-analytics-accounts.sh d205-mysql:/tmp/analytics-accounts.sh && docker exec -e ANALYTICS_READER_PASSWORD -e METABASE_DB_PASSWORD d205-mysql bash /tmp/analytics-accounts.sh"
+```
+
+비밀번호는 `docker exec -e` 로 그 순간만 넘깁니다. `compose.prod.yml` 의 mysql 환경변수에
+넣지 않는 이유는, 환경변수를 바꾸면 compose 가 MySQL 컨테이너를 다시 만들어 배포 중 DB 가
+잠깐 끊기기 때문입니다. 성공하면 `[analytics-accounts] d205_reader 에게 ...` 와
+`[analytics-accounts] metabase 스키마와 계정을 준비했습니다.` 두 줄이 찍힙니다.
+
+**3. nginx 8443 과 Basic Auth**
+
+```
+ssh d205 "sudo apt-get install -y apache2-utils && sudo htpasswd -c /etc/nginx/.htpasswd-analytics d205"
+ssh d205 "sudo ufw allow 8443/tcp"
+scp backend/deploy/nginx/d205.conf d205:/tmp/d205.conf
+ssh d205 "sudo install -o root -g root -m 644 /tmp/d205.conf /etc/nginx/sites-available/d205 && sudo nginx -t && sudo systemctl reload nginx"
+```
+
+첫 줄은 비밀번호를 물어봅니다. 그 계정과 비밀번호를 팀에 공유합니다. 저장소에는 두지 않습니다.
+EC2 보안 그룹의 8443 은 2026-09-07 에 열었습니다. 다른 계정으로 EC2 를 새로 받으면 다시 열어야 합니다.
+
+**4. 배포.** develop 에 머지하면 Jenkins 가 `compose up` 으로 Metabase 컨테이너까지 올립니다.
+첫 기동은 자기 스키마에 마이그레이션을 돌려 1분 넘게 걸리고 메모리를 1GB 가까이 씁니다.
+`bash /tmp/verify.sh` 의 "대시보드" 절에서 내부 3000 이 응답하고 8443 이 401 이면 정상입니다.
+
+**5. Metabase 첫 설정** (브라우저, `https://j15d205.p.ssafy.io:8443`, Basic Auth 뒤에 Metabase
+자체 관리자 계정을 만드는 화면이 뜹니다):
+
+- 관리자 계정을 만들고 그 정보를 팀에 공유합니다.
+- "데이터베이스 추가" 에서 MySQL, 호스트 `mysql`, 포트 `3306`, 데이터베이스 `d205_analytics`,
+  사용자 `d205_reader`, 비밀번호는 `.env` 의 `ANALYTICS_READER_PASSWORD`. 이름은 "플레이 로그".
+- 같은 계정으로 데이터베이스 `d205` 를 하나 더 추가합니다. 이름은 "게임". `users` 와 조인할 때 씁니다.
+- 앱 계정(`DB_USERNAME`)을 넣지 마세요. 그 계정은 쓸 수 있는 계정이라 Metabase 의 SQL 창이
+  게임 데이터를 지우는 창이 됩니다.
 
 Jenkins 설치:
 

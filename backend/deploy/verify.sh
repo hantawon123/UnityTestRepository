@@ -30,6 +30,17 @@ printf 'HTTPS    : '
 curl -sS --max-time 5 https://j15d205.p.ssafy.io/actuator/health || echo '응답 없음'
 echo
 
+echo
+echo "=== 대시보드 (Metabase) ==="
+printf '내부 3000: '
+curl -sS --max-time 5 http://localhost:3000/api/health || echo '응답 없음 (첫 기동은 1분 넘게 걸립니다)'
+echo
+# 8443 은 Basic Auth 뒤라 401 이 정상입니다. 000 이면 nginx 나 방화벽, 502 면 Metabase 가 없는 것입니다.
+printf 'HTTPS 8443 (401 이 정상): '
+curl -sS --max-time 5 -o /dev/null -w '%{http_code}\n' https://j15d205.p.ssafy.io:8443/api/health || echo '응답 없음'
+printf '분석 DB 준비 로그: '
+docker logs d205-app --tail 500 2>&1 | grep -E '분석 DB' | tail -1 || echo '없음'
+
 if [ ! -r "$ENV_FILE" ]; then
     echo
     echo "(DB 확인 생략: $ENV_FILE 을 읽을 수 없습니다)"
