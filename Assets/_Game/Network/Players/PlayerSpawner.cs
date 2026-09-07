@@ -118,7 +118,7 @@ namespace Game.Network.Players
                     $"[Spawn] MatchSession state needs {bytes} bytes; Fusion heap page is {pageBytes} bytes.");
         }
 
-        public void Spawn(NetworkRunner runner, PlayerRef player, string nickname = null)
+        public void Spawn(NetworkRunner runner, PlayerRef player, string nickname = null, string accountId = null)
         {
             if (runner == null || !runner.IsServer)
             {
@@ -157,7 +157,7 @@ namespace Game.Network.Players
                 pose.position,
                 pose.rotation,
                 player,
-                (_, spawned) => Describe(spawned, seat, isHost, nickname));
+                (_, spawned) => Describe(spawned, seat, isHost, nickname, accountId));
 
             if (avatar == null)
             {
@@ -352,7 +352,7 @@ namespace Game.Network.Players
         }
 
         private static void Describe(
-            NetworkObject spawned, int seat, bool isHost, string nickname)
+            NetworkObject spawned, int seat, bool isHost, string nickname, string accountId)
         {
             var avatar = spawned.GetComponent<PlayerAvatar>();
 
@@ -367,6 +367,7 @@ namespace Game.Network.Players
             avatar.Seat = seat;
             avatar.IsHost = isHost;
             avatar.Nickname = nickname ?? string.Empty;
+            avatar.AccountId = accountId ?? string.Empty;
         }
 
         private Pose PoseFor(int seat)

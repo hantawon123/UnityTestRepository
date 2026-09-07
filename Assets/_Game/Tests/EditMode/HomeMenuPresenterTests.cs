@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Core.Flow;
@@ -150,6 +150,22 @@ namespace Game.Tests.EditMode
             Assert.That(view.FriendSearchVisible, Is.False);
             Assert.That(view.ProfileSettingsVisible, Is.False);
             Assert.That(host.RoomBrowserOpenCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Presenter_Settings_OpensSettingsScene()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out var host, out var appFlow, out _, out _);
+            view.Raise(HomeMenuAction.Friends);
+            Assert.That(view.FriendListVisible, Is.True);
+
+            view.Raise(HomeMenuAction.Settings);
+
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Settings));
+            Assert.That(host.SettingsOpenCount, Is.EqualTo(1));
+            Assert.That(view.FriendListVisible, Is.False);
+            Assert.That(view.ProfileSettingsVisible, Is.False);
+            Assert.That(host.HomeOpenCount, Is.Zero);
         }
 
         [Test]
@@ -970,6 +986,7 @@ namespace Game.Tests.EditMode
             {
                 LobbyOpenCount++;
             }
+            public int SettingsOpenCount { get; private set; }
 
             public void Quit()
             {
@@ -984,6 +1001,11 @@ namespace Game.Tests.EditMode
             public void OpenRoomBrowser()
             {
                 RoomBrowserOpenCount++;
+            }
+
+            public void OpenSettings()
+            {
+                SettingsOpenCount++;
             }
         }
     }

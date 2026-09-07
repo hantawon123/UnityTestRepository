@@ -1,0 +1,1389 @@
+using System;
+using System.Collections.Generic;
+using Game.Client.Accessibility;
+using Game.Client.Controls;
+using Game.Client.Graphics;
+using Game.Client.Home;
+using Game.Core.Settings;
+using TMPro;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
+using UnityEngine.UI;
+
+namespace Game.Client.Settings
+{
+    [DisallowMultipleComponent]
+    public sealed class SettingsView : MonoBehaviour, ISettingsView
+    {
+        private static readonly Color RowColor = new Color(0.92f, 0.92f, 0.92f, 1f);
+        private static readonly Color TrackColor = new Color(0.82f, 0.82f, 0.82f, 1f);
+        private static readonly Color FillColor = new Color(0.31f, 0.62f, 0.91f, 1f);
+        private static readonly Color TabIdle = new Color(0.45f, 0.45f, 0.45f, 1f);
+        private static readonly Color MenuHover = new Color(0.18f, 0.47f, 0.98f, 1f);
+        private static readonly Color MenuPressed = new Color(0.10f, 0.32f, 0.78f, 1f);
+
+        private static readonly (SettingsTab Tab, string Label)[] Tabs =
+        {
+            (SettingsTab.General, "일반"),
+            (SettingsTab.Graphics, "그래픽"),
+            (SettingsTab.Audio, "오디오"),
+            (SettingsTab.Controls, "조작"),
+            (SettingsTab.Accessibility, "접근성"),
+            (SettingsTab.Notifications, "알림")
+        };
+
+        [SerializeField]
+        private TMP_FontAsset fontAsset;
+
+        private readonly List<Button> buttons = new List<Button>();
+        private readonly List<Slider> sliders = new List<Slider>();
+        private readonly Dictionary<SettingsTab, TabButton> tabButtons = new Dictionary<SettingsTab, TabButton>();
+        private readonly Dictionary<SettingsTab, GameObject> panels = new Dictionary<SettingsTab, GameObject>();
+        private readonly Dictionary<AudioChannel, AudioSliderBinding> audioSliders =
+            new Dictionary<AudioChannel, AudioSliderBinding>();
+        private readonly List<BindRow> bindRows = new List<BindRow>();
+        private TMP_FontAsset koreanFont;
+        private SettingsTab activeTab = SettingsTab.Graphics;
+        private ToggleState voiceChatToggle;
+        private ToggleState highContrastToggle;
+        private Slider uiScaleSlider;
+        private Slider textScaleSlider;
+        private CycleState qualityCycle;
+        private CycleState resolutionCycle;
+        private CycleState displayModeCycle;
+        private CycleState frameCapCycle;
+        private CycleState shadowsCycle;
+        private CycleState effectsCycle;
+        private CycleState antiAliasingCycle;
+        private Slider brightnessSlider;
+        private TMP_Text brightnessPercent;
+        private bool bindingAudio;
+        private bool bindingAccessibility;
+        private bool bindingGraphics;
+        private bool bindingControls;
+        private ControlAction? listeningAction;
+        private ControlSettingsState boundControls;
+        private TMP_Text controlMessage;
+        private Button applyButton;
+        private Button resetButton;
+        private RectTransform canvasRoot;
+        private GameObject confirmation;
+
+        public event Action BackRequested;
+        public event Action ApplyRequested;
+        public event Action ResetRequested;
+
+        public event Action<SettingsTab> TabSelected;
+
+        public event Action<AudioChannel, int> AudioVolumeChanged;
+
+        public event Action<bool> VoiceChatEnabledChanged;
+
+        public event Action<int> UiScaleChanged;
+
+        public event Action<int> TextScaleChanged;
+
+        public event Action<bool> HighContrastChanged;
+
+        public event Action<GraphicsSetting, int> GraphicsSettingChanged;
+
+        public event Action<int> BrightnessChanged;
+
+        public event Action<ControlAction> ControlRebindRequested;
+
+        private void Awake()
+        {
+            EnsureEventSystem();
+            BuildLayout();
+            SetActiveTab(SettingsTab.Graphics);
+        }
+
+        private void OnDestroy()
+        {
+            for (var index = 0; index < buttons.Count; index++)
+            {
+                if (buttons[index] != null)
+                {
+                    buttons[index].onClick.RemoveAllListeners();
+                }
+            }
+
+            for (var index = 0; index < sliders.Count; index++)
+            {
+                if (sliders[index] != null)
+                {
+                    sliders[index].onValueChanged.RemoveAllListeners();
+                }
+            }
+        }
+
+        public void SetActiveTab(SettingsTab tab)
+        {
+            activeTab = tab;
+            foreach (var pair in panels)
+            {
+                if (pair.Value != null)
+                {
+                    pair.Value.SetActive(pair.Key == tab);
+                }
+            }
+
+            foreach (var pair in tabButtons)
+            {
+                var selected = pair.Key == tab;
+                pair.Value.Label.color = selected ? Color.black : IdleTabColor();
+                pair.Value.Label.fontStyle = selected ? FontStyles.Bold : FontStyles.Normal;
+                pair.Value.Underline.SetActive(selected);
+            }
+        }
+
+        public void SetAccessibilitySettings(AccessibilitySettingsState settings)
+        {
+            if (settings == null)
+            {
+                throw new ArgumentNullException(nameof(settings));
+            }
+
+            bindingAccessibility = true;
+            if (uiScaleSlider != null)
+            {
+                uiScaleSlider.SetValueWithoutNotify(settings.UiScale);
+            }
+
+            if (textScaleSlider != null)
+            {
+                textScaleSlider.SetValueWithoutNotify(settings.TextScale);
+            }
+
+            if (highContrastToggle != null)
+            {
+                highContrastToggle.IsOn = settings.HighContrastEnabled;
+                BindToggle(highContrastToggle);
+            }
+
+            bindingAccessibility = false;
+            SetActiveTab(activeTab);
+        }
+
+        public void SetGraphicsSettings(GraphicsSettingsState settings)
+        {
+            if (settings == null)
+            {
+                throw new ArgumentNullException(nameof(settings));
+            }
+
+            bindingGraphics = true;
+            qualityCycle?.SetIndex((int)settings.Quality);
+            resolutionCycle?.SetIndex(settings.ResolutionIndex);
+            displayModeCycle?.SetIndex((int)settings.DisplayMode);
+            frameCapCycle?.SetIndex(settings.FrameCapIndex);
+            shadowsCycle?.SetIndex((int)settings.Shadows);
+            effectsCycle?.SetIndex((int)settings.Effects);
+            antiAliasingCycle?.SetIndex((int)settings.AntiAliasing);
+            if (brightnessSlider != null)
+            {
+                brightnessSlider.SetValueWithoutNotify(settings.Brightness);
+            }
+
+            if (brightnessPercent != null)
+            {
+                brightnessPercent.text = $"{settings.Brightness}%";
+            }
+
+            bindingGraphics = false;
+        }
+
+        public void SetControlSettings(ControlSettingsState settings)
+        {
+            if (settings == null)
+            {
+                throw new ArgumentNullException(nameof(settings));
+            }
+
+            boundControls = settings;
+            RefreshBindRows();
+        }
+
+        public void SetControlListening(ControlAction? action)
+        {
+            listeningAction = action;
+            RefreshBindRows();
+        }
+
+        public void SetControlMessage(string message)
+        {
+            if (controlMessage == null)
+            {
+                return;
+            }
+
+            controlMessage.text = message ?? string.Empty;
+        }
+
+        private void RefreshBindRows()
+        {
+            var settings = boundControls ?? new ControlSettingsState();
+            bindingControls = true;
+            for (var index = 0; index < bindRows.Count; index++)
+            {
+                var row = bindRows[index];
+                if (row.ValueLabel == null)
+                {
+                    continue;
+                }
+
+                row.ValueLabel.text = listeningAction == row.Action
+                    ? "입력 대기"
+                    : ControlBindingDisplay.ToLabel(settings.GetPath(row.Action));
+            }
+
+            bindingControls = false;
+        }
+
+        private static Color IdleTabColor()
+        {
+            var highContrast = AccessibilitySettingsOutput.Current != null &&
+                AccessibilitySettingsOutput.Current.HighContrastEnabled;
+            return highContrast ? Color.black : TabIdle;
+        }
+
+        public void SetAudioSettings(AudioSettingsState settings)
+        {
+            if (settings == null)
+            {
+                throw new ArgumentNullException(nameof(settings));
+            }
+
+            bindingAudio = true;
+            SetAudioSlider(AudioChannel.Master, settings.MasterVolume);
+            SetAudioSlider(AudioChannel.Bgm, settings.BgmVolume);
+            SetAudioSlider(AudioChannel.Sfx, settings.SfxVolume);
+            SetAudioSlider(AudioChannel.Ui, settings.UiVolume);
+            SetAudioSlider(AudioChannel.Voice, settings.VoiceVolume);
+            SetAudioSlider(AudioChannel.Mic, settings.MicVolume);
+            if (voiceChatToggle != null)
+            {
+                voiceChatToggle.IsOn = settings.VoiceChatEnabled;
+                BindToggle(voiceChatToggle);
+            }
+
+            bindingAudio = false;
+        }
+
+        private void EnsureEventSystem()
+        {
+            if (EventSystem.current != null)
+            {
+                return;
+            }
+
+            var eventSystemObject = new GameObject("EventSystem");
+            eventSystemObject.transform.SetParent(transform, false);
+            eventSystemObject.AddComponent<EventSystem>();
+            eventSystemObject.AddComponent<InputSystemUIInputModule>();
+        }
+
+        private void BuildLayout()
+        {
+            koreanFont = HomeUiFonts.Apply(fontAsset);
+            var canvas = CreateCanvas();
+            canvasRoot = canvas;
+            CreateHeader(canvas);
+            CreateTabBar(canvas);
+            CreatePanels(canvas);
+            CreateFooter(canvas);
+        }
+
+        public void SetEdited(bool edited)
+        {
+            if (applyButton != null) applyButton.interactable = edited;
+            if (resetButton != null) resetButton.interactable = edited;
+        }
+
+        private void CreateFooter(RectTransform canvas)
+        {
+            var footer = CreateRect("Actions", canvas);
+            SetAnchor(footer, new Vector2(0, 0), new Vector2(1, 0), new Vector2(.5f, 0));
+            footer.sizeDelta = new Vector2(0, 80);
+            var layout = footer.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.childAlignment = TextAnchor.MiddleRight;
+            layout.childForceExpandWidth = false;
+            layout.padding = new RectOffset(40, 40, 10, 10);
+            layout.spacing = 24;
+            CreateTextButton(footer, "Reset", "초기화", 24, FontStyles.Normal, 160, () => ResetRequested?.Invoke());
+            resetButton = buttons[buttons.Count - 1];
+            CreateTextButton(footer, "Apply", "적용", 24, FontStyles.Bold, 160, () => ApplyRequested?.Invoke());
+            applyButton = buttons[buttons.Count - 1];
+            SetEdited(false);
+        }
+
+        public void Confirm(string message, Action<bool> answer)
+        {
+            if (confirmation != null) return;
+            var shade = CreateRect("Confirm", canvasRoot);
+            SetAnchor(shade, Vector2.zero, Vector2.one, new Vector2(.5f, .5f));
+            shade.offsetMin = shade.offsetMax = Vector2.zero;
+            AddImage(shade, new Color(0, 0, 0, .7f));
+            confirmation = shade.gameObject;
+            var box = CreateRect("Dialog", shade);
+            SetAnchor(box, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(.5f, .5f));
+            box.sizeDelta = new Vector2(850, 230);
+            AddImage(box, Color.white);
+            var layout = box.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(24, 24, 24, 24);
+            layout.spacing = 12;
+            var label = CreateRect("Message", box);
+            AddText(label, message, 24, FontStyles.Normal, TextAlignmentOptions.Center);
+            void Complete(bool accepted)
+            {
+                if (confirmation == null) return;
+                confirmation.SetActive(false);
+                Destroy(confirmation);
+                confirmation = null;
+                answer(accepted);
+            }
+            CreateTextButton(box, "Yes", "확인", 24, FontStyles.Bold, 160, () => Complete(true));
+            CreateTextButton(box, "No", "취소", 24, FontStyles.Normal, 160, () => Complete(false));
+        }
+
+        private RectTransform CreateCanvas()
+        {
+            var canvasObject = new GameObject("SettingsCanvas", typeof(RectTransform));
+            canvasObject.layer = LayerMask.NameToLayer("UI");
+            canvasObject.transform.SetParent(transform, false);
+
+            var canvas = canvasObject.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 100;
+            canvas.additionalShaderChannels =
+                AdditionalCanvasShaderChannels.TexCoord1
+                | AdditionalCanvasShaderChannels.Normal
+                | AdditionalCanvasShaderChannels.Tangent;
+
+            var canvasRect = canvasObject.GetComponent<RectTransform>();
+            canvasRect.anchorMin = Vector2.zero;
+            canvasRect.anchorMax = Vector2.one;
+            canvasRect.offsetMin = Vector2.zero;
+            canvasRect.offsetMax = Vector2.zero;
+
+            var scaler = canvasObject.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
+            canvasObject.AddComponent<GraphicRaycaster>();
+            AccessibilityBindings.EnsureCanvas(canvasObject);
+            GraphicsBindings.EnsureCanvas(canvasObject);
+            AddImage(canvasRect, Color.white);
+            return canvasRect;
+        }
+
+        private void CreateHeader(RectTransform canvas)
+        {
+            var header = CreateRect("Header", canvas);
+            SetAnchor(header, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f));
+            header.anchoredPosition = Vector2.zero;
+            header.sizeDelta = new Vector2(0f, 96f);
+            AccessibilityBindings.EnsureLayout(header.gameObject);
+
+            var layout = header.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(40, 40, 24, 12);
+            layout.spacing = 16f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+
+            CreateTextButton(header, "Back", "<", 36f, FontStyles.Bold, 48f, () => BackRequested?.Invoke());
+
+            var titleRect = CreateRect("Title", header);
+            var titleLayout = titleRect.gameObject.AddComponent<LayoutElement>();
+            titleLayout.preferredWidth = 280f;
+            titleLayout.minWidth = 200f;
+            titleLayout.flexibleWidth = 1f;
+            AddText(titleRect, "환경 설정", 36f, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
+        }
+
+        private void CreateTabBar(RectTransform canvas)
+        {
+            var tabBar = CreateRect("Tabs", canvas);
+            SetAnchor(tabBar, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f));
+            tabBar.anchoredPosition = new Vector2(0f, -96f);
+            tabBar.sizeDelta = new Vector2(0f, 64f);
+            AccessibilityBindings.EnsureLayout(tabBar.gameObject);
+
+            var layout = tabBar.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(48, 48, 0, 0);
+            layout.spacing = 8f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = true;
+
+            for (var index = 0; index < Tabs.Length; index++)
+            {
+                var tab = Tabs[index];
+                tabButtons[tab.Tab] = CreateTabButton(tabBar, tab.Tab, tab.Label);
+            }
+        }
+
+        private TabButton CreateTabButton(RectTransform parent, SettingsTab tab, string label)
+        {
+            var rect = CreateRect(tab.ToString(), parent);
+            var layout = rect.gameObject.AddComponent<LayoutElement>();
+            layout.preferredHeight = 64f;
+            layout.minHeight = 48f;
+            AccessibilityBindings.EnsureLayout(rect.gameObject);
+
+            var column = rect.gameObject.AddComponent<VerticalLayoutGroup>();
+            column.childAlignment = TextAnchor.MiddleCenter;
+            column.childControlWidth = true;
+            column.childControlHeight = true;
+            column.childForceExpandWidth = true;
+            column.childForceExpandHeight = false;
+            column.spacing = 4f;
+
+            var labelRect = CreateRect("Label", rect);
+            var labelLayout = labelRect.gameObject.AddComponent<LayoutElement>();
+            labelLayout.preferredHeight = 36f;
+            labelLayout.minHeight = 24f;
+            AccessibilityBindings.EnsureLayout(labelRect.gameObject);
+            var text = AddText(
+                labelRect,
+                label,
+                24f,
+                FontStyles.Normal,
+                TextAlignmentOptions.Center,
+                raycastTarget: true);
+            text.color = TabIdle;
+
+            var underline = CreateRect("Underline", rect);
+            var underlineLayout = underline.gameObject.AddComponent<LayoutElement>();
+            underlineLayout.preferredHeight = 4f;
+            underlineLayout.minHeight = 4f;
+            AddImage(underline, FillColor);
+            underline.gameObject.SetActive(false);
+
+            var button = rect.gameObject.AddComponent<Button>();
+            button.targetGraphic = text;
+            button.transition = Selectable.Transition.ColorTint;
+            button.navigation = new Navigation { mode = Navigation.Mode.None };
+            var colors = ColorBlock.defaultColorBlock;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(0.85f, 0.9f, 1f, 1f);
+            colors.pressedColor = new Color(0.75f, 0.82f, 1f, 1f);
+            colors.selectedColor = Color.white;
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
+            button.onClick.AddListener(() => TabSelected?.Invoke(tab));
+            buttons.Add(button);
+
+            return new TabButton
+            {
+                Label = text,
+                Underline = underline.gameObject
+            };
+        }
+
+        private void CreatePanels(RectTransform canvas)
+        {
+            var body = CreateRect("Body", canvas);
+            SetAnchor(body, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            body.offsetMin = new Vector2(48f, 100f);
+            body.offsetMax = new Vector2(-48f, -176f);
+            AccessibilityBindings.EnsureLayout(body.gameObject);
+
+            var general = CreateScrollPanel(body, "General", out var generalPanel);
+            AddText(CreateRect("Language", general), "언어: 한국어", 24, FontStyles.Normal, TextAlignmentOptions.Center);
+            AddText(CreateRect("Feedback", general), "피드백 접수 준비 중", 24, FontStyles.Normal, TextAlignmentOptions.Center);
+            panels[SettingsTab.General] = generalPanel.gameObject;
+            panels[SettingsTab.Graphics] = CreateGraphicsPanel(body).gameObject;
+            panels[SettingsTab.Audio] = CreateAudioPanel(body).gameObject;
+            panels[SettingsTab.Controls] = CreateControlsPanel(body).gameObject;
+            panels[SettingsTab.Accessibility] = CreateAccessibilityPanel(body).gameObject;
+            panels[SettingsTab.Notifications] = CreateNotificationsPanel(body).gameObject;
+        }
+
+        private RectTransform CreateGraphicsPanel(RectTransform parent)
+        {
+            var content = CreateScrollPanel(parent, "Graphics", out var panel);
+            qualityCycle = CreateCycleRow(
+                content,
+                "그래픽 품질",
+                new[] { "매우 낮음", "낮음", "중간", "높음", "매우 높음", "사용자 설정" },
+                3,
+                index => RaiseGraphicsSetting(GraphicsSetting.Quality, index));
+            resolutionCycle = CreateCycleRow(
+                content,
+                "해상도",
+                new[] { "1280x720", "1920x1080", "2560x1440", "3840x2160" },
+                1,
+                index => RaiseGraphicsSetting(GraphicsSetting.Resolution, index));
+            displayModeCycle = CreateCycleRow(
+                content,
+                "화면 모드",
+                new[] { "전체 화면", "창 모드", "무테 창 모드" },
+                0,
+                index => RaiseGraphicsSetting(GraphicsSetting.DisplayMode, index));
+            frameCapCycle = CreateCycleRow(
+                content,
+                "프레임 제한",
+                new[] { "30", "60", "90", "120", "144", "165", "240", "제한 없음" },
+                1,
+                index => RaiseGraphicsSetting(GraphicsSetting.FrameCap, index));
+            shadowsCycle = CreateCycleRow(
+                content,
+                "그림자 품질",
+                new[] { "끄기", "낮음", "중간", "높음", "매우 높음" },
+                3,
+                index => RaiseGraphicsSetting(GraphicsSetting.Shadows, index));
+            effectsCycle = CreateCycleRow(
+                content,
+                "이펙트 품질",
+                new[] { "낮음", "중간", "높음", "매우 높음" },
+                2,
+                index => RaiseGraphicsSetting(GraphicsSetting.Effects, index));
+            antiAliasingCycle = CreateCycleRow(
+                content,
+                "안티앨리어싱",
+                new[] { "끄기", "FXAA", "SMAA", "TAA" },
+                3,
+                index => RaiseGraphicsSetting(GraphicsSetting.AntiAliasing, index));
+            brightnessSlider = CreateSliderRow(
+                content,
+                "밝기",
+                GraphicsSettingsState.DefaultBrightness,
+                out brightnessPercent,
+                percent =>
+                {
+                    if (!bindingGraphics)
+                    {
+                        BrightnessChanged?.Invoke(percent);
+                    }
+                });
+            return panel;
+        }
+
+        private RectTransform CreateAudioPanel(RectTransform parent)
+        {
+            var content = CreateScrollPanel(parent, "Audio", out var panel);
+            panel.gameObject.SetActive(false);
+            CreateAudioSlider(content, "전체 음량", AudioChannel.Master);
+            CreateAudioSlider(content, "배경음악 음량", AudioChannel.Bgm);
+            CreateAudioSlider(content, "효과음 음량", AudioChannel.Sfx);
+            CreateAudioSlider(content, "UI 음량", AudioChannel.Ui);
+            voiceChatToggle = CreateToggleRow(
+                content,
+                "음성 채팅",
+                true,
+                enabled =>
+                {
+                    if (!bindingAudio)
+                    {
+                        VoiceChatEnabledChanged?.Invoke(enabled);
+                    }
+                });
+            CreateAudioSlider(content, "음성 채팅 음량", AudioChannel.Voice);
+            CreateAudioSlider(content, "마이크 입력 음량", AudioChannel.Mic);
+            return panel;
+        }
+
+        private RectTransform CreateControlsPanel(RectTransform parent)
+        {
+            var content = CreateScrollPanel(parent, "Controls", out var panel);
+            panel.gameObject.SetActive(false);
+            CreateDecimalSliderRow(content, "마우스 감도", 0.5f);
+            CreateDecimalSliderRow(content, "카메라 감도", 0.5f);
+            controlMessage = CreateControlMessage(content);
+            for (var index = 0; index < ControlSettingsState.Rows.Length; index++)
+            {
+                CreateBindRow(content, ControlSettingsState.Rows[index]);
+            }
+
+            return panel;
+        }
+
+        private TMP_Text CreateControlMessage(RectTransform parent)
+        {
+            var row = CreateRect("ControlMessage", parent);
+            var layout = row.gameObject.AddComponent<LayoutElement>();
+            layout.preferredHeight = 36f;
+            layout.minHeight = 28f;
+            var text = AddText(
+                row,
+                string.Empty,
+                18f,
+                FontStyles.Normal,
+                TextAlignmentOptions.MidlineLeft);
+            text.color = new Color(0.75f, 0.18f, 0.18f, 1f);
+            text.textWrappingMode = TextWrappingModes.Normal;
+            return text;
+        }
+
+        private RectTransform CreateAccessibilityPanel(RectTransform parent)
+        {
+            var content = CreateScrollPanel(parent, "Accessibility", out var panel);
+            panel.gameObject.SetActive(false);
+            uiScaleSlider = CreateRangeSliderRow(
+                content,
+                "UI 크기",
+                AccessibilitySettingsState.DefaultScale,
+                percent =>
+                {
+                    if (!bindingAccessibility)
+                    {
+                        UiScaleChanged?.Invoke(percent);
+                    }
+                });
+            textScaleSlider = CreateRangeSliderRow(
+                content,
+                "글자 크기",
+                AccessibilitySettingsState.DefaultScale,
+                percent =>
+                {
+                    if (!bindingAccessibility)
+                    {
+                        TextScaleChanged?.Invoke(percent);
+                    }
+                });
+            highContrastToggle = CreateToggleRow(
+                content,
+                "고대비 모드",
+                false,
+                enabled =>
+                {
+                    if (!bindingAccessibility)
+                    {
+                        HighContrastChanged?.Invoke(enabled);
+                    }
+                });
+            return panel;
+        }
+
+        private RectTransform CreateNotificationsPanel(RectTransform parent)
+        {
+            var content = CreateScrollPanel(parent, "Notifications", out var panel);
+            panel.gameObject.SetActive(false);
+            AddText(CreateRect("Pending", content), "알림 설정 적용 연결 준비 중", 24, FontStyles.Normal, TextAlignmentOptions.Center);
+            return panel;
+        }
+
+        private RectTransform CreateScrollPanel(RectTransform parent, string name, out RectTransform panel)
+        {
+            panel = CreateRect(name, parent);
+            SetAnchor(panel, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            panel.offsetMin = Vector2.zero;
+            panel.offsetMax = Vector2.zero;
+
+            var scroll = panel.gameObject.AddComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 24f;
+
+            var viewport = CreateRect("Viewport", panel);
+            SetAnchor(viewport, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            viewport.offsetMin = Vector2.zero;
+            viewport.offsetMax = Vector2.zero;
+            viewport.gameObject.AddComponent<RectMask2D>();
+            AddImage(viewport, Color.clear, raycastTarget: true);
+
+            var content = CreateRect("Content", viewport);
+            SetAnchor(content, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f));
+            content.anchoredPosition = Vector2.zero;
+            content.sizeDelta = Vector2.zero;
+            var contentLayout = content.gameObject.AddComponent<VerticalLayoutGroup>();
+            contentLayout.spacing = 12f;
+            contentLayout.padding = new RectOffset(8, 8, 8, 8);
+            contentLayout.childAlignment = TextAnchor.UpperCenter;
+            contentLayout.childControlWidth = true;
+            contentLayout.childControlHeight = true;
+            contentLayout.childForceExpandWidth = true;
+            contentLayout.childForceExpandHeight = false;
+            var fitter = content.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            scroll.viewport = viewport;
+            scroll.content = content;
+            return content;
+        }
+
+        private void RaiseGraphicsSetting(GraphicsSetting setting, int index)
+        {
+            if (!bindingGraphics)
+            {
+                GraphicsSettingChanged?.Invoke(setting, index);
+            }
+        }
+
+        private CycleState CreateCycleRow(
+            RectTransform parent,
+            string label,
+            string[] options,
+            int defaultIndex,
+            Action<int> onChanged = null)
+        {
+            var row = CreateSettingRow(parent);
+            AddRowLabel(row, label);
+
+            var control = CreateRect("Control", row);
+            var controlLayout = control.gameObject.AddComponent<LayoutElement>();
+            controlLayout.preferredWidth = 420f;
+            controlLayout.minWidth = 320f;
+            controlLayout.preferredHeight = 48f;
+            var background = AddImage(control, RowColor, HomeUiFonts.PillSprite);
+            background.type = Image.Type.Sliced;
+
+            var layout = control.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(8, 8, 4, 4);
+            layout.spacing = 8f;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+
+            var state = new CycleState
+            {
+                Options = options,
+                Index = Mathf.Clamp(defaultIndex, 0, options.Length - 1)
+            };
+
+            CreateCycleArrow(control, "<", () =>
+            {
+                state.Index = (state.Index - 1 + state.Options.Length) % state.Options.Length;
+                state.RefreshLabel();
+                onChanged?.Invoke(state.Index);
+            });
+
+            var valueRect = CreateRect("Value", control);
+            var valueLayout = valueRect.gameObject.AddComponent<LayoutElement>();
+            valueLayout.flexibleWidth = 1f;
+            valueLayout.minWidth = 120f;
+            state.ValueLabel = AddText(
+                valueRect,
+                options[state.Index],
+                22f,
+                FontStyles.Bold,
+                TextAlignmentOptions.Center);
+
+            CreateCycleArrow(control, ">", () =>
+            {
+                state.Index = (state.Index + 1) % state.Options.Length;
+                state.RefreshLabel();
+                onChanged?.Invoke(state.Index);
+            });
+            return state;
+        }
+
+        private void CreateBindRow(RectTransform parent, ControlBindingRow binding)
+        {
+            var row = CreateSettingRow(parent);
+            AddRowLabel(row, binding.Label);
+
+            var control = CreateRect("Control", row);
+            var controlLayout = control.gameObject.AddComponent<LayoutElement>();
+            controlLayout.preferredWidth = 420f;
+            controlLayout.minWidth = 320f;
+            controlLayout.preferredHeight = 48f;
+            var background = AddImage(control, RowColor, HomeUiFonts.PillSprite, raycastTarget: true);
+            background.type = Image.Type.Sliced;
+
+            var valueRect = CreateRect("Value", control);
+            SetAnchor(valueRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            valueRect.offsetMin = Vector2.zero;
+            valueRect.offsetMax = Vector2.zero;
+            var valueLabel = AddText(
+                valueRect,
+                ControlBindingDisplay.ToLabel(ControlSettingsState.GetDefaultPath(binding.Action)),
+                22f,
+                FontStyles.Bold,
+                TextAlignmentOptions.Center,
+                raycastTarget: false);
+
+            var action = binding.Action;
+            var button = control.gameObject.AddComponent<Button>();
+            button.targetGraphic = background;
+            button.transition = Selectable.Transition.ColorTint;
+            button.navigation = new Navigation { mode = Navigation.Mode.None };
+            var colors = ColorBlock.defaultColorBlock;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(0.85f, 0.9f, 1f, 1f);
+            colors.pressedColor = new Color(0.75f, 0.82f, 1f, 1f);
+            colors.selectedColor = Color.white;
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
+            button.onClick.AddListener(() =>
+            {
+                if (!bindingControls)
+                {
+                    ControlRebindRequested?.Invoke(action);
+                }
+            });
+            buttons.Add(button);
+            bindRows.Add(new BindRow
+            {
+                Action = action,
+                ValueLabel = valueLabel
+            });
+        }
+
+        private ToggleState CreateToggleRow(
+            RectTransform parent,
+            string label,
+            bool defaultOn,
+            Action<bool> onChanged = null)
+        {
+            var row = CreateSettingRow(parent);
+            AddRowLabel(row, label);
+
+            var control = CreateRect("Toggle", row);
+            var controlLayout = control.gameObject.AddComponent<LayoutElement>();
+            controlLayout.preferredWidth = 220f;
+            controlLayout.minWidth = 180f;
+            controlLayout.preferredHeight = 48f;
+            var background = AddImage(control, RowColor, HomeUiFonts.PillSprite);
+            background.type = Image.Type.Sliced;
+
+            var layout = control.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(4, 4, 4, 4);
+            layout.spacing = 0f;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = true;
+
+            var state = new ToggleState { IsOn = defaultOn };
+            state.OnHalf = CreateToggleHalf(control, "ON", () =>
+            {
+                state.IsOn = true;
+                BindToggle(state);
+                onChanged?.Invoke(true);
+            });
+            state.OffHalf = CreateToggleHalf(control, "OFF", () =>
+            {
+                state.IsOn = false;
+                BindToggle(state);
+                onChanged?.Invoke(false);
+            });
+            BindToggle(state);
+            return state;
+        }
+
+        private ToggleHalf CreateToggleHalf(RectTransform parent, string label, Action onClicked)
+        {
+            var rect = CreateRect(label, parent);
+            var layout = rect.gameObject.AddComponent<LayoutElement>();
+            layout.flexibleWidth = 1f;
+            layout.minWidth = 72f;
+            layout.preferredHeight = 40f;
+            var image = AddImage(rect, Color.white, HomeUiFonts.PillSprite, raycastTarget: true);
+            image.type = Image.Type.Sliced;
+
+            var labelRect = CreateRect("Label", rect);
+            SetAnchor(labelRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            labelRect.offsetMin = Vector2.zero;
+            labelRect.offsetMax = Vector2.zero;
+            var text = AddText(
+                labelRect,
+                label,
+                20f,
+                FontStyles.Bold,
+                TextAlignmentOptions.Center,
+                raycastTarget: true);
+
+            var button = rect.gameObject.AddComponent<Button>();
+            button.targetGraphic = image;
+            button.transition = Selectable.Transition.None;
+            button.navigation = new Navigation { mode = Navigation.Mode.None };
+            button.onClick.AddListener(() => onClicked?.Invoke());
+            buttons.Add(button);
+
+            return new ToggleHalf
+            {
+                Background = image,
+                Label = text
+            };
+        }
+
+        private static void BindToggle(ToggleState state)
+        {
+            ApplyToggleHalf(state.OnHalf, state.IsOn);
+            ApplyToggleHalf(state.OffHalf, !state.IsOn);
+        }
+
+        private static void ApplyToggleHalf(ToggleHalf half, bool selected)
+        {
+            half.Background.color = selected ? Color.white : Color.clear;
+            half.Label.color = selected ? Color.black : IdleTabColor();
+            half.Label.fontStyle = selected ? FontStyles.Bold : FontStyles.Normal;
+        }
+
+        private void CreateCycleArrow(RectTransform parent, string label, Action onClicked)
+        {
+            var rect = CreateRect(label == "<" ? "Prev" : "Next", parent);
+            var layout = rect.gameObject.AddComponent<LayoutElement>();
+            layout.preferredWidth = 48f;
+            layout.minWidth = 48f;
+            layout.preferredHeight = 40f;
+            CreateTextButton(rect, label, label, 24f, FontStyles.Bold, 48f, onClicked, stretch: true);
+        }
+
+        private void CreateAudioSlider(RectTransform parent, string label, AudioChannel channel)
+        {
+            var slider = CreateSliderRow(
+                parent,
+                label,
+                AudioSettingsState.DefaultVolume,
+                out var percentLabel,
+                percent =>
+                {
+                    if (!bindingAudio)
+                    {
+                        AudioVolumeChanged?.Invoke(channel, percent);
+                    }
+                });
+            audioSliders[channel] = new AudioSliderBinding
+            {
+                Slider = slider,
+                Percent = percentLabel
+            };
+        }
+
+        private void SetAudioSlider(AudioChannel channel, int percent)
+        {
+            if (!audioSliders.TryGetValue(channel, out var binding) || binding.Slider == null)
+            {
+                return;
+            }
+
+            binding.Slider.SetValueWithoutNotify(percent);
+            if (binding.Percent != null)
+            {
+                binding.Percent.text = $"{percent}%";
+            }
+        }
+
+        private Slider CreateSliderRow(
+            RectTransform parent,
+            string label,
+            int defaultValue,
+            out TMP_Text percentLabel,
+            Action<int> onChanged = null)
+        {
+            var row = CreateSettingRow(parent);
+            AddRowLabel(row, label);
+
+            var control = CreateRect("Control", row);
+            var controlLayout = control.gameObject.AddComponent<LayoutElement>();
+            controlLayout.preferredWidth = 420f;
+            controlLayout.minWidth = 320f;
+            controlLayout.preferredHeight = 48f;
+
+            var layout = control.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = 12f;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+
+            var sliderRect = CreateRect("Slider", control);
+            var sliderLayout = sliderRect.gameObject.AddComponent<LayoutElement>();
+            sliderLayout.flexibleWidth = 1f;
+            sliderLayout.minWidth = 220f;
+            sliderLayout.preferredHeight = 40f;
+
+            var percentRect = CreateRect("Percent", control);
+            var percentLayout = percentRect.gameObject.AddComponent<LayoutElement>();
+            percentLayout.preferredWidth = 72f;
+            percentLayout.minWidth = 72f;
+            percentLabel = AddText(
+                percentRect,
+                $"{defaultValue}%",
+                20f,
+                FontStyles.Bold,
+                TextAlignmentOptions.MidlineRight);
+
+            var slider = CreatePercentSlider(sliderRect, defaultValue);
+            var percent = percentLabel;
+            slider.onValueChanged.AddListener(value =>
+            {
+                var rounded = Mathf.RoundToInt(value);
+                percent.text = $"{rounded}%";
+                onChanged?.Invoke(rounded);
+            });
+            sliders.Add(slider);
+            return slider;
+        }
+
+        private void CreateDecimalSliderRow(RectTransform parent, string label, float defaultValue)
+        {
+            var row = CreateSettingRow(parent);
+            AddRowLabel(row, label);
+
+            var control = CreateRect("Control", row);
+            var controlLayout = control.gameObject.AddComponent<LayoutElement>();
+            controlLayout.preferredWidth = 420f;
+            controlLayout.minWidth = 320f;
+            controlLayout.preferredHeight = 48f;
+
+            var layout = control.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = 12f;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+
+            var sliderRect = CreateRect("Slider", control);
+            var sliderLayout = sliderRect.gameObject.AddComponent<LayoutElement>();
+            sliderLayout.flexibleWidth = 1f;
+            sliderLayout.minWidth = 220f;
+            sliderLayout.preferredHeight = 40f;
+
+            var valueRect = CreateRect("Value", control);
+            var valueLayout = valueRect.gameObject.AddComponent<LayoutElement>();
+            valueLayout.preferredWidth = 72f;
+            valueLayout.minWidth = 72f;
+            var valueLabel = AddText(
+                valueRect,
+                defaultValue.ToString("0.0"),
+                20f,
+                FontStyles.Bold,
+                TextAlignmentOptions.MidlineRight);
+
+            var slider = CreatePercentSlider(sliderRect, defaultValue, 0f, 1f, false);
+            slider.onValueChanged.AddListener(value => valueLabel.text = value.ToString("0.0"));
+            sliders.Add(slider);
+        }
+
+        private void CreateActionRow(RectTransform parent, string label)
+        {
+            var row = CreateSettingRow(parent);
+            var actionRect = CreateRect("Action", row);
+            var layout = actionRect.gameObject.AddComponent<LayoutElement>();
+            layout.flexibleWidth = 1f;
+            layout.minWidth = 180f;
+            layout.preferredHeight = 48f;
+            var text = AddText(
+                actionRect,
+                label,
+                24f,
+                FontStyles.Normal,
+                TextAlignmentOptions.MidlineLeft,
+                raycastTarget: true);
+            text.color = Color.white;
+            var button = actionRect.gameObject.AddComponent<Button>();
+            button.targetGraphic = text;
+            button.transition = Selectable.Transition.ColorTint;
+            button.navigation = new Navigation { mode = Navigation.Mode.None };
+            var colors = ColorBlock.defaultColorBlock;
+            colors.normalColor = Color.black;
+            colors.highlightedColor = MenuHover;
+            colors.pressedColor = MenuPressed;
+            colors.selectedColor = Color.black;
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
+            text.CrossFadeColor(colors.normalColor, 0f, true, true);
+            buttons.Add(button);
+        }
+
+        private Slider CreateRangeSliderRow(
+            RectTransform parent,
+            string label,
+            int defaultValue,
+            Action<int> onChanged = null)
+        {
+            var row = CreateSettingRow(parent);
+            AddRowLabel(row, label);
+
+            var control = CreateRect("Control", row);
+            var controlLayout = control.gameObject.AddComponent<LayoutElement>();
+            controlLayout.preferredWidth = 420f;
+            controlLayout.minWidth = 320f;
+            controlLayout.preferredHeight = 48f;
+
+            var layout = control.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = 12f;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+
+            AddRangeHint(control, "작게", TextAlignmentOptions.MidlineLeft);
+            var sliderRect = CreateRect("Slider", control);
+            var sliderLayout = sliderRect.gameObject.AddComponent<LayoutElement>();
+            sliderLayout.flexibleWidth = 1f;
+            sliderLayout.minWidth = 180f;
+            sliderLayout.preferredHeight = 40f;
+            var slider = CreatePercentSlider(sliderRect, defaultValue);
+            slider.onValueChanged.AddListener(value => onChanged?.Invoke(Mathf.RoundToInt(value)));
+            sliders.Add(slider);
+            AddRangeHint(control, "크게", TextAlignmentOptions.MidlineRight);
+            return slider;
+        }
+
+        private void AddRangeHint(RectTransform parent, string text, TextAlignmentOptions alignment)
+        {
+            var hintRect = CreateRect(text, parent);
+            var layout = hintRect.gameObject.AddComponent<LayoutElement>();
+            layout.preferredWidth = 56f;
+            layout.minWidth = 48f;
+            AddText(hintRect, text, 18f, FontStyles.Normal, alignment);
+        }
+
+        private Slider CreatePercentSlider(
+            RectTransform parent,
+            float defaultValue,
+            float minValue = 0f,
+            float maxValue = 100f,
+            bool wholeNumbers = true)
+        {
+            const float trackHeight = 6f;
+            const float handleSize = 36f;
+
+            var background = CreateRect("Background", parent);
+            SetAnchor(background, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0.5f, 0.5f));
+            background.sizeDelta = new Vector2(0f, trackHeight);
+            background.anchoredPosition = Vector2.zero;
+            var backgroundImage = AddImage(background, TrackColor, HomeUiFonts.PillSprite, raycastTarget: true);
+            backgroundImage.type = Image.Type.Sliced;
+
+            var fillArea = CreateRect("Fill Area", parent);
+            SetAnchor(fillArea, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0.5f, 0.5f));
+            fillArea.sizeDelta = new Vector2(-handleSize, trackHeight);
+            fillArea.anchoredPosition = Vector2.zero;
+
+            var fill = CreateRect("Fill", fillArea);
+            SetAnchor(fill, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            fill.offsetMin = Vector2.zero;
+            fill.offsetMax = Vector2.zero;
+            var fillImage = AddImage(fill, FillColor, HomeUiFonts.PillSprite);
+            fillImage.type = Image.Type.Sliced;
+
+            var handleArea = CreateRect("Handle Slide Area", parent);
+            SetAnchor(handleArea, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0.5f, 0.5f));
+            handleArea.sizeDelta = new Vector2(-handleSize, handleSize);
+            handleArea.anchoredPosition = Vector2.zero;
+
+            var handle = CreateRect("Handle", handleArea);
+            handle.sizeDelta = new Vector2(handleSize, 0f);
+            var handleImage = AddImage(handle, FillColor, HomeUiFonts.CircleSprite, raycastTarget: true);
+            handleImage.preserveAspect = true;
+
+            var slider = parent.gameObject.AddComponent<Slider>();
+            slider.fillRect = fill;
+            slider.handleRect = handle;
+            slider.targetGraphic = handleImage;
+            slider.direction = Slider.Direction.LeftToRight;
+            slider.minValue = minValue;
+            slider.maxValue = maxValue;
+            slider.wholeNumbers = wholeNumbers;
+            slider.value = defaultValue;
+            slider.navigation = new Navigation { mode = Navigation.Mode.None };
+            return slider;
+        }
+
+        private static RectTransform CreateSettingRow(RectTransform parent)
+        {
+            var row = CreateRect("Row", parent);
+            var layout = row.gameObject.AddComponent<LayoutElement>();
+            layout.preferredHeight = 72f;
+            layout.minHeight = 72f;
+            AccessibilityBindings.EnsureLayout(row.gameObject);
+            var group = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+            group.padding = new RectOffset(24, 24, 12, 12);
+            group.spacing = 24f;
+            group.childAlignment = TextAnchor.MiddleLeft;
+            group.childControlWidth = true;
+            group.childControlHeight = true;
+            group.childForceExpandWidth = false;
+            group.childForceExpandHeight = true;
+            var background = AddImage(row, new Color(0.96f, 0.96f, 0.96f, 1f), HomeUiFonts.RoundedSprite);
+            background.type = Image.Type.Sliced;
+            return row;
+        }
+
+        private void AddRowLabel(RectTransform row, string label)
+        {
+            var labelRect = CreateRect("Label", row);
+            var layout = labelRect.gameObject.AddComponent<LayoutElement>();
+            layout.flexibleWidth = 1f;
+            layout.minWidth = 180f;
+            AddText(labelRect, label, 24f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft);
+        }
+
+        private void CreateTextButton(
+            RectTransform parent,
+            string name,
+            string label,
+            float fontSize,
+            FontStyles style,
+            float preferredWidth,
+            Action onClicked,
+            bool stretch = false)
+        {
+            RectTransform buttonRect = parent;
+            if (!stretch)
+            {
+                buttonRect = CreateRect(name, parent);
+                buttonRect.sizeDelta = new Vector2(preferredWidth, 56f);
+                var layoutElement = buttonRect.gameObject.AddComponent<LayoutElement>();
+                layoutElement.preferredWidth = preferredWidth;
+                layoutElement.minWidth = preferredWidth;
+                layoutElement.preferredHeight = 56f;
+                layoutElement.minHeight = 48f;
+                layoutElement.flexibleWidth = 0f;
+            }
+
+            var text = AddText(buttonRect, label, fontSize, style, TextAlignmentOptions.Center, raycastTarget: true);
+            text.color = Color.white;
+            var button = buttonRect.gameObject.AddComponent<Button>();
+            button.targetGraphic = text;
+            button.transition = Selectable.Transition.ColorTint;
+            button.navigation = new Navigation { mode = Navigation.Mode.None };
+            var colors = ColorBlock.defaultColorBlock;
+            colors.normalColor = Color.black;
+            colors.highlightedColor = MenuHover;
+            colors.pressedColor = MenuPressed;
+            colors.selectedColor = Color.black;
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
+            text.CrossFadeColor(colors.normalColor, 0f, true, true);
+            button.onClick.AddListener(() => onClicked?.Invoke());
+            buttons.Add(button);
+        }
+
+        private TMP_Text AddText(
+            RectTransform target,
+            string content,
+            float fontSize,
+            FontStyles style,
+            TextAlignmentOptions alignment,
+            bool raycastTarget = false)
+        {
+            if (koreanFont == null)
+            {
+                throw new InvalidOperationException("Cafe24 Ssurround TMP font is missing.");
+            }
+
+            target.gameObject.SetActive(false);
+            var tmp = target.gameObject.AddComponent<TextMeshProUGUI>();
+            tmp.font = koreanFont;
+            tmp.fontSharedMaterial = koreanFont.material;
+            tmp.text = content;
+            tmp.fontSize = fontSize;
+            tmp.fontStyle = style;
+            tmp.alignment = alignment;
+            tmp.color = Color.black;
+            tmp.raycastTarget = raycastTarget;
+            tmp.textWrappingMode = TextWrappingModes.NoWrap;
+            tmp.overflowMode = TextOverflowModes.Overflow;
+            target.gameObject.SetActive(true);
+            AccessibilityBindings.EnsureText(tmp);
+            return tmp;
+        }
+
+        private static Image AddImage(
+            RectTransform rect,
+            Color color,
+            Sprite sprite = null,
+            bool raycastTarget = false)
+        {
+            var image = rect.gameObject.AddComponent<Image>();
+            image.sprite = sprite != null ? sprite : HomeUiFonts.WhiteSprite;
+            image.type = Image.Type.Simple;
+            image.color = color;
+            image.raycastTarget = raycastTarget;
+            return image;
+        }
+
+        private static RectTransform CreateRect(string name, Transform parent)
+        {
+            var rectObject = new GameObject(name, typeof(RectTransform));
+            rectObject.layer = LayerMask.NameToLayer("UI");
+            var rect = rectObject.GetComponent<RectTransform>();
+            rect.SetParent(parent, false);
+            return rect;
+        }
+
+        private static void SetAnchor(
+            RectTransform rect,
+            Vector2 anchorMin,
+            Vector2 anchorMax,
+            Vector2 pivot)
+        {
+            rect.anchorMin = anchorMin;
+            rect.anchorMax = anchorMax;
+            rect.pivot = pivot;
+        }
+
+        private sealed class AudioSliderBinding
+        {
+            public Slider Slider;
+            public TMP_Text Percent;
+        }
+
+        private sealed class TabButton
+        {
+            public TMP_Text Label;
+            public GameObject Underline;
+        }
+
+        private sealed class BindRow
+        {
+            public ControlAction Action;
+            public TMP_Text ValueLabel;
+        }
+
+        private sealed class CycleState
+        {
+            public string[] Options;
+            public int Index;
+            public TMP_Text ValueLabel;
+
+            public void SetIndex(int index)
+            {
+                if (Options == null || Options.Length == 0)
+                {
+                    return;
+                }
+
+                Index = Mathf.Clamp(index, 0, Options.Length - 1);
+                RefreshLabel();
+            }
+
+            public void RefreshLabel()
+            {
+                if (ValueLabel != null && Options != null && Index >= 0 && Index < Options.Length)
+                {
+                    ValueLabel.text = Options[Index];
+                }
+            }
+        }
+
+        private sealed class ToggleState
+        {
+            public bool IsOn;
+            public ToggleHalf OnHalf;
+            public ToggleHalf OffHalf;
+        }
+
+        private sealed class ToggleHalf
+        {
+            public Image Background;
+            public TMP_Text Label;
+        }
+    }
+}

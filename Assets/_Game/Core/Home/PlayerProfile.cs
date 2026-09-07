@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace Game.Core.Home
 {
@@ -40,6 +40,10 @@ namespace Game.Core.Home
         }
 
         public string Nickname { get; private set; }
+
+        public string AccountId { get; private set; } = string.Empty;
+
+        public void SetAccountId(string accountId) => AccountId = accountId?.Trim() ?? string.Empty;
 
         /// <summary>
         /// Whether this player has settled on a name. False means the server's
