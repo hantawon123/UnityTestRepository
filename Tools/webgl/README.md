@@ -12,7 +12,7 @@ EC2의 `unity-webgl` 전용 에이전트를 사용한다. 기존 백엔드 작�
 - 운영 Branch Specifier: `*/develop`. MR 병합 전 검증에는 `*/feature/server/webgl-delivery` 사용.
 - feature 빌드는 검증·산출물 보관까지만 실행한다. `origin/develop`만 Publish 단계를 실행한다.
 - 실행 동시성 1, 제한 120분. NuGet 복원 1 CPU/1GB, Unity 빌드 3 CPU/8GB.
-- Unity 컨테이너 CPU shares는 256으로 두어 CPU 경쟁 시 기본 가중치 컨테이너보다 낮게 배분한다. CPU 3개는 상한이며 백엔드 지연이 없어지는 보장은 아니다.
+- Unity 컨테이너 CPU shares는 1024(기본 가중치)로 두어 CPU 경쟁 시 기존 256의 낮은 우선순위를 해제한다. CPU 3개는 상한이며 예약량이 아니다. 이미 상한까지 사용하는 경우 속도 개선은 제한적이다. 백엔드 지연이 증가하면 256으로 복구한다.
 - 노드 `d205-unity-webgl`: 라벨 `unity-webgl`, 실행 슬롯 1, 라벨 일치 작업만 허용.
 - 전용 에이전트 루트 `/var/lib/jenkins/agents/unity-webgl`, 서비스 `d205-unity-agent.service`.
   서비스 정의는 `unity-agent.service`에 보관한다. `agent.args`와 `agent-secret`은 서버에서 0600으로 관리하고 Git에 넣지 않는다.
