@@ -851,7 +851,7 @@ namespace Game.Client.Match
             rect.anchorMin = anchor;
             rect.anchorMax = anchor;
             rect.pivot = pivot ?? new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = anchoredPosition;
+            rect.anchoredPosition3D = new Vector3(anchoredPosition.x, anchoredPosition.y, 0f);
             rect.sizeDelta = size;
         }
 

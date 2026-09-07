@@ -29,17 +29,34 @@ namespace Game.Architecture.Tests
                 Assert.That(view.transform.Find("Card"), Is.Null);
                 Assert.That(view.transform.Find("Content/Stopwatch/Timer"), Is.Not.Null);
                 Assert.That(view.GetComponent<Canvas>().sortingOrder, Is.EqualTo(240));
+                Assert.That(
+                    view.transform.Find("Content/Stopwatch").GetSiblingIndex(),
+                    Is.LessThan(view.transform.Find("Content/Banner").GetSiblingIndex()));
 
                 var timer = view.transform.Find("Content/Stopwatch/Timer").GetComponent<TMPro.TMP_Text>();
                 Assert.That(timer.text, Is.EqualTo("00:30"));
                 Assert.That(timer.fontSize, Is.EqualTo(HidingTurnStartView.TimerFontSize));
-                Assert.That(HidingTurnStartView.TimerFontSize, Is.EqualTo(48f));
+                Assert.That(HidingTurnStartView.TimerFontSize, Is.EqualTo(64f));
 
-                var banner = view.transform.Find("Content/Banner/Label")?.GetComponent<TMPro.TMP_Text>();
+                var banner = view.transform.Find("Content/Banner") as RectTransform;
                 Assert.That(banner, Is.Not.Null);
-                Assert.That(banner.text, Is.EqualTo(HidingTurnStartView.BannerText));
-                Assert.That(banner.fontSize, Is.EqualTo(HidingTurnStartView.BannerFontSize));
+                Assert.That(HidingTurnStartView.BannerWidthPercent, Is.EqualTo(0.7f));
+                Assert.That(banner.anchorMin.x, Is.EqualTo(0.15f).Within(0.0001f));
+                Assert.That(banner.anchorMax.x, Is.EqualTo(0.85f).Within(0.0001f));
+                Assert.That(banner.sizeDelta.y, Is.EqualTo(HidingTurnStartView.BannerHeight));
+                Assert.That(
+                    (view.transform.Find("Content/Stopwatch") as RectTransform).sizeDelta,
+                    Is.EqualTo(HidingTurnStartView.StopwatchSize));
+                Assert.That(timer.rectTransform.anchoredPosition, Is.EqualTo(Vector2.zero));
+                Assert.That(timer.rectTransform.sizeDelta, Is.EqualTo(HidingTurnStartView.StopwatchSize));
+                Assert.That(timer.alignment, Is.EqualTo(TMPro.TextAlignmentOptions.Midline));
+                var bannerLabel = view.transform.Find("Content/Banner/Label")?.GetComponent<TMPro.TMP_Text>();
+                Assert.That(bannerLabel, Is.Not.Null);
+                Assert.That(bannerLabel.text, Is.EqualTo(HidingTurnStartView.BannerText));
+                Assert.That(bannerLabel.fontSize, Is.EqualTo(HidingTurnStartView.BannerFontSize));
                 Assert.That(HidingTurnStartView.BannerFontSize, Is.EqualTo(55f));
+                Assert.That(bannerLabel.font.name, Does.Contain("Paperlogy").IgnoreCase);
+                Assert.That(bannerLabel.font.name, Does.Contain("SemiBold").IgnoreCase);
                 Assert.That(view.transform.Find("Content/CompleteGuide"), Is.Null);
             }
             finally
