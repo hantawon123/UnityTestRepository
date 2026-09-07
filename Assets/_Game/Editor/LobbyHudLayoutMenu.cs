@@ -87,12 +87,7 @@ namespace Game.Editor
             DestroyIfExists(root, "SettingsButton");
             DestroyIfExists(root, "PlaySettingsButton");
             DestroyIfExists(root, "KeyGuideButton");
-
-            var keyGuideView = hud.GetComponent<KeyGuideView>();
-            if (keyGuideView == null)
-            {
-                keyGuideView = Undo.AddComponent<KeyGuideView>(hud.gameObject);
-            }
+            DestroyIfExists(root, "KeyGuidePanel");
 
             var playerListView = playerList.GetComponent<LobbyPlayerListView>();
             if (playerListView == null)
@@ -108,18 +103,12 @@ namespace Game.Editor
 
             chatView.SetKeepChromeVisible(true);
 
-            // Built before the screens it leads to: both of them take their
-            // open button from this panel now.
+            // Built before the play settings screen it leads to: that screen
+            // takes its open button from this panel now.
             var pauseMenuView = EnsurePauseMenuView(root, hud);
             var pauseMenuPanel = root.Find("PauseMenuPanel") as RectTransform;
+            DestroyIfExists(pauseMenuPanel, "KeyGuideButton");
             var pausePlaySettings = pauseMenuPanel.Find("PlaySettingsButton") as RectTransform;
-            var pauseKeyGuide = pauseMenuPanel.Find("KeyGuideButton") as RectTransform;
-
-            var keyGuidePanel = EnsureKeyGuidePanel(root);
-            var keyGuideClose = keyGuidePanel.Find("CloseButton") as RectTransform;
-            var keyGuideBody = keyGuidePanel.Find("BodyText");
-            EnsureButton(keyGuideClose.gameObject);
-
             var playSettingsView = EnsurePlaySettingsView(root, pausePlaySettings);
             var kickConfirm = EnsureConfirmView<KickConfirmView>(
                 root,
@@ -153,16 +142,6 @@ namespace Game.Editor
             hudSo.FindProperty("voiceButton").objectReferenceValue = voice;
             hudSo.ApplyModifiedPropertiesWithoutUndo();
 
-            var keyGuideSo = new SerializedObject(keyGuideView);
-            keyGuideSo.FindProperty("openButton").objectReferenceValue =
-                pauseKeyGuide.GetComponent<Button>();
-            keyGuideSo.FindProperty("closeButton").objectReferenceValue =
-                keyGuideClose.GetComponent<Button>();
-            keyGuideSo.FindProperty("panel").objectReferenceValue = keyGuidePanel.gameObject;
-            keyGuideSo.FindProperty("bodyText").objectReferenceValue =
-                keyGuideBody.GetComponent<Text>();
-            keyGuideSo.ApplyModifiedPropertiesWithoutUndo();
-
             var playerListSo = new SerializedObject(playerListView);
             playerListSo.FindProperty("titleText").objectReferenceValue =
                 playerList.Find("Title")?.GetComponent<Text>();
@@ -179,7 +158,6 @@ namespace Game.Editor
 
             var scopeSo = new SerializedObject(scope);
             scopeSo.FindProperty("hudView").objectReferenceValue = hud;
-            scopeSo.FindProperty("keyGuideView").objectReferenceValue = keyGuideView;
             scopeSo.FindProperty("pauseMenuView").objectReferenceValue = pauseMenuView;
             scopeSo.FindProperty("playerListView").objectReferenceValue = playerListView;
             scopeSo.FindProperty("playSettingsView").objectReferenceValue = playSettingsView;
@@ -192,13 +170,11 @@ namespace Game.Editor
                 AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsPath);
             scopeSo.ApplyModifiedPropertiesWithoutUndo();
 
-            keyGuidePanel.gameObject.SetActive(false);
-
             EditorSceneManager.MarkSceneDirty(scene);
             Selection.activeGameObject = hud.gameObject;
             EditorUtility.DisplayDialog(
                 "Lobby HUD",
-                "HUD·키 가이드·참가자 목록·방장 UI·채팅/말풍선·Esc 메뉴를 배치·연결했습니다." +
+                "HUD·참가자 목록·방장 UI·채팅/말풍선·Esc 메뉴를 배치·연결했습니다." +
                 "\n씬을 저장하세요 (Ctrl+S).",
                 "OK");
         }
@@ -936,9 +912,9 @@ namespace Game.Editor
                 titleRect.anchoredPosition = new Vector2(0f, -20f);
             }
 
-            // Six rows 72 apart, running from what changes the room, through
-            // what only reads, to the way out. Leaving sits above returning so
-            // the button that ends the visit is not the one under the thumb.
+            // Five rows 72 apart: what changes the room, then settings, then
+            // the way out. Leaving sits above returning so the button that
+            // ends the visit is not the one under the thumb.
             var buttonSize = new Vector2(260f, 56f);
             var start = EnsureButtonSlot(
                 panel, "StartButton", "게임 시작", new Vector2(0f, 160f), buttonSize);
@@ -946,12 +922,10 @@ namespace Game.Editor
                 panel, "PlaySettingsButton", "플레이 설정", new Vector2(0f, 88f), buttonSize);
             var settings = EnsureButtonSlot(
                 panel, "SettingsButton", "설정", new Vector2(0f, 16f), buttonSize);
-            var keyGuide = EnsureButtonSlot(
-                panel, "KeyGuideButton", "키 세팅 가이드", new Vector2(0f, -56f), buttonSize);
             var leave = EnsureButtonSlot(
-                panel, "LeaveButton", "게임 나가기", new Vector2(0f, -128f), buttonSize);
+                panel, "LeaveButton", "게임 나가기", new Vector2(0f, -56f), buttonSize);
             var resume = EnsureButtonSlot(
-                panel, "ResumeButton", "돌아가기", new Vector2(0f, -200f), buttonSize);
+                panel, "ResumeButton", "돌아가기", new Vector2(0f, -128f), buttonSize);
             EnsureImage(start.gameObject, new Color(1f, 0.85f, 0.2f, 0.95f));
 
             // Nothing answers this one yet. It keeps its place so the menu does
@@ -974,67 +948,10 @@ namespace Game.Editor
             so.FindProperty("settingsButton").objectReferenceValue = settingsButton;
             so.FindProperty("playSettingsButton").objectReferenceValue =
                 playSettings.GetComponent<Button>();
-            so.FindProperty("keyGuideButton").objectReferenceValue =
-                keyGuide.GetComponent<Button>();
             so.ApplyModifiedPropertiesWithoutUndo();
 
             panel.gameObject.SetActive(false);
             return view;
-        }
-
-        private static RectTransform EnsureKeyGuidePanel(RectTransform root)
-        {
-            var existing = root.Find("KeyGuidePanel") as RectTransform;
-            if (existing != null)
-            {
-                EnsureKeyGuidePanelChildren(existing);
-                Place(existing, Anchor.Center, Vector2.zero, new Vector2(560f, 420f));
-                return existing;
-            }
-
-            var panel = GetOrCreateSlot(root, "KeyGuidePanel", new Color(0.12f, 0.13f, 0.18f, 0.96f));
-            Place(panel, Anchor.Center, Vector2.zero, new Vector2(560f, 420f));
-            EnsureKeyGuidePanelChildren(panel);
-            SetLabel(panel, string.Empty);
-            return panel;
-        }
-
-        private static void EnsureKeyGuidePanelChildren(RectTransform panel)
-        {
-            var title = panel.Find("Title");
-            if (title == null)
-            {
-                var titleGo = CreateTextChild(panel, "Title", "조작키 목록", 28, TextAnchor.UpperCenter);
-                var titleRect = titleGo.GetComponent<RectTransform>();
-                titleRect.anchorMin = new Vector2(0f, 1f);
-                titleRect.anchorMax = new Vector2(1f, 1f);
-                titleRect.pivot = new Vector2(0.5f, 1f);
-                titleRect.sizeDelta = new Vector2(-40f, 48f);
-                titleRect.anchoredPosition = new Vector2(0f, -20f);
-            }
-
-            var body = panel.Find("BodyText");
-            if (body == null)
-            {
-                var bodyGo = CreateTextChild(panel, "BodyText", string.Empty, 24, TextAnchor.UpperLeft);
-                var bodyRect = bodyGo.GetComponent<RectTransform>();
-                bodyRect.anchorMin = new Vector2(0f, 0f);
-                bodyRect.anchorMax = new Vector2(1f, 1f);
-                bodyRect.offsetMin = new Vector2(28f, 80f);
-                bodyRect.offsetMax = new Vector2(-28f, -72f);
-                var bodyText = bodyGo.GetComponent<Text>();
-                bodyText.alignment = TextAnchor.UpperLeft;
-                bodyText.horizontalOverflow = HorizontalWrapMode.Wrap;
-                bodyText.verticalOverflow = VerticalWrapMode.Overflow;
-            }
-
-            var close = panel.Find("CloseButton") as RectTransform;
-            if (close == null)
-            {
-                close = GetOrCreateSlot(panel, "CloseButton", new Color(0.35f, 0.35f, 0.4f, 1f));
-                Place(close, Anchor.BottomCenter, new Vector2(0f, 24f), new Vector2(160f, 48f));
-                SetLabel(close, "닫기");
-            }
         }
 
         private static GameObject CreateTextChild(

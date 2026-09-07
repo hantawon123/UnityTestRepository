@@ -29,9 +29,6 @@ namespace Game.Bootstrap
         private LobbyHudView hudView;
 
         [SerializeField]
-        private KeyGuideView keyGuideView;
-
-        [SerializeField]
         private LobbyPauseMenuView pauseMenuView;
 
         [SerializeField]
@@ -107,17 +104,6 @@ namespace Game.Bootstrap
                 throw new InvalidOperationException("LobbyHudView must be assigned.");
             }
 
-            if (keyGuideView == null)
-            {
-                keyGuideView = hudView.GetComponent<KeyGuideView>();
-            }
-
-            if (keyGuideView == null)
-            {
-                throw new InvalidOperationException(
-                    "KeyGuideView must be assigned. Lobby 씬에서 Game > Lobby > Build HUD Layout 을 실행하세요.");
-            }
-
             if (pauseMenuView == null)
             {
                 pauseMenuView = hudView.GetComponent<LobbyPauseMenuView>();
@@ -155,7 +141,6 @@ namespace Game.Bootstrap
             builder.Register<UnityHomeApplicationHost>(Lifetime.Scoped).As<IHomeApplicationHost>();
             builder.RegisterComponent(hudView);
             builder.RegisterEntryPoint<LobbyStartCountdown>();
-            builder.RegisterComponent(keyGuideView).As<IKeyGuideView>();
             builder.RegisterComponent(pauseMenuView).As<ILobbyPauseMenuView>();
             builder.RegisterComponent(playerListView).As<ILobbyPlayerListView>();
             builder.RegisterComponent(playSettingsView).As<IPlaySettingsView>();
@@ -170,7 +155,6 @@ namespace Game.Bootstrap
             // An entry point because it mirrors the per-session rig every frame,
             // and a plain registration would never be ticked.
             builder.RegisterEntryPoint<NetworkVoiceControl>().As<IVoiceControl>();
-            builder.RegisterInstance<IReadOnlyList<ControlKeyBinding>>(ControlKeyGuide.Bindings);
             builder.Register<NetworkLobbyParticipantList>(Lifetime.Scoped)
                 .As<ILobbyParticipantList>();
 
@@ -188,7 +172,6 @@ namespace Game.Bootstrap
                         c.Resolve<PlayerProfile>()),
                     Lifetime.Scoped)
                 .As<ILobbyChatLog>();
-            builder.RegisterEntryPoint<KeyGuidePresenter>();
             builder.RegisterEntryPoint<LobbyPlayerListPresenter>();
             builder.RegisterEntryPoint<LobbyPauseMenuPresenter>();
             builder.RegisterEntryPoint<PlaySettingsPresenter>();
