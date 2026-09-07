@@ -59,6 +59,27 @@ namespace Game.Client.Character
             public static readonly Color ApplyOffLabel = FromHex(0xA8ADB3);
 
             public static readonly Color BackLabel = FromHex(0xFFFDFC);
+
+            public static readonly Color Dim = FromHex(0x0B1018, 0.1f);
+            public static readonly Color ModalFill = FromHex(0x0B1018, 0.8f);
+            public static readonly Color ModalTitle = FromHex(0xF5F3F1);
+            public static readonly Color ModalSubtitle = FromHex(0xA8ADB3);
+            public static readonly Color DeclineFill = FromHex(0xF5F3F1, 0.16f);
+
+            /// <summary>
+            /// Not given by the design. The same fill lifted, which is how the
+            /// tabs and the cells answer a pointer.
+            /// </summary>
+            public static readonly Color DeclineHoverFill = FromHex(0xF5F3F1, 0.26f);
+
+            public static readonly Color DeclineLabel = FromHex(0xF5F3F1);
+            public static readonly Color AcceptFill = FromHex(0xFF7032);
+
+            /// <summary>Not given by the design: the accent, lightened.</summary>
+            public static readonly Color AcceptHoverFill = FromHex(0xFF8A52);
+
+            public static readonly Color AcceptLabel = FromHex(0xF5F3F1);
+            public static readonly Color CloseIcon = FromHex(0xF5F3F1);
         }
 
         public static class Radius
@@ -148,10 +169,66 @@ namespace Game.Client.Character
 
             /// <summary>The circling arrow left of the reset label.</summary>
             public const float IconSize = 30f;
-            public const float IconGap = 10f;
+
+            /// <summary>
+            /// From the word's left edge to the arrow's right edge. The word
+            /// stays in the middle of the plate, so widening this moves only
+            /// the arrow, further left.
+            /// </summary>
+            public const float IconGap = 14f;
+
+            /// <summary>
+            /// The word and the arrow together, nudged right. Zero leaves the
+            /// word in the middle of the plate, which puts the pair as a whole
+            /// left of centre; raising this walks both across together.
+            /// </summary>
+            public const float IconRowShift = 16f;
 
             public const string ResetLabel = "초기화";
             public const string ApplyLabel = "적용";
+        }
+
+        /// <summary>
+        /// The two confirmations, which differ only in their heading.
+        /// </summary>
+        public static class Modal
+        {
+            public static readonly Vector2 PanelSize = new Vector2(590f, 306f);
+            public const int PanelRadius = 20;
+
+            public const float TitleTop = 87f;
+            public const float TitleFontSize = 30f;
+            public const float SubtitleGap = 15f;
+            public const float SubtitleFontSize = 20f;
+            public const float ButtonGapAbove = 41f;
+
+            public static readonly Vector2 ButtonSize = new Vector2(223f, 52f);
+            public const float ButtonGap = 44f;
+            public const int ButtonRadius = 10;
+            public const float ButtonFontSize = 24f;
+
+            public static readonly Vector2 CloseOffset = new Vector2(20f, 20f);
+            public const float CloseSize = 24f;
+
+            /// <summary>
+            /// How much the picture behind is shrunk before it is softened.
+            /// One step: enough to make the mip chain cheap, not enough to
+            /// show as blocks.
+            /// </summary>
+            public const int BackdropHalvings = 1;
+
+            /// <summary>
+            /// How far the softening is pushed. A continuous number, so this is
+            /// the one to turn if the blur is too strong or too weak: 1 is
+            /// barely there, 2 is soft, 3 starts to lose the room.
+            /// </summary>
+            public const float BackdropBlur = 1.5f;
+
+            public const string ResetTitle = "초기화하시겠습니까?";
+            public const string DiscardTitle = "적용하지 않고 나가시겠습니까?";
+            public const string Subtitle = "지금까지의 변경 내용은 모두 사라집니다.";
+            public const string DeclineLabel = "아니오";
+            public const string AcceptLabel = "예";
         }
 
         private static Color FromHex(uint rgb, float alpha = 1f) =>

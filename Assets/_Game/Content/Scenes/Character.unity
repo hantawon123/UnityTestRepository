@@ -150,7 +150,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Client::Game.Client.Character.CharacterClosetView
   backgroundSprite: {fileID: 21300000, guid: 9339b12bff1b52b4fbeb2541c71a8e24, type: 3}
   resetIcon: {fileID: 21300000, guid: e1406db984c6d6944955b24cde0a70f4, type: 3}
+  closeIcon: {fileID: 21300000, guid: 145a6f57902c6644198a09641d23817c, type: 3}
   fontAsset: {fileID: 11400000, guid: 274d1eadfdbd87444b3da6ea0c708488, type: 2}
+  buttonFontAsset: {fileID: 11400000, guid: eadaa4b688ac33740865e8d730c1339e, type: 2}
   previewCamera: {fileID: 0}
   previewCharacter: {fileID: 0}
 --- !u!4 &64541309
