@@ -25,6 +25,25 @@ namespace Game.Architecture.Tests
     public sealed class NetworkContractTests
     {
         [Test]
+        public void PlayerRoster_CaptureSkipsAvatarWithoutNetworkState()
+        {
+            var root = new GameObject("avatar-without-network-state");
+            try
+            {
+                var roster = root.AddComponent<PlayerRoster>();
+                roster.Add(root.AddComponent<PlayerAvatar>());
+                var participants = new List<Game.Core.Rooms.RoomParticipant>();
+
+                Assert.DoesNotThrow(() => roster.Capture(participants));
+                Assert.That(participants, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
         public void LobbyBubbles_RebindSkipsUnspawnedAvatars()
         {
             using var room = new RoomBrowserSystem();
