@@ -80,12 +80,21 @@ GRANT 만 하는 스크립트라 두 번 실행해도 해가 없습니다.
 `compose.prod.yml` 이 `METABASE_DB_PASSWORD` 를 `:?` 로 요구하므로 `.env` 에 없으면
 Jenkins 의 compose 단계가 그 자리에서 멈춥니다.
 
-**1. `.env` 에 두 줄 추가** (서버에서. 값은 길고 무작위로):
+**1. `.env` 에 두 줄 추가. 두 곳에.** 값은 길고 무작위로, 그리고 **두 곳이 같아야** 합니다.
 
 ```
 ANALYTICS_READER_PASSWORD=...
 METABASE_DB_PASSWORD=...
 ```
+
+- 서버의 `/home/ubuntu/d205/.env`: 아래 2번 계정 스크립트와 `verify.sh` 가 읽습니다.
+- **Jenkins 의 비밀 파일 `d205-backend-env`**: 배포의 compose 가 읽습니다. `Jenkins 관리 → Credentials
+  → d205-backend-env → Update` 에서 두 줄을 더한 파일을 올립니다. 이걸 빠뜨리면 develop 빌드가
+  `required variable METABASE_DB_PASSWORD is missing a value` 로 멈춥니다(2026-09-07 #79). 서비스는
+  교체 전이라 멀쩡하고, 파일을 올린 뒤 "지금 빌드" 를 누르면 됩니다.
+- 두 곳의 값이 다르면 Metabase 가 자기 DB 에 못 붙어 재시작을 반복합니다. 해시로 비교하려면
+  `ssh d205 'set -a; . /home/ubuntu/d205/.env; set +a; printf %s $METABASE_DB_PASSWORD | md5sum; printf %s $(docker exec d205-metabase printenv MB_DB_PASS) | md5sum'`
+  두 줄이 같아야 합니다.
 
 **2. MySQL 계정 만들기** (한 번. 두 번 해도 무해):
 
@@ -108,8 +117,20 @@ scp backend/deploy/nginx/d205.conf d205:/tmp/d205.conf
 ssh d205 "sudo install -o root -g root -m 644 /tmp/d205.conf /etc/nginx/sites-available/d205 && sudo nginx -t && sudo systemctl reload nginx"
 ```
 
-첫 줄은 비밀번호를 물어봅니다. 그 계정과 비밀번호를 팀에 공유합니다. 저장소에는 두지 않습니다.
+첫 줄은 비밀번호를 물어봅니다. 프롬프트가 떠야 하므로 PowerShell 에서는 `ssh -t` 로 실행하고,
+명령은 한 번만 붙여 넣습니다(두 번 붙으면 htpasswd 가 인자를 잘못 받아 사용법만 출력합니다).
+그 계정과 비밀번호를 팀에 공유합니다. 저장소에는 두지 않습니다.
 EC2 보안 그룹의 8443 은 2026-09-07 에 열었습니다. 다른 계정으로 EC2 를 새로 받으면 다시 열어야 합니다.
+
+8443 에서 **어떤 계정을 넣어도 403** 이면 비밀번호 파일이 없는 것입니다. nginx 는 `auth_basic_user_file`
+이 없으면 401 대신 403 을 냅니다. `ls -l /etc/nginx/.htpasswd-analytics` 로 확인하고 위 첫 줄을 다시
+실행하세요. 파일은 요청마다 읽으므로 nginx 재시작은 필요 없습니다.
+
+Basic Auth 를 통과했는데 **502** 면 Metabase 컨테이너가 3000 에서 응답하지 않는 것입니다.
+`docker logs d205-metabase 2>&1 | grep -E 'Initialization (FAILED|COMPLETE)'` 로 봅니다. FAILED 가
+반복되면 자기 DB 에 못 붙는 것이고, 원인은 셋 중 하나입니다. 계정 스크립트(2번) 미실행, 두 `.env`
+값 불일치(1번), 또는 compose 의 `MB_DB_CONNECTION_URI` 에서 `allowPublicKeyRetrieval=true` 가 빠짐.
+Metabase 는 원인 예외를 로그에 남기지 않아 이 셋을 순서대로 확인해야 합니다.
 
 **4. 배포.** develop 에 머지하면 Jenkins 가 `compose up` 으로 Metabase 컨테이너까지 올립니다.
 첫 기동은 자기 스키마에 마이그레이션을 돌려 1분 넘게 걸리고 메모리를 1GB 가까이 씁니다.

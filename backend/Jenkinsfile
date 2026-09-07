@@ -76,7 +76,9 @@ pipeline {
                 // jenkins 사용자의 전역 gitconfig 에 스머지 생략을 직접 씁니다. 이 파이프라인이 도는
                 // 머신은 backend 전용이므로 전역으로 꺼도 다른 잡이 다치지 않습니다. 이미 설정돼 있으면
                 // 같은 값을 다시 쓰는 것이라 무해합니다. 환경변수는 `git lfs` 가 없는 머신을 위한 보조입니다.
-                sh 'git lfs install --skip-smudge || echo "git-lfs 가 없어 스머지 설정을 건너뜁니다."'
+                // --skip-repo: 전역 설정만 쓰고 워크스페이스 훅은 건드리지 않습니다. 훅을 설치하려 하면
+                // 기존 훅과 충돌해 비정상 종료하고, 그러면 아래 fallback 메시지가 잘못 찍힙니다.
+                sh 'git lfs install --skip-smudge --skip-repo || echo "git-lfs 가 없어 스머지 설정을 건너뜁니다."'
                 withEnv(['GIT_LFS_SKIP_SMUDGE=1']) {
                     checkout scm
                 }

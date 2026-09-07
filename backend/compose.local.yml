@@ -51,9 +51,9 @@ services:
     container_name: d205-metabase-local
     environment:
       MB_DB_TYPE: mysql
-      MB_DB_HOST: mysql
-      MB_DB_PORT: 3306
-      MB_DB_DBNAME: metabase
+      # allowPublicKeyRetrieval 이 없으면 MySQL 8.4 의 caching_sha2_password 계정에 붙지 못합니다.
+      # 자세한 이유는 compose.prod.yml 의 같은 자리에 있습니다.
+      MB_DB_CONNECTION_URI: mysql://mysql:3306/metabase?allowPublicKeyRetrieval=true
       MB_DB_USER: metabase
       MB_DB_PASS: metabaselocal
       MB_SITE_URL: http://localhost:3000

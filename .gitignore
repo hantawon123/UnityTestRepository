@@ -129,3 +129,7 @@ InitTestScene*.unity*
 # 남아 Unity가 경고를 냅니다. 필요하면 Fusion Hub에서 다시 받으면 됩니다.
 /[Aa]ssets/Photon/FusionDemos.meta
 /[Aa]ssets/Photon/FusionMenu.meta
+
+# Unity 크래시 복구 씬 (로컬 자동 생성)
+/[Aa]ssets/_Recovery/
+/[Aa]ssets/_Recovery.meta

@@ -14,6 +14,7 @@
 - `basement-boundary-colliders.png` — 벽에 붙인 보이지 않는 경계 콜라이더 6면(연두색 와이어)
 - `basement-lighting-bake-v1.png` — 1차 라이트맵 베이크 결과(전등 25개, 간접광·AO 적용). 이후 조정 시 v2로 추가
 - `basement-plan-board-v1.png` — 서벽 공구판을 작전 계획판으로 쓰는 방 설정 상호작용 확인 화면
+- `basement-lighting-bake-v2.png` — 조명 2차(포인트 라이트 베이크 전환·태양광 냉색·포스트프로세스) 재베이크 결과. 동북 스폰 구역에서 작업대 방향
 - `posters/` — WANTED 포스터 원본 이미지 4종(1024×1536). 데칼 아틀라스 합성에 사용
 
 ## 제작 경과
@@ -89,9 +90,20 @@
 - **배치**: 에디터 메뉴 `Game/Lobby/Place Plan Board (ToolBoard)`(`LobbyPlanBoardSetupMenu.cs`)가 공구판 렌더러 바운드를 재서 씬 루트 `LobbyPlanBoard`에 BoxCollider + 컴포넌트를 놓는다. 깊이는 벽 콜라이더(x -3.10~-3.00) 안쪽 면에서 1 cm만 나오게 고정 → 조준 광선은 벽보다 먼저 맞고, 위 모서리가 발판이 되지 않음. 환경 프리팹은 그대로라 **라이트맵 재베이크 불필요**.
 - **테스트 중 관찰**: 동료 클라이언트가 옛 로비(창고) 씬을 갖고 있으면 그 플레이어가 지하실 벽을 통과해 밖에 서 있는 것처럼 보인다. 충돌은 각자 로컬 씬으로 계산하므로 같은 브랜치/머지 상태를 맞춰야 한다. 별개로 서벽 모듈 콜라이더는 높이 2.5 m까지만 있어 사물함 위 점프로 넘을 수 있으나, 벽에 붙인 경계 콜라이더가 밖으로 나가는 것은 막는다(필요 시 벽 상단 콜라이더 추가).
 
+### 10. 조명 2차와 정리 (2026-09-07, 614·609)
+
+- **그림자 아틀라스 경고 해결**: 팩 조명은 램프마다 베이크용 스팟 + 실시간 스팟(`_Dynamic`) 쌍이고, 형광등 포인트 라이트 4개(Mixed)가 그림자 맵을 6장씩 요구해 총 33장 → 2048 아틀라스 초과로 매 프레임 해상도가 깎이며 경고가 740회 이상 쌓였다.
+  - 포인트 라이트 4개를 **Baked**로 전환(베이크 그림자는 유지, 실시간 그림자 맵 24장 제거) → 실시간 그림자 캐스터 11개/11장.
+  - `PC_RPAsset` Additional Lights 그림자 아틀라스 2048 → 4096.
+- **창문 태양광 냉색**: Directional Light(Mixed) 흰색 1.5 → `#CCE0FF` 1.3. 전구(#F5DBBF 계열) 온광과 대비.
+- **포스트프로세스**: `Assets/_Game/Content/Lighting/LobbyPostProcess.asset`(Tonemapping Neutral, Bloom threshold 1.0/intensity 0.35/scatter 0.6, Vignette 0.28/smoothness 0.4, ColorAdjustments contrast +8/saturation +6/exposure +0.1). Lobby 씬 루트 `Lobby Post Volume`(global)에 연결, Lobby `Main Camera` Post Processing 켬 + SMAA Medium. 카메라가 씬 소유라 매치 씬에는 영향 없음. Home 씬의 SampleSceneProfile(Neutral 톤매핑·블룸·비네트)과 같은 계열로 맞춤.
+- 위 변경(라이트 모드·색) 반영 재베이크.
+- **정리**: 미사용 창고 에셋 팩 `Assets/IGBlocks/IG_Warehouse`(129 MB) 삭제, `Assets/_Recovery`(크래시 복구 씬) 추적 해제 + gitignore.
+- 남은 것: 벽 상단 콜라이더(사물함 위 점프로 벽 위에 걸치는 현상이 실제로 보일 때), Unity MCP 패키지(`com.coplaydev.unity-mcp`)를 manifest에 포함할지 팀 결정.
+
 ## 다음 단계
 
 1. 계단 재테스트(끝까지 오르기, 층계참에서 서기, 점프 시 지붕에 막히는지) → 이상 없으면 617 종료.
-2. 조명 연출 2차(614): 베이크 결과 미세 조정, URP Volume 포스트프로세스(비네트·색보정·블룸), 창문 냉광·전구 온광 대비.
+2. 조명 3차(필요 시): 베이크 결과 미세 조정, 포스트프로세스 수치 조정.
 3. 상자·콘·타이어·가스통을 Carryable 프리팹 변형으로 전환(615, 로비 네트워크 동기화 여부 확인 후).
 4. 계획판 다인 테스트(동료가 같은 브랜치 상태에서 방장/비방장 프롬프트·읽기 전용 확인). 필요 시 계획판에 지도·메모 데칼로 시각 연출(619).

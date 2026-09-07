@@ -82,12 +82,23 @@ services:
     restart: unless-stopped
     environment:
       MB_DB_TYPE: mysql
-      MB_DB_HOST: mysql
-      MB_DB_PORT: 3306
-      MB_DB_DBNAME: metabase
+      # 호스트·포트·DB 를 따로 주지 않고 URI 로 주는 이유는 allowPublicKeyRetrieval 때문입니다.
+      #
+      # MySQL 8.4 계정의 기본 인증은 caching_sha2_password 인데, Metabase 가 쓰는 MariaDB 드라이버는
+      # 암호화되지 않은 연결에서 그 방식으로 붙으려면 서버 공개키를 받아 와야 하고 기본값은 그걸
+      # 거부합니다. 그러면 로그에 원인 없이 "Unable to connect to Metabase mysql DB" 만 남기고 죽어
+      # 재시작을 반복합니다. 2026-09-07 첫 배포가 그랬고, 로컬에서 같은 조합으로 재현한 뒤 이
+      # 옵션 하나로 붙는 것을 확인했습니다. Spring 앱이 같은 MySQL 에 문제없이 붙는 것은 드라이버가
+      # 달라서(Connector/J 는 TLS 를 기본으로 켬) 이 함정이 없기 때문입니다.
+      #
+      # compose 네트워크 안의 평문 연결이라 공개키 요청을 허용해도 노출되는 것이 없습니다.
+      # 비밀번호는 URI 에 넣지 않고 MB_DB_USER/MB_DB_PASS 로 따로 줍니다. Metabase 가 둘의 조합을
+      # 지원하고, URI 에 넣으면 특수문자를 인코딩해야 하며 로그에 남을 수 있습니다.
+      MB_DB_CONNECTION_URI: mysql://mysql:3306/metabase?allowPublicKeyRetrieval=true
       MB_DB_USER: metabase
       # :? 입니다. 이 값이 .env 에 없으면 compose 파싱 단계에서 멈추므로, 배포 전에 .env 에
       # 넣어야 합니다. 빈 비밀번호로 뜨는 것보다 배포가 막히는 편이 낫다는 판단은 DB 변수와 같습니다.
+      # 여기서 .env 는 서버 파일이 아니라 Jenkins 의 비밀 파일(d205-backend-env)입니다. 둘을 같이 갱신하세요.
       MB_DB_PASS: ${METABASE_DB_PASSWORD:?}
       MB_SITE_URL: https://j15d205.p.ssafy.io:8443
       # 힙 상한. EC2 15GB 에 Jenkins 실행기 2개와 MySQL, 앱이 같이 있습니다. 상한 없이 두면

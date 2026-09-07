@@ -24,11 +24,12 @@ namespace Game.Editor
         // 공구판 자체 콜라이더보다 먼저 맞아야 조준 대상이 되므로 높이·폭을 조금 키운다.
         private const float ColliderPadding = 0.03f;
 
-        // 서벽(x -3.10~-3.00 콜라이더)에 걸린 판이라, 방 쪽(+X) 면은 벽 콜라이더 안쪽 면에서
-        // 1 cm만 나오게 한다. 더 나오면 위 모서리가 발판이 되어 2.5 m짜리 벽 콜라이더를
-        // 뛰어넘는 디딤대가 될 수 있다. 조준 광선은 벽보다 이 판을 먼저 맞으므로 문제없다.
+        // 서벽 콜라이더(x -3.10~-3.00) 앞에 공구판 자체 콜라이더(-2.97)와 걸린 공구들(-2.93)이 있다.
+        // 조준 광선이 그것들보다 이 판을 먼저 맞아야 하므로 방 쪽(+X) 면은 -2.91로 둔다.
+        // (벽 안쪽 -2.99로 넣었을 때는 공구판 콜라이더에 막혀 상호작용이 안 됐다.)
+        // 공구판 콜라이더가 이미 같은 높이의 턱을 만들고 있어 발판 문제는 추가되지 않는다.
         private const float WallOuterX = -3.10f;
-        private const float RoomFaceX = -2.99f;
+        private const float RoomFaceX = -2.91f;
 
         [MenuItem(MenuPath)]
         public static void PlacePlanBoard()
