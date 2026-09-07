@@ -87,3 +87,12 @@ FAST_BUILD=false, FORCE_BUILD=true, TEST_ONLY=false. 동일 EC2, CPU 상한 3, s
 
 - https://j15d205.p.ssafy.io/jenkins/job/d205-unity-webgl/8/
 - https://j15d205.p.ssafy.io/jenkins/job/d205-unity-webgl/10/
+
+
+## 최신 develop 통합 검증 — 2026-09-08
+
+원격 develop `ed8330b1`을 `60d10c5f`에서 병합했다. 로비 조명/라이트맵 재베이크, Carryable 소품, 미사용 에셋 정리 및 Metabase 연결 수정을 포함한다. 새 그림자 아틀라스 4096과 기존 WebGL 최적화 두 옵션을 함께 유지한다.
+
+통합 상태에서 Unity NetworkContractTests 100/100, 변경 범위 판정 3개 검사, 빌드 스크립트 캐시·실패 처리 검사를 통과했다. LOD Fade None 34개, Light Cookie null 70개 및 관련 오버라이드 없음 재확인.
+
+#8·#10 시간은 통합 전 `f6d67c9c`의 기록이다. 새 조명/에셋이 포함된 통합 버전의 WebGL 전체 빌드와 인게임 화면 검증은 아직 실행하지 않았다. 복구 태그는 통합 전 기준을 그대로 보존한다.
