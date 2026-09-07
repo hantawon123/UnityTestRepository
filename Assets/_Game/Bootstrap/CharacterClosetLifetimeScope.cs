@@ -48,6 +48,10 @@ namespace Game.Bootstrap
             builder.RegisterComponent(closetView).As<ICharacterClosetView>();
             builder.RegisterInstance(partCatalog);
             builder.RegisterEntryPoint<CharacterClosetPresenter>();
+
+            // Stores what the player applies. Kept out of the presenter so the
+            // screen's rules stay free of the network.
+            builder.RegisterEntryPoint<ClosetAppearanceSaver>();
         }
 
         /// <summary>

@@ -21,6 +21,15 @@ namespace Game.Client.Character
     {
         public static readonly Vector2 ReferenceResolution = new Vector2(1920f, 1080f);
 
+        /// <summary>
+        /// Over a failure to store what was applied. The same heading Home and
+        /// the room browser use: from the player's side these are one event,
+        /// which is that the game could not reach the server.
+        /// </summary>
+        public const string SaveErrorTitle = "게임 접속 오류";
+
+        public const string SaveErrorMessage = "외형을 저장하지 못했습니다";
+
         public static class Palette
         {
             public static readonly Color TextPrimary = FromHex(0xFFFDFC);

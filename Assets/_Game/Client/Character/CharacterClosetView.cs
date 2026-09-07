@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Common;
 using Game.Client.Home;
 using Game.Core.Players;
 using TMPro;
@@ -71,6 +72,7 @@ namespace Game.Client.Character
         private Image resetIconImage;
         private Button resetButton;
         private Button applyButton;
+        private ConnectionToast toast;
         private readonly List<Button> buttons = new List<Button>();
 
         public event Action BackRequested;
@@ -93,6 +95,11 @@ namespace Game.Client.Character
             {
                 previewCharacter.Apply(appearance);
             }
+        }
+
+        public void ShowSaveError(string message)
+        {
+            toast?.Show(CharacterClosetStyle.SaveErrorTitle, message);
         }
 
         private void Awake()
@@ -128,6 +135,10 @@ namespace Game.Client.Character
             CreateTabRail(controlsRoot);
             CreateLocker(controlsRoot);
             CreateActionBar(controlsRoot);
+
+            // Over the screen but under the confirmations, and it never takes a
+            // click, so being on top costs the controls beneath it nothing.
+            toast = ConnectionToast.AttachTo(controlsRoot);
 
             // Last, so it draws over everything it is asked about.
             CreateConfirm(controlsRoot);

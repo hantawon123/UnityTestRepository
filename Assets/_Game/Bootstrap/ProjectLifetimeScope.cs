@@ -155,6 +155,11 @@ namespace Game.Bootstrap
             // that never started.
             builder.RegisterEntryPoint<BackendSignIn>().AsSelf();
             builder.RegisterEntryPoint<PresenceHeartbeat>();
+
+            // Waits on that sign-in and dresses the player in what the account
+            // remembers. Registered beside it rather than in RegisterServices,
+            // because without an account there is nothing to remember.
+            builder.RegisterEntryPoint<AvatarAppearanceSeed>();
         }
 
         /// <param name="networkPrefabs">

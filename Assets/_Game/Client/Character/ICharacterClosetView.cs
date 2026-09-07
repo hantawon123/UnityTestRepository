@@ -55,6 +55,12 @@ namespace Game.Client.Character
         /// </summary>
         void SetActionsEnabled(bool enabled);
 
+        /// <summary>
+        /// Says that what was applied did not reach the account. An empty
+        /// message says nothing.
+        /// </summary>
+        void ShowSaveError(string message);
+
         void ShowConfirm(ClosetConfirmKind kind);
 
         void HideConfirm();

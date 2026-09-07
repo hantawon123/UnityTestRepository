@@ -60,6 +60,7 @@ namespace Game.Client.Character
             view.ApplyRequested += OnApplyRequested;
             view.ConfirmAccepted += OnConfirmAccepted;
             view.ConfirmDismissed += OnConfirmDismissed;
+            appearance.Changed += OnAppliedChanged;
 
             applied = Worn();
             draft = applied;
@@ -88,6 +89,22 @@ namespace Game.Client.Character
             view.ApplyRequested -= OnApplyRequested;
             view.ConfirmAccepted -= OnConfirmAccepted;
             view.ConfirmDismissed -= OnConfirmDismissed;
+            appearance.Changed -= OnAppliedChanged;
+        }
+
+        /// <summary>
+        /// Follows the applied appearance while the screen is open.
+        /// </summary>
+        /// <remarks>
+        /// Applying settles it, but so does a save that failed and was put
+        /// back. Reading the change rather than assuming the apply stuck is
+        /// what lets the buttons come back on when the account refused it —
+        /// the player still has their choice on screen and can try again.
+        /// </remarks>
+        private void OnAppliedChanged(AvatarAppearance settled)
+        {
+            applied = catalog.Normalise(settled);
+            view.SetActionsEnabled(IsChanged);
         }
 
         /// <summary>Whether there is anything to apply or to undo.</summary>
