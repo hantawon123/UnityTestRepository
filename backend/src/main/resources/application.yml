@@ -69,6 +69,23 @@ springdoc:
   swagger-ui:
     enabled: false
 
+# 플레이 로그 수집. 명세는 docs/analytics-events.md, 구조는 domain/analytics 패키지입니다.
+#
+# 접속 정보(analytics.datasource)는 프로필별 파일에 있습니다. 여기 있는 것은 동작 한도이고
+# 값의 뜻은 AnalyticsProperties 에 적혀 있습니다. 테스트가 작게 덮어씁니다.
+analytics:
+  queue-capacity: 100000
+  flush-interval-ms: 1000
+  flush-batch-size: 5000
+  batch-max-size: 200
+  # IP 하나의 분당 요청 상한. 클라이언트 하나는 10초마다 한 번(분당 6)이지만, 플레이테스트는
+  # 한 교실에서 하므로 수십 명이 NAT 뒤의 공용 IP 하나로 보입니다. 60 으로 두면 열 명만 넘어도
+  # 정상 트래픽이 429 가 됩니다. 600 은 100명이 한 IP 뒤에 있어도 닿지 않는 값이면서, 한 IP 가
+  # 무한히 쏘는 것은 여전히 막습니다. 남용 차단이 목적이고 정밀한 공정성이 목적이 아닙니다.
+  rate-limit-per-minute: 600
+  occurred-at-past-days: 7
+  occurred-at-future-minutes: 5
+
 # 관리자 계정. 값이 없으면 계정을 등록하지 않고 관리 API 만 쓸 수 없게 됩니다.
 # 게임 API 는 영향을 받지 않습니다.
 #
