@@ -1,6 +1,12 @@
 // Dedicated single-branch job on EC2; the backend job remains independent.
 pipeline {
-    agent any
+    agent { label 'unity-webgl' }
+    parameters {
+        booleanParam(name: 'FORCE_BUILD', defaultValue: false,
+            description: '변경 없는 커밋도 다시 빌드하여 캐시 효과를 측정합니다.')
+        booleanParam(name: 'FAST_BUILD', defaultValue: false,
+            description: '빌드 시간 비교용 IL2CPP 옵션. 실행 성능 검증 전 기본 배포 설정으로 사용하지 않습니다.')
+    }
     options {
         skipDefaultCheckout(true)
         disableConcurrentBuilds()
@@ -13,30 +19,65 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
-                    checkout([$class: 'GitSCM', branches: scm.branches,
-                        userRemoteConfigs: scm.userRemoteConfigs,
-                        extensions: [[$class: 'GitLFSPull']]])
+                    withEnv(['GIT_LFS_SKIP_SMUDGE=1']) {
+                        checkout([$class: 'GitSCM', branches: scm.branches,
+                            userRemoteConfigs: scm.userRemoteConfigs, extensions: []])
+                    }
+                }
+            }
+        }
+        stage('Change scope') {
+            steps {
+                script {
+                    env.WEBGL_REQUIRED = (params.FORCE_BUILD || params.FAST_BUILD) ? 'true' : sh(returnStdout: true, script: '''
+                        python3 Tools/webgl/changes.py
+                    ''').trim()
+                    if (env.WEBGL_REQUIRED == 'false') {
+                        currentBuild.description = 'WebGL 관련 변경 없음 - 빌드 생략'
+                    } else {
+                        sh 'rm -f Logs/webgl-*.log Logs/webgl-contract-results.xml Logs/webgl-timings.tsv Logs/webgl-build-report.json'
+                    }
                 }
             }
         }
         stage('Deployment checks') {
-            steps { sh 'python3 Tools/webgl/test_publish.py' }
+            when { environment name: 'WEBGL_REQUIRED', value: 'true' }
+            steps {
+                sh 'git lfs pull'
+                sh 'python3 Tools/webgl/test_changes.py && bash Tools/webgl/test_build.sh && python3 Tools/webgl/test_publish.py'
+            }
         }
         stage('WebGL build') {
+            when { environment name: 'WEBGL_REQUIRED', value: 'true' }
             steps {
                 dir('Builds/WebGL') { deleteDir() }
-                sh 'bash Tools/webgl/build.sh'
+                withEnv(["WEBGL_FAST_BUILD=${params.FAST_BUILD ? '1' : '0'}"]) {
+                    sh 'bash Tools/webgl/build.sh'
+                }
             }
         }
         stage('Publish') {
-            when { expression { env.GIT_BRANCH == 'origin/develop' } }
+            when { expression { env.GIT_BRANCH == 'origin/develop' && env.WEBGL_REQUIRED == 'true' && !params.FAST_BUILD } }
             steps {
                 sh 'python3 Tools/webgl/publish.py /var/www/d205-webgl "$(git rev-parse HEAD)" --source Builds/WebGL --sequence "$BUILD_NUMBER"'
             }
         }
     }
     post {
-        always { archiveArtifacts artifacts: 'Logs/webgl-*.log,Logs/webgl-contract-results.xml', allowEmptyArchive: true }
-        success { archiveArtifacts artifacts: 'Builds/WebGL/**', fingerprint: true }
+        always {
+            script {
+                if (env.WEBGL_REQUIRED == 'true') {
+                    archiveArtifacts artifacts: 'Logs/webgl-*.log,Logs/webgl-contract-results.xml,Logs/webgl-timings.tsv,Logs/webgl-build-report.json', allowEmptyArchive: true
+                }
+            }
+        }
+        success {
+            script {
+                if (env.WEBGL_REQUIRED == 'true') {
+                    archiveArtifacts artifacts: 'Builds/WebGL/**', fingerprint: true
+                    if (!params.FAST_BUILD) sh 'git rev-parse HEAD > Library/WebGLCiCache/verified-revision'
+                }
+            }
+        }
     }
 }

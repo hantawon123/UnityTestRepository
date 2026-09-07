@@ -1,7 +1,8 @@
 # WebGL 자동 빌드와 배포
 
 GitLab develop → EC2 Jenkins → Unity Docker → `https://j15d205.p.ssafy.io/play/`.
-PC 에이전트를 사용하지 않는다. 기존 `backend/Jenkinsfile` 작업은 독립적으로 유지한다.
+EC2의 `unity-webgl` 전용 에이전트를 사용한다. 기존 백엔드 작업은 이 전용 노드에 배정되지 않는다.
+같은 EC2이므로 CPU·디스크는 공유한다. 실행 슬롯 분리만으로 빌드 속도가 빨라진다고 보장하지 않는다.
 새 접속에는 **최신 성공 빌드**를 제공한다. 커밋 반영에는 SCM 확인(최대 약 5분)과 빌드 시간이 필요하다.
 
 ## Jenkins
@@ -11,12 +12,45 @@ PC 에이전트를 사용하지 않는다. 기존 `backend/Jenkinsfile` 작업�
 - 운영 Branch Specifier: `*/develop`. MR 병합 전 검증에는 `*/feature/server/webgl-delivery` 사용.
 - feature 빌드는 검증·산출물 보관까지만 실행한다. `origin/develop`만 Publish 단계를 실행한다.
 - 실행 동시성 1, 제한 120분. NuGet 복원 1 CPU/1GB, Unity 빌드 3 CPU/8GB.
+- 노드 `d205-unity-webgl`: 라벨 `unity-webgl`, 실행 슬롯 1, 라벨 일치 작업만 허용.
+- 전용 에이전트 루트 `/var/lib/jenkins/agents/unity-webgl`, 서비스 `d205-unity-agent.service`.
+  서비스 정의는 `unity-agent.service`에 보관한다. `agent.args`와 `agent-secret`은 서버에서 0600으로 관리하고 Git에 넣지 않는다.
+- `FORCE_BUILD`: 같은 SHA도 재빌드. `FAST_BUILD`: IL2CPP OptimizeSize 비교용이며 자동 배포하지 않는다.
+- 최초 실행이나 비교 기준 누락 시 빌드한다. 이후 마지막 정상 설정의 성공 SHA와 비교하여 backend/docs/source만 바뀌면 생략한다.
+  빠른 설정의 비교 빌드와 무관한 변경으로 생략한 실행은 정상 빌드 기준 SHA를 갱신하지 않는다.
+- Unity는 명시적 `git lfs pull`로 에셋을 복원한다. Jenkins 전역 Git 설정을 변경하지 않는다.
 - Git LFS로 모델·텍스처를 복원하고, NuGetForUnity CLI 4.5.0으로 R3 등을 먼저 복원한다.
 - Unity 이미지: `unityci/editor:ubuntu-6000.3.22f1-webgl-3`, 검증한 digest 고정.
 - Unity `Library`는 Jenkins workspace에 남아 다음 빌드에서 재사용된다. Unity 버전 변경 시 캐시 재생성이 필요하다.
+- `Library/WebGLCiCache`에 머신 Bee 캐시와 NuGet 패키지·도구를 보관하고 컨테이너에 마운트한다.
+  동시에 실행하는 다른 프로젝트에서 동일 Library를 공유하지 않는다.
 - 네트워크 계약 EditMode 테스트 통과 후 빌드한다. 테스트·빌드 로그는 콘솔에 실시간 출력하고 실패 시에도 보관한다.
 - 성공 산출물은 최근 3회, 빌드 기록은 최근 15회 보관한다.
 - 실패한 빌드는 Publish까지 진행하지 않는다. 시작할 때 이전 산출물 폴더를 비워 오래된 파일의 재배포를 막는다.
+- 이전 실행 로그는 자격 증명 검사 전부터 제거한다. `Logs/webgl-timings.tsv`는 복원·테스트·빌드·전체 시간과 종료 코드를 기록한다.
+  `Logs/webgl-build-report.json`은 Unity 버전·SHA·IL2CPP 설정·단계별 시간을 기록한다. 중첩 단계 시간을 합산하지 않는다.
+
+## 반복 빌드 측정
+
+같은 장비·Unity 버전·프로필로 최초 실행과 반복 실행을 구분한다. 동일 코드, 작은 C# 변경, UI 변경을 각각 측정한다.
+캐시 없는 최초 실행을 평균에서 숨기지 않고 각 실행 시간과 최대값을 기록한다. 5분 타임아웃으로 실패시키는 것은 목표 달성이 아니다.
+`FAST_BUILD`의 속도 이득과 인게임 성능은 별도로 검증한 후 기본 적용 여부를 결정한다.
+`WEBGL_TEST_ONLY=1 bash Tools/webgl/build.sh`로 빌드 없이 계약 테스트만 실행할 수 있다.
+로컬 테스트 환경의 설정 경로는 `WEBGL_CONFIG_DIR`, `WEBGL_UNITY_HOME`으로 지정한다.
+
+```sh
+python3 Tools/webgl/test_changes.py
+bash Tools/webgl/test_build.sh
+python3 Tools/webgl/test_publish.py
+```
+
+## 재개 이력
+
+- 2026-09-07 최신 develop 통합 후 네트워크 계약 테스트 100/100 통과.
+- 이전 6개 실패는 홈 복귀 정책과 테스트 spy의 방 찾기 전용 기대값 불일치였다. 홈/강퇴 복귀 경로와 콜백 이후 처리 조건을 검증한다.
+- 최초 캐시 준비 및 반복 빌드 시간은 측정 중이다. 5분 달성으로 간주하지 않는다.
+- 이전 Jenkins 작업 백업: `/var/lib/jenkins/webgl-backups/d205-unity-webgl-20260907-paused.tar.gz`.
+  복원 시 빌드 번호를 마지막 게시 순서보다 크게 유지한다.
 
 ## 서버 사전 구성
 

@@ -4,6 +4,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
+using UnityEngine;
 
 namespace Game.Editor
 {
@@ -26,12 +27,16 @@ namespace Game.Editor
             var fallback = PlayerSettings.WebGL.decompressionFallback;
             var hashes = PlayerSettings.WebGL.nameFilesAsHashes;
             var version = PlayerSettings.bundleVersion;
+            var codeGeneration = PlayerSettings.GetIl2CppCodeGeneration(NamedBuildTarget.WebGL);
             try
             {
                 PlayerSettings.bundleVersion = Environment.GetEnvironmentVariable("WEBGL_REVISION") ?? version;
                 PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
                 PlayerSettings.WebGL.decompressionFallback = false;
                 PlayerSettings.WebGL.nameFilesAsHashes = true;
+                if (Environment.GetEnvironmentVariable("WEBGL_FAST_BUILD") == "1")
+                    PlayerSettings.SetIl2CppCodeGeneration(NamedBuildTarget.WebGL,
+                        UnityEditor.Build.Il2CppCodeGeneration.OptimizeSize);
                 var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
                 {
                     scenes = scenes,
@@ -39,6 +44,19 @@ namespace Game.Editor
                     target = BuildTarget.WebGL,
                     options = BuildOptions.None
                 });
+                Directory.CreateDirectory("Logs");
+                File.WriteAllText("Logs/webgl-build-report.json", JsonUtility.ToJson(new BuildMetrics
+                {
+                    revision = PlayerSettings.bundleVersion,
+                    unityVersion = Application.unityVersion,
+                    codeGeneration = PlayerSettings.GetIl2CppCodeGeneration(NamedBuildTarget.WebGL).ToString(),
+                    result = report.summary.result.ToString(),
+                    seconds = report.summary.totalTime.TotalSeconds,
+                    steps = report.steps.Select(step => new StepMetrics
+                    {
+                        name = step.name, depth = step.depth, seconds = step.duration.TotalSeconds
+                    }).ToArray()
+                }, true));
                 if (report.summary.result != BuildResult.Succeeded)
                     throw new BuildFailedException($"WebGL build failed: {report.summary.totalErrors} errors.");
                 File.WriteAllText(Path.Combine(output, "version.txt"), PlayerSettings.bundleVersion);
@@ -49,7 +67,24 @@ namespace Game.Editor
                 PlayerSettings.WebGL.decompressionFallback = fallback;
                 PlayerSettings.WebGL.nameFilesAsHashes = hashes;
                 PlayerSettings.bundleVersion = version;
+                PlayerSettings.SetIl2CppCodeGeneration(NamedBuildTarget.WebGL, codeGeneration);
             }
+        }
+
+        [Serializable]
+        private sealed class BuildMetrics
+        {
+            public string revision, unityVersion, codeGeneration, result;
+            public double seconds;
+            public StepMetrics[] steps;
+        }
+
+        [Serializable]
+        private sealed class StepMetrics
+        {
+            public string name;
+            public int depth;
+            public double seconds;
         }
     }
 }
