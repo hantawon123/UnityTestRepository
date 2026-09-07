@@ -310,15 +310,28 @@ Unity 쪽 전송 구현은 `Backend` 계층에 둡니다. `Client`가 아닙니�
 - 설정 이벤트에 설정 *값*을 넣지 않습니다
 - 분석 계정은 `SELECT` 권한만 갖습니다
 
-### 탈퇴와의 관계 — 결정 대기
+### 탈퇴하면 지운다
 
 게임 DB 는 탈퇴 시 CASCADE 로 그 사람의 행을 전부 지우고, `room_invites` 주석은 그것을
 "탈퇴는 흔적을 남기지 않는다"는 약속으로 적어 두었습니다. `game_event`는 FK 가 없어서
-`user_public_id`가 그대로 남습니다.
+그냥 두면 `user_public_id`가 남습니다. **같은 약속을 여기에도 적용합니다.**
 
-선택지는 둘입니다. 탈퇴 처리에서 `UPDATE game_event SET user_public_id = NULL`을 분석
-DataSource 로 best-effort 실행하거나, `public_id`가 UUIDv4 라 탈퇴 후에는 누구와도 연결되지
-않는 값이므로 그대로 두거나. **아직 정하지 않았습니다.** 정하기 전까지는 후자로 동작합니다.
+탈퇴 처리가 `UPDATE game_event SET user_public_id = NULL WHERE user_public_id = ?`를 분석
+DataSource 로 실행합니다. 행은 남고 사람만 지워집니다. 경기 집계는 "누군가 여기 숨겼다"만
+알면 되고 그게 누구였는지는 필요 없으므로, 행을 지우면 남은 다섯 명의 경기가 뒤틀리고
+사람만 지우면 아무것도 뒤틀리지 않습니다.
+
+`params` 안의 `owner_id`, `attacker_id` 같은 값도 같은 사람을 가리킵니다. 그것까지 훑어
+바꾸는 것은 JSON 갱신이라 비싸고, 그 값들은 `match_start.players`로만 유저와 이어지므로
+최상위 컬럼이 NULL 이 된 순간 이미 끊깁니다. 최상위 컬럼만 지웁니다.
+
+**best-effort 입니다.** 분석 DB 가 죽어 있어도 탈퇴는 성공해야 합니다. 실패하면 로그만
+남기고, 그 로그를 보고 사람이 나중에 같은 UPDATE 를 실행합니다. 탈퇴를 막는 것보다 그 편이
+약속에 가깝습니다. 사용자 입장에서 탈퇴는 이미 됐고, 남은 것은 우리가 치울 일입니다.
+
+`ix_game_event_match` 도 `ix_game_event_name` 도 `user_public_id`로 시작하지 않아 이 UPDATE 는
+풀 스캔입니다. 탈퇴는 드물고 테이블이 수백만 행이라도 수 초라 인덱스를 따로 두지 않습니다.
+탈퇴가 잦아지거나 행이 수천만이 되면 그때 `(user_public_id)` 인덱스를 추가합니다.
 
 ---
 
@@ -342,4 +355,3 @@ DataSource 로 best-effort 실행하거나, `public_id`가 UUIDv4 라 탈퇴 후
 
 - `position_sample`을 1Hz로 켤지. 켜면 행 수가 약 6배가 됩니다(경기당 450 → 2,600).
   질문 2(맵의 죽은 구역)는 이것 없이 답할 수 없습니다
-- 탈퇴 시 `user_public_id`를 지울지(8절)
