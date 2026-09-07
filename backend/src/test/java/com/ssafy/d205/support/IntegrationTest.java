@@ -63,16 +63,22 @@ public abstract class IntegrationTest {
      * 분석 DB 접속 정보. &#64;ServiceConnection 은 spring.datasource 만 채우므로 두 번째 접속은
      * 여기서 직접 넣습니다. 같은 컨테이너, 같은 계정, 다른 스키마입니다.
      *
+     * <p>{@code analytics.datasource.*} 에 바로 넣지 않고 {@code test.analytics.*} 에 넣은 뒤
+     * application-test.yml 이 그것을 참조합니다. 우회하는 이유가 있습니다. &#64;DynamicPropertySource
+     * 는 &#64;TestPropertySource 보다 우선순위가 높아서, 여기서 최종 키를 채우면 "분석 DB 가 죽어
+     * 있을 때"를 시험하는 테스트가 URL 을 바꿀 방법이 없습니다. 한 단계 우회하면 그 테스트가
+     * &#64;TestPropertySource 로 최종 키만 덮어쓸 수 있습니다.
+     *
      * <p>URL 옵션은 application-prod.yml 과 같아야 합니다. 특히 createDatabaseIfNotExist 가
      * 없으면 첫 접속이 Unknown database 로 실패해 분석 쪽 테스트가 전부 죽습니다.
      */
     @DynamicPropertySource
     static void analyticsDatasource(DynamicPropertyRegistry registry) {
-        registry.add("analytics.datasource.url", () -> "jdbc:mysql://" + MYSQL.getHost() + ":"
+        registry.add("test.analytics.url", () -> "jdbc:mysql://" + MYSQL.getHost() + ":"
                 + MYSQL.getFirstMappedPort() + "/" + ANALYTICS_SCHEMA
                 + "?createDatabaseIfNotExist=true&characterEncoding=UTF-8&serverTimezone=UTC"
                 + "&rewriteBatchedStatements=true");
-        registry.add("analytics.datasource.username", MYSQL::getUsername);
-        registry.add("analytics.datasource.password", MYSQL::getPassword);
+        registry.add("test.analytics.username", MYSQL::getUsername);
+        registry.add("test.analytics.password", MYSQL::getPassword);
     }
 }
