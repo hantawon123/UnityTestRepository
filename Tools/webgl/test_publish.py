@@ -1,0 +1,41 @@
+"""Run with python3 Tools/webgl/test_publish.py on Linux."""
+import json
+from pathlib import Path
+import tempfile
+from publish import publish
+
+with tempfile.TemporaryDirectory() as directory:
+    root = Path(directory) / 'site'
+    build = Path(directory) / 'build'
+    (build / 'Build').mkdir(parents=True)
+    (build / 'index.html').write_text('<body>game</body>')
+    for suffix in ('.wasm.gz', '.data.gz', '.framework.js.gz', '.loader.js'):
+        (build / 'Build' / ('test' + suffix)).write_bytes(b'fixture')
+    first, second = 'a' * 40, 'b' * 40
+    for sha, number in ((first, 1), (second, 2)):
+        (build / 'version.txt').write_text(sha)
+        publish(root, sha, number, build)
+    pointer = root / 'current.json'
+    assert json.loads(pointer.read_text())['revision'] == second
+    publish(root, first, 1, build)
+    assert json.loads(pointer.read_text())['revision'] == second
+    publish(root, first)
+    assert json.loads(pointer.read_text()) == {'revision': first, 'sequence': 2}
+    before = pointer.read_bytes()
+    for invalid in ('../escape', 'c' * 40):
+        try:
+            publish(root, invalid)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('Invalid rollback was accepted')
+        assert pointer.read_bytes() == before
+    try:
+        publish(root, second, 3, build / 'missing')
+    except FileNotFoundError:
+        pass
+    else:
+        raise AssertionError('Missing build was accepted')
+    assert pointer.read_bytes() == before
+    assert 'release-info.js' in (root / 'releases' / first / 'index.html').read_text()
+print('Publication, ordering, rollback and failed-deployment checks passed')

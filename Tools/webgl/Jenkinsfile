@@ -1,0 +1,42 @@
+// Dedicated single-branch job on EC2; the backend job remains independent.
+pipeline {
+    agent any
+    options {
+        skipDefaultCheckout(true)
+        disableConcurrentBuilds()
+        timeout(time: 120, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '15', artifactNumToKeepStr: '3'))
+        timestamps()
+    }
+    triggers { pollSCM('H/5 * * * *') }
+    stages {
+        stage('Checkout') {
+            steps {
+                script {
+                    checkout([$class: 'GitSCM', branches: scm.branches,
+                        userRemoteConfigs: scm.userRemoteConfigs,
+                        extensions: [[$class: 'GitLFSPull']]])
+                }
+            }
+        }
+        stage('Deployment checks') {
+            steps { sh 'python3 Tools/webgl/test_publish.py' }
+        }
+        stage('WebGL build') {
+            steps {
+                dir('Builds/WebGL') { deleteDir() }
+                sh 'bash Tools/webgl/build.sh'
+            }
+        }
+        stage('Publish') {
+            when { expression { env.GIT_BRANCH == 'origin/develop' } }
+            steps {
+                sh 'python3 Tools/webgl/publish.py /var/www/d205-webgl "$(git rev-parse HEAD)" --source Builds/WebGL --sequence "$BUILD_NUMBER"'
+            }
+        }
+    }
+    post {
+        always { archiveArtifacts artifacts: 'Logs/webgl-build.log', allowEmptyArchive: true }
+        success { archiveArtifacts artifacts: 'Builds/WebGL/**', fingerprint: true }
+    }
+}
