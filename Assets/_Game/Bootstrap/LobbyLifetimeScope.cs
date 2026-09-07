@@ -47,7 +47,7 @@ namespace Game.Bootstrap
         private HostTransferConfirmView transferConfirmView;
 
         [SerializeField]
-        private LobbyChatView chatView;
+        private MatchChatView chatView;
 
         [SerializeField]
         private LobbyChatBubbleView chatBubbleView;
@@ -161,7 +161,8 @@ namespace Game.Bootstrap
             builder.RegisterComponent(playSettingsView).As<IPlaySettingsView>();
             builder.RegisterComponent(kickConfirmView).As<IKickConfirmView>();
             builder.RegisterComponent(transferConfirmView).As<IHostTransferConfirmView>();
-            builder.RegisterComponent(chatView).As<ILobbyChatView>();
+            chatView.SetKeepChromeVisible(true);
+            builder.RegisterComponent(chatView).As<IMatchChatView>();
             builder.RegisterComponent(chatBubbleView)
                 .AsSelf()
                 .As<ILobbyChatBubbleView>();

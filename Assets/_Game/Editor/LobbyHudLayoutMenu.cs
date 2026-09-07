@@ -99,11 +99,13 @@ namespace Game.Editor
                 playerListView = Undo.AddComponent<LobbyPlayerListView>(playerList.gameObject);
             }
 
-            var chatView = chat.GetComponent<LobbyChatView>();
+            var chatView = chat.GetComponent<MatchChatView>();
             if (chatView == null)
             {
-                chatView = Undo.AddComponent<LobbyChatView>(chat.gameObject);
+                chatView = Undo.AddComponent<MatchChatView>(chat.gameObject);
             }
+
+            chatView.SetKeepChromeVisible(true);
 
             // Built before the screens it leads to: both of them take their
             // open button from this panel now.

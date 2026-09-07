@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Match;
 using Game.Core.Lobby;
 using R3;
 using VContainer.Unity;
@@ -10,7 +11,7 @@ namespace Game.Client.Lobby
     {
         private readonly ILobbyChatLog chatLog;
         private readonly ILobbyChatTransport transport;
-        private readonly ILobbyChatView chatView;
+        private readonly IMatchChatView chatView;
         private readonly ILobbyChatBubbleView bubbleView;
         private IDisposable messagesSubscription;
         private int lastRenderedCount;
@@ -18,7 +19,7 @@ namespace Game.Client.Lobby
         public LobbyChatPresenter(
             ILobbyChatLog chatLog,
             ILobbyChatTransport transport,
-            ILobbyChatView chatView,
+            IMatchChatView chatView,
             ILobbyChatBubbleView bubbleView)
         {
             this.chatLog = chatLog ?? throw new ArgumentNullException(nameof(chatLog));

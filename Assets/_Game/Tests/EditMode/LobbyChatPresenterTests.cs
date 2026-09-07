@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.Client.Lobby;
+using Game.Client.Match;
 using Game.Core.Lobby;
 using NUnit.Framework;
 
@@ -95,7 +96,7 @@ namespace Game.Tests.EditMode
             Assert.That(message.Text.Length, Is.EqualTo(LobbyChatMessage.MaxTextLength));
         }
 
-        private sealed class FakeChatView : ILobbyChatView
+        private sealed class FakeChatView : IMatchChatView
         {
             public event System.Action<string> SendRequested;
             public IReadOnlyList<LobbyChatMessage> LastMessages { get; private set; }

@@ -13018,14 +13018,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1928557077}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 892b333d38ed4c86a1f56bad9785473a, type: 3}
+  m_Script: {fileID: 11500000, guid: b1d08d5a4f344b02a7629fcb72df66ab, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Game.Client::Game.Client.Lobby.LobbyChatView
-  messageRoot: {fileID: 1395902496}
-  inputField: {fileID: 1603310847}
-  sendButton: {fileID: 1660233385}
-  scrollRect: {fileID: 1947856370}
-  uiFont: {fileID: 12800000, guid: dc98b65976bf5cf429e1f4ad73bf967a, type: 3}
+  m_EditorClassIdentifier: Game.Client::Game.Client.Match.MatchChatView
 --- !u!1 &1933447560
 GameObject:
   m_ObjectHideFlags: 0

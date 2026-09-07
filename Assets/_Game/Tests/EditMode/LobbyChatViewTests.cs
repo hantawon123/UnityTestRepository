@@ -14,11 +14,9 @@ namespace Game.Architecture.Tests
         public void Awake_BuildsPlaygroundHud_AndKeepsChromeVisible()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
-            var root = new GameObject("ChatRoot", typeof(RectTransform));
             try
             {
-                root.transform.SetParent(canvas.transform, false);
-                var view = root.AddComponent<LobbyChatView>();
+                var view = MatchChatView.Create(canvas.transform, keepChromeVisible: true);
                 view.SetMessages(new[]
                 {
                     new LobbyChatMessage("a", "싸피생1", "하나"),
@@ -29,22 +27,22 @@ namespace Game.Architecture.Tests
                 });
 
                 Assert.That(view.IsActivated, Is.False);
-                Assert.That(root.transform.Find("HistoryPanel").gameObject.activeSelf, Is.True);
-                Assert.That(root.transform.Find("InputPanel").gameObject.activeSelf, Is.True);
+                Assert.That(view.transform.Find("HistoryPanel").gameObject.activeSelf, Is.True);
+                Assert.That(view.transform.Find("InputPanel").gameObject.activeSelf, Is.True);
                 Assert.That(
-                    root.transform.Find("HistoryPanel/Items/Row0/Name").GetComponent<TMP_Text>().text,
+                    view.transform.Find("HistoryPanel/Items/Row0/Name").GetComponent<TMP_Text>().text,
                     Is.EqualTo("싸피생2"));
                 Assert.That(
-                    root.transform.Find("HistoryPanel/Items/Row3/Body").GetComponent<TMP_Text>().text,
+                    view.transform.Find("HistoryPanel/Items/Row3/Body").GetComponent<TMP_Text>().text,
                     Is.EqualTo("안녕하십니까 여러분"));
-                var input = root.transform.Find("InputPanel").GetComponent<TMP_InputField>();
+                var input = view.transform.Find("InputPanel").GetComponent<TMP_InputField>();
                 Assert.That(input.placeholder is TMP_Text placeholder
                     ? placeholder.text
                     : null, Is.EqualTo(MatchChatView.PlaceholderText));
-                Assert.That(root.transform.Find("InputPanel/Send"), Is.Not.Null);
+                Assert.That(view.transform.Find("InputPanel/Send"), Is.Not.Null);
                 view.Deactivate();
-                Assert.That(root.transform.Find("HistoryPanel").gameObject.activeSelf, Is.True);
-                Assert.That(root.transform.Find("InputPanel").gameObject.activeSelf, Is.True);
+                Assert.That(view.transform.Find("HistoryPanel").gameObject.activeSelf, Is.True);
+                Assert.That(view.transform.Find("InputPanel").gameObject.activeSelf, Is.True);
             }
             finally
             {
