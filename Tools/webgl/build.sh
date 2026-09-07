@@ -37,7 +37,7 @@ timed restore docker run --rm --cpus=1 --memory=1g --user "$uid:$gid" \
 # This is the actual EC2 host identity used during official activation.
 # Never copy another computer's machine-id or change the license XML.
 run_unity() {
-docker run --rm --cpus=3 --memory=8g --memory-swap=8g \
+docker run --rm --cpus=3 --cpu-shares=256 --memory=8g --memory-swap=8g \
     --user "$uid:$gid" -e HOME=/home/unity -e WEBGL_REVISION="$revision" \
     -e BEE_CACHE_DIRECTORY=/cache/bee -e WEBGL_FAST_BUILD="${WEBGL_FAST_BUILD:-0}" \
     --mount "type=bind,src=$cache,dst=/cache" \

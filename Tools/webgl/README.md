@@ -12,10 +12,12 @@ EC2의 `unity-webgl` 전용 에이전트를 사용한다. 기존 백엔드 작�
 - 운영 Branch Specifier: `*/develop`. MR 병합 전 검증에는 `*/feature/server/webgl-delivery` 사용.
 - feature 빌드는 검증·산출물 보관까지만 실행한다. `origin/develop`만 Publish 단계를 실행한다.
 - 실행 동시성 1, 제한 120분. NuGet 복원 1 CPU/1GB, Unity 빌드 3 CPU/8GB.
+- Unity 컨테이너 CPU shares는 256으로 두어 CPU 경쟁 시 기본 가중치 컨테이너보다 낮게 배분한다. CPU 3개는 상한이며 백엔드 지연이 없어지는 보장은 아니다.
 - 노드 `d205-unity-webgl`: 라벨 `unity-webgl`, 실행 슬롯 1, 라벨 일치 작업만 허용.
 - 전용 에이전트 루트 `/var/lib/jenkins/agents/unity-webgl`, 서비스 `d205-unity-agent.service`.
   서비스 정의는 `unity-agent.service`에 보관한다. `agent.args`와 `agent-secret`은 서버에서 0600으로 관리하고 Git에 넣지 않는다.
 - `FORCE_BUILD`: 같은 SHA도 재빌드. `FAST_BUILD`: IL2CPP OptimizeSize 비교용이며 자동 배포하지 않는다.
+- `TEST_ONLY`: 계약 테스트만 실행해 전용 에이전트 연결을 검증한다. 플레이어 빌드·산출물 게시·배포 기준 갱신을 생략한다.
 - 최초 실행이나 비교 기준 누락 시 빌드한다. 이후 마지막 정상 설정의 성공 SHA와 비교하여 backend/docs/source만 바뀌면 생략한다.
   빠른 설정의 비교 빌드와 무관한 변경으로 생략한 실행은 정상 빌드 기준 SHA를 갱신하지 않는다.
 - Unity는 명시적 `git lfs pull`로 에셋을 복원한다. Jenkins 전역 Git 설정을 변경하지 않는다.

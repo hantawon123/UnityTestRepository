@@ -2,6 +2,8 @@
 pipeline {
     agent { label 'unity-webgl' }
     parameters {
+        booleanParam(name: 'TEST_ONLY', defaultValue: false,
+            description: '전용 실행 환경의 계약 테스트만 검증합니다. 플레이어 빌드·배포는 실행하지 않습니다.')
         booleanParam(name: 'FORCE_BUILD', defaultValue: false,
             description: '변경 없는 커밋도 다시 빌드하여 캐시 효과를 측정합니다.')
         booleanParam(name: 'FAST_BUILD', defaultValue: false,
@@ -29,7 +31,7 @@ pipeline {
         stage('Change scope') {
             steps {
                 script {
-                    env.WEBGL_REQUIRED = (params.FORCE_BUILD || params.FAST_BUILD) ? 'true' : sh(returnStdout: true, script: '''
+                    env.WEBGL_REQUIRED = (params.TEST_ONLY || params.FORCE_BUILD || params.FAST_BUILD) ? 'true' : sh(returnStdout: true, script: '''
                         python3 Tools/webgl/changes.py
                     ''').trim()
                     if (env.WEBGL_REQUIRED == 'false') {
@@ -50,14 +52,17 @@ pipeline {
         stage('WebGL build') {
             when { environment name: 'WEBGL_REQUIRED', value: 'true' }
             steps {
-                dir('Builds/WebGL') { deleteDir() }
-                withEnv(["WEBGL_FAST_BUILD=${params.FAST_BUILD ? '1' : '0'}"]) {
+                script {
+                    if (!params.TEST_ONLY) dir('Builds/WebGL') { deleteDir() }
+                }
+                withEnv(["WEBGL_FAST_BUILD=${params.FAST_BUILD ? '1' : '0'}",
+                         "WEBGL_TEST_ONLY=${params.TEST_ONLY ? '1' : '0'}"]) {
                     sh 'bash Tools/webgl/build.sh'
                 }
             }
         }
         stage('Publish') {
-            when { expression { env.GIT_BRANCH == 'origin/develop' && env.WEBGL_REQUIRED == 'true' && !params.FAST_BUILD } }
+            when { expression { env.GIT_BRANCH == 'origin/develop' && env.WEBGL_REQUIRED == 'true' && !params.FAST_BUILD && !params.TEST_ONLY } }
             steps {
                 sh 'python3 Tools/webgl/publish.py /var/www/d205-webgl "$(git rev-parse HEAD)" --source Builds/WebGL --sequence "$BUILD_NUMBER"'
             }
@@ -73,7 +78,7 @@ pipeline {
         }
         success {
             script {
-                if (env.WEBGL_REQUIRED == 'true') {
+                if (env.WEBGL_REQUIRED == 'true' && !params.TEST_ONLY) {
                     archiveArtifacts artifacts: 'Builds/WebGL/**', fingerprint: true
                     if (!params.FAST_BUILD) sh 'git rev-parse HEAD > Library/WebGLCiCache/verified-revision'
                 }

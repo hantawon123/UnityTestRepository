@@ -41,6 +41,10 @@ grep -q BEE_CACHE_DIRECTORY=/cache/bee calls.log
 grep -q NUGET_PACKAGES=/cache/nuget calls.log
 grep -q $'build\t' Logs/webgl-timings.tsv
 test -f Builds/WebGL/version.txt
+: > calls.log
+WEBGL_TEST_ONLY=1 bash "$script" >/dev/null
+! grep -q -- -executeMethod calls.log
+test ! -f Logs/webgl-build.log
 # Early validation failure must not expose the preceding build's log as current.
 WEBGL_CONFIG_DIR="$fixture/missing" bash "$script" >/dev/null 2>&1 && exit 1
 test ! -f Logs/webgl-build.log
