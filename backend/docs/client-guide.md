@@ -224,6 +224,7 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 | `ALREADY_FRIENDS` | 409 | 이미 친구 | 목록을 다시 불러옵니다 |
 | `REQUEST_ALREADY_SENT` | 409 | 이미 보낸 요청 | 목록을 다시 불러옵니다 |
 | `CONFLICT` | 409 | 동시 요청이 겹침 | 다시 시도하면 대개 됩니다 |
+| `RATE_LIMITED` | 429 | 한 IP 가 플레이 로그를 분당 허용량 넘게 보냄 | 그 배치를 스풀에 두고 다음 flush 에 다시 보냅니다 |
 | `NICKNAME_GENERATION_FAILED` | 500 | 서버가 임시 닉네임을 못 만듦 | 서버 문제입니다. 재시도 |
 
 `ACCOUNT_NOT_FOUND` 와 `TARGET_NOT_FOUND` 를 나눈 이유가 대응이 다르기 때문입니다.
@@ -387,7 +388,54 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 
 ---
 
-## 9. 계정 삭제
+## 9. 플레이 로그 전송
+
+`POST /api/v1/events` 에 이벤트 배열을 보냅니다. **무엇을 언제 보내는지는 여기 없습니다.**
+그건 [`analytics-events.md`](analytics-events.md) 가 정하고, 이 절은 HTTP 규약만 적습니다.
+
+```json
+[{ "occurredAt": 1788750000000, "clientSessionId": "…uuid…", "clientSeq": 0,
+   "roomCode": "ABC234", "matchId": null, "matchTimeMs": null, "userPublicId": "…uuid…",
+   "eventName": "scene_enter", "phase": null, "mapId": null,
+   "posX": null, "posY": null, "posZ": null,
+   "fromHost": false, "schemaVer": 1, "params": { "scene": "Lobby" } }]
+```
+
+- **`X-User-Id` 헤더를 붙이지 않습니다.** 주체는 이벤트마다 `userPublicId` 로 들어가고, 호스트가
+  다른 플레이어를 대신해 보내므로 요청 하나가 한 사람의 것이 아닙니다.
+- **`202` 는 "받았다"이지 "저장했다"가 아닙니다.** 응답 본문이 없고, 저장은 서버가 뒤에서 합니다.
+- 한 요청에 **200건**까지입니다. 클라이언트는 50건마다 flush 하므로 평소에는 닿지 않습니다.
+- `occurredAt` 은 **UTC epoch 밀리초**입니다. 다른 API 의 14자 문자열과 다릅니다.
+- `params` 는 JSON 객체여야 하고 2KB 이내입니다. 배열이나 문자열을 넣으면 `400` 입니다.
+
+### 400 은 재전송하지 않습니다
+
+배치 안의 이벤트 하나가 규칙을 어기면 **배치 전체가 `400`** 입니다. 일부만 받으면 무엇이
+들어갔는지 알 수 없어 재전송을 판단할 수 없기 때문입니다. `message` 가 `events[3]: …` 처럼
+몇 번째가 왜 틀렸는지 말합니다. 400 을 받은 배치는 스풀에서 지우세요. 다시 보내도 같은 답입니다.
+
+거부되는 경우:
+
+- `eventName` 이 명세 목록에 없음
+- `occurredAt` 이 **지금-7일 ~ 지금+5분** 밖. 기기 시계가 크게 틀린 경우이고, 그 배치는 잃습니다
+- 필수 필드(`occurredAt`, `clientSessionId`, `clientSeq`, `eventName`, `fromHost`, `schemaVer`) 누락
+- 배열이 비었거나 200건 초과
+
+### 429 는 재전송합니다
+
+한 IP 에서 분당 60요청을 넘기면 `RATE_LIMITED` 입니다. 정상 클라이언트는 10초마다 한 번
+보내므로 닿지 않습니다. 스풀 재전송이 몰릴 때 닿을 수 있는데, 그 배치는 스풀에 그대로 두고 다음
+flush 에 다시 보내면 됩니다.
+
+### 같은 이벤트를 두 번 보내도 됩니다
+
+`202` 를 받지 못한 배치를 스풀에서 다시 보내면 서버가 `(clientSessionId, clientSeq, occurredAt)`
+으로 중복을 알아보고 조용히 버립니다. **그래서 `clientSeq` 는 재전송해도 같은 값이어야 합니다.**
+스풀에 쓸 때 이미 붙어 있어야 합니다.
+
+---
+
+## 10. 계정 삭제
 
 `DELETE /api/v1/accounts/me` 는 **되돌릴 수 없습니다.** 계정과 함께 친구 관계와 접속
 기록이 모두 사라집니다. 복구 수단이 없으니 확인 화면을 반드시 두세요.
