@@ -63,7 +63,23 @@ namespace Game.Network.Players
         /// the same value on every peer.
         /// </summary>
         public PlayerRef Owner => Object.InputAuthority;
-        public string PlayerId => Object != null && Object.IsValid ? PlayerRegistry.IdOf(Owner) : null;
+        private PlayerRef cachedOwner;
+        private string cachedPlayerId;
+
+        public string PlayerId
+        {
+            get
+            {
+                if (Object == null || !Object.IsValid) return null;
+                var owner = Owner;
+                if (owner != cachedOwner)
+                {
+                    cachedOwner = owner;
+                    cachedPlayerId = PlayerRegistry.IdOf(owner);
+                }
+                return cachedPlayerId;
+            }
+        }
 
         /// <summary>True on the peer whose player this character belongs to.</summary>
         public bool IsOwner => Object.HasInputAuthority;
