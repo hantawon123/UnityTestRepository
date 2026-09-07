@@ -199,6 +199,43 @@ namespace Game.Tests.EditMode
             finally { UnityEngine.Object.DestroyImmediate(root); }
         }
 
+        [Test]
+        public void RealView_RuleEditingEnforcesBoundsAndAuthority_AndKeepsCategory()
+        {
+            var root = new GameObject("Rule editing test");
+            root.SetActive(false);
+            try
+            {
+                var view = root.AddComponent<PlaySettingsView>();
+                MatchRuleSettings.TryCreate(10, 1, 0.5f, 1, "fruit", out var rules, out _);
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "playground", rules));
+                var change = typeof(PlaySettingsView).GetMethod("ChangeRule",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                void Step(int field, int direction) => change.Invoke(view, new object[] { field, direction });
+                view.SetEditable(false);
+                for (var field = 0; field < 4; field++) Step(field, 1);
+                Assert.That(view.ReadDraft().MatchRules, Is.EqualTo(rules));
+                view.SetEditable(true);
+                for (var field = 0; field < 4; field++) Step(field, -1);
+                Assert.That(view.ReadDraft().MatchRules, Is.EqualTo(rules));
+                foreach (var speed in new[] { 1f, 1.5f, 2f, 3f })
+                {
+                    Step(2, 1);
+                    Assert.That(view.ReadDraft().MatchRules.SprintMultiplier, Is.EqualTo(speed));
+                }
+                for (var n = 0; n < 125; n++)
+                    for (var field = 0; field < 4; field++) Step(field, 1);
+                var actual = view.ReadDraft().MatchRules;
+                Assert.That(actual.HidingDurationSeconds, Is.EqualTo(120));
+                Assert.That(actual.SearchingDurationMinutes, Is.EqualTo(15));
+                Assert.That(actual.SprintMultiplier, Is.EqualTo(3));
+                Assert.That(actual.StunHitCount, Is.EqualTo(10));
+                Assert.That(actual.CategoryId, Is.EqualTo("fruit"));
+                view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "playground", rules));
+                Assert.That(view.ReadDraft().MatchRules, Is.EqualTo(rules));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+        }
         private static PlaySettingsDraft Draft(int capacity) =>
             new("방", "CODE", false, null, capacity, 3, "playground");
 

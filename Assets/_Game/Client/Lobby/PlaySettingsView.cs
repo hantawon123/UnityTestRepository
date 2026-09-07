@@ -98,6 +98,11 @@ namespace Game.Client.Lobby
         [SerializeField]
         private RectTransform mapContent;
 
+        private static readonly float[] SprintOptions = { 0.5f, 1f, 1.5f, 2f, 3f };
+        private readonly List<Text> ruleValues = new();
+        private readonly List<Button> ruleMinus = new();
+        private readonly List<Button> rulePlus = new();
+
         private string title = string.Empty;
         private string roomCode = string.Empty;
         private bool passwordEnabled;
@@ -121,6 +126,8 @@ namespace Game.Client.Lobby
 
         private void OnEnable()
         {
+            EnsureRuleControls();
+            BindRuleControls();
             EnsureTitleInput();
             if (titleInput != null) titleInput.onValueChanged.AddListener(OnTitleChanged);
             Bind(saveTitleButton, () => SaveTitleRequested?.Invoke());
@@ -142,6 +149,8 @@ namespace Game.Client.Lobby
         private void OnDisable()
         {
             if (titleInput != null) titleInput.onValueChanged.RemoveListener(OnTitleChanged);
+            foreach (var button in ruleMinus) Unbind(button);
+            foreach (var button in rulePlus) Unbind(button);
             Unbind(saveTitleButton);
             Unbind(openButton);
             Unbind(closeButton);
@@ -504,8 +513,104 @@ namespace Game.Client.Lobby
             RefreshCounters();
         }
 
+        private void EnsureRuleControls()
+        {
+            if (ruleValues.Count != 0 || panel == null || maxPlayersText == null ||
+                maxPlayersMinusButton == null || maxPlayersPlusButton == null) return;
+            var panelRect = (RectTransform)panel.transform;
+            panelRect.sizeDelta += new Vector2(0, 220);
+            foreach (RectTransform child in panelRect)
+                if (child.anchorMin.y == 0.5f && child.anchorMax.y == 0.5f)
+                    child.anchoredPosition += new Vector2(0, 110);
+            var names = new[] { "숨기기 시간", "찾기 시간", "달리기 속도", "HP" };
+            for (var i = 0; i < names.Length; i++)
+            {
+                var y = -195 - i * 45;
+                var label = Instantiate(maxPlayersText, panelRect);
+                label.name = "RuleLabel" + i;
+                label.text = names[i];
+                label.alignment = TextAnchor.MiddleLeft;
+                PlaceRuleControl(label.rectTransform, 40, y, 190);
+                var value = Instantiate(maxPlayersText, panelRect);
+                value.name = "RuleValue" + i;
+                PlaceRuleControl(value.rectTransform, 275, y, 110);
+                ruleValues.Add(value);
+                var minus = Instantiate(maxPlayersMinusButton, panelRect);
+                minus.name = "RuleMinus" + i;
+                minus.onClick = new Button.ButtonClickedEvent();
+                PlaceRuleControl((RectTransform)minus.transform, 220, y, 40);
+                ruleMinus.Add(minus);
+                var plus = Instantiate(maxPlayersPlusButton, panelRect);
+                plus.name = "RulePlus" + i;
+                plus.onClick = new Button.ButtonClickedEvent();
+                PlaceRuleControl((RectTransform)plus.transform, 400, y, 40);
+                rulePlus.Add(plus);
+            }
+            RefreshRuleControls();
+        }
+
+        private static void PlaceRuleControl(RectTransform rect, float x, float y, float width)
+        {
+            rect.anchorMin = rect.anchorMax = new Vector2(0, 0.5f);
+            rect.pivot = new Vector2(0, 0.5f);
+            rect.anchoredPosition = new Vector2(x, y);
+            rect.sizeDelta = new Vector2(width, 36);
+        }
+
+        private void BindRuleControls()
+        {
+            for (var i = 0; i < ruleValues.Count; i++)
+            {
+                var index = i;
+                Bind(ruleMinus[i], () => ChangeRule(index, -1));
+                Bind(rulePlus[i], () => ChangeRule(index, 1));
+            }
+        }
+
+        private void ChangeRule(int index, int direction)
+        {
+            if (!editable) return;
+            var hiding = matchRules.HidingDurationSeconds;
+            var searching = matchRules.SearchingDurationMinutes;
+            var speed = matchRules.SprintMultiplier;
+            var hp = matchRules.StunHitCount;
+            switch (index)
+            {
+                case 0: hiding += direction; break;
+                case 1: searching += direction; break;
+                case 2:
+                    var next = Array.IndexOf(SprintOptions, speed) + direction;
+                    if (next < 0 || next >= SprintOptions.Length) return;
+                    speed = SprintOptions[next]; break;
+                case 3: hp += direction; break;
+                default: return;
+            }
+            if (MatchRuleSettings.TryCreate(hiding, searching, speed, hp, matchRules.CategoryId,
+                out var updated, out _)) matchRules = updated;
+            RefreshRuleControls();
+        }
+
+        private void RefreshRuleControls()
+        {
+            if (ruleValues.Count == 0) return;
+            var values = new[] { matchRules.HidingDurationSeconds, matchRules.SearchingDurationMinutes,
+                Array.IndexOf(SprintOptions, matchRules.SprintMultiplier), matchRules.StunHitCount };
+            var min = new[] { MatchRuleSettings.MinHidingDurationSeconds, MatchRuleSettings.MinSearchingDurationMinutes,
+                0, MatchRuleSettings.MinStunHitCount };
+            var max = new[] { MatchRuleSettings.MaxHidingDurationSeconds, MatchRuleSettings.MaxSearchingDurationMinutes,
+                SprintOptions.Length - 1, MatchRuleSettings.MaxStunHitCount };
+            var labels = new[] { values[0] + "초", values[1] + "분", matchRules.SprintMultiplier + "배", values[3].ToString() };
+            for (var i = 0; i < ruleValues.Count; i++)
+            {
+                ruleValues[i].text = labels[i];
+                ruleMinus[i].interactable = editable && values[i] > min[i];
+                rulePlus[i].interactable = editable && values[i] < max[i];
+            }
+        }
+
         private void RefreshCounters()
         {
+            RefreshRuleControls();
             if (maxPlayersText != null)
             {
                 maxPlayersText.text = maxPlayers.ToString();
