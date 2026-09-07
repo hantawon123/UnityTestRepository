@@ -33,7 +33,7 @@ namespace Game.Network.Session
             Debug.Log($"[Network] Player joined: {player}.");
             // Snapshot seats must be restored before a join can allocate a new one.
             if (_hostMigrationInProgress) return;
-            _spawner?.Spawn(runner, player, NicknameOf(runner, player), AccountIdOf(runner, player));
+            _spawner?.Spawn(runner, player, NicknameOf(runner, player));
             ReportPlayerCount();
         }
 
@@ -381,7 +381,6 @@ namespace Game.Network.Session
                 var result = await replacementRunner.StartGame(new StartGameArgs
                 {
                     GameMode = hostMigrationToken.GameMode,
-                    CustomPhotonAppSettings = GetPhotonSettings(),
                     PlayerUniqueId = _playerUniqueId,
                     HostMigrationToken = hostMigrationToken,
                     HostMigrationResume = resumedRunner =>
@@ -392,7 +391,7 @@ namespace Game.Network.Session
                     },
                     ConnectionToken = SessionConnectionTokenCodec.Encode(
                         _expectedPassword,
-                        _profile?.Nickname, _profile?.AccountId),
+                        _profile?.Nickname),
                     SceneManager = sceneManager,
                     Scene = migrationScene,
                 });
@@ -453,7 +452,7 @@ namespace Game.Network.Session
                     if (migrationRevision != _hostMigrationRevision || !IsCurrentRunner(replacementRunner)) return;
                     _matchStarter.PublishSceneState();
                     foreach (var player in replacementRunner.ActivePlayers)
-                        _spawner?.Spawn(replacementRunner, player, NicknameOf(replacementRunner, player), AccountIdOf(replacementRunner, player));
+                        _spawner?.Spawn(replacementRunner, player, NicknameOf(replacementRunner, player));
                     if (phase == MatchPhase.Hiding || phase == MatchPhase.Searching)
                     {
                         _matchRuntimeRestoreFailure = null;

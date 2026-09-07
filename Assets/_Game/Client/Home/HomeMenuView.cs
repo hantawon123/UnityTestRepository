@@ -1,8 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Game.Client.Common;
-using Game.Client.Accessibility;
-using Game.Client.Graphics;
 using Game.Core.Home;
 using TMPro;
 using UnityEngine;
@@ -108,9 +106,6 @@ namespace Game.Client.Home
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0.5f;
             canvasObject.AddComponent<GraphicRaycaster>();
-            AccessibilityBindings.EnsureCanvas(canvasObject);
-            GraphicsBindings.EnsureCanvas(canvasObject);
-            AddImage(canvasRect, Color.white);
             return canvasRect;
         }
 
@@ -507,7 +502,6 @@ namespace Game.Client.Home
             tmp.textWrappingMode = TextWrappingModes.NoWrap;
             tmp.overflowMode = TextOverflowModes.Overflow;
             target.gameObject.SetActive(true);
-            AccessibilityBindings.EnsureText(tmp);
             return tmp;
         }
 

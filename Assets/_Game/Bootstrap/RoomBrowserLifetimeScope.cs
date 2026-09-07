@@ -73,8 +73,6 @@ namespace Game.Bootstrap
                 this.scenes = scenes;
             }
 
-            public void OpenSettings() => fallback.OpenSettings();
-
             public void Quit() => fallback.Quit();
 
             public void OpenHome() => scenes.OpenHome();

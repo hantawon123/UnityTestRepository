@@ -170,7 +170,7 @@ namespace Game.Client.Cameras
                 ApplyView();
             }
 
-            if (!cursorCaptureEnabled || Game.Client.Match.MatchReportView.IsOpen)
+            if (!cursorCaptureEnabled)
             {
                 return;
             }

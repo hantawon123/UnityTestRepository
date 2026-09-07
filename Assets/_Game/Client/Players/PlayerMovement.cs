@@ -234,7 +234,7 @@ namespace Game.Client.Players
         /// </summary>
         public static bool IsTextInputFocused()
         {
-            if (MatchChatView.BlocksPlayerInput || MatchReportView.IsOpen)
+            if (MatchChatView.BlocksPlayerInput)
             {
                 return true;
             }

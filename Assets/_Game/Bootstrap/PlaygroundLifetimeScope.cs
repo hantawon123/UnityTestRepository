@@ -123,8 +123,6 @@ namespace Game.Bootstrap
                     Lifetime.Scoped)
                 .As<ILobbyChatLog>();
             builder.RegisterEntryPoint<MatchChatPresenter>();
-            builder.RegisterComponent(MatchReportView.Create(transform)).As<IMatchReportView>();
-            builder.RegisterEntryPoint<MatchReportPresenter>();
             builder.RegisterEntryPoint<InGameChatBubbleBinder>();
 
             // The rig on the runner keeps carrying voice through the match on

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -297,7 +297,6 @@ namespace Game.Architecture.Tests
 
         private sealed class SilentHost : IHomeApplicationHost
         {
-            public void OpenSettings() { }
             public void Quit() { }
 
             public void OpenHome() { }

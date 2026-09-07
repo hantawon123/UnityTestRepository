@@ -103,7 +103,7 @@ namespace Game.Network.Players
                     PlayerRegistry.IdOf(avatar.Owner),
                     avatar.Seat,
                     avatar.IsHost,
-                    avatar.Nickname.ToString(), avatar.AccountId.ToString()));
+                    avatar.Nickname.ToString()));
             }
 
             // Seat order, not arrival order. Characters replicate in whatever

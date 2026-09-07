@@ -267,7 +267,6 @@ namespace Game.Client.Match
 
         private void Update()
         {
-            if (MatchReportView.IsOpen) return;
             if (!WasEnterPressedThisFrame())
             {
                 return;

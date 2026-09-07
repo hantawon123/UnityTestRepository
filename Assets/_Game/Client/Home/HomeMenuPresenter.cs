@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Game.Core.Flow;
 using Game.Core.Home;
@@ -28,7 +28,6 @@ namespace Game.Client.Home
         void CreateRoom(string title, bool isPublic, int maxPlayers);
 
         void OpenLobby();
-        void OpenSettings();
     }
 
     public sealed class UnityHomeApplicationHost : IHomeApplicationHost
@@ -36,7 +35,6 @@ namespace Game.Client.Home
         public const string HomeSceneName = "Home";
         public const string RoomBrowserSceneName = "Room";
         public const string LobbySceneName = "Lobby";
-        public const string SettingsSceneName = "Settings";
 
         public void Quit()
         {
@@ -119,11 +117,6 @@ namespace Game.Client.Home
                     $"[SceneTiming] Local load completed: {source} -> {target}, " +
                     $"elapsed={Time.realtimeSinceStartupAsDouble - startedAt:F3}s.");
             };
-        }
-
-        public void OpenSettings()
-        {
-            SceneManager.LoadScene(SettingsSceneName);
         }
     }
 
@@ -264,15 +257,6 @@ namespace Game.Client.Home
                 HideFriendList();
                 HideServerSettings();
                 ShowProfileSettings();
-                return;
-            }
-
-            if (action == HomeMenuAction.Settings &&
-                appFlow.TryTransitionTo(AppFlowState.Settings))
-            {
-                HideFriendList();
-                HideProfileSettings();
-                applicationHost.OpenSettings();
                 return;
             }
 

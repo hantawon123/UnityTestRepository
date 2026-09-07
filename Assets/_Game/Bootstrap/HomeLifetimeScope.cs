@@ -1,4 +1,4 @@
-using System.Threading;
+﻿using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Client.Common;
 using Game.Client.Home;
@@ -216,8 +216,6 @@ namespace Game.Bootstrap
                 this.view = view;
                 this.appFlow = appFlow;
             }
-
-            public void OpenSettings() => fallback.OpenSettings();
 
             public void Quit() => fallback.Quit();
 

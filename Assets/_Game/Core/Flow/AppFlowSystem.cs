@@ -9,8 +9,7 @@ namespace Game.Core.Flow
         Lobby,
         InGame,
         Highlight,
-        Result,
-        Settings
+        Result
     }
 
     public sealed class AppFlowSystem
@@ -37,10 +36,7 @@ namespace Game.Core.Flow
             {
                 case AppFlowState.Home:
                     return nextState == AppFlowState.RoomBrowser ||
-                           nextState == AppFlowState.Lobby ||
-                           nextState == AppFlowState.Settings;
-                case AppFlowState.Settings:
-                    return nextState == AppFlowState.Home;
+                           nextState == AppFlowState.Lobby;
                 case AppFlowState.RoomBrowser:
                     return nextState == AppFlowState.Home ||
                            nextState == AppFlowState.Lobby;
