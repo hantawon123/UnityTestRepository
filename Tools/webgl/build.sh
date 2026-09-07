@@ -32,9 +32,11 @@ docker run --rm --cpus=2 --memory=8g --memory-swap=8g \
     unity-editor -batchmode -nographics -projectPath /workspace -buildTarget WebGL "$@"
 }
 
+rm -f Logs/webgl-contract-results.xml
 run_unity -runTests -testPlatform EditMode \
     -testFilter Game.Architecture.Tests.NetworkContractTests \
     -testResults /workspace/Logs/webgl-contract-results.xml -logFile - 2>&1 | tee Logs/webgl-tests.log
+python3 -c 'import xml.etree.ElementTree as ET; result = ET.parse("Logs/webgl-contract-results.xml").getroot(); assert result.get("result") == "Passed" and int(result.get("total", "0")) > 0, "Unity contract tests did not pass"'
 run_unity -quit -executeMethod Game.Editor.WebBuild.Build -logFile - 2>&1 | tee Logs/webgl-build.log
 test -f Builds/WebGL/index.html
 test "$(cat Builds/WebGL/version.txt)" = "$revision"
