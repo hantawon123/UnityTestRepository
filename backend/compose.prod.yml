@@ -64,5 +64,49 @@ services:
       # 무력화되지만, 루프백 바인딩은 우회할 대상 자체가 없습니다.
       - "127.0.0.1:8080:8080"
 
+  # 대시보드. 기획·개발이 SQL 없이 브라우저에서 플레이 로그를 봅니다(S15P21D205-805).
+  #
+  # 자기 설정(대시보드, 사용자)은 내장 H2 가 아니라 d205-mysql 의 metabase 스키마에 둡니다.
+  # H2 는 컨테이너 파일시스템에 있어서 컨테이너를 다시 만들면 대시보드가 통째로 사라집니다.
+  # 그 스키마와 계정은 deploy/mysql/init/02-analytics-accounts.sh 가 만듭니다. 운영 볼륨은 이미
+  # 초기화돼 있어 deploy/README.md 대로 사람이 한 번 실행해야 합니다.
+  #
+  # 데이터를 읽는 계정(d205_reader)은 여기 없습니다. 그건 Metabase 화면에서 "데이터베이스 추가"로
+  # 넣는 값이고 Metabase 가 자기 스키마에 저장합니다.
+  #
+  # 하위 경로(/analytics/)가 아니라 8443 포트로 나가는 이유는 deploy/nginx/d205.conf 에 있습니다.
+  # MB_SITE_URL 은 Metabase 가 이메일 링크나 공유 링크를 만들 때 쓰는 자기 주소입니다.
+  metabase:
+    image: metabase/metabase:v0.63.16.6
+    container_name: d205-metabase
+    restart: unless-stopped
+    environment:
+      MB_DB_TYPE: mysql
+      MB_DB_HOST: mysql
+      MB_DB_PORT: 3306
+      MB_DB_DBNAME: metabase
+      MB_DB_USER: metabase
+      # :? 입니다. 이 값이 .env 에 없으면 compose 파싱 단계에서 멈추므로, 배포 전에 .env 에
+      # 넣어야 합니다. 빈 비밀번호로 뜨는 것보다 배포가 막히는 편이 낫다는 판단은 DB 변수와 같습니다.
+      MB_DB_PASS: ${METABASE_DB_PASSWORD:?}
+      MB_SITE_URL: https://j15d205.p.ssafy.io:8443
+      # 힙 상한. EC2 15GB 에 Jenkins 실행기 2개와 MySQL, 앱이 같이 있습니다. 상한 없이 두면
+      # 컨테이너 기본값이 호스트 메모리의 큰 몫을 잡습니다.
+      JAVA_OPTS: -Xmx1g
+      TZ: Asia/Seoul
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      # 앱과 같은 원칙으로 루프백에만 바인딩합니다. nginx 가 8443 에서 받아 프록시합니다.
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      # 첫 기동은 마이그레이션 때문에 1분 넘게 걸립니다. 그 전에 실패로 보면 restart 가 반복됩니다.
+      start_period: 180s
+
 volumes:
   d205-mysql-data:
