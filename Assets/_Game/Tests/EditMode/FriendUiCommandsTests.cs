@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -382,6 +382,81 @@ namespace Game.Architecture.Tests
             Assert.DoesNotThrow(() => search.CancelPendingRequest("nobody"));
         }
 
+        [Test]
+        public async Task ConcurrentRefresh_SharesOneGatewayCall()
+        {
+            var pending = new UniTaskCompletionSource<BackendResult<IReadOnlyList<FriendSummary>>>();
+            var gateway = new FakeFriendGateway { DeferredList = _ => pending.Task };
+            var commands = Build(gateway, out _, out _);
+            var first = commands.RefreshFriendsAsync(CancellationToken.None).AsTask();
+            var second = commands.RefreshFriendsAsync(CancellationToken.None).AsTask();
+            var third = commands.RefreshFriendsAsync(CancellationToken.None).AsTask();
+            Assert.That(gateway.ListCalls, Is.EqualTo(1));
+            pending.TrySetResult(BackendResult<IReadOnlyList<FriendSummary>>.Success(Array.Empty<FriendSummary>()));
+            Assert.That(await first, Is.EqualTo(BackendFailure.None));
+            Assert.That(await second, Is.EqualTo(BackendFailure.None));
+            Assert.That(await third, Is.EqualTo(BackendFailure.None));
+        }
+
+        [Test]
+        public async Task AcceptDuringRefresh_KeepsNewFriendWhenOldResponseArrives()
+        {
+            var pending = new UniTaskCompletionSource<BackendResult<IReadOnlyList<FriendSummary>>>();
+            var gateway = new FakeFriendGateway { DeferredList = _ => pending.Task };
+            var commands = Build(gateway, out var friends, out _);
+            var old = commands.RefreshFriendsAsync(CancellationToken.None);
+            gateway.DeferredList = null;
+            gateway.Friends = new[] { Friend("new", "새친구", FriendPresence.Online) };
+            await commands.AcceptRequestAsync("new", CancellationToken.None);
+            pending.TrySetResult(BackendResult<IReadOnlyList<FriendSummary>>.Success(Array.Empty<FriendSummary>()));
+            Assert.That(await old, Is.EqualTo(BackendFailure.Cancelled));
+            Assert.That(friends.OnlineFriends.Count, Is.EqualTo(1));
+            Assert.That(gateway.ListCalls, Is.EqualTo(2));
+        }
+
+        [Test]
+        public async Task Search_LateResponseCannotReplaceLatestQuery()
+        {
+            var pending = new UniTaskCompletionSource<BackendResult<IReadOnlyList<FriendSummary>>>();
+            var gateway = new FakeFriendGateway { DeferredSearch = _ => pending.Task };
+            var commands = Build(gateway, out _, out var search);
+            var old = commands.SearchAsync("이전", Array.Empty<string>(), CancellationToken.None);
+            gateway.DeferredSearch = null;
+            gateway.Found = new[] { Friend("new", "최신", FriendPresence.Offline) };
+            await commands.SearchAsync("최신", Array.Empty<string>(), CancellationToken.None);
+            pending.TrySetResult(BackendResult<IReadOnlyList<FriendSummary>>.Success(new[] { Friend("old", "이전", FriendPresence.Offline) }));
+            Assert.That(await old, Is.EqualTo(BackendFailure.Cancelled));
+            Assert.That(search.Results[0].PlayerId, Is.EqualTo("new"));
+        }
+
+        [Test]
+        public async Task Search_CancelledScreenCannotPublishLateSuccess()
+        {
+            using var cancellation = new CancellationTokenSource();
+            var pending = new UniTaskCompletionSource<BackendResult<IReadOnlyList<FriendSummary>>>();
+            var gateway = new FakeFriendGateway { DeferredSearch = _ => pending.Task };
+            var commands = Build(gateway, out _, out var search);
+            var task = commands.SearchAsync("사용자", Array.Empty<string>(), cancellation.Token);
+            cancellation.Cancel();
+            pending.TrySetResult(BackendResult<IReadOnlyList<FriendSummary>>.Success(new[] { Friend("id", "사용자", FriendPresence.Offline) }));
+            Assert.That(await task, Is.EqualTo(BackendFailure.Cancelled));
+            Assert.That(search.Results, Is.Empty);
+        }
+
+        [Test]
+        public async Task Search_UsesTrimmedExactCaseSensitiveNicknameBeforeSending()
+        {
+            var gateway = new FakeFriendGateway { Found = new[] {
+                Friend("exact", "Player", FriendPresence.Offline),
+                Friend("case", "player", FriendPresence.Offline),
+                Friend("prefix", "Player2", FriendPresence.Offline) } };
+            var commands = Build(gateway, out _, out var search);
+            await commands.SearchAsync(" Player ", Array.Empty<string>(), CancellationToken.None);
+            Assert.That(gateway.LastQuery, Is.EqualTo("Player"));
+            Assert.That(search.Results.Count, Is.EqualTo(1));
+            await commands.SendRequestAsync(search.Results[0].PlayerId, CancellationToken.None);
+            Assert.That(gateway.SentTo, Is.EqualTo("exact"));
+        }
         private static FriendSummary Friend(string id, string nickname, FriendPresence presence) =>
             new FriendSummary(id, nickname, presence);
 
@@ -414,6 +489,9 @@ namespace Game.Architecture.Tests
 
             public FriendRequestOutcome Outcome { get; set; } = FriendRequestOutcome.Sent;
 
+            public Func<CancellationToken, UniTask<BackendResult<IReadOnlyList<FriendSummary>>>> DeferredList;
+            public Func<string, UniTask<BackendResult<IReadOnlyList<FriendSummary>>>> DeferredSearch;
+            public int ListCalls;
             public string LastQuery { get; private set; }
 
             public string Accepted { get; private set; }
@@ -421,13 +499,17 @@ namespace Game.Architecture.Tests
             public string Declined { get; private set; }
 
             public UniTask<BackendResult<IReadOnlyList<FriendSummary>>> ListFriendsAsync(
-                CancellationToken cancellation) => Answer(Friends);
+                CancellationToken cancellation)
+            {
+                ListCalls++;
+                return DeferredList != null ? DeferredList(cancellation) : Answer(Friends);
+            }
 
             public UniTask<BackendResult<IReadOnlyList<FriendSummary>>> SearchAsync(
                 string nickname, CancellationToken cancellation)
             {
                 LastQuery = nickname;
-                return Answer(Found);
+                return DeferredSearch != null ? DeferredSearch(nickname) : Answer(Found);
             }
 
             public string SentTo { get; private set; }

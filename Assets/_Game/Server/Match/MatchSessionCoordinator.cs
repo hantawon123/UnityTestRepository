@@ -1022,6 +1022,17 @@ namespace Game.Server.Match
                    !completedHidingTurns[playerIndex];
         }
 
+        public bool TryCompleteHidingTurn(int playerIndex, double now)
+        {
+            if (playerIndex < 0 || playerIndex >= Assignments.Count ||
+                !CanActDuringHidingTurn(playerIndex, now) ||
+                outcome.GetHeldItemOwner(playerIndex) == playerIndex ||
+                !placements.TryGetPlacement(playerIndex, out var placement) ||
+                !placementValidator.IsValid(placement.ItemId, placement.Pose)) return false;
+            CompleteHidingTurn(playerIndex, placement.Pose.position);
+            return flow.SkipCurrentHidingTurn(now);
+        }
+
         private void CompleteHidingTurn(int playerIndex, Vector3 lastPlayerPosition)
         {
             var pose = new Pose(lastPlayerPosition, Quaternion.identity);

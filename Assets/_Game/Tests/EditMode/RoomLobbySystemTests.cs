@@ -106,6 +106,26 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void CreateSettings_PrivateRoomDoesNotRequirePassword()
+        {
+            var request = new RoomCreateRequest("비공개 방", false, null, 6, "market-01", isPrivate: true);
+            Assert.That(request.TryCreateSettings(6, out var settings, out _), Is.True);
+            Assert.That(request.IsPrivate, Is.True);
+            Assert.That(settings.IsLocked, Is.False);
+            Assert.That(request.Password, Is.Null);
+        }
+
+        [TestCase(0, false)]
+        [TestCase(1, true)]
+        [TestCase(20, true)]
+        [TestCase(21, false)]
+        public void CreateSettings_EnforcesTitleLength(int length, bool valid)
+        {
+            var request = new RoomCreateRequest(new string('가', length), false, null, 6, "market-01");
+            Assert.That(request.TryCreateSettings(6, out _, out _), Is.EqualTo(valid));
+        }
+
+        [Test]
         public void CreateSettings_LockedRoomRequiresPassword()
         {
             var request = new RoomCreateRequest("잠금방", true, " ", 6, "market-01");

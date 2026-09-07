@@ -14,6 +14,7 @@ namespace Game.Client.Lobby
         private IDisposable hostSubscription;
         private IDisposable settingsSubscription;
         private bool isOpen;
+        private PlaySettingsDraft displayedSettings;
 
         public PlaySettingsPresenter(
             ILobbyHostSession hostSession,
@@ -33,6 +34,7 @@ namespace Game.Client.Lobby
             view.CopyRoomCodeRequested += CopyRoomCode;
             view.InviteRequested += Invite;
             view.CopyPasswordRequested += CopyPassword;
+            view.SaveTitleRequested += SaveTitle;
             pauseMenu.PlaySettingsClicked += Open;
             hostSubscription = hostSession.IsLocalHost.Subscribe(HandleHostChanged);
             settingsSubscription = hostSession.Settings.Subscribe(HandleSettingsChanged);
@@ -45,6 +47,7 @@ namespace Game.Client.Lobby
             view.CopyRoomCodeRequested -= CopyRoomCode;
             view.InviteRequested -= Invite;
             view.CopyPasswordRequested -= CopyPassword;
+            view.SaveTitleRequested -= SaveTitle;
             pauseMenu.PlaySettingsClicked -= Open;
             hostSubscription?.Dispose();
             settingsSubscription?.Dispose();
@@ -55,7 +58,7 @@ namespace Game.Client.Lobby
             view.SetEditable(isHost);
             if (!isHost && isOpen)
             {
-                view.SetDraft(hostSession.Settings.CurrentValue);
+                DisplaySettings(hostSession.Settings.CurrentValue);
             }
         }
 
@@ -66,13 +69,14 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            view.SetDraft(draft);
+            DisplaySettings(draft);
         }
 
         private void Open()
         {
+            if (isOpen) return;
             view.SetEditable(hostSession.IsLocalHost.CurrentValue);
-            view.SetDraft(hostSession.Settings.CurrentValue);
+            DisplaySettings(hostSession.Settings.CurrentValue);
             isOpen = true;
             view.SetVisible(true);
         }
@@ -86,11 +90,42 @@ namespace Game.Client.Lobby
 
             if (hostSession.IsLocalHost.CurrentValue)
             {
-                hostSession.RequestApplySettings(view.ReadDraft());
+                var draft = view.ReadDraft();
+                if (!RoomSettings.IsValidTitle(draft.Title)) return;
+                // An untouched host view may be older than the accepted session settings.
+                if (!draft.Equals(displayedSettings) &&
+                    !draft.Equals(hostSession.Settings.CurrentValue))
+                {
+                    hostSession.RequestApplySettings(draft);
+                }
             }
 
             isOpen = false;
             view.SetVisible(false);
+        }
+
+        private void DisplaySettings(PlaySettingsDraft draft)
+        {
+            displayedSettings = draft;
+            view.SetDraft(draft);
+        }
+
+        private void SaveTitle()
+        {
+            if (!isOpen || !hostSession.IsLocalHost.CurrentValue) return;
+            var draft = view.ReadDraft();
+            var current = hostSession.Settings.CurrentValue;
+            if (!RoomSettings.IsValidTitle(draft.Title) || draft.Title == current.Title) return;
+            hostSession.RequestApplySettings(new PlaySettingsDraft(draft.Title, current.RoomCode,
+                current.PasswordEnabled, current.Password, current.MaxPlayers, current.DestructionLimit,
+                current.MapId, current.MatchRules));
+            if (hostSession.Settings.CurrentValue.Title == draft.Title)
+            {
+                displayedSettings = new PlaySettingsDraft(draft.Title, displayedSettings.RoomCode,
+                    displayedSettings.PasswordEnabled, displayedSettings.Password, displayedSettings.MaxPlayers,
+                    displayedSettings.DestructionLimit, displayedSettings.MapId, displayedSettings.MatchRules);
+                view.SetDraft(draft);
+            }
         }
 
         private void CopyRoomCode()

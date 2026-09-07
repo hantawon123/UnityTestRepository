@@ -160,7 +160,8 @@ namespace Game.Bootstrap
                     applied.MaxPlayers,
                     applied.DestructionLimit,
                     applied.MapId,
-                    applied.MatchRules))
+                    applied.MatchRules,
+                    applied.Title))
             {
                 Debug.LogWarning("[Lobby] 방 설정을 네트워크 세션에 적용하지 못했습니다.");
                 return;

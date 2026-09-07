@@ -57,6 +57,7 @@ namespace Game.Network.Match
         private readonly int[] attackSequences;
         private readonly bool[] hasAttackSequence;
         private readonly double[] punchEndsAt;
+        private double capturedAt = double.NaN;
 
         public NetworkMatchRuntimeContext(
             INetworkMatchRuntimeSource source,
@@ -131,6 +132,11 @@ namespace Game.Network.Match
 
         private void CapturePlayers()
         {
+            // The runtime reads actions, poses and positions in the same server
+            // tick. Keep them consistent without querying every avatar three times.
+            var now = source.ServerTime;
+            if (capturedAt == now) return;
+
             for (var playerIndex = 0;
                  playerIndex < participantsByIndex.Length;
                  playerIndex++)
@@ -153,6 +159,9 @@ namespace Game.Network.Match
                 hasPose[playerIndex] = true;
                 CaptureReplayAction(playerId, playerIndex);
             }
+
+            // A failed initial capture must remain retryable at the same tick.
+            capturedAt = now;
         }
 
         private void CaptureReplayAction(string playerId, int playerIndex)

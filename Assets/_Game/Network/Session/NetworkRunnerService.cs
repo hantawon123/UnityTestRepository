@@ -261,6 +261,7 @@ namespace Game.Network.Session
         private readonly long _playerUniqueId = BitConverter.ToInt64(Guid.NewGuid().ToByteArray(), 0) | 1L;
         private int _configuredMaxPlayers;
         private string _configuredMapId = MapCatalog.DefaultMapId;
+        private string _configuredTitle;
         private int _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
         private MatchRuleSettings _matchRules = MatchRuleSettings.Default;
 
@@ -589,6 +590,7 @@ namespace Game.Network.Session
                     return null;
                 }
 
+                if (IsServer && _configuredTitle != null) return _configuredTitle;
                 return SessionPropertyMapper.ReadString(
                     _runner.SessionInfo,
                     SessionPropertyKeys.DisplayName,
@@ -707,6 +709,7 @@ namespace Game.Network.Session
             }
 
             _expectedPassword = request.Password;
+            _configuredTitle = request.AllowCreate ? request.DisplayName?.Trim() : null;
             _configuredMapId = string.IsNullOrWhiteSpace(request.MapId)
                 ? MapCatalog.DefaultMapId : request.MapId.Trim();
             _configuredMaxPlayers = request.MaxPlayers > 0
@@ -737,6 +740,7 @@ namespace Game.Network.Session
                 GameMode = request.Mode,
                 PlayerUniqueId = _playerUniqueId,
                 SessionName = request.RoomCode,
+                IsVisible = request.AllowCreate ? request.IsVisible : (bool?)null,
                 SessionProperties = SessionPropertyMapper.BuildForStart(
                     request,
                     SanitiseNickname(_profile?.Nickname)),
@@ -912,11 +916,13 @@ namespace Game.Network.Session
             int maxPlayers,
             int destructionLimit,
             string mapId,
-            MatchRuleSettings matchRules)
+            MatchRuleSettings matchRules,
+            string title = null)
         {
-            if (!IsRuntimeReady || _browsingLobby || _runner.IsSceneManagerBusy ||
+            if ((title != null && !RoomSettings.IsValidTitle(title)) ||
+                !IsRuntimeReady || _browsingLobby || _runner.IsSceneManagerBusy ||
                 _scenes == null || !IsOnlyScene(_runner.SceneInfo, _scenes.LobbyScene) ||
-                _matchStarter == null || _matchStarter.HasStartedMatch ||
+                _matchStarter == null || _matchStarter.HasStartedMatch || _matchStarter.IsStartPending ||
                 !TryValidateLobbySettingsRequest(
                     IsServer,
                     _runner.SessionInfo.IsValid,
@@ -935,6 +941,7 @@ namespace Game.Network.Session
                 destructionLimit,
                 mapId,
                 normalizedMatchRules);
+            if (title != null) properties[SessionPropertyKeys.DisplayName] = title.Trim();
 
             if (!_runner.SessionInfo.UpdateCustomProperties(properties))
             {
@@ -945,6 +952,7 @@ namespace Game.Network.Session
             _destructionLimit = destructionLimit;
             _matchRules = normalizedMatchRules;
             _configuredMapId = mapId.Trim();
+            if (title != null) _configuredTitle = title.Trim();
             ReportPlayerCount();
             return true;
         }
@@ -1281,6 +1289,12 @@ namespace Game.Network.Session
                 pose,
                 expectedVersion);
 
+        public double StartCountdownRemaining => IsRuntimeReady && _matchStarter != null &&
+            _matchStarter.IsStartPending ? Math.Max(0d, _matchStarter.StartCountdownEndsAt - ServerTime) : 0d;
+
+        public bool RequestCompleteHidingTurn() =>
+            IsRuntimeReady && _matchStarter != null && _matchStarter.RequestCompleteHidingTurn();
+
         public bool RequestHitPlayer(int targetPlayerIndex) =>
             _matchStarter != null && _matchStarter.RequestHitPlayer(targetPlayerIndex);
 
@@ -1473,9 +1487,10 @@ namespace Game.Network.Session
             _runner.AddCallbacks(this);
 
             // Voice rides on the same object because its client reads the runner
-            // for the session it should follow. A dedicated server has no
-            // microphone and nobody to hear it, so it does not carry one.
+            // for the session it should follow. A dedicated server keeps only
+            // an inactive registry for the avatars' voice lifecycle callbacks.
             Voice = provideInput ? VoiceRig.Attach(_runner) : null;
+            if (!provideInput) VoiceRig.AttachServer(_runner);
 
             // Sits on the runner so that characters, which Fusion spawns and the
             // container therefore cannot inject, can still reach it.
@@ -1989,6 +2004,7 @@ namespace Game.Network.Session
             if (!preserveMigrationState)
             {
                 _expectedPassword = null;
+                _configuredTitle = null;
                 _configuredMaxPlayers = 0;
                 _configuredMapId = MapCatalog.DefaultMapId;
                 _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;

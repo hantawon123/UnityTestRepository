@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Interactions;
 using Game.Server.Items;
 using UnityEngine;
 
@@ -119,8 +120,12 @@ namespace Game.Bootstrap
                     pose.rotation,
                     blockingLayerMask,
                     QueryTriggerInteraction.Ignore);
+            if (overlapCount == overlapBuffer.Length) return false;
             for (var index = 0; index < overlapCount; index++)
             {
+                // A placed item is checked again when its owner completes hiding.
+                var item = overlapBuffer[index].GetComponentInParent<CarryableItem>();
+                if (item != null && item.ObjectId == volume.ObjectId) continue;
                 // Players are transient and use the same default physics layer
                 // as props in the current scenes. They must not make a green
                 // client preview fail only on authority.

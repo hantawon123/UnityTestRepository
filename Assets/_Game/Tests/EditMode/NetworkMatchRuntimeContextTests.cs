@@ -125,6 +125,49 @@ namespace Game.Architecture.Tests
                 Is.Not.EqualTo(HighlightPlayerAction.None));
         }
 
+        [Test]
+        public void Context_CapturesOncePerServerTickAndRefreshesAfterTimeCorrection()
+        {
+            var poses = new Dictionary<string, Pose>
+            {
+                ["player-0"] = Pose.identity,
+                ["player-1"] = Pose.identity,
+            };
+            var source = new FakeNetworkSource(10d, poses);
+            var context = new NetworkMatchRuntimeContext(source, new FakeSceneContext(),
+                new[] { new MatchParticipant("player-0", 0), new MatchParticipant("player-1", 1) });
+
+            _ = context.PlayerReplayActions;
+            _ = context.PlayerPoses;
+            _ = context.PlayerPositions;
+            Assert.That(source.PoseReads, Is.EqualTo(2));
+            Assert.That(source.ReplayReads, Is.EqualTo(2));
+
+            var moved = new Pose(Vector3.right, Quaternion.identity);
+            poses["player-0"] = moved;
+            Assert.That(context.PlayerPoses[0], Is.EqualTo(Pose.identity),
+                "All consumers in one server tick must see the same snapshot.");
+            source.ServerTime = 11d;
+            Assert.That(context.PlayerPoses[0], Is.EqualTo(moved));
+            Assert.That(source.PoseReads, Is.EqualTo(4));
+            poses["player-0"] = Pose.identity;
+            source.ServerTime = 9d;
+            Assert.That(context.PlayerPositions[0], Is.EqualTo(Vector3.zero));
+            Assert.That(source.PoseReads, Is.EqualTo(6));
+        }
+
+        [Test]
+        public void Context_RetriesFailedInitialCaptureAtSameTime()
+        {
+            var poses = new Dictionary<string, Pose> { ["player-0"] = Pose.identity };
+            var source = new FakeNetworkSource(10d, poses);
+            var context = new NetworkMatchRuntimeContext(source, new FakeSceneContext(),
+                new[] { new MatchParticipant("player-0", 0), new MatchParticipant("player-1", 1) });
+            Assert.Throws<InvalidOperationException>(() => _ = context.PlayerPoses);
+            poses["player-1"] = new Pose(Vector3.right, Quaternion.identity);
+            Assert.That(context.PlayerPositions[1], Is.EqualTo(Vector3.right));
+        }
+
         private sealed class FakeNetworkSource :
             INetworkMatchRuntimeSource,
             INetworkPlayerReplayStateSource
@@ -144,8 +187,14 @@ namespace Game.Architecture.Tests
 
             public double ServerTime { get; set; }
 
-            public bool TryGetPlayerPose(string playerId, out Pose pose) =>
-                poses.TryGetValue(playerId, out pose);
+            public int PoseReads { get; private set; }
+            public int ReplayReads { get; private set; }
+
+            public bool TryGetPlayerPose(string playerId, out Pose pose)
+            {
+                PoseReads++;
+                return poses.TryGetValue(playerId, out pose);
+            }
 
             public bool TryGetLocalStamina(out float current, out float max, out bool exhausted)
             {
@@ -165,8 +214,11 @@ namespace Game.Architecture.Tests
 
             public bool TryGetPlayerReplayState(
                 string playerId,
-                out NetworkPlayerReplayState state) =>
-                replayStates.TryGetValue(playerId, out state);
+                out NetworkPlayerReplayState state)
+            {
+                ReplayReads++;
+                return replayStates.TryGetValue(playerId, out state);
+            }
         }
 
         private sealed class FakeSceneContext : IMatchRuntimeContext

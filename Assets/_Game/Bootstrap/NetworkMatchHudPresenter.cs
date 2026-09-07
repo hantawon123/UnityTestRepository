@@ -119,6 +119,14 @@ namespace Game.Bootstrap
             }
 
             var now = clock.ServerTime;
+            if (snapshot.Phase == MatchPhase.Hiding &&
+                Cursor.lockState == CursorLockMode.Locked &&
+                UnityEngine.InputSystem.Keyboard.current?.yKey.wasPressedThisFrame == true &&
+                UnityEngine.EventSystems.EventSystem.current?.currentSelectedGameObject == null &&
+                HidingTurns.IndexAt(snapshot.Phase, snapshot.PhaseEndsAt, now,
+                    room.MatchParticipants.CurrentValue.Count, HidingTurnDurationSeconds) == room.LocalPlayerIndex &&
+                clock is Game.Network.Session.NetworkRunnerService network)
+                network.RequestCompleteHidingTurn();
             view.SetRemainingSeconds(snapshot.Phase == MatchPhase.Hiding
                 ? HidingTurns.RemainingSecondsAt(
                     snapshot.Phase,

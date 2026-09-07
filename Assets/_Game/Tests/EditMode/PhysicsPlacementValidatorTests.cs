@@ -45,6 +45,17 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void IsValid_IgnoresOwnPlacedColliderButRejectsOtherItems()
+        {
+            var item = obstacle.AddComponent<Game.Client.Interactions.CarryableItem>();
+            item.UseObjectId("apple");
+            var pose = new Pose(obstacle.transform.position, Quaternion.identity);
+            Assert.That(validator.IsValid("apple", pose), Is.True);
+            item.UseObjectId("other");
+            Assert.That(validator.IsValid("apple", pose), Is.False);
+        }
+
+        [Test]
         public void IsValid_RequiresSupportAndRejectsObstacleOverlap()
         {
             Assert.That(

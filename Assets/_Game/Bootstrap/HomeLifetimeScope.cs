@@ -2,6 +2,7 @@
 using Cysharp.Threading.Tasks;
 using Game.Client.Common;
 using Game.Client.Home;
+using Game.Client.Lobby;
 using Game.Core.Flow;
 using Game.Core.Home;
 using Game.Core.Lobby;
@@ -40,6 +41,7 @@ namespace Game.Bootstrap
             builder.RegisterComponent(homeMenuView).As<IHomeMenuView>();
 
             builder.RegisterEntryPoint<HomeMenuPresenter>();
+            builder.RegisterEntryPoint<HomeExitNotice>().WithParameter(homeMenuView);
 
             // Carries this panel's requests to the backend and its answers
             // back. The rows it shows used to be invented here.
@@ -48,6 +50,38 @@ namespace Game.Bootstrap
             // Sends a rename on to the account and puts the old name back when
             // the server refuses it.
             builder.RegisterEntryPoint<HomeProfileBridge>();
+        }
+
+        private sealed class HomeExitNotice : IStartable, System.IDisposable
+        {
+            private readonly HomeMenuView view;
+            private readonly RoomBrowserSystem room;
+            private LobbyConfirmView notice;
+
+            public HomeExitNotice(HomeMenuView view, RoomBrowserSystem room)
+            {
+                this.view = view;
+                this.room = room;
+            }
+
+            public void Start()
+            {
+                var reason = room.LastExit.CurrentValue;
+                if (!reason.HasValue) return;
+                if (reason == RoomExitReason.Left) { room.AcknowledgeExit(); return; }
+                notice = LobbyConfirmView.Create(view.transform, showCancel: false);
+                notice.Confirmed += Acknowledge;
+                notice.Show(reason == RoomExitReason.HostClosed
+                    ? "호스트의 연결이 끊어졌습니다" : "서버와의 연결이 끊어졌습니다");
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+            }
+
+            private void Acknowledge() { room.AcknowledgeExit(); notice.Hide(); }
+            public void Dispose()
+            {
+                if (notice != null) { notice.Confirmed -= Acknowledge; Object.Destroy(notice.gameObject); }
+            }
         }
 
         /// <summary>
@@ -228,17 +262,17 @@ namespace Game.Bootstrap
             /// </summary>
             /// <remarks>
             /// PRIVATE is a room that stays out of the list and is reached by
-            /// its code, so it is locked without a password: the code is what
-            /// admits people. The map is the only one there is.
+            /// its code. Visibility and password protection are separate settings.
             /// </remarks>
             public void CreateRoom(string title, bool isPublic, int maxPlayers)
             {
                 var request = new RoomCreateRequest(
                     title,
-                    isLocked: !isPublic,
+                    isLocked: false,
                     password: null,
                     maxPlayers: maxPlayers,
-                    mapId: MapCatalog.DefaultMapId);
+                    mapId: MapCatalog.DefaultMapId,
+                    isPrivate: !isPublic);
 
                 CreateThenOpenLobbyAsync(request)
                     .Forget(exception => Debug.LogException(exception));

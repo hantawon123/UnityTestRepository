@@ -3,6 +3,12 @@
     "schemas" : {
       "AccountResponse" : {
         "properties" : {
+          "appearance" : {
+            "$ref" : "#/components/schemas/AppearanceResponse"
+          },
+          "appearanceSet" : {
+            "type" : "boolean"
+          },
           "createdAt" : {
             "type" : "string"
           },
@@ -24,6 +30,23 @@
       "AdminSession" : {
         "properties" : {
           "username" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "AppearanceResponse" : {
+        "properties" : {
+          "bodyColor" : {
+            "type" : "string"
+          },
+          "face" : {
+            "type" : "string"
+          },
+          "hood" : {
+            "type" : "string"
+          },
+          "shoes" : {
             "type" : "string"
           }
         },
@@ -298,6 +321,37 @@
         ],
         "type" : "object"
       },
+      "UpdateAppearanceRequest" : {
+        "properties" : {
+          "bodyColor" : {
+            "minLength" : 1,
+            "pattern" : "^[\\x21-\\x7E]{1,32}$",
+            "type" : "string"
+          },
+          "face" : {
+            "minLength" : 1,
+            "pattern" : "^[\\x21-\\x7E]{1,32}$",
+            "type" : "string"
+          },
+          "hood" : {
+            "minLength" : 1,
+            "pattern" : "^[\\x21-\\x7E]{1,32}$",
+            "type" : "string"
+          },
+          "shoes" : {
+            "minLength" : 1,
+            "pattern" : "^[\\x21-\\x7E]{1,32}$",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "bodyColor",
+          "face",
+          "hood",
+          "shoes"
+        ],
+        "type" : "object"
+      },
       "UpdateNicknameRequest" : {
         "properties" : {
           "nickname" : {
@@ -468,6 +522,74 @@
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/UpdateNicknameRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "account-controller"
+        ]
+      }
+    },
+    "/api/v1/accounts/me/appearance" : {
+      "delete" : {
+        "operationId" : "clearAppearance",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "account-controller"
+        ]
+      },
+      "put" : {
+        "operationId" : "setAppearance",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateAppearanceRequest"
               }
             }
           },

@@ -224,7 +224,8 @@ namespace Game.Network.Players
             AnimationSpeed = direction.magnitude * DesiredMoveSpeed;
             AnimationGrounded = grounded;
 
-            if (input.WasPressed(NetworkPlayerButton.Attack, PreviousButtons) &&
+            if (Posture != PlayerPosture.Prone &&
+                input.WasPressed(NetworkPlayerButton.Attack, PreviousButtons) &&
                 Runner.SimulationTime >= NextAttackAllowedAt)
             {
                 AttackSequence++;
