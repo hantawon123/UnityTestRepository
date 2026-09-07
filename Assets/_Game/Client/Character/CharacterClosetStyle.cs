@@ -159,6 +159,14 @@ namespace Game.Client.Character
             public const float CellSize = 100f;
             public const float CellGap = 30f;
             public const float ThumbnailInset = 5f;
+
+            /// <summary>
+            /// The inset for a cell drawn as the category's own icon rather
+            /// than as a picture of the part. Wider, because the icon is a
+            /// silhouette with no margin of its own and fills the cell edge to
+            /// edge without one.
+            /// </summary>
+            public const float IconInset = 18f;
             public const float SelectedStroke = 4f;
 
             /// <summary>

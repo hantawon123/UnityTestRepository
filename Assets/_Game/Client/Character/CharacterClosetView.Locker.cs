@@ -71,7 +71,7 @@ namespace Game.Client.Character
             {
                 if (part != null && !string.IsNullOrEmpty(part.Id))
                 {
-                    cells.Add(CreatePartCell(group.Category, part));
+                    cells.Add(CreatePartCell(group, part));
                 }
             }
 
@@ -296,17 +296,28 @@ namespace Game.Client.Character
             return bar;
         }
 
-        private PartCell CreatePartCell(AvatarPartCategory category, AvatarPart part)
+        /// <summary>
+        /// One cell of the locker.
+        /// </summary>
+        /// <remarks>
+        /// Three ways of showing a part, in order of how much the art knows:
+        /// its own picture, the category's silhouette painted in the part's
+        /// colour, or the colour alone. The middle one is what the closet
+        /// looks like today — a body colour reads as a coloured body rather
+        /// than as a coloured square, and it costs no new art.
+        /// </remarks>
+        private PartCell CreatePartCell(AvatarPartGroup group, AvatarPart part)
         {
             var cell = CreateCellPlate($"Cell_{part.Id}");
+            var tinted = part.Thumbnail == null && group.Icon != null;
+            var inset = part.Thumbnail != null
+                ? CharacterClosetStyle.Locker.ThumbnailInset
+                : CharacterClosetStyle.Locker.IconInset;
+
             var content = CreateRect("Thumbnail", cell.Rect);
             SetAnchor(content, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
-            content.offsetMin = new Vector2(
-                CharacterClosetStyle.Locker.ThumbnailInset,
-                CharacterClosetStyle.Locker.ThumbnailInset);
-            content.offsetMax = new Vector2(
-                -CharacterClosetStyle.Locker.ThumbnailInset,
-                -CharacterClosetStyle.Locker.ThumbnailInset);
+            content.offsetMin = new Vector2(inset, inset);
+            content.offsetMax = new Vector2(-inset, -inset);
 
             var image = AddImage(content, part.Swatch);
             if (part.Thumbnail != null)
@@ -316,17 +327,24 @@ namespace Game.Client.Character
                 image.preserveAspect = true;
                 image.color = Color.white;
             }
+            else if (tinted)
+            {
+                // The icons are white silhouettes, so the tint multiplies
+                // straight through to the part's colour.
+                image.sprite = group.Icon;
+                image.type = Image.Type.Simple;
+                image.preserveAspect = true;
+            }
             else
             {
-                // No picture yet: the cell wears the part's own colour, which
-                // is exactly what a body colour needs and enough to tell two
-                // unfinished hoods apart.
+                // Nothing to draw the part as at all: the colour fills the
+                // cell, which is enough to tell two of them apart.
                 image.sprite = HomeUiFonts.Rounded(CharacterClosetStyle.Radius.Cell);
                 image.type = Image.Type.Sliced;
                 image.pixelsPerUnitMultiplier = 1f;
             }
 
-            Bind(cell, category, part.Id);
+            Bind(cell, group.Category, part.Id);
             return new PartCell(part.Id, cell.Stroke);
         }
 
