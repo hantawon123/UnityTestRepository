@@ -303,6 +303,8 @@ namespace Game.Architecture.Tests
 
             public void OpenRoomBrowser() { }
 
+            public void OpenCharacterCloset() { }
+
             public void CreateRoom(string title, bool isPublic, int maxPlayers) { }
 
             public void OpenLobby() { }

@@ -16,6 +16,9 @@ namespace Game.Client.Home
 
         void OpenRoomBrowser();
 
+        /// <summary>Opens the character closet.</summary>
+        void OpenCharacterCloset();
+
         /// <summary>
         /// Opens a room with these settings and, if it opens, goes to its
         /// lobby.
@@ -35,6 +38,7 @@ namespace Game.Client.Home
         public const string HomeSceneName = "Home";
         public const string RoomBrowserSceneName = "Room";
         public const string LobbySceneName = "Lobby";
+        public const string CharacterClosetSceneName = "Character";
 
         public void Quit()
         {
@@ -71,6 +75,12 @@ namespace Game.Client.Home
         public void OpenRoomBrowser()
         {
             LoadSceneAsync(RoomBrowserSceneName);
+        }
+
+        /// <inheritdoc cref="OpenHome"/>
+        public void OpenCharacterCloset()
+        {
+            LoadSceneAsync(CharacterClosetSceneName);
         }
 
         /// <summary>
@@ -257,6 +267,16 @@ namespace Game.Client.Home
                 HideFriendList();
                 HideServerSettings();
                 ShowProfileSettings();
+                return;
+            }
+
+            if (action == HomeMenuAction.Character &&
+                appFlow.TryTransitionTo(AppFlowState.CharacterCloset))
+            {
+                HideFriendList();
+                HideProfileSettings();
+                HideServerSettings();
+                applicationHost.OpenCharacterCloset();
                 return;
             }
 

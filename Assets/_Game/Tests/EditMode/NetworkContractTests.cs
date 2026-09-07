@@ -230,6 +230,7 @@ namespace Game.Architecture.Tests
         {
             public int OpenCount { get; private set; }
             public void OpenRoomBrowser() => OpenCount++;
+            public void OpenCharacterCloset() { }
             public void Quit() { }
             public void OpenHome() { }
             public void CreateRoom(string title, bool isPublic, int maxPlayers)

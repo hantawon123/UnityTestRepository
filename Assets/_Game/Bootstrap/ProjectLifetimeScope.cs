@@ -4,6 +4,7 @@ using Game.Client.Home;
 using Game.Client.Match;
 using Game.Core.Home;
 using Game.Core.Lobby;
+using Game.Core.Players;
 using Game.Core.Ports;
 using Game.Core.Voice;
 using Game.Network;
@@ -199,6 +200,12 @@ namespace Game.Bootstrap
                 .As<IRoomSessionSink>()
                 .As<IRoomParticipantSink>()
                 .As<IMatchStartSink>();
+
+            // One instance for the whole application, for the same reason the
+            // profile is: the closet writes what was applied and the lobby
+            // reads it, and a copy per screen would dress the player
+            // differently depending on where they were looked at.
+            builder.Register<AvatarAppearanceState>(Lifetime.Singleton);
 
             builder.Register<PlayerRegistry>(Lifetime.Singleton);
 
