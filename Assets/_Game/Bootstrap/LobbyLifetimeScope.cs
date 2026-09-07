@@ -400,6 +400,7 @@ namespace Game.Bootstrap
         private PlayerCameraController boundRig;
         private int readyFrame = -1;
         private bool entryComplete;
+        private float fadeInElapsed;
         private double startedAt;
 
         public LobbyPlayerCameraBinder(NetworkRunnerService network, IHighlightTransitionView entryCover)
@@ -423,28 +424,41 @@ namespace Game.Bootstrap
             }
 
             TryBind();
-            if (entryComplete) return;
             var motor = boundAvatar != null ? boundAvatar.GetComponent<NetworkPlayerMotor>() : null;
             var ready = network.IsRuntimeReady && boundAvatar != null && boundAvatar.PlayerId != null &&
                         boundAvatar.IsOwner && motor != null && motor.IsScenePlacementReady &&
                         boundRig != null && boundRig.isActiveAndEnabled &&
                         boundRig.FollowTarget == boundAvatar.transform;
-            UpdateEntryTransition(!network.HasRoomSession || ready, Time.frameCount);
+            UpdateEntryTransition(!network.HasRoomSession || ready, Time.frameCount, Time.unscaledDeltaTime);
+            CoverForMatchStart();
         }
 
-        internal void UpdateEntryTransition(bool ready, int frame)
+        internal void UpdateEntryTransition(bool ready, int frame, float deltaSeconds = 0f)
         {
             if (entryComplete) return;
             if (!ready)
             {
                 readyFrame = -1;
+                fadeInElapsed = 0f;
                 entryCover.SetOpacity(1f);
                 return;
             }
             if (readyFrame < 0) readyFrame = frame;
             // KCC Render, camera LateUpdate and Cinemachine must see the placed
             // target before revealing it. Lost readiness restarts this wait.
-            if (frame - readyFrame < 2) return;
+            if (frame - readyFrame < 2)
+            {
+                entryCover.SetOpacity(1f);
+                return;
+            }
+
+            fadeInElapsed += Mathf.Max(0f, deltaSeconds);
+            entryCover.SetOpacity(LobbySceneFade.FadeInOpacity(fadeInElapsed));
+            if (!LobbySceneFade.IsComplete(fadeInElapsed))
+            {
+                return;
+            }
+
             entryComplete = true;
             entryCover.SetOpacity(0f);
             var covers = UnityEngine.Object.FindObjectsByType<HighlightTransitionView>(
@@ -459,7 +473,30 @@ namespace Game.Bootstrap
                 $"coversCleared={covers.Length}.");
         }
 
-        public void Dispose() => entryCover.SetOpacity(0f);
+        private void CoverForMatchStart()
+        {
+            if (!entryComplete)
+            {
+                return;
+            }
+
+            var remaining = network.StartCountdownRemaining;
+            if (remaining <= 0d || remaining > LobbySceneFade.DurationSeconds)
+            {
+                return;
+            }
+
+            entryCover.SetOpacity(
+                LobbySceneFade.FadeOutOpacity(LobbySceneFade.DurationSeconds - (float)remaining));
+        }
+
+        public void Dispose()
+        {
+            if (!entryComplete)
+            {
+                entryCover.SetOpacity(0f);
+            }
+        }
 
         private bool IsWaitingForLocalHighlight() =>
             network.IsHighlightInProgress && !network.IsLocalHighlightComplete;

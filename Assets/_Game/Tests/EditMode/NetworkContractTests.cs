@@ -254,8 +254,12 @@ namespace Game.Architecture.Tests
             binder.UpdateEntryTransition(true, 104);
             Assert.That(view.Opacity, Is.EqualTo(1f), "Losing readiness restarts the render wait.");
             binder.UpdateEntryTransition(true, 106);
+            Assert.That(view.Opacity, Is.EqualTo(1f), "Reveal fades in after the camera wait.");
+            binder.UpdateEntryTransition(true, 107, Game.Client.Lobby.LobbySceneFade.DurationSeconds * 0.5f);
+            Assert.That(view.Opacity, Is.EqualTo(0.5f).Within(0.001f));
+            binder.UpdateEntryTransition(true, 108, Game.Client.Lobby.LobbySceneFade.DurationSeconds);
             Assert.That(view.Opacity, Is.Zero);
-            binder.UpdateEntryTransition(false, 107);
+            binder.UpdateEntryTransition(false, 109);
             Assert.That(view.Opacity, Is.Zero, "A completed entry does not cover later gameplay or migration.");
 
             var nextVisit = new Game.Bootstrap.LobbyPlayerCameraBinder(
