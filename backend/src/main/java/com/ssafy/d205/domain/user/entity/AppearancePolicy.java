@@ -14,9 +14,11 @@ package com.ssafy.d205.domain.user.entity;
 public final class AppearancePolicy {
 
     /**
-     * 파츠 id 최대 길이. V12 의 컬럼 길이이고, Photon 복제에 쓰는 NetworkString&lt;_32&gt;
-     * 의 한도이기도 합니다. 셋이 같은 값이어야 "저장은 됐는데 남에게는 안 보이는" 상태가
-     * 생기지 않습니다.
+     * 파츠 id 최대 길이. V12 의 컬럼 길이와 같은 값입니다.
+     *
+     * <p>Photon 복제 한도가 아닙니다. 외형은 로비와 경기에서 카탈로그 인덱스(byte) 로
+     * 복제되고 문자열 id 는 네트워크를 타지 않습니다. 그래서 이 값은 저장 길이만 뜻하고,
+     * 바꿀 때 맞춰야 할 곳은 V12 와 client-guide 두 곳입니다.
      */
     public static final int MAX_LENGTH = 32;
 

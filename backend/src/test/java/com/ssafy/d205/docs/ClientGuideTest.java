@@ -135,13 +135,13 @@ class ClientGuideTest {
     @Test
     @DisplayName("파츠 id 길이 제한이 문서와 같다")
     void appearancePartLengthMatchesDocument() throws IOException {
-        // 문서는 이 값을 "Photon 복제 한도와 같다"고 설명합니다. 서버 값만 바꾸면 그 설명이
-        // 틀리게 되고, 클라이언트가 그 길이로 id 를 지으면 저장은 되는데 남에게는 안 보입니다.
+        // 문서가 이 길이를 근거로 파츠 id 명명 규칙을 설명합니다. 서버 값만 바꾸면 클라이언트가
+        // 문서를 보고 지은 id 가 400 으로 거부됩니다.
         String length = AppearancePolicy.MAX_LENGTH + "자";
 
         assertThat(guide())
                 .as("AppearancePolicy.MAX_LENGTH 가 " + length + " 로 바뀌었습니다. 문서의 외형 절과 "
-                        + "V12 컬럼 길이, Photon NetworkString 한도를 함께 봐야 합니다.")
+                        + "V12 컬럼 길이를 함께 고쳐야 합니다.")
                 .contains(length);
     }
 

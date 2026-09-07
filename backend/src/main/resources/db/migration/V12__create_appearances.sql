@@ -13,11 +13,11 @@ CREATE TABLE user_appearances
     -- 유저당 한 행이므로 PK 가 곧 FK 입니다.
     user_seq   INT UNSIGNED NOT NULL,
 
-    -- 32 는 임의의 값이 아닙니다. 외형은 로비와 경기에서 Photon 으로도 복제되는데
-    -- PlayerAvatar 의 닉네임이 NetworkString<_32> 이고 파츠 id 도 같은 방식으로 실릴
-    -- 예정입니다. 여기서 더 긴 값을 받아 주면 저장은 되는데 남에게는 안 보이는 상태가
-    -- 생깁니다. 늘리려면 복제 쪽 한도를 먼저 늘려야 합니다. AppearancePolicy 가 같은 값을
-    -- 들고 있고, 요청 검증이 그것을 씁니다.
+    -- 32 는 저장 길이일 뿐입니다. 파츠 id 문자열은 네트워크를 타지 않습니다. 로비와 경기에서
+    -- 외형은 카탈로그 인덱스(byte) 로 복제하고, 문자열 id 는 서버와 클라이언트 사이에서만
+    -- 오갑니다. 그래서 이 길이는 Photon 쪽 한도와 무관하고, 늘려도 복제에 영향이 없습니다.
+    -- 닉네임(NetworkString<_32>) 과 같은 숫자인 것은 우연입니다.
+    -- AppearancePolicy 가 같은 값을 들고 있고, 요청 검증이 그것을 씁니다.
     body_color VARCHAR(32)  NOT NULL,
     hood       VARCHAR(32)  NOT NULL,
     shoes      VARCHAR(32)  NOT NULL,
