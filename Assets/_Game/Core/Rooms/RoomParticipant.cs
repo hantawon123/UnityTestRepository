@@ -28,15 +28,19 @@ namespace Game.Core.Rooms
         /// </remarks>
         public readonly string Nickname;
 
+        /// <summary>Backend account id for reports; never use the room-local PlayerId as an account.</summary>
+        public readonly string AccountId;
+
         /// <summary>Seat number, 0 upwards, in the order people arrived.</summary>
         public readonly int Seat;
 
         /// <summary>Whether this person holds authority over the room.</summary>
         public readonly bool IsHost;
 
-        public RoomParticipant(string playerId, int seat, bool isHost, string nickname = null)
+        public RoomParticipant(string playerId, int seat, bool isHost, string nickname = null, string accountId = null)
         {
             PlayerId = playerId;
+            AccountId = accountId ?? string.Empty;
             Seat = seat;
             IsHost = isHost;
 

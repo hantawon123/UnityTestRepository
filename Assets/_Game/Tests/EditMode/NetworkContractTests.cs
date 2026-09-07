@@ -50,6 +50,22 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void ConnectionToken_CarriesAccountId_AndReadsLegacyTokens()
+        {
+            var bytes = Game.Network.Session.SessionConnectionTokenCodec.Encode("secret", "닉네임", "account-123");
+            Game.Network.Session.SessionConnectionTokenCodec.Decode(bytes, out var password, out var nickname, out var accountId);
+            Assert.That(password, Is.EqualTo("secret"));
+            Assert.That(nickname, Is.EqualTo("닉네임"));
+            Assert.That(accountId, Is.EqualTo("account-123"));
+            var legacy = Game.Network.Session.SessionConnectionTokenCodec.Encode("", "이전");
+            Game.Network.Session.SessionConnectionTokenCodec.Decode(legacy, out _, out nickname, out accountId);
+            Assert.That(nickname, Is.EqualTo("이전"));
+            Assert.That(accountId, Is.Empty);
+            Game.Network.Session.SessionConnectionTokenCodec.Decode(new byte[] {2, 64, 1}, out _, out _, out accountId);
+            Assert.That(accountId, Is.Empty);
+        }
+
+        [Test]
         public void LobbyKick_AcknowledgementCannotRemoveAnotherOrNewerRequest()
         {
             var guest = Fusion.PlayerRef.FromIndex(1);
