@@ -25,6 +25,56 @@ namespace Game.Architecture.Tests
     public sealed class NetworkContractTests
     {
         [Test]
+        public void PlayerRoster_CaptureSkipsAvatarWithoutNetworkState()
+        {
+            var root = new GameObject("avatar-without-network-state");
+            try
+            {
+                var roster = root.AddComponent<PlayerRoster>();
+                roster.Add(root.AddComponent<PlayerAvatar>());
+                var participants = new List<Game.Core.Rooms.RoomParticipant>();
+
+                Assert.DoesNotThrow(() => roster.Capture(participants));
+                Assert.That(participants, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void LobbyBubbles_RebindSkipsUnspawnedAvatars()
+        {
+            using var room = new RoomBrowserSystem();
+            var first = new GameObject("unspawned-first");
+            var second = new GameObject("unspawned-second");
+            var viewObject = new GameObject("bubbles");
+            IDisposable binder = null;
+            try
+            {
+                first.AddComponent<PlayerAvatar>();
+                second.AddComponent<PlayerAvatar>();
+                var view = viewObject.AddComponent<Game.Client.Lobby.LobbyChatBubbleView>();
+                var type = typeof(Game.Bootstrap.LobbyLifetimeScope).Assembly
+                    .GetType("Game.Bootstrap.LobbyChatBubbleBinder", true);
+                binder = (IDisposable)Activator.CreateInstance(type, room, view);
+                var rebind = type.GetMethod("Rebind",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+                Assert.DoesNotThrow(() => rebind.Invoke(binder, null));
+                Assert.That(viewObject.transform.childCount, Is.Zero);
+            }
+            finally
+            {
+                binder?.Dispose();
+                UnityEngine.Object.DestroyImmediate(first);
+                UnityEngine.Object.DestroyImmediate(second);
+                UnityEngine.Object.DestroyImmediate(viewObject);
+            }
+        }
+
+        [Test]
         public void SessionRequest_ServerIsExplicitAndHostRemainsDefault()
         {
             var host = SessionRequest.Create("room", "title", "map", 6, null);
@@ -146,14 +196,15 @@ namespace Game.Architecture.Tests
             using var controller = new Game.Bootstrap.NetworkRoomDisconnectController(network, room, flow, application);
             controller.Start();
             room.RoomClosed(Game.Core.Rooms.RoomExitReason.HostClosed);
-            Assert.That(application.OpenCount, Is.Zero, "Do not load scenes inside Fusion callbacks.");
+            Assert.That(application.HomeCount + application.OpenCount, Is.Zero, "Do not load scenes inside Fusion callbacks.");
             Assert.That(flow.CurrentState, Is.EqualTo(phase));
             controller.Tick();
             controller.Tick();
             room.RoomClosed(Game.Core.Rooms.RoomExitReason.HostClosed);
             controller.Tick();
-            Assert.That(application.OpenCount, Is.EqualTo(1));
-            Assert.That(flow.CurrentState, Is.EqualTo(Game.Core.Flow.AppFlowState.RoomBrowser));
+            Assert.That(application.HomeCount, Is.EqualTo(1));
+            Assert.That(application.OpenCount, Is.Zero);
+            Assert.That(flow.CurrentState, Is.EqualTo(Game.Core.Flow.AppFlowState.Home));
             Assert.That(room.LastExit.CurrentValue, Is.EqualTo(Game.Core.Rooms.RoomExitReason.HostClosed),
                 "The next browser view must still receive the reason.");
         }
@@ -169,15 +220,17 @@ namespace Game.Architecture.Tests
                 new NetworkRunnerService(null, null, null, null, null, null), room, flow, application);
             controller.Start();
             room.RoomClosed(Game.Core.Rooms.RoomExitReason.Left);
-            Assert.That(application.OpenCount, Is.Zero);
+            Assert.That(application.HomeCount + application.OpenCount, Is.Zero);
             controller.Tick();
-            Assert.That(application.OpenCount, Is.EqualTo(1));
+            Assert.That(application.HomeCount, Is.EqualTo(1));
+            Assert.That(application.OpenCount, Is.Zero);
             Assert.That(room.LastExit.CurrentValue, Is.EqualTo(Game.Core.Rooms.RoomExitReason.Left));
             flow.TryTransitionTo(Game.Core.Flow.AppFlowState.Lobby);
             controller.Dispose();
             room.RoomClosed(Game.Core.Rooms.RoomExitReason.HostClosed);
             controller.Tick();
-            Assert.That(application.OpenCount, Is.EqualTo(1));
+            Assert.That(application.HomeCount, Is.EqualTo(1));
+            Assert.That(application.OpenCount, Is.Zero);
         }
 
         [Test]
@@ -220,13 +273,16 @@ namespace Game.Architecture.Tests
                 typeof(NetworkRunnerService).GetMethod("ReportPlayerCount", flags).Invoke(network, null);
                 Assert.That(room.LastExit.CurrentValue, Is.EqualTo(expected));
                 controller.Tick();
-                Assert.That(application.OpenCount, Is.Zero);
+                Assert.That(application.HomeCount + application.OpenCount, Is.Zero);
                 network.OnShutdown(runner, Fusion.ShutdownReason.Ok);
                 controller.Tick();
-                Assert.That(application.OpenCount, Is.Zero, "OnShutdown is not the end of Unity object destruction.");
+                Assert.That(application.HomeCount + application.OpenCount, Is.Zero, "OnShutdown is not the end of Unity object destruction.");
                 UnityEngine.Object.DestroyImmediate(runnerObject);
                 controller.Tick();
-                Assert.That(application.OpenCount, Is.EqualTo(1));
+                Assert.That(application.HomeCount, Is.EqualTo(kicked ? 0 : 1));
+                Assert.That(application.OpenCount, Is.EqualTo(kicked ? 1 : 0));
+                Assert.That(flow.CurrentState, Is.EqualTo(kicked
+                    ? Game.Core.Flow.AppFlowState.RoomBrowser : Game.Core.Flow.AppFlowState.Home));
                 Assert.That(room.LastExit.CurrentValue, Is.EqualTo(expected));
             }
             finally
@@ -249,10 +305,11 @@ namespace Game.Architecture.Tests
         private sealed class DisconnectApplicationSpy : Game.Client.Home.IHomeApplicationHost
         {
             public int OpenCount { get; private set; }
+            public int HomeCount { get; private set; }
             public void OpenRoomBrowser() => OpenCount++;
             public void OpenCharacterCloset() { }
             public void Quit() { }
-            public void OpenHome() { }
+            public void OpenHome() => HomeCount++;
             public void CreateRoom(string title, bool isPublic, int maxPlayers)
             {
             }

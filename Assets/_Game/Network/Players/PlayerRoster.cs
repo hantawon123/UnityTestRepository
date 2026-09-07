@@ -93,14 +93,15 @@ namespace Game.Network.Players
             {
                 var avatar = _avatars[index];
 
-                // A character despawned between callbacks leaves a hole here.
-                if (avatar == null)
+                // A Unity component can outlive its Fusion state during shutdown.
+                var playerId = avatar != null ? avatar.PlayerId : null;
+                if (string.IsNullOrEmpty(playerId))
                 {
                     continue;
                 }
 
                 into.Add(new RoomParticipant(
-                    avatar.PlayerId,
+                    playerId,
                     avatar.Seat,
                     avatar.IsHost,
                     avatar.Nickname.ToString()));
@@ -171,7 +172,8 @@ namespace Game.Network.Players
                 for (var index = 0; index < _avatars.Count; index++)
                 {
                     var avatar = _avatars[index];
-                    if (avatar != null && avatar.Owner == owner)
+                    if (avatar != null && avatar.Object != null &&
+                        avatar.Object.IsValid && avatar.Owner == owner)
                     {
                         found = avatar;
                         return true;

@@ -552,14 +552,15 @@ namespace Game.Bootstrap
             var avatars = UnityEngine.Object.FindObjectsByType<PlayerAvatar>(
                 FindObjectsInactive.Exclude,
                 FindObjectsSortMode.None);
-            Array.Sort(avatars, (left, right) => left.Seat.CompareTo(right.Seat));
 
             var seated = room.Participants.CurrentValue;
 
             for (var i = 0; i < avatars.Length; i++)
             {
                 var avatar = avatars[i];
-                var playerId = PlayerRegistry.IdOf(avatar.Owner);
+                // Scene searches also return avatars before spawn and during teardown.
+                var playerId = avatar.PlayerId;
+                if (string.IsNullOrEmpty(playerId)) continue;
                 var head = avatar.transform.Find("Visual") ?? avatar.transform;
                 bubbles.BindPlayer(playerId, head, NicknameOf(seated, playerId));
             }
