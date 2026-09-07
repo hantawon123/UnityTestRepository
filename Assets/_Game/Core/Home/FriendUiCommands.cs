@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -26,6 +26,11 @@ namespace Game.Core.Home
         private readonly IFriendGateway gateway;
         private readonly FriendListSystem friends;
         private readonly FriendSearchSystem search;
+        private int searchRevision;
+        private int refreshRevision;
+        private bool refreshInFlight;
+        private CancellationToken refreshCancellation;
+        private UniTask<BackendFailure> activeRefresh;
 
         public FriendUiCommands(
             IFriendGateway gateway,
@@ -45,21 +50,31 @@ namespace Game.Core.Home
         /// the player they have no friends, which is a different statement from
         /// "this did not load".
         /// </remarks>
-        public async UniTask<BackendFailure> RefreshFriendsAsync(CancellationToken cancellation)
+        public UniTask<BackendFailure> RefreshFriendsAsync(CancellationToken cancellation, bool force = false)
         {
-            var answer = await gateway.ListFriendsAsync(cancellation);
-            if (!answer.Ok)
+            if (refreshInFlight && !force && refreshCancellation == cancellation) return activeRefresh;
+            refreshInFlight = true;
+            refreshCancellation = cancellation;
+            // AsyncLazy supports multiple callers awaiting before the response arrives.
+            activeRefresh = RefreshFriendsCoreAsync(++refreshRevision, cancellation).ToAsyncLazy().Task;
+            return activeRefresh;
+        }
+
+        private async UniTask<BackendFailure> RefreshFriendsCoreAsync(int revision, CancellationToken cancellation)
+        {
+            try
             {
-                return answer.Failure;
+                var answer = await gateway.ListFriendsAsync(cancellation);
+                if (cancellation.IsCancellationRequested || revision != refreshRevision) return BackendFailure.Cancelled;
+                if (!answer.Ok) return answer.Failure;
+                friends.ReplaceFriends(answer.Value);
+                search.ExcludeFriends(FriendIds());
+                return BackendFailure.None;
             }
-
-            friends.ReplaceFriends(answer.Value);
-
-            // The search is told too. A result list built before this refresh
-            // would still offer to befriend whoever just became a friend, and
-            // the server answers that button with ALREADY_FRIENDS.
-            search.ExcludeFriends(FriendIds());
-            return BackendFailure.None;
+            finally
+            {
+                if (revision == refreshRevision) refreshInFlight = false;
+            }
         }
 
         /// <summary>
@@ -69,7 +84,7 @@ namespace Game.Core.Home
         /// Two steps, because the two filters are not the same one.
         /// <see cref="FriendSearchSystem.Search"/> narrows what this client
         /// already holds and decides which rows are already friends;
-        /// the server decides who exists and matches a prefix rather than a
+        /// the server decides who exists and matches the whole nickname rather than a
         /// substring. Replacing the directory
         /// re-runs the local pass against the new rows, so the order here is
         /// what makes both apply.
@@ -77,14 +92,20 @@ namespace Game.Core.Home
         public async UniTask<BackendFailure> SearchAsync(
             string query, IEnumerable<string> existingFriendIds, CancellationToken cancellation)
         {
+            var revision = ++searchRevision;
+            query = query?.Trim() ?? string.Empty;
+            search.Search(query, existingFriendIds);
             var answer = await gateway.SearchAsync(query, cancellation);
+            if (cancellation.IsCancellationRequested || revision != searchRevision) return BackendFailure.Cancelled;
             if (!answer.Ok)
             {
                 return answer.Failure;
             }
 
             search.ReplaceDirectory(answer.Value);
-            search.Search(query, existingFriendIds);
+            var excluded = new HashSet<string>(existingFriendIds);
+            excluded.UnionWith(FriendIds());
+            search.Search(query, excluded);
             return BackendFailure.None;
         }
 
@@ -135,7 +156,7 @@ namespace Game.Core.Home
             if (answer.Value == FriendRequestOutcome.BecameFriends)
             {
                 search.CancelPendingRequest(playerId);
-                return await RefreshFriendsAsync(cancellation);
+                return await RefreshFriendsAsync(cancellation, force: true);
             }
 
             return BackendFailure.None;
@@ -192,7 +213,7 @@ namespace Game.Core.Home
                 return answer.Failure;
             }
 
-            return await RefreshFriendsAsync(cancellation);
+            return await RefreshFriendsAsync(cancellation, force: true);
         }
 
         /// <summary>Turns a request down. Nothing else changes.</summary>
@@ -257,7 +278,7 @@ namespace Game.Core.Home
                 return answer.Failure;
             }
 
-            return await RefreshFriendsAsync(cancellation);
+            return await RefreshFriendsAsync(cancellation, force: true);
         }
 
         /// <summary>
