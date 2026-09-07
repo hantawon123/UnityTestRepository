@@ -50,6 +50,7 @@ class AccountApiTest extends IntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.userId").isNotEmpty())
                 .andExpect(jsonPath("$.nickname").isNotEmpty())
+                .andExpect(jsonPath("$.appearanceSet").value(false))
                 .andExpect(jsonPath("$.createdAt").isNotEmpty());
     }
 
