@@ -147,8 +147,6 @@ namespace Game.Bootstrap
                     "Chat views must be assigned. Lobby 씬에서 Game > Lobby > Build HUD Layout 을 실행하세요.");
             }
 
-            StripLegacyChatBubbleAnchors(chatBubbleView.transform);
-
             if (cameraRigPrefab == null)
             {
                 throw new InvalidOperationException("PlayerCameraRig prefab must be assigned.");
@@ -398,23 +396,6 @@ namespace Game.Bootstrap
             return new LobbyChatLog(
                 localPlayerId,
                 profile.Nickname);
-        }
-
-        private static void StripLegacyChatBubbleAnchors(Transform root)
-        {
-            if (root == null)
-            {
-                return;
-            }
-
-            for (var index = root.childCount - 1; index >= 0; index--)
-            {
-                var child = root.GetChild(index);
-                if (child.name.StartsWith("Head_", StringComparison.Ordinal))
-                {
-                    UnityEngine.Object.Destroy(child.gameObject);
-                }
-            }
         }
     }
 
