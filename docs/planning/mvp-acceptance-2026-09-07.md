@@ -59,6 +59,38 @@
 
 ## 실행 순서와 검증 책임
 
+### 2026-09-07 MR !212 취소 후 우선순위
+
+사용자 요청으로 !212를 병합 없이 닫고 신고·설정 묶음을 후순위로 이동한다. 신고 코드 `6502ef6b`와 `feature/client/report-only` 브랜치는 보존한다.
+
+1. **지금:** 575의 현재 develop 컴파일·기존 자동 회귀 검증 및 발견 결함 수정. 작업 브랜치 `feature/server/match-regression`.
+2. **설정 기반의 정식 develop 통합 후:** 739 신고 + 740 공통 설정 + 743 카메라 설정을 한 MR로 구성. 다른 담당자 feature 브랜치를 직접 합치지 않는다.
+3. 741 그래픽 + 742 오디오 + 744 인터페이스 + 745 알림은 선행 조건과 검증 범위를 확인해 MR 단위로 구성.
+4. 최종 기능 통합 후 575의 별도 PC 2인·6인 실제 경기/재경기, Windows 빌드 확정 및 전달.
+
+579 API 부하테스트는 사용자 지시로 계속 보류한다. 739·740·743은 해야 할 일, 575는 진행 중이며 사전 검증만으로 완료 처리하지 않는다. 아래 번호 목록은 최초 계획 기록이며 이 갱신 순서를 우선한다.
+
+### 575 현재 develop 사전 검증 결과
+
+- 검증 코드: `9bc830eb3202b747ebbc3163704ec1be373d8b9a` (!211 되돌림 병합 후). 로컬 `RoomEntryMessages.cs.meta` 삭제는 사용자 변경으로 유지하며 커밋하지 않는다.
+- `dotnet build Game.Architecture.Tests.csproj --ignore-failed-sources -v:q`: 오류 0, 경고 46. 생성된 C# 프로젝트 기준 컴파일이며 Unity 임포트·Fusion weaving 완료를 의미하지 않는다.
+- 기존 테스트를 독립 .NET 10 하네스로 호출: 86 통과, 0 실패. 아래 클래스의 Test/TestCase를 새 인스턴스로 실행했다. Unity 네이티브 생성·씬 실행이 필요한 테스트는 이번 실행 대상에서 제외했다.
+
+| 기존 테스트 클래스 | 통과 건수 |
+|---|---:|
+| MatchPhaseFlowTests | 5 |
+| MatchOutcomeSystemTests | 5 |
+| ResultPresentationTests | 12 |
+| MatchPlayerRosterTests | 4 |
+| InteractionAuthorityRulesTests | 3 |
+| HighlightCandidateSelectorTests | 6 |
+| RoomLobbySystemTests | 39 |
+| AppFlowSystemTests | 12 |
+
+로컬 실행 자료: `C:/Users/SSAFY/Documents/ChatGPT/특화 프로젝트/.build/575/`의 `Check.csproj`, `Program.cs`, `results.log`; 컴파일 로그는 같은 `.build`의 `575-build.log`. 하네스는 이 PC의 생성 어셈블리에 의존하며 팀 공용 실행 도구가 아니다. Unity에서는 위 클래스를 EditMode Test Runner로 실행한다.
+
+**남은 검증:** Unity EditMode/PlayMode, 동일 Windows 빌드의 별도 PC 2인·6인 접속, 실제 API, 동시 집기·기절 드롭·시간초과 배치·호스트 이탈·후보 0개/skip·재경기. 실제 플레이 인원은 이번 검증에서 0명이며 배포용 빌드는 생성하지 않았다. 최종 빌드 검증 결과로 사용할 수 없다.
+
 Task 번호는 모두 S15P21D205 접두사를 사용한다. 570~579 시스템 작업 담당은 한태원이며 Spring 변경·검증은 백엔드 담당과 협업한다. 화면·에셋 제작은 기존 연결 Task 범위로 유지한다.
 
 1. 570 정책·완료 기준 정리 및 미정 항목 답변 반영.
