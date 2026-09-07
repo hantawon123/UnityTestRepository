@@ -45,7 +45,9 @@ pipeline {
         stage('Deployment checks') {
             when { environment name: 'WEBGL_REQUIRED', value: 'true' }
             steps {
-                sh 'git lfs pull'
+                withCredentials([gitUsernamePassword(credentialsId: 'gitlab-deploy-token', gitToolName: 'Default')]) {
+                    sh 'git lfs pull'
+                }
                 sh 'python3 Tools/webgl/test_changes.py && bash Tools/webgl/test_build.sh && python3 Tools/webgl/test_publish.py'
             }
         }
