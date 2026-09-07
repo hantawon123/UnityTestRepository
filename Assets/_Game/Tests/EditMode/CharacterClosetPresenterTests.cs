@@ -174,7 +174,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void TheArrow_LeavesForHome()
+        public void TheArrow_WithNothingChanged_LeavesAtOnce()
         {
             var presenter = Presenter(new AvatarAppearanceState());
             presenter.Start();
@@ -197,6 +197,186 @@ namespace Game.Architecture.Tests
             Assert.That(host.HomeOpenCount, Is.Zero);
         }
 
+        [Test]
+        public void ChangingAPart_TurnsTheTwoButtonsOn()
+        {
+            var presenter = Presenter(new AvatarAppearanceState());
+            presenter.Start();
+            Assert.That(view.ActionsEnabled, Is.False, "Nothing has changed yet.");
+
+            view.PickPart(AvatarPartCategory.BodyColor, "body_b");
+
+            Assert.That(view.ActionsEnabled, Is.True);
+            presenter.Dispose();
+        }
+
+        [Test]
+        public void UndoingTheChangeByHand_TurnsThemOffAgain()
+        {
+            var presenter = Presenter(new AvatarAppearanceState());
+            presenter.Start();
+            view.PickPart(AvatarPartCategory.BodyColor, "body_b");
+
+            view.PickPart(AvatarPartCategory.BodyColor, "body_a");
+
+            Assert.That(view.ActionsEnabled, Is.False);
+            presenter.Dispose();
+        }
+
+        [Test]
+        public void Applying_SettlesTheAppearance_AndTurnsTheButtonsOff()
+        {
+            var appearance = new AvatarAppearanceState();
+            var presenter = Presenter(appearance);
+            presenter.Start();
+            view.PickPart(AvatarPartCategory.BodyColor, "body_b");
+
+            view.PressApply();
+
+            Assert.That(appearance.Current.BodyColorId, Is.EqualTo("body_b"));
+            Assert.That(view.ActionsEnabled, Is.False);
+            Assert.That(view.ConfirmShown, Is.Null, "Applying asks nothing.");
+            presenter.Dispose();
+        }
+
+        [Test]
+        public void Applying_WithNothingChanged_SettlesNothing()
+        {
+            var appearance = new AvatarAppearanceState();
+            var presenter = Presenter(appearance);
+            presenter.Start();
+
+            view.PressApply();
+
+            Assert.That(appearance.Current, Is.EqualTo(AvatarAppearance.Default));
+            presenter.Dispose();
+        }
+
+        [Test]
+        public void Reset_AsksBeforeThrowingTheChangeAway()
+        {
+            var presenter = Presenter(new AvatarAppearanceState());
+            presenter.Start();
+            view.PickPart(AvatarPartCategory.BodyColor, "body_b");
+
+            view.PressReset();
+
+            Assert.That(view.ConfirmShown, Is.EqualTo(ClosetConfirmKind.Reset));
+            Assert.That(presenter.Draft.BodyColorId, Is.EqualTo("body_b"), "Not yet.");
+            presenter.Dispose();
+        }
+
+        [Test]
+        public void Reset_WithNothingChanged_AsksNothing()
+        {
+            var presenter = Presenter(new AvatarAppearanceState());
+            presenter.Start();
+
+            view.PressReset();
+
+            Assert.That(view.ConfirmShown, Is.Null);
+            presenter.Dispose();
+        }
+
+        [Test]
+        public void Reset_Accepted_PutsTheAppliedAppearanceBack()
+        {
+            var presenter = Presenter(Wearing(
+                new AvatarAppearance("body_b", "hood_a", string.Empty, string.Empty)));
+            presenter.Start();
+            view.PickPart(AvatarPartCategory.BodyColor, "body_a");
+            view.PressReset();
+
+            view.AnswerYes();
+
+            Assert.That(presenter.Draft.BodyColorId, Is.EqualTo("body_b"));
+            Assert.That(view.SelectedPartId, Is.EqualTo("body_b"));
+            Assert.That(view.Previewed.BodyColorId, Is.EqualTo("body_b"));
+            Assert.That(view.ActionsEnabled, Is.False);
+            Assert.That(view.ConfirmShown, Is.Null);
+            presenter.Dispose();
+        }
+
+        [Test]
+        public void Reset_Dismissed_KeepsWhatWasPicked()
+        {
+            var presenter = Presenter(new AvatarAppearanceState());
+            presenter.Start();
+            view.PickPart(AvatarPartCategory.BodyColor, "body_b");
+            view.PressReset();
+
+            view.AnswerNo();
+
+            Assert.That(presenter.Draft.BodyColorId, Is.EqualTo("body_b"));
+            Assert.That(view.ActionsEnabled, Is.True);
+            Assert.That(view.ConfirmShown, Is.Null);
+            presenter.Dispose();
+        }
+
+        [Test]
+        public void Leaving_WithChanges_AsksAndStays()
+        {
+            var presenter = Presenter(new AvatarAppearanceState());
+            presenter.Start();
+            view.PickPart(AvatarPartCategory.BodyColor, "body_b");
+
+            view.PressBack();
+
+            Assert.That(view.ConfirmShown, Is.EqualTo(ClosetConfirmKind.Discard));
+            Assert.That(host.HomeOpenCount, Is.Zero);
+            presenter.Dispose();
+        }
+
+        [Test]
+        public void Leaving_Accepted_ThrowsTheChangeAwayAndGoes()
+        {
+            var appearance = new AvatarAppearanceState();
+            var presenter = Presenter(appearance);
+            presenter.Start();
+            view.PickPart(AvatarPartCategory.BodyColor, "body_b");
+            view.PressBack();
+
+            view.AnswerYes();
+
+            Assert.That(host.HomeOpenCount, Is.EqualTo(1));
+            Assert.That(
+                appearance.Current,
+                Is.EqualTo(AvatarAppearance.Default),
+                "Leaving settles nothing.");
+            presenter.Dispose();
+        }
+
+        [Test]
+        public void Leaving_Dismissed_StaysWithTheChange()
+        {
+            var presenter = Presenter(new AvatarAppearanceState());
+            presenter.Start();
+            view.PickPart(AvatarPartCategory.BodyColor, "body_b");
+            view.PressBack();
+
+            view.AnswerNo();
+
+            Assert.That(host.HomeOpenCount, Is.Zero);
+            Assert.That(presenter.Draft.BodyColorId, Is.EqualTo("body_b"));
+            Assert.That(view.ConfirmShown, Is.Null);
+            presenter.Dispose();
+        }
+
+        [Test]
+        public void Leaving_AfterApplying_AsksNothing()
+        {
+            var presenter = Presenter(new AvatarAppearanceState());
+            presenter.Start();
+            view.PickPart(AvatarPartCategory.BodyColor, "body_b");
+            view.PressApply();
+
+            view.PressBack();
+
+            Assert.That(view.ConfirmShown, Is.Null);
+            Assert.That(host.HomeOpenCount, Is.EqualTo(1));
+            presenter.Dispose();
+        }
+
         private CharacterClosetPresenter Presenter(AvatarAppearanceState appearance) =>
             new CharacterClosetPresenter(view, catalog, appearance, host);
 
@@ -216,7 +396,20 @@ namespace Game.Architecture.Tests
 
             public event Action<AvatarPartCategory, string> PartSelected;
 
+            public event Action ResetRequested;
+
+            public event Action ApplyRequested;
+
+            public event Action ConfirmAccepted;
+
+            public event Action ConfirmDismissed;
+
             public int ShownCategories { get; private set; }
+
+            public bool ActionsEnabled { get; private set; }
+
+            /// <summary>Which confirmation is up, or none.</summary>
+            public ClosetConfirmKind? ConfirmShown { get; private set; }
 
             public AvatarPartCategory? ShownGroup { get; private set; }
 
@@ -245,6 +438,21 @@ namespace Game.Architecture.Tests
                 Previewed = appearance;
             }
 
+            public void SetActionsEnabled(bool enabled)
+            {
+                ActionsEnabled = enabled;
+            }
+
+            public void ShowConfirm(ClosetConfirmKind kind)
+            {
+                ConfirmShown = kind;
+            }
+
+            public void HideConfirm()
+            {
+                ConfirmShown = null;
+            }
+
             public void PressBack() => BackRequested?.Invoke();
 
             public void PickCategory(AvatarPartCategory category) =>
@@ -252,6 +460,15 @@ namespace Game.Architecture.Tests
 
             public void PickPart(AvatarPartCategory category, string partId) =>
                 PartSelected?.Invoke(category, partId);
+
+            public void PressReset() => ResetRequested?.Invoke();
+
+            public void PressApply() => ApplyRequested?.Invoke();
+
+            public void AnswerYes() => ConfirmAccepted?.Invoke();
+
+            /// <summary>아니오, the X and Escape all arrive here.</summary>
+            public void AnswerNo() => ConfirmDismissed?.Invoke();
         }
 
         private sealed class FakeApplicationHost : IHomeApplicationHost
