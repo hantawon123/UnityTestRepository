@@ -1,5 +1,6 @@
 using System;
 using Game.Client.Home;
+using Game.Core.Flow;
 using Game.Core.Players;
 using UnityEngine;
 using VContainer.Unity;
@@ -28,6 +29,7 @@ namespace Game.Client.Character
         private readonly AvatarPartCatalog catalog;
         private readonly AvatarAppearanceState appearance;
         private readonly IHomeApplicationHost applicationHost;
+        private readonly AppFlowSystem appFlow;
 
         private AvatarAppearance draft;
         private AvatarAppearance applied;
@@ -39,13 +41,15 @@ namespace Game.Client.Character
             ICharacterClosetView view,
             AvatarPartCatalog catalog,
             AvatarAppearanceState appearance,
-            IHomeApplicationHost applicationHost)
+            IHomeApplicationHost applicationHost,
+            AppFlowSystem appFlow)
         {
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             this.appearance = appearance ?? throw new ArgumentNullException(nameof(appearance));
             this.applicationHost = applicationHost
                                    ?? throw new ArgumentNullException(nameof(applicationHost));
+            this.appFlow = appFlow ?? throw new ArgumentNullException(nameof(appFlow));
         }
 
         /// <summary>What has been picked but not applied. For tests.</summary>
@@ -208,7 +212,7 @@ namespace Game.Client.Character
 
             if (!IsChanged)
             {
-                applicationHost.OpenHome();
+                Leave();
                 return;
             }
 
@@ -229,6 +233,34 @@ namespace Game.Client.Character
             if (kind == ClosetConfirmKind.Reset)
             {
                 Restore();
+                return;
+            }
+
+            Leave();
+        }
+
+        /// <summary>
+        /// Goes back to Home, and says so to the flow before going.
+        /// </summary>
+        /// <remarks>
+        /// Leaving the scene is not enough. Home gates the buttons that change
+        /// screen on the flow state, so a closet that walks out without moving
+        /// the state back leaves Home looking alive with half its menu dead —
+        /// which is exactly what it did.
+        /// <para>
+        /// A refusal is reported rather than swallowed, for the same reason the
+        /// room browser reports its own: a dead back button and a hung screen
+        /// look identical from the outside.
+        /// </para>
+        /// </remarks>
+        private void Leave()
+        {
+            if (appFlow.CurrentState != AppFlowState.Home &&
+                !appFlow.TryTransitionTo(AppFlowState.Home))
+            {
+                Debug.LogError(
+                    "[Closet] Cannot leave the closet for the home screen " +
+                    $"from {appFlow.CurrentState}.");
                 return;
             }
 
