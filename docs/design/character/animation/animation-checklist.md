@@ -124,20 +124,44 @@
 
 ## 엎드리기·기어가기
 
-- [ ] 엎드리기 진입
-  - 파일명:
+배 바닥에 붙이고 손을 짚은 포복. Mixamo 소총 엎드리기는 쓰지 않는다.
+`Tools/make_first_prone.py`로 First 대기 메시 위에 제작한다.
+
+- [x] 엎드리기 진입
+  - 파일명: `FirstPlayerCapsule_Prone_Start.fbx`
   - 액션명: `Prone_Start`
-- [ ] 엎드린 대기
-  - 파일명:
+  - 반복: X
+  - 재생 구간: 1~24 / 30fps
+- [x] 엎드린 대기
+  - 파일명: `FirstPlayerCapsule_Prone_Idle.fbx`
   - 액션명: `Prone_Idle`
   - 반복: O
-- [ ] 기어가기
-  - 파일명:
-  - 액션명: `Crawl`
+  - 재생 구간: 1~60 / 30fps
+- [x] 앞으로 기어가기
+  - 파일명: `FirstPlayerCapsule_Crawl_Forward.fbx`
+  - 액션명: `Crawl_Forward`
   - 반복: O
-- [ ] 엎드린 상태에서 일어나기
-  - 파일명:
+  - 재생 구간: 1~36 / 30fps
+- [x] 뒤로 기어가기
+  - 파일명: `FirstPlayerCapsule_Crawl_Back.fbx`
+  - 액션명: `Crawl_Back`
+  - 반복: O
+  - 재생 구간: 1~36 / 30fps
+- [x] 왼쪽 기어가기
+  - 파일명: `FirstPlayerCapsule_Crawl_Left.fbx`
+  - 액션명: `Crawl_Left`
+  - 반복: O
+  - 재생 구간: 1~36 / 30fps
+- [x] 오른쪽 기어가기
+  - 파일명: `FirstPlayerCapsule_Crawl_Right.fbx`
+  - 액션명: `Crawl_Right`
+  - 반복: O
+  - 재생 구간: 1~36 / 30fps
+- [x] 엎드린 상태에서 일어나기
+  - 파일명: `FirstPlayerCapsule_Prone_End.fbx`
   - 액션명: `Prone_End`
+  - 반복: X
+  - 재생 구간: 1~24 / 30fps
 
 
 

@@ -1487,9 +1487,10 @@ namespace Game.Network.Session
             _runner.AddCallbacks(this);
 
             // Voice rides on the same object because its client reads the runner
-            // for the session it should follow. A dedicated server has no
-            // microphone and nobody to hear it, so it does not carry one.
+            // for the session it should follow. A dedicated server keeps only
+            // an inactive registry for the avatars' voice lifecycle callbacks.
             Voice = provideInput ? VoiceRig.Attach(_runner) : null;
+            if (!provideInput) VoiceRig.AttachServer(_runner);
 
             // Sits on the runner so that characters, which Fusion spawns and the
             // container therefore cannot inject, can still reach it.

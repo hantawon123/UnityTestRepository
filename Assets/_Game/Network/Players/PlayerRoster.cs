@@ -100,7 +100,7 @@ namespace Game.Network.Players
                 }
 
                 into.Add(new RoomParticipant(
-                    PlayerRegistry.IdOf(avatar.Owner),
+                    avatar.PlayerId,
                     avatar.Seat,
                     avatar.IsHost,
                     avatar.Nickname.ToString()));
@@ -146,7 +146,7 @@ namespace Game.Network.Players
                 {
                     var avatar = _avatars[index];
                     if (avatar != null && string.Equals(
-                            PlayerRegistry.IdOf(avatar.Owner),
+                            avatar.PlayerId,
                             playerId,
                             System.StringComparison.Ordinal))
                     {

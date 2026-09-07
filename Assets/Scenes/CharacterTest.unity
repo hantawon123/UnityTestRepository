@@ -359,6 +359,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 60b3d60c4d774902b67b82a3285053f6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Client::Game.Client.CharacterTestPreviewDriver
+  stateNames:
+  - Idle_Breathing
+  - Walk_Wide_Clean
+  - Run_SideArms
+  - Jump_Cute
+  - Fall_Flutter
+  - Land_Matched
+  - Crouch_Idle_KneesUp
+  - Crouch_Walk_Forward_KneesUp
+  - Stand_To_Crouch_KneesUp
+  - Crouch_To_Stand_KneesUp
+  - Crouch_Walk_Left_KneesUp
+  - Crouch_Walk_Right_KneesUp
+  - Crouch_Walk_Back_KneesUp
 --- !u!1001 &978768860
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -410,6 +424,10 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: 4cadb45f247724c379dfc709e9ae70ac, type: 3}
       propertyPath: m_Name
       value: BlenderPreview
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 4cadb45f247724c379dfc709e9ae70ac, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5866666021909216657, guid: 4cadb45f247724c379dfc709e9ae70ac, type: 3}
       propertyPath: m_Controller
@@ -581,6 +599,129 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 60b3d60c4d774902b67b82a3285053f6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Client::Game.Client.CharacterTestPreviewDriver
+  stateNames:
+  - Idle_Breathing
+  - Walk_Wide_Clean
+  - Run_SideArms
+  - Jump_Cute
+  - Fall_Flutter
+  - Land_Matched
+  - Crouch_Idle_KneesUp
+  - Crouch_Walk_Forward_KneesUp
+  - Stand_To_Crouch_KneesUp
+  - Crouch_To_Stand_KneesUp
+  - Crouch_Walk_Left_KneesUp
+  - Crouch_Walk_Right_KneesUp
+  - Crouch_Walk_Back_KneesUp
+--- !u!1001 &1744109121
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -3.59
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: m_Name
+      value: FirstPlayerCapsule
+      objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: 4e757c77a21b9744991e139d6129bd9f, type: 2}
+    - target: {fileID: 5866666021909216657, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      propertyPath: m_CullingMode
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1744109123}
+  m_SourcePrefab: {fileID: 100100000, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+--- !u!1 &1744109122 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9, type: 3}
+  m_PrefabInstance: {fileID: 1744109121}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1744109123
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1744109122}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 60b3d60c4d774902b67b82a3285053f6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.CharacterTestPreviewDriver
+  stateNames:
+  - Idle_Breathing
+  - Walk_Wide_Clean
+  - Run_SideArms
+  - Jump_Cute
+  - Fall_Flutter
+  - Land_Matched
+  - Crouch_Idle_KneesUp
+  - Crouch_Walk_Forward_KneesUp
+  - Stand_To_Crouch_KneesUp
+  - Crouch_To_Stand_KneesUp
+  - Crouch_Walk_Left_KneesUp
+  - Crouch_Walk_Right_KneesUp
+  - Crouch_Walk_Back_KneesUp
+  - Pickup_Low
+  - Carry_Idle
+  - PutDown_Low
+  - Prone_Start
+  - Prone_Idle
+  - Crawl_Forward
+  - Crawl_Back
+  - Crawl_Left
+  - Crawl_Right
+  - Prone_End
 --- !u!1001 &1749797335
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -682,6 +823,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 60b3d60c4d774902b67b82a3285053f6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Client::Game.Client.CharacterTestPreviewDriver
+  stateNames:
+  - Idle_Breathing
+  - Walk_Wide_Clean
+  - Run_SideArms
+  - Jump_Cute
+  - Fall_Flutter
+  - Land_Matched
+  - Crouch_Idle_KneesUp
+  - Crouch_Walk_Forward_KneesUp
+  - Stand_To_Crouch_KneesUp
+  - Crouch_To_Stand_KneesUp
+  - Crouch_Walk_Left_KneesUp
+  - Crouch_Walk_Right_KneesUp
+  - Crouch_Walk_Back_KneesUp
 --- !u!1 &2040571902
 GameObject:
   m_ObjectHideFlags: 0
@@ -805,3 +960,4 @@ SceneRoots:
   - {fileID: 1749797335}
   - {fileID: 869939381}
   - {fileID: 978768860}
+  - {fileID: 1744109121}

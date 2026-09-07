@@ -2,6 +2,7 @@ package com.ssafy.d205.domain.user.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +15,7 @@ import com.ssafy.d205.domain.user.dto.UpdateAppearanceRequest;
 import com.ssafy.d205.domain.user.entity.AuthProvider;
 import com.ssafy.d205.domain.user.entity.User;
 import com.ssafy.d205.domain.user.entity.UserAppearance;
+import com.ssafy.d205.domain.user.event.AccountDeletedEvent;
 import com.ssafy.d205.domain.user.repository.UserAppearanceRepository;
 import com.ssafy.d205.domain.user.repository.UserIdentityRepository;
 import com.ssafy.d205.domain.user.repository.UserRepository;
@@ -38,6 +40,7 @@ public class AccountService {
     private final UserIdentityRepository userIdentityRepository;
     private final UserAppearanceRepository userAppearanceRepository;
     private final TimeProvider timeProvider;
+    private final ApplicationEventPublisher events;
 
     /**
      * 기기 식별자로 계정을 발급합니다. <b>멱등합니다.</b>
@@ -227,6 +230,11 @@ public class AccountService {
         // 로드해 쓰는 코드를 넣으면 영속성 컨텍스트에 살아 있는 자식이 남고, flush 순서에
         // 따라 FK 위반이나 지워진 행의 부활이 생깁니다.
         userRepository.delete(user);
+
+        // 플레이 로그(분석 스키마)는 CASCADE 가 닿지 않는 다른 DB 접속입니다. 거기서 이 사람의
+        // 식별자를 지우는 일은 커밋 뒤에 듣는 쪽(GameEventEraser)이 합니다. 여기서 직접 부르면
+        // 분석 DB 장애가 탈퇴를 실패시키고, 롤백되면 지울 이유가 없는 행을 지웁니다.
+        events.publishEvent(new AccountDeletedEvent(user.getPublicId()));
     }
 
     private Optional<User> findByDevice(String deviceId) {
