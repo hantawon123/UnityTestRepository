@@ -4,7 +4,7 @@
 컨셉은 [concept-guide.md](../concept/concept-guide.md)의 `[LOBBY] — 작전실`: 도둑들이 작전을 준비하는 지하 아지트.
 
 - 파일명은 영문 소문자와 하이픈. 예: `basement-overview-topdown.png`
-- Unity 조립 씬: `Assets/PolyWorkshop_BasementWorkshop/Scenes/LobbyBuild.unity` (실제 로비 씬 `Assets/_Game/Content/Scenes/Lobby.unity`에는 아직 미투입)
+- Unity 조립 씬: `Assets/PolyWorkshop_BasementWorkshop/Scenes/LobbyBuild.unity` → 프리팹 `Assets/_Game/Content/Prefabs/LobbyBasementEnvironment.prefab` → 실제 로비 씬 `Assets/_Game/Content/Scenes/Lobby.unity`에 배치
 
 ## 목록
 
@@ -44,9 +44,19 @@
 - 측정 기준은 **벽·문 모듈(Basement_Wall/Door)의 최외곽 면**, 높이는 벽 상단/천장 모듈. 바닥 판(Ground)과 천장 위 램프 메시를 포함하면 경계가 벽에서 수 m 떨어지므로 제외.
 - 결과: 내부 13.3 × 6.4 × 12.5 m (x -3.15~10.10, z -10.35~2.15, y -0.09~6.32), 판 두께 2 m, 벽 면에서 5 cm 여유.
 
+### 5. 로비 씬 통합 (2026-09-07)
+
+- `LobbyBasementEnvironment` 루트를 프리팹으로 저장하고 `Lobby.unity`의 창고 환경(LobbyWarehouseEnvironment)과 교체. 조립 씬(LobbyBuild)은 프리팹 인스턴스로 연결돼 있어 이후 수정은 프리팹에서 한다.
+- 프리팹에 **함께 들어간 것**: 벽·천장·기둥 모듈, 소품 79, 공구 15, 데칼 20, 전등 25(URP 라이트 데이터 포함), 콜라이더 전부, 경계 6면, Reflection Probe 2개(`Probes` 아래로 이동), Static 플래그.
+- 프리팹에 **안 들어가서 씬에 직접 옮긴 것**(Lighting 창의 Environment 설정): 스카이박스 `Skybox1_Material`, 환경광 Skybox 1.5, 안개 ExpSquared 0.03(회청색), 태양 = 프리팹의 Directional Light.
+- Lobby 씬에서 **제거한 것**: 창고 프리팹 인스턴스, 40 m 바닥 콜라이더(LobbyGroundCollider, 지하실 바닥·경계와 중복), 씬 자체 Directional Light(실내에 외부 태양광이 새어 들어옴). 조립 씬의 Post-process Volume은 Built-in 전용 스크립트가 깨진 상태여서 삭제.
+- 스폰 포인트 6개(x 6.4, z -6~-1)는 지하실 내부 바닥 위이고 소품과 겹치지 않음. 동벽을 보고 있던 방향을 방 안쪽(-X)으로 회전.
+- 창고 프리팹 `LobbyWarehouseEnvironment.prefab` 삭제. 원본 에셋 팩 `Assets/IGBlocks/IG_Warehouse`(129 MB)는 다른 곳에서 참조하지 않아 삭제 가능(팀 확인 후).
+- 조명 참고: 팩 라이트 25개 중 Baked 10·Mixed 6이지만 라이트맵은 베이크되지 않은 상태. 현재 보이는 결과는 Realtime/Mixed 직접광만이며, 베이크는 조명 연출(614)에서 Lobby 씬 기준으로 진행.
+
 ## 다음 단계
 
-1. `LobbyBasementEnvironment`를 프리팹으로 저장하고 `Lobby.unity`의 창고 환경(LobbyWarehouseEnvironment)과 교체. 스폰 포인트 6개·조명·Reflection Probe·Post-process Volume 정리.
-2. Lobby 씬에서 실제 플레이 테스트(이동, 벽·경계 충돌, 시작·나가기).
-3. 상자·콘·타이어·가스통을 Carryable 프리팹 변형으로 전환(로비 네트워크 동기화 여부 확인 후).
-4. (선택) 방장 전용 상호작용 "작전 계획판"으로 설정/시작 화면 열기.
+1. Lobby 씬에서 실제 플레이 테스트(이동, 벽·경계 충돌, 스폰 위치, 시작·나가기).
+2. 조명 연출(614): Lobby 씬에서 라이트맵·Reflection Probe 베이크, URP Volume으로 포스트프로세스 구성.
+3. 상자·콘·타이어·가스통을 Carryable 프리팹 변형으로 전환(615, 로비 네트워크 동기화 여부 확인 후).
+4. 방 설정 상호작용(619~621): 방장 전용 "작전 계획판"으로 설정/시작 화면 열기.
