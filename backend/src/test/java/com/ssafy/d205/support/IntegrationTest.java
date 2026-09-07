@@ -48,12 +48,20 @@ public abstract class IntegrationTest {
      * <p>분석 스키마 권한 스크립트를 운영·로컬 compose 와 <b>같은 파일</b>로 넣습니다. 테스트용
      * 사본을 두면 둘이 어긋나도 아무도 모릅니다. 작업 디렉터리는 backend/ 입니다(Gradle 기본값).
      */
+    /** 읽기 전용 계정 비밀번호. 운영은 .env 에서, 여기서는 이 상수로 02 스크립트에 넘깁니다. */
+    protected static final String READER_PASSWORD = "reader-test";
+
     @ServiceConnection
-    static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4")
+    protected static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4")
             .withCommand("--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci")
+            .withEnv("ANALYTICS_READER_PASSWORD", READER_PASSWORD)
+            .withEnv("METABASE_DB_PASSWORD", "metabase-test")
             .withCopyFileToContainer(
                     MountableFile.forHostPath("deploy/mysql/init/01-analytics-grant.sh"),
-                    "/docker-entrypoint-initdb.d/01-analytics-grant.sh");
+                    "/docker-entrypoint-initdb.d/01-analytics-grant.sh")
+            .withCopyFileToContainer(
+                    MountableFile.forHostPath("deploy/mysql/init/02-analytics-accounts.sh"),
+                    "/docker-entrypoint-initdb.d/02-analytics-accounts.sh");
 
     static {
         MYSQL.start();
