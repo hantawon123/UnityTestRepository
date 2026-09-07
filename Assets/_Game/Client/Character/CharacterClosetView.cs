@@ -36,6 +36,10 @@ namespace Game.Client.Character
         [Tooltip("The circling arrow left of the reset label. Optional.")]
         private Sprite resetIcon;
 
+        [SerializeField]
+        [Tooltip("The X that closes a confirmation. Optional.")]
+        private Sprite closeIcon;
+
         [Header("Fonts")]
         [SerializeField]
         [Tooltip("SemiBold, for the arrow and the category tabs.")]
@@ -65,6 +69,8 @@ namespace Game.Client.Character
         private Image applyFill;
         private TMP_Text applyLabel;
         private Image resetIconImage;
+        private Button resetButton;
+        private Button applyButton;
         private readonly List<Button> buttons = new List<Button>();
 
         public event Action BackRequested;
@@ -72,6 +78,10 @@ namespace Game.Client.Character
         public event Action<AvatarPartCategory> CategorySelected;
 
         public event Action<AvatarPartCategory, string> PartSelected;
+
+        public event Action ResetRequested;
+
+        public event Action ApplyRequested;
 
         /// <summary>
         /// Dresses the preview. Does nothing without a character assigned,
@@ -96,6 +106,8 @@ namespace Game.Client.Character
 
         private void OnDestroy()
         {
+            ReleaseBackdrop();
+
             foreach (var button in buttons)
             {
                 if (button != null)
@@ -116,6 +128,9 @@ namespace Game.Client.Character
             CreateTabRail(controlsRoot);
             CreateLocker(controlsRoot);
             CreateActionBar(controlsRoot);
+
+            // Last, so it draws over everything it is asked about.
+            CreateConfirm(controlsRoot);
         }
 
         /// <summary>
@@ -265,16 +280,16 @@ namespace Game.Client.Character
         /// Reset and apply, under the character.
         /// </summary>
         /// <remarks>
-        /// Drawn but not wired. What turns them on is whether the draft differs
-        /// from what was applied, which is the next story; building the bar now
-        /// means that story adds a rule rather than a layout.
+        /// Both start off. Whether there is anything to apply is the
+        /// presenter's to decide, and it says so through
+        /// <see cref="SetActionsEnabled"/>.
         /// </remarks>
         private void CreateActionBar(RectTransform canvas)
         {
             var size = CharacterClosetStyle.Buttons.Size;
             var half = (size.x + CharacterClosetStyle.Buttons.Gap) * 0.5f;
 
-            CreateButtonPlate(
+            var reset = CreateButtonPlate(
                 "ResetButton",
                 canvas,
                 new Vector2(-half, CharacterClosetStyle.Buttons.BottomMargin),
@@ -285,8 +300,9 @@ namespace Game.Client.Character
                 buttonFontAsset,
                 out resetFill,
                 out resetLabel);
+            resetButton = AddPlateButton(reset, resetFill, () => ResetRequested?.Invoke());
 
-            CreateButtonPlate(
+            var apply = CreateButtonPlate(
                 "ApplyButton",
                 canvas,
                 new Vector2(half, CharacterClosetStyle.Buttons.BottomMargin),
@@ -297,21 +313,42 @@ namespace Game.Client.Character
                 buttonFontAsset,
                 out applyFill,
                 out applyLabel);
+            applyButton = AddPlateButton(apply, applyFill, () => ApplyRequested?.Invoke());
 
-            ShowActionsEnabled(false);
+            SetActionsEnabled(false);
+        }
+
+        private Button AddPlateButton(RectTransform plate, Image fill, Action clicked)
+        {
+            var button = plate.gameObject.AddComponent<Button>();
+            button.targetGraphic = fill;
+            button.transition = Selectable.Transition.None;
+            button.onClick.AddListener(() => clicked());
+            buttons.Add(button);
+            return button;
         }
 
         /// <summary>
-        /// Paints the two buttons for whether there is anything to apply.
+        /// Paints and arms the two buttons for whether there is anything to
+        /// apply.
         /// </summary>
         /// <remarks>
-        /// Private, and only ever called with <c>false</c>, until the story
-        /// that decides when there is something to apply. The colours are here
-        /// rather than in that story so the bar the mock-up shows is the bar
-        /// this screen draws today.
+        /// Both the colour and the interactable flag, because the off state has
+        /// to look unavailable and be unavailable: a plate that is merely grey
+        /// still takes the click.
         /// </remarks>
-        private void ShowActionsEnabled(bool enabled)
+        public void SetActionsEnabled(bool enabled)
         {
+            if (resetButton != null)
+            {
+                resetButton.interactable = enabled;
+            }
+
+            if (applyButton != null)
+            {
+                applyButton.interactable = enabled;
+            }
+
             if (resetFill != null)
             {
                 resetFill.color = enabled
@@ -369,7 +406,7 @@ namespace Game.Client.Character
                 rect,
                 fillColor,
                 HomeUiFonts.Rounded(CharacterClosetStyle.Radius.Button),
-                raycastTarget: false);
+                raycastTarget: true);
 
             var labelRect = CreateText(
                 "Label",
@@ -395,17 +432,18 @@ namespace Game.Client.Character
         /// The glyph beside a button label.
         /// </summary>
         /// <remarks>
-        /// Placed against the measured width of the centred label rather than
-        /// at a fixed inset, so the icon and the word stay a pair whatever the
-        /// plate is sized to.
+        /// The icon hangs off the left edge of the label, measured rather than
+        /// guessed, and the pair is then nudged across by
+        /// <see cref="CharacterClosetStyle.Buttons.IconRowShift"/> — the label
+        /// alone in the middle leaves the two of them reading left of centre.
         /// </remarks>
         private Image CreateButtonIcon(
             RectTransform plate, Sprite icon, TMP_Text label, Color color)
         {
             var size = CharacterClosetStyle.Buttons.IconSize;
             var gap = CharacterClosetStyle.Buttons.IconGap;
+            var shift = CharacterClosetStyle.Buttons.IconRowShift;
             label.ForceMeshUpdate();
-            var shift = (size + gap) * 0.5f;
             label.rectTransform.anchoredPosition = new Vector2(shift, 0f);
 
             var rect = CreateRect("Icon", plate);
@@ -415,7 +453,7 @@ namespace Game.Client.Character
                 new Vector2(0.5f, 0.5f),
                 new Vector2(0.5f, 0.5f));
             rect.anchoredPosition = new Vector2(
-                shift - ((label.preferredWidth + size + gap) * 0.5f), 0f);
+                shift - ((label.preferredWidth * 0.5f) + gap + (size * 0.5f)), 0f);
             rect.sizeDelta = new Vector2(size, size);
 
             var image = AddImage(rect, color);

@@ -17,9 +17,9 @@ namespace Game.Client.Character
     /// applied — so leaving without applying is nothing more than this object
     /// going away.
     /// <para>
-    /// Applying, resetting and the two confirmations are the next story. Until
-    /// then the arrow leaves at once, which is also the behaviour the design
-    /// asks for when nothing has been changed.
+    /// Applied and draft are held side by side rather than as a dirty flag,
+    /// because reset has to put the applied one back and the buttons have to
+    /// go dark again when a player undoes their own change by hand.
     /// </para>
     /// </remarks>
     public sealed class CharacterClosetPresenter : IStartable, IDisposable
@@ -30,8 +30,10 @@ namespace Game.Client.Character
         private readonly IHomeApplicationHost applicationHost;
 
         private AvatarAppearance draft;
+        private AvatarAppearance applied;
         private AvatarPartCategory shownCategory;
         private bool hasShownCategory;
+        private ClosetConfirmKind? pending;
 
         public CharacterClosetPresenter(
             ICharacterClosetView view,
@@ -54,10 +56,17 @@ namespace Game.Client.Character
             view.BackRequested += OnBackRequested;
             view.CategorySelected += OnCategorySelected;
             view.PartSelected += OnPartSelected;
+            view.ResetRequested += OnResetRequested;
+            view.ApplyRequested += OnApplyRequested;
+            view.ConfirmAccepted += OnConfirmAccepted;
+            view.ConfirmDismissed += OnConfirmDismissed;
 
-            draft = Worn();
+            applied = Worn();
+            draft = applied;
             view.ShowCategories(catalog.Groups);
             view.ShowPreview(draft);
+            view.HideConfirm();
+            view.SetActionsEnabled(false);
 
             if (catalog.Groups.Count > 0 && catalog.Groups[0] != null)
             {
@@ -75,7 +84,14 @@ namespace Game.Client.Character
             view.BackRequested -= OnBackRequested;
             view.CategorySelected -= OnCategorySelected;
             view.PartSelected -= OnPartSelected;
+            view.ResetRequested -= OnResetRequested;
+            view.ApplyRequested -= OnApplyRequested;
+            view.ConfirmAccepted -= OnConfirmAccepted;
+            view.ConfirmDismissed -= OnConfirmDismissed;
         }
+
+        /// <summary>Whether there is anything to apply or to undo.</summary>
+        private bool IsChanged => draft != applied;
 
         /// <summary>
         /// What the screen opens on: the applied appearance, or the
@@ -133,11 +149,107 @@ namespace Game.Client.Character
             draft = next;
             view.ShowSelectedPart(category, partId);
             view.ShowPreview(draft);
+            view.SetActionsEnabled(IsChanged);
         }
 
+        /// <summary>
+        /// Settles on the draft. Nothing is asked first: applying is what the
+        /// player came to do, and the design only confirms the two ways of
+        /// throwing work away.
+        /// </summary>
+        private void OnApplyRequested()
+        {
+            if (!IsChanged)
+            {
+                return;
+            }
+
+            appearance.Apply(draft);
+            applied = draft;
+            view.SetActionsEnabled(false);
+        }
+
+        private void OnResetRequested()
+        {
+            if (!IsChanged)
+            {
+                return;
+            }
+
+            Ask(ClosetConfirmKind.Reset);
+        }
+
+        /// <summary>
+        /// Leaves, or asks first if there is something to lose.
+        /// </summary>
         private void OnBackRequested()
         {
+            if (pending.HasValue)
+            {
+                return;
+            }
+
+            if (!IsChanged)
+            {
+                applicationHost.OpenHome();
+                return;
+            }
+
+            Ask(ClosetConfirmKind.Discard);
+        }
+
+        private void OnConfirmAccepted()
+        {
+            if (!pending.HasValue)
+            {
+                return;
+            }
+
+            var kind = pending.Value;
+            pending = null;
+            view.HideConfirm();
+
+            if (kind == ClosetConfirmKind.Reset)
+            {
+                Restore();
+                return;
+            }
+
             applicationHost.OpenHome();
+        }
+
+        private void OnConfirmDismissed()
+        {
+            if (!pending.HasValue)
+            {
+                return;
+            }
+
+            pending = null;
+            view.HideConfirm();
+        }
+
+        private void Ask(ClosetConfirmKind kind)
+        {
+            pending = kind;
+            view.ShowConfirm(kind);
+        }
+
+        /// <summary>
+        /// Back to the last applied appearance — not to a factory default. The
+        /// panel says the changes disappear, and what is left when they do is
+        /// what the player was already wearing.
+        /// </summary>
+        private void Restore()
+        {
+            draft = applied;
+            if (hasShownCategory)
+            {
+                view.ShowSelectedPart(shownCategory, draft.Get(shownCategory));
+            }
+
+            view.ShowPreview(draft);
+            view.SetActionsEnabled(false);
         }
 
         private void ShowCategory(AvatarPartCategory category)

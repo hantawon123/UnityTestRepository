@@ -13,6 +13,16 @@ namespace Game.Client.Character
         /// <summary>The arrow at the top left.</summary>
         event Action BackRequested;
 
+        event Action ResetRequested;
+
+        event Action ApplyRequested;
+
+        /// <summary>The 예 of whichever confirmation is up.</summary>
+        event Action ConfirmAccepted;
+
+        /// <summary>Its 아니오, its X, or Escape.</summary>
+        event Action ConfirmDismissed;
+
         event Action<AvatarPartCategory> CategorySelected;
 
         /// <summary>
@@ -38,5 +48,15 @@ namespace Game.Client.Character
 
         /// <summary>Dresses the character standing in the middle.</summary>
         void ShowPreview(AvatarAppearance appearance);
+
+        /// <summary>
+        /// Turns the two buttons under the character on or off, which is the
+        /// screen's whole account of whether anything has been changed.
+        /// </summary>
+        void SetActionsEnabled(bool enabled);
+
+        void ShowConfirm(ClosetConfirmKind kind);
+
+        void HideConfirm();
     }
 }
