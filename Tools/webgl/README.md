@@ -34,6 +34,12 @@ EC2의 `unity-webgl` 전용 에이전트를 사용한다. 기존 백엔드 작�
 
 ## 반복 빌드 측정
 
+### 화면 보존을 위한 셰이더 설정
+
+- PC URP의 LOD Cross Fade와 Light Cookies만 비활성화한다. 현재 직렬화된 LODGroup 34개는 Fade Mode None이며 Light 72개는 Cookie 참조가 없다. 관련 프리팹 오버라이드와 런타임 할당도 소스 검색에서 발견되지 않았다.
+- 조명, 그림자, SSAO, 반사, 안개, 후처리, 텍스처 품질은 유지한다. 앞으로 LOD 전환 효과나 Light Cookie를 추가하면 PC URP에서 해당 지원을 다시 활성화해야 한다.
+- 정적 참조 검사만으로 모든 플레이 화면의 동일성을 보증하지 않는다. 병합 전 기존 빌드와 같은 카메라·씬·품질로 화면을 비교한다. 복구는 `PC_RPAsset.asset`의 `m_EnableLODCrossFade`, `m_SupportsLightCookies`를 각각 1로 되돌린다.
+
 목표는 PC 브라우저용 게임의 일반적인 변경 빌드를 약 5분 수준으로 줄이는 것이다. 5분을 절대 제한으로 사용하지 않는다.
 WebGL에서는 PC 품질을 기본으로 사용하고 Mobile 품질을 빌드 대상에서 제외한다.
 PC 렌더링 효과를 유지한 상태에서 빌드 시간과 셰이더 변형 수를 비교한다.
