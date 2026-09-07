@@ -13,8 +13,8 @@ import com.ssafy.d205.domain.analytics.dto.GameEventRequest;
  * 분석 테스트가 함께 쓰는 이벤트 생성기.
  *
  * <p>IP 를 테스트마다 다르게 주는 것이 중요합니다. MockMvc 의 기본 remoteAddr 은 늘 127.0.0.1 이라
- * 여러 테스트가 한 IP 로 보이고, 레이트 리밋(분당 60)이 스위트 중간에 걸려 무관한 테스트가
- * 429 로 깨집니다. 각 테스트가 {@link #fromIp(String)} 로 자기 IP 를 씁니다.
+ * 여러 테스트가 한 IP 로 보이고, 레이트 리밋이 스위트 중간에 걸려 무관한 테스트가 429 로
+ * 깨집니다. 각 테스트가 {@link #fromIp(String)} 로 자기 IP 를 씁니다.
  */
 final class GameEventFixtures {
 

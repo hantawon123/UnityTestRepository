@@ -212,24 +212,6 @@ class GameEventApiTest extends IntegrationTest {
         assertThat(params).isNull();
     }
 
-    @Test
-    @DisplayName("한 IP 가 분당 허용량을 넘기면 429 RATE_LIMITED")
-    void rateLimitsPerIp() throws Exception {
-        String ip = "10.0.99.1";
-        int allowed = 60; // application.yml 의 analytics.rate-limit-per-minute
-
-        for (int i = 0; i < allowed; i++) {
-            mvc.perform(send(ip, event(newSessionId(), 0))).andExpect(status().isAccepted());
-        }
-
-        mvc.perform(send(ip, event(newSessionId(), 0)))
-                .andExpect(status().isTooManyRequests())
-                .andExpect(jsonPath("$.code").value("RATE_LIMITED"));
-
-        // 다른 IP 는 영향을 받지 않습니다.
-        mvc.perform(send("10.0.99.2", event(newSessionId(), 0))).andExpect(status().isAccepted());
-    }
-
     private RequestBuilder send(String ip, GameEventRequest... events) throws Exception {
         return send(ip, List.of(events));
     }

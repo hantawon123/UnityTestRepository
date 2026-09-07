@@ -78,7 +78,11 @@ analytics:
   flush-interval-ms: 1000
   flush-batch-size: 5000
   batch-max-size: 200
-  rate-limit-per-minute: 60
+  # IP 하나의 분당 요청 상한. 클라이언트 하나는 10초마다 한 번(분당 6)이지만, 플레이테스트는
+  # 한 교실에서 하므로 수십 명이 NAT 뒤의 공용 IP 하나로 보입니다. 60 으로 두면 열 명만 넘어도
+  # 정상 트래픽이 429 가 됩니다. 600 은 100명이 한 IP 뒤에 있어도 닿지 않는 값이면서, 한 IP 가
+  # 무한히 쏘는 것은 여전히 막습니다. 남용 차단이 목적이고 정밀한 공정성이 목적이 아닙니다.
+  rate-limit-per-minute: 600
   occurred-at-past-days: 7
   occurred-at-future-minutes: 5
 
