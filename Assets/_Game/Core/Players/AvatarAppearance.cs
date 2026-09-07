@@ -31,22 +31,32 @@ namespace Game.Core.Players
         /// </summary>
         public static readonly AvatarAppearance Default = default;
 
+        private readonly string bodyColorId;
+        private readonly string hoodId;
+        private readonly string shoesId;
+        private readonly string faceId;
+
         public AvatarAppearance(
             string bodyColorId, string hoodId, string shoesId, string faceId)
         {
-            BodyColorId = Normalise(bodyColorId);
-            HoodId = Normalise(hoodId);
-            ShoesId = Normalise(shoesId);
-            FaceId = Normalise(faceId);
+            this.bodyColorId = Normalise(bodyColorId);
+            this.hoodId = Normalise(hoodId);
+            this.shoesId = Normalise(shoesId);
+            this.faceId = Normalise(faceId);
         }
 
-        public string BodyColorId { get; }
+        // Read through fields rather than as auto-properties, so the default
+        // value answers with empty strings too. A struct's default skips every
+        // constructor, and one whose properties hand back nulls while its own
+        // comparisons treat null as empty is a value that disagrees with
+        // itself — which is exactly what it did.
+        public string BodyColorId => Normalise(bodyColorId);
 
-        public string HoodId { get; }
+        public string HoodId => Normalise(hoodId);
 
-        public string ShoesId { get; }
+        public string ShoesId => Normalise(shoesId);
 
-        public string FaceId { get; }
+        public string FaceId => Normalise(faceId);
 
         public static bool operator ==(AvatarAppearance left, AvatarAppearance right) =>
             left.Equals(right);
@@ -60,13 +70,13 @@ namespace Game.Core.Players
             switch (category)
             {
                 case AvatarPartCategory.BodyColor:
-                    return Normalise(BodyColorId);
+                    return BodyColorId;
                 case AvatarPartCategory.Hood:
-                    return Normalise(HoodId);
+                    return HoodId;
                 case AvatarPartCategory.Shoes:
-                    return Normalise(ShoesId);
+                    return ShoesId;
                 case AvatarPartCategory.Face:
-                    return Normalise(FaceId);
+                    return FaceId;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(category));
             }
@@ -94,10 +104,10 @@ namespace Game.Core.Players
         }
 
         public bool Equals(AvatarAppearance other) =>
-            string.Equals(Get(AvatarPartCategory.BodyColor), other.Get(AvatarPartCategory.BodyColor), StringComparison.Ordinal) &&
-            string.Equals(Get(AvatarPartCategory.Hood), other.Get(AvatarPartCategory.Hood), StringComparison.Ordinal) &&
-            string.Equals(Get(AvatarPartCategory.Shoes), other.Get(AvatarPartCategory.Shoes), StringComparison.Ordinal) &&
-            string.Equals(Get(AvatarPartCategory.Face), other.Get(AvatarPartCategory.Face), StringComparison.Ordinal);
+            string.Equals(BodyColorId, other.BodyColorId, StringComparison.Ordinal) &&
+            string.Equals(HoodId, other.HoodId, StringComparison.Ordinal) &&
+            string.Equals(ShoesId, other.ShoesId, StringComparison.Ordinal) &&
+            string.Equals(FaceId, other.FaceId, StringComparison.Ordinal);
 
         public override bool Equals(object obj) =>
             obj is AvatarAppearance other && Equals(other);
@@ -107,10 +117,10 @@ namespace Game.Core.Players
             unchecked
             {
                 var hash = 17;
-                hash = (hash * 31) + Get(AvatarPartCategory.BodyColor).GetHashCode();
-                hash = (hash * 31) + Get(AvatarPartCategory.Hood).GetHashCode();
-                hash = (hash * 31) + Get(AvatarPartCategory.Shoes).GetHashCode();
-                hash = (hash * 31) + Get(AvatarPartCategory.Face).GetHashCode();
+                hash = (hash * 31) + BodyColorId.GetHashCode();
+                hash = (hash * 31) + HoodId.GetHashCode();
+                hash = (hash * 31) + ShoesId.GetHashCode();
+                hash = (hash * 31) + FaceId.GetHashCode();
                 return hash;
             }
         }
@@ -122,7 +132,7 @@ namespace Game.Core.Players
         /// <summary>
         /// A default value carries nulls rather than empty strings, and a store
         /// that round-trips one may hand back either. Both mean the same thing,
-        /// so they are made the same thing here rather than at every comparison.
+        /// so they are made the same thing on the way in and on the way out.
         /// </summary>
         private static string Normalise(string partId) => partId ?? NoPart;
 
