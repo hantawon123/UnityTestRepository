@@ -107,5 +107,73 @@ namespace Game.Architecture.Tests
                 Object.DestroyImmediate(playground);
             }
         }
+
+        [Test]
+        public void ActionsFor_SwapsOnlyTheHeldItemRows()
+        {
+            Assert.That(KeySettingGuideView.ActionsFor(false), Is.EqualTo(KeySettingGuideView.Actions));
+            Assert.That(KeySettingGuideView.ActionsFor(true)[0], Is.EqualTo("배치 모드"));
+            Assert.That(KeySettingGuideView.ActionsFor(true)[1], Is.EqualTo("던지기"));
+            Assert.That(KeySettingGuideView.ActionsFor(true)[2], Is.EqualTo("놓기"));
+            Assert.That(KeySettingGuideView.LabelsFor(true)[0], Is.EqualTo(KeySettingGuideView.ClickKeyLabel));
+            Assert.That(KeySettingGuideView.LabelsFor(true)[1], Is.EqualTo(KeySettingGuideView.RightClickKeyLabel));
+            Assert.That(KeySettingGuideView.LabelsFor(true)[2], Is.EqualTo("F"));
+            Assert.That(
+                KeySettingGuideView.ActionsFor(true)[KeySettingGuideView.CarryingActions.Length - 1],
+                Is.EqualTo(KeySettingGuideView.ToggleAction));
+            Assert.That(
+                KeySettingGuideView.LabelsFor(true)[KeySettingGuideView.CarryingLabels.Length - 1],
+                Is.EqualTo(KeySettingGuideView.ToggleKeyLabel));
+            Assert.That(KeySettingGuideView.PanelSizeFor(true), Is.EqualTo(KeySettingGuideView.CarryingPanelSize));
+        }
+
+        [Test]
+        public void SetCarrying_ReplacesTheTopRowsAndKeepsTheSharedKeys()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = KeySettingGuideView.Create(canvas.transform);
+                view.SetCarrying(true);
+                var guide = view.GetComponent<RectTransform>();
+
+                Assert.That(view.IsCarrying, Is.True);
+                Assert.That(guide.sizeDelta, Is.EqualTo(KeySettingGuideView.CarryingPanelSize));
+                Assert.That(
+                    guide.Find("Row0/Action").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo("배치 모드"));
+                Assert.That(
+                    guide.Find("Row1/Action").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo("던지기"));
+                Assert.That(
+                    guide.Find("Row1/Key/Label").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo(KeySettingGuideView.RightClickKeyLabel));
+                Assert.That(
+                    guide.Find("Row2/Action").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo("놓기"));
+                Assert.That(
+                    guide.Find("Row2/Key/Label").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo("F"));
+                Assert.That(
+                    guide.Find("Row8/Action").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo(KeySettingGuideView.ToggleAction));
+                Assert.That(
+                    guide.Find("Row8/Key/Label").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo(KeySettingGuideView.ToggleKeyLabel));
+
+                view.SetCarrying(false);
+                Assert.That(view.IsCarrying, Is.False);
+                Assert.That(guide.sizeDelta, Is.EqualTo(KeySettingGuideView.PanelSize));
+                Assert.That(
+                    guide.Find("Row0/Action").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo(KeySettingGuideView.Actions[0]));
+                Assert.That(guide.Find("Row7").gameObject.activeSelf, Is.False);
+                Assert.That(guide.Find("Row8").gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
     }
 }

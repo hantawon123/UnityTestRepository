@@ -1,4 +1,5 @@
 using Game.Client.Home;
+using Game.Client.Interactions;
 using Game.Client.Match;
 using TMPro;
 using UnityEngine;
@@ -19,9 +20,14 @@ namespace Game.Client
         public const float MarginRight = 48f;
         public const float ActionFontSize = 18f;
         public const string ClickKeyLabel = "클릭";
+        public const string RightClickKeyLabel = "우클릭";
+        public const string LeftClickIconResource = "UI/ic_left_click";
+        public const string RightClickIconResource = "UI/ic_right_click";
         public const string ToggleAction = "키 가이드 on/off";
         public const string ToggleKeyLabel = "L";
+        public const float RowStep = 48f;
         public static readonly Vector2 PanelSize = new Vector2(280f, 368f);
+        public static readonly Vector2 CarryingPanelSize = new Vector2(280f, 464f);
 
         public static readonly string[] Actions =
         {
@@ -45,10 +51,48 @@ namespace Game.Client
             ToggleKeyLabel
         };
 
+        public static readonly string[] CarryingActions =
+        {
+            "배치 모드",
+            "던지기",
+            "놓기",
+            "앉기",
+            "엎드리기",
+            "시점 변경",
+            "달리기",
+            "점프",
+            ToggleAction
+        };
+
+        public static readonly string[] CarryingLabels =
+        {
+            ClickKeyLabel,
+            RightClickKeyLabel,
+            "F",
+            "C",
+            "Z",
+            "V",
+            "Shift",
+            "Space",
+            ToggleKeyLabel
+        };
+
         private static int lastToggleFrame = -1;
         private CanvasGroup fade;
+        private PlayerInteractor localInteractor;
+        private bool carrying;
 
         public static bool UserVisible { get; private set; } = true;
+        public bool IsCarrying => carrying;
+
+        public static string[] ActionsFor(bool isCarrying) =>
+            isCarrying ? CarryingActions : Actions;
+
+        public static string[] LabelsFor(bool isCarrying) =>
+            isCarrying ? CarryingLabels : Labels;
+
+        public static Vector2 PanelSizeFor(bool isCarrying) =>
+            isCarrying ? CarryingPanelSize : PanelSize;
 
         public static bool ShouldToggle(bool pressed, bool inputBlocked)
         {
@@ -72,6 +116,18 @@ namespace Game.Client
             {
                 ApplyUserVisible();
             }
+        }
+
+        public void SetCarrying(bool isCarrying)
+        {
+            if (carrying == isCarrying && transform.Find($"Row{ActionsFor(isCarrying).Length - 1}") != null)
+            {
+                return;
+            }
+
+            carrying = isCarrying;
+            SyncRows();
+            ApplyStyle();
         }
 
         public static KeySettingGuideView Create(Transform parent)
@@ -117,8 +173,10 @@ namespace Game.Client
         public void ApplyStyle()
         {
             PlacePanel();
+            var actions = ActionsFor(carrying);
+            var labels = LabelsFor(carrying);
             var light = HomeUiFonts.ApplyLight();
-            for (var index = 0; index < Actions.Length; index++)
+            for (var index = 0; index < actions.Length; index++)
             {
                 var row = transform.Find($"Row{index}");
                 if (row == null)
@@ -126,9 +184,11 @@ namespace Game.Client
                     continue;
                 }
 
+                row.gameObject.SetActive(true);
                 var action = row.Find("Action")?.GetComponent<TMP_Text>();
                 if (action != null)
                 {
+                    action.text = actions[index];
                     action.font = light;
                     action.fontSize = ActionFontSize;
                     action.fontStyle = FontStyles.Normal;
@@ -138,6 +198,11 @@ namespace Game.Client
 
                 var chip = row.Find("Key") as RectTransform;
                 var keyLabel = row.Find("Key/Label")?.GetComponent<TMP_Text>();
+                if (keyLabel != null)
+                {
+                    keyLabel.text = labels[index];
+                }
+
                 if (chip != null)
                 {
                     ApplyKeyChipLook(chip.GetComponent<Image>());
@@ -149,6 +214,8 @@ namespace Game.Client
                     PlaceAction(action.rectTransform, chip.sizeDelta.x);
                 }
             }
+
+            HideUnusedRows(actions.Length);
         }
 
         private void Awake()
@@ -159,6 +226,7 @@ namespace Game.Client
 
         private void Update()
         {
+            SetCarrying(ReadLocalCarrying());
             if (!ShouldToggle(WasTogglePressed(), IsInputBlocked()))
             {
                 ApplyUserVisible();
@@ -226,54 +294,71 @@ namespace Game.Client
 
         private void EnsureLayout()
         {
-            if (transform.Find($"Row{Actions.Length - 1}") == null)
-            {
-                BuildLayout();
-            }
-
+            SyncRows();
             ApplyStyle();
         }
 
         private void BuildLayout()
         {
+            SyncRows();
+        }
+
+        private void SyncRows()
+        {
             PlacePanel();
-            for (var index = 0; index < Actions.Length; index++)
+            var actions = ActionsFor(carrying);
+            var labels = LabelsFor(carrying);
+            for (var index = 0; index < actions.Length; index++)
             {
-                if (transform.Find($"Row{index}") != null)
+                var row = transform.Find($"Row{index}") as RectTransform;
+                if (row == null)
                 {
-                    continue;
+                    row = CreateRect(transform, $"Row{index}");
+                    var action = CreateText(
+                        row,
+                        "Action",
+                        actions[index],
+                        ActionFontSize,
+                        HomeUiFonts.ApplyLight());
+                    action.alignment = TextAlignmentOptions.MidlineRight;
+
+                    var chip = CreateImage(
+                        row,
+                        "Key",
+                        HidingActiveHudView.KeyChipColor,
+                        HidingActiveHudView.KeyChipSprite);
+                    chip.type = Image.Type.Sliced;
+                    var keyLabel = CreateText(
+                        chip.transform,
+                        "Label",
+                        labels[index],
+                        HidingActiveHudView.KeyChipFontSize,
+                        HomeUiFonts.ApplyLight());
+                    Stretch(keyLabel.rectTransform);
                 }
 
-                var row = CreateRect(transform, $"Row{index}");
+                row.gameObject.SetActive(true);
                 Place(
                     row,
                     new Vector2(1f, 1f),
-                    new Vector2(-140f, -24f - (index * 48f)),
+                    new Vector2(-140f, -24f - (index * RowStep)),
                     new Vector2(280f, 40f));
+            }
 
-                var action = CreateText(
-                    row,
-                    "Action",
-                    Actions[index],
-                    ActionFontSize,
-                    HomeUiFonts.ApplyLight());
-                action.alignment = TextAlignmentOptions.MidlineRight;
+            HideUnusedRows(actions.Length);
+        }
 
-                var chip = CreateImage(
-                    row,
-                    "Key",
-                    HidingActiveHudView.KeyChipColor,
-                    HidingActiveHudView.KeyChipSprite);
-                chip.type = Image.Type.Sliced;
-                var keyLabel = CreateText(
-                    chip.transform,
-                    "Label",
-                    Labels[index],
-                    HidingActiveHudView.KeyChipFontSize,
-                    HomeUiFonts.ApplyLight());
-                Stretch(keyLabel.rectTransform);
-                FitKeyChip(chip.rectTransform, keyLabel);
-                PlaceAction(action.rectTransform, chip.rectTransform.sizeDelta.x);
+        private void HideUnusedRows(int usedCount)
+        {
+            for (var index = usedCount; ; index++)
+            {
+                var row = transform.Find($"Row{index}");
+                if (row == null)
+                {
+                    break;
+                }
+
+                row.gameObject.SetActive(false);
             }
         }
 
@@ -283,8 +368,35 @@ namespace Game.Client
                 (RectTransform)transform,
                 new Vector2(1f, 0.5f),
                 new Vector2(-MarginRight, 0f),
-                PanelSize,
+                PanelSizeFor(carrying),
                 new Vector2(1f, 0.5f));
+        }
+
+        private bool ReadLocalCarrying()
+        {
+            if (localInteractor == null || !localInteractor.isActiveAndEnabled)
+            {
+                localInteractor = FindLocalInteractor();
+            }
+
+            return localInteractor != null && localInteractor.CarriedItem != null;
+        }
+
+        private static PlayerInteractor FindLocalInteractor()
+        {
+            var interactors = FindObjectsByType<PlayerInteractor>(
+                FindObjectsInactive.Exclude,
+                FindObjectsSortMode.None);
+            for (var index = 0; index < interactors.Length; index++)
+            {
+                var interactor = interactors[index];
+                if (interactor != null && interactor.isActiveAndEnabled)
+                {
+                    return interactor;
+                }
+            }
+
+            return null;
         }
 
         private static void ApplyKeyChipLook(Image chip)
@@ -302,16 +414,16 @@ namespace Game.Client
 
         private static void FitKeyChip(RectTransform chip, TMP_Text label)
         {
-            var usesIcon = label != null && label.text == ClickKeyLabel;
+            var iconResource = IconResourceFor(label != null ? label.text : null);
             var icon = chip.Find("Icon")?.GetComponent<Image>();
-            if (usesIcon)
+            if (iconResource != null)
             {
                 if (label != null)
                 {
                     label.gameObject.SetActive(false);
                 }
 
-                icon = EnsureClickIcon(chip);
+                icon = EnsureClickIcon(chip, iconResource);
                 if (icon != null)
                 {
                     icon.gameObject.SetActive(true);
@@ -358,25 +470,36 @@ namespace Game.Client
                 new Vector2(1f, 0.5f));
         }
 
-        private static Image EnsureClickIcon(RectTransform chip)
+        private static string IconResourceFor(string label)
+        {
+            if (label == ClickKeyLabel)
+            {
+                return LeftClickIconResource;
+            }
+
+            if (label == RightClickKeyLabel)
+            {
+                return RightClickIconResource;
+            }
+
+            return null;
+        }
+
+        private static Image EnsureClickIcon(RectTransform chip, string resource)
         {
             if (chip == null)
             {
                 return null;
             }
 
+            var sprite = string.IsNullOrEmpty(resource) ? null : Resources.Load<Sprite>(resource);
             var existing = chip.Find("Icon")?.GetComponent<Image>();
             if (existing != null)
             {
-                if (existing.sprite == null)
-                {
-                    existing.sprite = Resources.Load<Sprite>("UI/ic_left_click");
-                }
-
+                existing.sprite = sprite;
                 return existing;
             }
 
-            var sprite = Resources.Load<Sprite>("UI/ic_left_click");
             var icon = CreateImage(chip, "Icon", Color.white, sprite);
             icon.preserveAspect = true;
             icon.raycastTarget = false;
