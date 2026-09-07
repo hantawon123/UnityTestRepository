@@ -54,3 +54,36 @@ MR은 검증이 끝날 때까지 Draft로 유지한다.
 - BuildReport: Succeeded, 307.82초(5분 8초). Unity 빌드 단계 시간이며 EC2 CI 전체 시간이나 cold build 성능을 의미하지 않는다. 이전 실행과 출력 경로·품질 설정 등이 달라 단일 변수 속도 비교로 해석하지 않는다.
 - URP/Lit ForwardLit: 스트리핑 후 1,280개, 모두 로컬 캐시 적중, 컴파일 0개, 해당 패스 처리 1.31초. 서버 #7의 5,120개와는 실행 환경이 다르므로 전체 시간 단축률로 환산하지 않는다.
 - 기존/변경 WebGL 홈 화면을 같은 브라우저 크기에서 육안 비교하여 차이 없음. 전체 인게임 씬·조명·이펙트의 동일성 및 Windows 네이티브 빌드와의 동일성은 아직 검증하지 않았다. 병합 전 확인 필요.
+
+
+# EC2 동일 버전 WebGL 재빌드 측정
+
+커밋: f6d67c9cc85e854519f2ddb7017dd7abc1831079
+Unity 6000.3.22f1, IL2CPP OptimizeSpeed / WebAssembly BuildTimes.
+FAST_BUILD=false, FORCE_BUILD=true, TEST_ONLY=false. 동일 EC2, CPU 상한 3, shares 1024, 메모리 8GB. 캐시 유지.
+
+| 구간 | #8 | #10 |
+|---|---:|---:|
+| Jenkins 전체 | 3866.263초 | 434.919초 |
+| 스크립트 전체 | 3830초 | 394초 |
+| 복원 | 1초 | 2초 |
+| 계약 테스트 | 43초 | 41초 |
+| Unity 프로세스 포함 빌드 | 3786초 | 350초 |
+| Unity BuildReport | 3751.778164초 | 316.72384초 |
+| 에셋 기록 | 1574.263186초 | 24.205805초 |
+| 압축 패키지 생성 | 224.98708초 | 219.357109초 |
+| 플레이어 후처리 | 1925.626853초 | 49.490904초 |
+
+두 빌드 모두 SUCCESS. Jenkins 전체 시간 약 88.75% 감소, 약 8.89배 빨라짐.
+#10 Lit ForwardLit: 1280개 모두 로컬 캐시 적중, 컴파일 0개, 패스 처리 0.37초.
+압축 패키지 생성이 #10 Unity 빌드 시간의 약 69.3%이며 거의 그대로 남음. 이 단계 전체를 HTTP gzip 시간으로 단정하지 않는다.
+
+#9는 SHA를 브랜치로 해석한 경량 체크아웃 오류로 Unity 시작 전에 실패했으며 비교에서 제외.
+#10은 정확한 SHA 체크아웃을 위해 경량 체크아웃을 일시 해제했다. 실제 작업 checkout 확인 후 원래 브랜치/경량 체크아웃 설정 복구, 자동 트리거 비활성 유지.
+따라서 Jenkins 준비 단계 조건에는 차이가 있으며 Unity BuildReport와 스크립트 시간을 별도로 제시한다.
+
+동일 코드/설정의 캐시 재사용 1회 결과이며 코드·에셋 변경, clean build, 모든 반복 실행의 시간을 보장하지 않는다.
+서버 측 증빙: /var/lib/jenkins/webgl-measurements/8 및 /var/lib/jenkins/webgl-measurements/10.
+
+- https://j15d205.p.ssafy.io/jenkins/job/d205-unity-webgl/8/
+- https://j15d205.p.ssafy.io/jenkins/job/d205-unity-webgl/10/

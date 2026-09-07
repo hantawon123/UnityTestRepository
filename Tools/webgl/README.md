@@ -140,3 +140,8 @@ python3 Tools/webgl/test_publish.py
 [Unity 라이선스](https://unity.com/pages/license-compliance).
 
 Jira: S15P21D205-875~878, Story 874 / Epic 413. 전체 하나의 MR로 제출한다.
+
+
+## 복구용 기준 버전
+
+`webgl-build-baseline-20260908` 태그와 Jenkins #8·#10 산출물을 보존한다. 소스·산출물·Jenkins 설정 복구 범위는 [복구 절차](recovery.md)를 참고한다.
