@@ -8,7 +8,8 @@ namespace Game.Client
     [DisallowMultipleComponent]
     public sealed class CharacterTestPreviewDriver : MonoBehaviour
     {
-        private static readonly string[] StateNames =
+        [SerializeField]
+        private string[] stateNames =
         {
             "Idle_Breathing",
             "Walk_Wide_Clean",
@@ -23,7 +24,19 @@ namespace Game.Client
             "Crouch_Walk_Left_KneesUp",
             "Crouch_Walk_Right_KneesUp",
             "Crouch_Walk_Back_KneesUp",
+            "Pickup_Low",
+            "Carry_Idle",
+            "PutDown_Low",
+            "Prone_Start",
+            "Prone_Idle",
+            "Crawl_Forward",
+            "Crawl_Back",
+            "Crawl_Left",
+            "Crawl_Right",
+            "Prone_End",
         };
+
+        private Vector2 listScroll;
 
         private static readonly string[] FootNames =
         {
@@ -35,6 +48,8 @@ namespace Game.Client
 
         private readonly List<Transform> feet = new();
         private Animator animator;
+        private SkinnedMeshRenderer body;
+        private int crouchGroinIndex = -1;
         private Transform orbitCamera;
         private int index;
         private Vector3 standPosition;
@@ -47,6 +62,17 @@ namespace Game.Client
         private float startYaw;
         private float startPitch;
         private float startDistance = 5f;
+
+        public void ConfigureMotions(params string[] names)
+        {
+            if (names == null || names.Length == 0)
+            {
+                throw new System.ArgumentException("At least one preview motion is required.", nameof(names));
+            }
+
+            stateNames = (string[])names.Clone();
+            index = 0;
+        }
 
         private void Awake()
         {
@@ -64,6 +90,36 @@ namespace Game.Client
             }
 
             CacheFeet(transform);
+            CacheCrouchGroin();
+            if (stateNames == null || stateNames.Length < 23)
+            {
+                stateNames = new[]
+                {
+                    "Idle_Breathing",
+                    "Walk_Wide_Clean",
+                    "Run_SideArms",
+                    "Jump_Cute",
+                    "Fall_Flutter",
+                    "Land_Matched",
+                    "Crouch_Idle_KneesUp",
+                    "Crouch_Walk_Forward_KneesUp",
+                    "Stand_To_Crouch_KneesUp",
+                    "Crouch_To_Stand_KneesUp",
+                    "Crouch_Walk_Left_KneesUp",
+                    "Crouch_Walk_Right_KneesUp",
+                    "Crouch_Walk_Back_KneesUp",
+                    "Pickup_Low",
+                    "Carry_Idle",
+                    "PutDown_Low",
+                    "Prone_Start",
+                    "Prone_Idle",
+                    "Crawl_Forward",
+                    "Crawl_Back",
+                    "Crawl_Left",
+                    "Crawl_Right",
+                    "Prone_End",
+                };
+            }
             standRotation = transform.rotation;
             standPosition = transform.position;
             CaptureOrbit();
@@ -86,13 +142,13 @@ namespace Game.Client
 
             if (WasPressed(keyboard.rightArrowKey) || WasPressed(keyboard.periodKey))
             {
-                Play((index + 1) % StateNames.Length);
+                Play((index + 1) % stateNames.Length);
                 return;
             }
 
             if (WasPressed(keyboard.leftArrowKey) || WasPressed(keyboard.commaKey))
             {
-                Play((index + StateNames.Length - 1) % StateNames.Length);
+                Play((index + stateNames.Length - 1) % stateNames.Length);
                 return;
             }
 
@@ -117,31 +173,33 @@ namespace Game.Client
                 {
                     PlantIdleFeet();
                 }
-                else if (IsAirborne(StateNames[index]))
+                else if (IsAirborne(stateNames[index]))
                 {
                     if (footY < plantedFootY)
                     {
                         transform.position += Vector3.up * (plantedFootY - footY);
                     }
                 }
-                else
+                else if (!IsProne(stateNames[index]))
                 {
                     transform.position += Vector3.up * (plantedFootY - footY);
                 }
             }
 
             ApplyOrbit();
+            ApplyStandingGroin();
         }
 
         private void Play(int next)
         {
-            index = Mathf.Clamp(next, 0, StateNames.Length - 1);
+            index = Mathf.Clamp(next, 0, stateNames.Length - 1);
             if (animator == null)
             {
                 return;
             }
 
-            animator.Play(StateNames[index], 0, 0f);
+            animator.Play(stateNames[index], 0, 0f);
+            ApplyStandingGroin();
         }
 
         private void PlantIdleFeet()
@@ -159,6 +217,38 @@ namespace Game.Client
 
             standPosition = transform.position;
             planted = true;
+        }
+
+        private void CacheCrouchGroin()
+        {
+            body = GetComponentInChildren<SkinnedMeshRenderer>(true);
+            crouchGroinIndex = -1;
+            if (body == null || body.sharedMesh == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < body.sharedMesh.blendShapeCount; i++)
+            {
+                if (body.sharedMesh.GetBlendShapeName(i) == "Crouch_Groin_Flat")
+                {
+                    crouchGroinIndex = i;
+                    return;
+                }
+            }
+        }
+
+        private void ApplyStandingGroin()
+        {
+            if (body == null || crouchGroinIndex < 0)
+            {
+                return;
+            }
+
+            if (stateNames[index].IndexOf("Crouch") < 0)
+            {
+                body.SetBlendShapeWeight(crouchGroinIndex, 0f);
+            }
         }
 
         private void CacheFeet(Transform current)
@@ -284,6 +374,12 @@ namespace Game.Client
             return state == "Jump_Cute" || state == "Fall_Flutter";
         }
 
+        private static bool IsProne(string state)
+        {
+            return state.IndexOf("Prone", System.StringComparison.Ordinal) >= 0
+                || state.IndexOf("Crawl", System.StringComparison.Ordinal) >= 0;
+        }
+
         private static bool TryDigit(Keyboard keyboard, out int digit)
         {
             if (WasPressed(keyboard.digit1Key) || WasPressed(keyboard.numpad1Key)) { digit = 0; return true; }
@@ -308,20 +404,31 @@ namespace Game.Client
         private void OnGUI()
         {
             const int pad = 16;
-            GUI.Box(new Rect(pad, pad, 420, 90 + StateNames.Length * 28), string.Empty);
+            const int width = 420;
+            const int header = 62;
+            const int row = 28;
+            var maxHeight = Mathf.Max(220, Screen.height - pad * 2);
+            var needed = header + 8 + stateNames.Length * row;
+            var boxHeight = Mathf.Min(needed, maxHeight);
+            GUI.Box(new Rect(pad, pad, width, boxHeight), string.Empty);
             var ready = animator != null && animator.runtimeAnimatorController != null;
             GUI.Label(
-                new Rect(pad + 8, pad + 6, 400, 50),
-                $"지금: {StateNames[index]}  |  블렌더 캐릭터 {(ready ? "OK" : "없음")}\n" +
+                new Rect(pad + 8, pad + 6, width - 16, 50),
+                $"지금: {stateNames[index]}  |  {gameObject.name} {(ready ? "OK" : "없음")}\n" +
                 "우클릭 드래그 / Q E 회전  |  휠 줌  |  R 리셋");
 
-            for (var i = 0; i < StateNames.Length; i++)
+            var scrollRect = new Rect(pad + 4, pad + header, width - 8, boxHeight - header - 8);
+            var content = new Rect(0, 0, width - 36, stateNames.Length * row);
+            listScroll = GUI.BeginScrollView(scrollRect, listScroll, content);
+            for (var i = 0; i < stateNames.Length; i++)
             {
-                if (GUI.Button(new Rect(pad + 8, pad + 58 + i * 28, 400, 26), $"{i + 1}. {StateNames[i]}"))
+                if (GUI.Button(new Rect(4, i * row, width - 44, 26), $"{i + 1}. {stateNames[i]}"))
                 {
                     Play(i);
                 }
             }
+
+            GUI.EndScrollView();
         }
     }
 }
