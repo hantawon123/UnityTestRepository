@@ -11,6 +11,44 @@ namespace Game.Tests.EditMode
 {
     public sealed class PlaySettingsPresenterTests
     {
+        [Test]
+        public void Host_SaveTitlePreservesUnsavedCapacity_AndAllowsRevertingTitle()
+        {
+            using var session = new HostSession();
+            session.SetLocalHost(true);
+            var view = new SettingsView();
+            var menu = new PauseView();
+            using var presenter = new PlaySettingsPresenter(session, view, menu);
+            presenter.Start();
+            menu.OpenSettings();
+            view.Draft = new PlaySettingsDraft("새 방", "CODE", false, null, 4, 3, "playground");
+            view.SaveTitle();
+            Assert.That(session.Settings.CurrentValue.Title, Is.EqualTo("새 방"));
+            Assert.That(session.Settings.CurrentValue.MaxPlayers, Is.EqualTo(6));
+            Assert.That(view.Draft.MaxPlayers, Is.EqualTo(4));
+            view.Draft = Draft(6);
+            view.RequestClose();
+            Assert.That(session.Settings.CurrentValue.Title, Is.EqualTo("방"));
+            Assert.That(session.ApplyCount, Is.EqualTo(2));
+        }
+
+        [TestCase(false, "새 방")]
+        [TestCase(true, "")]
+        [TestCase(true, "123456789012345678901")]
+        public void SaveTitle_WithoutAuthorityOrValidTitle_DoesNotApply(bool isHost, string title)
+        {
+            using var session = new HostSession();
+            session.SetLocalHost(isHost);
+            var view = new SettingsView();
+            var menu = new PauseView();
+            using var presenter = new PlaySettingsPresenter(session, view, menu);
+            presenter.Start();
+            menu.OpenSettings();
+            view.Draft = new PlaySettingsDraft(title, "CODE", false, null, 6, 3, "playground");
+            view.SaveTitle();
+            Assert.That(session.ApplyCount, Is.Zero);
+        }
+
         [TestCase(false)]
         [TestCase(true)]
         public void Host_UnchangedOrRevertedDraft_DoesNotOverwriteNewSessionSettings(bool revertEdit)
@@ -195,6 +233,8 @@ namespace Game.Tests.EditMode
             public event Action CopyRoomCodeRequested { add { } remove { } }
             public event Action InviteRequested { add { } remove { } }
             public event Action CopyPasswordRequested { add { } remove { } }
+            public event Action SaveTitleRequested;
+            public void SaveTitle() => SaveTitleRequested?.Invoke();
             public void SetVisible(bool value) => Visible = value;
             public void SetEditable(bool value) => Editable = value;
             public void SetDraft(PlaySettingsDraft value) => Draft = value;
@@ -214,6 +254,7 @@ namespace Game.Tests.EditMode
             public void SetVisible(bool value) { }
             public void SetStartVisible(bool value) { }
             public void SetPlaySettingsVisible(bool value) { }
+            public void ShowLeaveConfirmation(Action confirmed) { }
             public void OpenSettings() => PlaySettingsClicked?.Invoke();
         }
     }

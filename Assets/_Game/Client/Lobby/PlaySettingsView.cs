@@ -15,6 +15,7 @@ namespace Game.Client.Lobby
         event Action CopyRoomCodeRequested;
         event Action InviteRequested;
         event Action CopyPasswordRequested;
+        event Action SaveTitleRequested;
 
         void SetVisible(bool visible);
         void SetEditable(bool editable);
@@ -54,6 +55,9 @@ namespace Game.Client.Lobby
 
         [SerializeField]
         private Text titleText;
+        private InputField titleInput;
+        private Button saveTitleButton;
+        private string savedTitle = string.Empty;
 
         [SerializeField]
         private Text roomCodeText;
@@ -113,12 +117,16 @@ namespace Game.Client.Lobby
         public event Action CopyRoomCodeRequested;
         public event Action InviteRequested;
         public event Action CopyPasswordRequested;
+        public event Action SaveTitleRequested;
 
         private void OnEnable()
         {
+            EnsureTitleInput();
+            if (titleInput != null) titleInput.onValueChanged.AddListener(OnTitleChanged);
+            Bind(saveTitleButton, () => SaveTitleRequested?.Invoke());
             HomeUiFonts.ApplyLegacy(panel != null ? panel.transform : transform);
             Bind(openButton, () => OpenRequested?.Invoke());
-            Bind(closeButton, () => CloseRequested?.Invoke());
+            Bind(closeButton, RequestClose);
             Bind(copyRoomCodeButton, () => CopyRoomCodeRequested?.Invoke());
             Bind(inviteButton, () => InviteRequested?.Invoke());
             Bind(copyPasswordButton, () => CopyPasswordRequested?.Invoke());
@@ -133,6 +141,8 @@ namespace Game.Client.Lobby
 
         private void OnDisable()
         {
+            if (titleInput != null) titleInput.onValueChanged.RemoveListener(OnTitleChanged);
+            Unbind(saveTitleButton);
             Unbind(openButton);
             Unbind(closeButton);
             Unbind(copyRoomCodeButton);
@@ -155,11 +165,16 @@ namespace Game.Client.Lobby
             }
         }
 
-        public void RequestClose() => CloseRequested?.Invoke();
+        public void RequestClose()
+        {
+            if (!editable || RoomSettings.IsValidTitle(ReadDraft().Title)) CloseRequested?.Invoke();
+        }
 
         public void SetEditable(bool value)
         {
             editable = value;
+            if (titleInput != null) titleInput.interactable = value;
+            RefreshTitleSave();
             RefreshCounters();
             foreach (var button in mapSlotButtons)
                 if (button != null) button.interactable = editable;
@@ -168,6 +183,9 @@ namespace Game.Client.Lobby
         public void SetDraft(PlaySettingsDraft draft)
         {
             title = draft.Title;
+            savedTitle = title;
+            if (titleInput != null) titleInput.SetTextWithoutNotify(title);
+            RefreshTitleSave();
             roomCode = draft.RoomCode;
             passwordEnabled = draft.PasswordEnabled;
             password = draft.Password ?? string.Empty;
@@ -214,6 +232,62 @@ namespace Game.Client.Lobby
                 destructionLimit,
                 map.Id,
                 matchRules);
+        }
+
+        private void OnTitleChanged(string value)
+        {
+            if (!editable) return;
+            title = value;
+            RefreshTitleSave();
+        }
+
+        private void RefreshTitleSave()
+        {
+            if (saveTitleButton != null)
+                saveTitleButton.interactable = editable && RoomSettings.IsValidTitle(title) &&
+                    !string.Equals(title.Trim(), savedTitle, StringComparison.Ordinal);
+        }
+
+        private void EnsureTitleInput()
+        {
+            if (titleInput != null || titleText == null) return;
+            var original = titleText.rectTransform;
+            var inputRect = new GameObject("Room title input", typeof(RectTransform), typeof(Image))
+                .GetComponent<RectTransform>();
+            inputRect.SetParent(original.parent, false);
+            inputRect.anchorMin = original.anchorMin; inputRect.anchorMax = original.anchorMax;
+            inputRect.offsetMin = original.offsetMin;
+            inputRect.offsetMax = original.offsetMax - new Vector2(90, 0);
+            inputRect.GetComponent<Image>().color = HomeStyle.Palette.InputFill;
+            var inputText = Instantiate(titleText, inputRect);
+            inputText.name = "Text";
+            inputText.rectTransform.anchorMin = Vector2.zero;
+            inputText.rectTransform.anchorMax = Vector2.one;
+            inputText.rectTransform.offsetMin = new Vector2(8, 0);
+            inputText.rectTransform.offsetMax = new Vector2(-8, 0);
+            titleInput = inputRect.gameObject.AddComponent<InputField>();
+            titleInput.textComponent = inputText;
+            titleInput.targetGraphic = inputRect.GetComponent<Image>();
+            titleInput.characterLimit = RoomSettings.MaxTitleLength;
+            titleInput.SetTextWithoutNotify(title);
+            titleInput.interactable = editable;
+            var saveRect = new GameObject("Save room title", typeof(RectTransform), typeof(Image), typeof(Button))
+                .GetComponent<RectTransform>();
+            saveRect.SetParent(original.parent, false);
+            saveRect.anchorMin = new Vector2(original.anchorMax.x, original.anchorMin.y);
+            saveRect.anchorMax = original.anchorMax;
+            saveRect.offsetMin = new Vector2(original.offsetMax.x - 80, original.offsetMin.y);
+            saveRect.offsetMax = original.offsetMax;
+            saveRect.GetComponent<Image>().color = HomeStyle.Palette.InputFill;
+            saveTitleButton = saveRect.GetComponent<Button>();
+            var label = Instantiate(titleText, saveRect);
+            label.rectTransform.anchorMin = Vector2.zero; label.rectTransform.anchorMax = Vector2.one;
+            label.rectTransform.offsetMin = label.rectTransform.offsetMax = Vector2.zero;
+            label.text = "저장";
+            label.alignment = TextAnchor.MiddleCenter;
+            label.raycastTarget = false;
+            titleText.gameObject.SetActive(false);
+            RefreshTitleSave();
         }
 
         private void ScrollMaps(int direction)

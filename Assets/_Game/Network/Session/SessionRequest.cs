@@ -95,6 +95,7 @@ namespace Game.Network.Session
         /// room instead of reporting that the code is wrong.
         /// </summary>
         public readonly bool AllowCreate;
+        public readonly bool IsVisible;
 
         private SessionRequest(
             GameMode mode,
@@ -103,7 +104,8 @@ namespace Game.Network.Session
             string mapId,
             int maxPlayers,
             string password,
-            bool allowCreate)
+            bool allowCreate,
+            bool isVisible = true)
         {
             Mode = mode;
             RoomCode = roomCode;
@@ -112,6 +114,7 @@ namespace Game.Network.Session
             MaxPlayers = maxPlayers;
             Password = password;
             AllowCreate = allowCreate;
+            IsVisible = isVisible;
         }
 
         /// <summary>Opens a new room as the authority.</summary>
@@ -120,10 +123,11 @@ namespace Game.Network.Session
             string displayName,
             string mapId,
             int maxPlayers,
-            string password)
+            string password,
+            bool isPrivate = false)
         {
             return new SessionRequest(
-                GameMode.Host, roomCode, displayName, mapId, maxPlayers, password, true);
+                GameMode.Host, roomCode, displayName, mapId, maxPlayers, password, true, !isPrivate);
         }
 
         /// <summary>Enters an existing room, failing if the code does not exist.</summary>

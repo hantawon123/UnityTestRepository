@@ -34,6 +34,7 @@ namespace Game.Client.Lobby
             view.CopyRoomCodeRequested += CopyRoomCode;
             view.InviteRequested += Invite;
             view.CopyPasswordRequested += CopyPassword;
+            view.SaveTitleRequested += SaveTitle;
             pauseMenu.PlaySettingsClicked += Open;
             hostSubscription = hostSession.IsLocalHost.Subscribe(HandleHostChanged);
             settingsSubscription = hostSession.Settings.Subscribe(HandleSettingsChanged);
@@ -46,6 +47,7 @@ namespace Game.Client.Lobby
             view.CopyRoomCodeRequested -= CopyRoomCode;
             view.InviteRequested -= Invite;
             view.CopyPasswordRequested -= CopyPassword;
+            view.SaveTitleRequested -= SaveTitle;
             pauseMenu.PlaySettingsClicked -= Open;
             hostSubscription?.Dispose();
             settingsSubscription?.Dispose();
@@ -89,6 +91,7 @@ namespace Game.Client.Lobby
             if (hostSession.IsLocalHost.CurrentValue)
             {
                 var draft = view.ReadDraft();
+                if (!RoomSettings.IsValidTitle(draft.Title)) return;
                 // An untouched host view may be older than the accepted session settings.
                 if (!draft.Equals(displayedSettings) &&
                     !draft.Equals(hostSession.Settings.CurrentValue))
@@ -105,6 +108,24 @@ namespace Game.Client.Lobby
         {
             displayedSettings = draft;
             view.SetDraft(draft);
+        }
+
+        private void SaveTitle()
+        {
+            if (!isOpen || !hostSession.IsLocalHost.CurrentValue) return;
+            var draft = view.ReadDraft();
+            var current = hostSession.Settings.CurrentValue;
+            if (!RoomSettings.IsValidTitle(draft.Title) || draft.Title == current.Title) return;
+            hostSession.RequestApplySettings(new PlaySettingsDraft(draft.Title, current.RoomCode,
+                current.PasswordEnabled, current.Password, current.MaxPlayers, current.DestructionLimit,
+                current.MapId, current.MatchRules));
+            if (hostSession.Settings.CurrentValue.Title == draft.Title)
+            {
+                displayedSettings = new PlaySettingsDraft(draft.Title, displayedSettings.RoomCode,
+                    displayedSettings.PasswordEnabled, displayedSettings.Password, displayedSettings.MaxPlayers,
+                    displayedSettings.DestructionLimit, displayedSettings.MapId, displayedSettings.MatchRules);
+                view.SetDraft(draft);
+            }
         }
 
         private void CopyRoomCode()
