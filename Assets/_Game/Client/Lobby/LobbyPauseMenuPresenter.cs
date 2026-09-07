@@ -229,6 +229,12 @@ namespace Game.Client.Lobby
         /// </remarks>
         private void OnLeaveClicked()
         {
+            if (hostSession.IsLocalHost.CurrentValue) view.ShowLeaveConfirmation(Leave);
+            else Leave();
+        }
+
+        private void Leave()
+        {
             closeOpenScreen = null;
             view.SetVisible(false);
             ReleaseMovement();

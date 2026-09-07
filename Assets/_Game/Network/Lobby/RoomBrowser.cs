@@ -75,7 +75,8 @@ namespace Game.Network.Lobby
                         settings.Title,
                         settings.MapId,
                         settings.MaxPlayers,
-                        request.Password),
+                        request.Password,
+                        request.IsPrivate),
                     cancellation);
 
                 if (result.Ok)

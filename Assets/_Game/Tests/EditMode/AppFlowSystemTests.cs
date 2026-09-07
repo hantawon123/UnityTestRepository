@@ -10,7 +10,7 @@ namespace Game.Tests.EditMode
         [TestCase(AppFlowState.InGame)]
         [TestCase(AppFlowState.Highlight)]
         [TestCase(AppFlowState.Result)]
-        public void ExitSession_ReturnsDirectlyToBrowserOnce(AppFlowState phase)
+        public void ExitSession_ReturnsDirectlyHomeOnce(AppFlowState phase)
         {
             var flow = new AppFlowSystem();
             Assert.That(flow.TryExitSession(), Is.False);
@@ -20,9 +20,20 @@ namespace Game.Tests.EditMode
             flow.StateChanged += changes.Add;
             Assert.That(flow.TryExitSession(), Is.True);
             Assert.That(flow.TryExitSession(), Is.False);
-            Assert.That(changes, Is.EqualTo(new[] { AppFlowState.RoomBrowser }));
+            Assert.That(changes, Is.EqualTo(new[] { AppFlowState.Home }));
             Assert.That(flow.TryRestoreSessionState(phase), Is.False,
                 "Late state replication must not re-enter the abandoned room.");
+        }
+
+        [Test]
+        public void ExitSession_KickCanReturnToBrowser_AndRejectsSessionDestination()
+        {
+            var flow = new AppFlowSystem();
+            flow.TryTransitionTo(AppFlowState.Lobby);
+            Assert.That(flow.TryExitSession(AppFlowState.InGame), Is.False);
+            Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.Lobby));
+            Assert.That(flow.TryExitSession(AppFlowState.RoomBrowser), Is.True);
+            Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.RoomBrowser));
         }
 
         [Test]

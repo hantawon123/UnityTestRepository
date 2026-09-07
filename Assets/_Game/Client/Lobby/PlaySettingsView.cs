@@ -15,6 +15,7 @@ namespace Game.Client.Lobby
         event Action CopyRoomCodeRequested;
         event Action InviteRequested;
         event Action CopyPasswordRequested;
+        event Action SaveTitleRequested;
 
         void SetVisible(bool visible);
         void SetEditable(bool editable);
@@ -54,6 +55,9 @@ namespace Game.Client.Lobby
 
         [SerializeField]
         private Text titleText;
+        private InputField titleInput;
+        private Button saveTitleButton;
+        private string savedTitle = string.Empty;
 
         [SerializeField]
         private Text roomCodeText;
@@ -94,6 +98,11 @@ namespace Game.Client.Lobby
         [SerializeField]
         private RectTransform mapContent;
 
+        private static readonly float[] SprintOptions = { 0.5f, 1f, 1.5f, 2f, 3f };
+        private readonly List<Text> ruleValues = new();
+        private readonly List<Button> ruleMinus = new();
+        private readonly List<Button> rulePlus = new();
+
         private string title = string.Empty;
         private string roomCode = string.Empty;
         private bool passwordEnabled;
@@ -113,12 +122,18 @@ namespace Game.Client.Lobby
         public event Action CopyRoomCodeRequested;
         public event Action InviteRequested;
         public event Action CopyPasswordRequested;
+        public event Action SaveTitleRequested;
 
         private void OnEnable()
         {
+            EnsureRuleControls();
+            BindRuleControls();
+            EnsureTitleInput();
+            if (titleInput != null) titleInput.onValueChanged.AddListener(OnTitleChanged);
+            Bind(saveTitleButton, () => SaveTitleRequested?.Invoke());
             HomeUiFonts.ApplyLegacy(panel != null ? panel.transform : transform);
             Bind(openButton, () => OpenRequested?.Invoke());
-            Bind(closeButton, () => CloseRequested?.Invoke());
+            Bind(closeButton, RequestClose);
             Bind(copyRoomCodeButton, () => CopyRoomCodeRequested?.Invoke());
             Bind(inviteButton, () => InviteRequested?.Invoke());
             Bind(copyPasswordButton, () => CopyPasswordRequested?.Invoke());
@@ -133,6 +148,10 @@ namespace Game.Client.Lobby
 
         private void OnDisable()
         {
+            if (titleInput != null) titleInput.onValueChanged.RemoveListener(OnTitleChanged);
+            foreach (var button in ruleMinus) Unbind(button);
+            foreach (var button in rulePlus) Unbind(button);
+            Unbind(saveTitleButton);
             Unbind(openButton);
             Unbind(closeButton);
             Unbind(copyRoomCodeButton);
@@ -155,11 +174,16 @@ namespace Game.Client.Lobby
             }
         }
 
-        public void RequestClose() => CloseRequested?.Invoke();
+        public void RequestClose()
+        {
+            if (!editable || RoomSettings.IsValidTitle(ReadDraft().Title)) CloseRequested?.Invoke();
+        }
 
         public void SetEditable(bool value)
         {
             editable = value;
+            if (titleInput != null) titleInput.interactable = value;
+            RefreshTitleSave();
             RefreshCounters();
             foreach (var button in mapSlotButtons)
                 if (button != null) button.interactable = editable;
@@ -168,6 +192,9 @@ namespace Game.Client.Lobby
         public void SetDraft(PlaySettingsDraft draft)
         {
             title = draft.Title;
+            savedTitle = title;
+            if (titleInput != null) titleInput.SetTextWithoutNotify(title);
+            RefreshTitleSave();
             roomCode = draft.RoomCode;
             passwordEnabled = draft.PasswordEnabled;
             password = draft.Password ?? string.Empty;
@@ -214,6 +241,62 @@ namespace Game.Client.Lobby
                 destructionLimit,
                 map.Id,
                 matchRules);
+        }
+
+        private void OnTitleChanged(string value)
+        {
+            if (!editable) return;
+            title = value;
+            RefreshTitleSave();
+        }
+
+        private void RefreshTitleSave()
+        {
+            if (saveTitleButton != null)
+                saveTitleButton.interactable = editable && RoomSettings.IsValidTitle(title) &&
+                    !string.Equals(title.Trim(), savedTitle, StringComparison.Ordinal);
+        }
+
+        private void EnsureTitleInput()
+        {
+            if (titleInput != null || titleText == null) return;
+            var original = titleText.rectTransform;
+            var inputRect = new GameObject("Room title input", typeof(RectTransform), typeof(Image))
+                .GetComponent<RectTransform>();
+            inputRect.SetParent(original.parent, false);
+            inputRect.anchorMin = original.anchorMin; inputRect.anchorMax = original.anchorMax;
+            inputRect.offsetMin = original.offsetMin;
+            inputRect.offsetMax = original.offsetMax - new Vector2(90, 0);
+            inputRect.GetComponent<Image>().color = HomeStyle.Palette.InputFill;
+            var inputText = Instantiate(titleText, inputRect);
+            inputText.name = "Text";
+            inputText.rectTransform.anchorMin = Vector2.zero;
+            inputText.rectTransform.anchorMax = Vector2.one;
+            inputText.rectTransform.offsetMin = new Vector2(8, 0);
+            inputText.rectTransform.offsetMax = new Vector2(-8, 0);
+            titleInput = inputRect.gameObject.AddComponent<InputField>();
+            titleInput.textComponent = inputText;
+            titleInput.targetGraphic = inputRect.GetComponent<Image>();
+            titleInput.characterLimit = RoomSettings.MaxTitleLength;
+            titleInput.SetTextWithoutNotify(title);
+            titleInput.interactable = editable;
+            var saveRect = new GameObject("Save room title", typeof(RectTransform), typeof(Image), typeof(Button))
+                .GetComponent<RectTransform>();
+            saveRect.SetParent(original.parent, false);
+            saveRect.anchorMin = new Vector2(original.anchorMax.x, original.anchorMin.y);
+            saveRect.anchorMax = original.anchorMax;
+            saveRect.offsetMin = new Vector2(original.offsetMax.x - 80, original.offsetMin.y);
+            saveRect.offsetMax = original.offsetMax;
+            saveRect.GetComponent<Image>().color = HomeStyle.Palette.InputFill;
+            saveTitleButton = saveRect.GetComponent<Button>();
+            var label = Instantiate(titleText, saveRect);
+            label.rectTransform.anchorMin = Vector2.zero; label.rectTransform.anchorMax = Vector2.one;
+            label.rectTransform.offsetMin = label.rectTransform.offsetMax = Vector2.zero;
+            label.text = "저장";
+            label.alignment = TextAnchor.MiddleCenter;
+            label.raycastTarget = false;
+            titleText.gameObject.SetActive(false);
+            RefreshTitleSave();
         }
 
         private void ScrollMaps(int direction)
@@ -430,8 +513,104 @@ namespace Game.Client.Lobby
             RefreshCounters();
         }
 
+        private void EnsureRuleControls()
+        {
+            if (ruleValues.Count != 0 || panel == null || maxPlayersText == null ||
+                maxPlayersMinusButton == null || maxPlayersPlusButton == null) return;
+            var panelRect = (RectTransform)panel.transform;
+            panelRect.sizeDelta += new Vector2(0, 220);
+            foreach (RectTransform child in panelRect)
+                if (child.anchorMin.y == 0.5f && child.anchorMax.y == 0.5f)
+                    child.anchoredPosition += new Vector2(0, 110);
+            var names = new[] { "숨기기 시간", "찾기 시간", "달리기 속도", "HP" };
+            for (var i = 0; i < names.Length; i++)
+            {
+                var y = -195 - i * 45;
+                var label = Instantiate(maxPlayersText, panelRect);
+                label.name = "RuleLabel" + i;
+                label.text = names[i];
+                label.alignment = TextAnchor.MiddleLeft;
+                PlaceRuleControl(label.rectTransform, 40, y, 190);
+                var value = Instantiate(maxPlayersText, panelRect);
+                value.name = "RuleValue" + i;
+                PlaceRuleControl(value.rectTransform, 275, y, 110);
+                ruleValues.Add(value);
+                var minus = Instantiate(maxPlayersMinusButton, panelRect);
+                minus.name = "RuleMinus" + i;
+                minus.onClick = new Button.ButtonClickedEvent();
+                PlaceRuleControl((RectTransform)minus.transform, 220, y, 40);
+                ruleMinus.Add(minus);
+                var plus = Instantiate(maxPlayersPlusButton, panelRect);
+                plus.name = "RulePlus" + i;
+                plus.onClick = new Button.ButtonClickedEvent();
+                PlaceRuleControl((RectTransform)plus.transform, 400, y, 40);
+                rulePlus.Add(plus);
+            }
+            RefreshRuleControls();
+        }
+
+        private static void PlaceRuleControl(RectTransform rect, float x, float y, float width)
+        {
+            rect.anchorMin = rect.anchorMax = new Vector2(0, 0.5f);
+            rect.pivot = new Vector2(0, 0.5f);
+            rect.anchoredPosition = new Vector2(x, y);
+            rect.sizeDelta = new Vector2(width, 36);
+        }
+
+        private void BindRuleControls()
+        {
+            for (var i = 0; i < ruleValues.Count; i++)
+            {
+                var index = i;
+                Bind(ruleMinus[i], () => ChangeRule(index, -1));
+                Bind(rulePlus[i], () => ChangeRule(index, 1));
+            }
+        }
+
+        private void ChangeRule(int index, int direction)
+        {
+            if (!editable) return;
+            var hiding = matchRules.HidingDurationSeconds;
+            var searching = matchRules.SearchingDurationMinutes;
+            var speed = matchRules.SprintMultiplier;
+            var hp = matchRules.StunHitCount;
+            switch (index)
+            {
+                case 0: hiding += direction; break;
+                case 1: searching += direction; break;
+                case 2:
+                    var next = Array.IndexOf(SprintOptions, speed) + direction;
+                    if (next < 0 || next >= SprintOptions.Length) return;
+                    speed = SprintOptions[next]; break;
+                case 3: hp += direction; break;
+                default: return;
+            }
+            if (MatchRuleSettings.TryCreate(hiding, searching, speed, hp, matchRules.CategoryId,
+                out var updated, out _)) matchRules = updated;
+            RefreshRuleControls();
+        }
+
+        private void RefreshRuleControls()
+        {
+            if (ruleValues.Count == 0) return;
+            var values = new[] { matchRules.HidingDurationSeconds, matchRules.SearchingDurationMinutes,
+                Array.IndexOf(SprintOptions, matchRules.SprintMultiplier), matchRules.StunHitCount };
+            var min = new[] { MatchRuleSettings.MinHidingDurationSeconds, MatchRuleSettings.MinSearchingDurationMinutes,
+                0, MatchRuleSettings.MinStunHitCount };
+            var max = new[] { MatchRuleSettings.MaxHidingDurationSeconds, MatchRuleSettings.MaxSearchingDurationMinutes,
+                SprintOptions.Length - 1, MatchRuleSettings.MaxStunHitCount };
+            var labels = new[] { values[0] + "초", values[1] + "분", matchRules.SprintMultiplier + "배", values[3].ToString() };
+            for (var i = 0; i < ruleValues.Count; i++)
+            {
+                ruleValues[i].text = labels[i];
+                ruleMinus[i].interactable = editable && values[i] > min[i];
+                rulePlus[i].interactable = editable && values[i] < max[i];
+            }
+        }
+
         private void RefreshCounters()
         {
+            RefreshRuleControls();
             if (maxPlayersText != null)
             {
                 maxPlayersText.text = maxPlayers.ToString();
