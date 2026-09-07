@@ -1,4 +1,3 @@
-using Game.Client.Lobby;
 using Game.Client.Match;
 using Game.Core.Lobby;
 using NUnit.Framework;
@@ -57,8 +56,8 @@ namespace Game.Architecture.Tests
             var player = new GameObject("Player");
             try
             {
-                var bubbles = parent.AddComponent<LobbyChatBubbleView>();
-                bubbles.BindPlayer("P1", player.transform, "플레이어");
+                var bubbles = MatchChatBubbleView.Create(parent.transform);
+                bubbles.BindPlayer("P1", player.transform);
                 bubbles.Show(new LobbyChatMessage("P1", "플레이어", "짧음"));
 
                 var bubble = player.transform.Find("Match Chat Bubble")
@@ -79,7 +78,6 @@ namespace Game.Architecture.Tests
                 Assert.That(panel, Is.Not.Null);
                 Assert.That(panel.type, Is.EqualTo(Image.Type.Sliced));
                 Assert.That(panel.color, Is.EqualTo(MatchChatBubbleView.BubbleColor));
-                Assert.That(player.transform.Find("PlayerNameplate"), Is.Not.Null);
             }
             finally
             {

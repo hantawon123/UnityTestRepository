@@ -114,9 +114,13 @@ namespace Game.Tests.EditMode
             public void EmitSend(string text) => SendRequested?.Invoke(text);
         }
 
-        private sealed class FakeBubbleView : ILobbyChatBubbleView
+        private sealed class FakeBubbleView : IMatchChatBubbleView
         {
             public List<LobbyChatMessage> Shown { get; } = new();
+
+            public void BindPlayer(string playerId, UnityEngine.Transform playerRoot)
+            {
+            }
 
             public void Show(LobbyChatMessage message) => Shown.Add(message);
 

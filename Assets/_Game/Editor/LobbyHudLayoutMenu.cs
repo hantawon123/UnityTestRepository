@@ -815,7 +815,7 @@ namespace Game.Editor
             }
         }
 
-        private static LobbyChatBubbleView EnsureChatBubbleWorld(Transform parent)
+        private static MatchChatBubbleView EnsureChatBubbleWorld(Transform parent)
         {
             var root = parent.Find("ChatBubbleWorld");
             GameObject rootGo;
@@ -839,10 +839,10 @@ namespace Game.Editor
                 }
             }
 
-            var view = rootGo.GetComponent<LobbyChatBubbleView>();
+            var view = rootGo.GetComponent<MatchChatBubbleView>();
             if (view == null)
             {
-                view = Undo.AddComponent<LobbyChatBubbleView>(rootGo);
+                view = Undo.AddComponent<MatchChatBubbleView>(rootGo);
             }
 
             return view;

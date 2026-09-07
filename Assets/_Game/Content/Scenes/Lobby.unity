@@ -2837,7 +2837,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &446745069
 Transform:
   m_ObjectHideFlags: 0
@@ -6106,28 +6106,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1032459986}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2a22f041692d4477bdcfa66e23b8b916, type: 3}
+  m_Script: {fileID: 11500000, guid: 4d9e99d8d9ba4e9db5fdcc3d6b3fd6d8, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Game.Client::Game.Client.Lobby.LobbyChatBubbleView
-  visibleSeconds: 3.5
-  heightOffset: 2.6
-  uiFont: {fileID: 12800000, guid: dc98b65976bf5cf429e1f4ad73bf967a, type: 3}
-  anchors:
-  - playerId: host-1
-    headAnchor: {fileID: 1933447561}
-    bubbleRoot: {fileID: 2075898700}
-    bubbleText: {fileID: 1314915151}
-    nameText: {fileID: 186194146}
-  - playerId: player-2
-    headAnchor: {fileID: 1149862037}
-    bubbleRoot: {fileID: 1484443103}
-    bubbleText: {fileID: 1038545060}
-    nameText: {fileID: 388079558}
-  - playerId: player-3
-    headAnchor: {fileID: 446745069}
-    bubbleRoot: {fileID: 1142768134}
-    bubbleText: {fileID: 1497357249}
-    nameText: {fileID: 572206878}
+  m_EditorClassIdentifier: Game.Client::Game.Client.Match.MatchChatBubbleView
 --- !u!4 &1032459988
 Transform:
   m_ObjectHideFlags: 0
@@ -6892,7 +6873,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1149862037
 Transform:
   m_ObjectHideFlags: 0
@@ -13036,7 +13017,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1933447561
 Transform:
   m_ObjectHideFlags: 0

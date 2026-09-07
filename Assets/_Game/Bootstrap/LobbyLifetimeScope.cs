@@ -50,7 +50,7 @@ namespace Game.Bootstrap
         private MatchChatView chatView;
 
         [SerializeField]
-        private LobbyChatBubbleView chatBubbleView;
+        private MatchChatBubbleView chatBubbleView;
 
         [SerializeField]
         private VoiceView voiceView;
@@ -147,6 +147,8 @@ namespace Game.Bootstrap
                     "Chat views must be assigned. Lobby 씬에서 Game > Lobby > Build HUD Layout 을 실행하세요.");
             }
 
+            StripLegacyChatBubbleAnchors(chatBubbleView.transform);
+
             if (cameraRigPrefab == null)
             {
                 throw new InvalidOperationException("PlayerCameraRig prefab must be assigned.");
@@ -163,9 +165,7 @@ namespace Game.Bootstrap
             builder.RegisterComponent(transferConfirmView).As<IHostTransferConfirmView>();
             chatView.SetKeepChromeVisible(true);
             builder.RegisterComponent(chatView).As<IChatView>();
-            builder.RegisterComponent(chatBubbleView)
-                .AsSelf()
-                .As<ILobbyChatBubbleView>();
+            builder.RegisterComponent(chatBubbleView).As<IMatchChatBubbleView>();
             builder.RegisterComponent(voiceView).As<IVoiceView>();
             builder.RegisterInstance(inputActions);
 
@@ -197,6 +197,7 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<VoicePresenter>();
             builder.RegisterEntryPoint<LobbyChatPresenter>();
             builder.RegisterEntryPoint<LobbyChatBubbleBinder>();
+            builder.RegisterEntryPoint<InGamePlayerNameplatePresenter>();
             // Scene-owned: leaving the lobby also removes its entry cover.
             // Do not reuse the project-wide highlight/result transition's state.
             var entryCover = new GameObject("Lobby Entry Transition").AddComponent<HighlightTransitionView>();
@@ -398,6 +399,23 @@ namespace Game.Bootstrap
                 localPlayerId,
                 profile.Nickname);
         }
+
+        private static void StripLegacyChatBubbleAnchors(Transform root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            for (var index = root.childCount - 1; index >= 0; index--)
+            {
+                var child = root.GetChild(index);
+                if (child.name.StartsWith("Head_", StringComparison.Ordinal))
+                {
+                    UnityEngine.Object.Destroy(child.gameObject);
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -521,12 +539,12 @@ namespace Game.Bootstrap
     internal sealed class LobbyChatBubbleBinder : IStartable, IDisposable
     {
         private readonly RoomBrowserSystem room;
-        private readonly LobbyChatBubbleView bubbles;
+        private readonly IMatchChatBubbleView bubbles;
         private IDisposable subscription;
 
         public LobbyChatBubbleBinder(
             RoomBrowserSystem room,
-            LobbyChatBubbleView bubbles)
+            IMatchChatBubbleView bubbles)
         {
             this.room = room ?? throw new ArgumentNullException(nameof(room));
             this.bubbles = bubbles ?? throw new ArgumentNullException(nameof(bubbles));
@@ -540,49 +558,24 @@ namespace Game.Bootstrap
         public void Dispose()
         {
             subscription?.Dispose();
+            bubbles.Clear();
         }
 
         private void Rebind()
         {
-            bubbles.ClearBindings();
+            bubbles.Clear();
 
             var avatars = UnityEngine.Object.FindObjectsByType<PlayerAvatar>(
                 FindObjectsInactive.Exclude,
                 FindObjectsSortMode.None);
             Array.Sort(avatars, (left, right) => left.Seat.CompareTo(right.Seat));
 
-            var seated = room.Participants.CurrentValue;
-
             for (var i = 0; i < avatars.Length; i++)
             {
                 var avatar = avatars[i];
                 var playerId = PlayerRegistry.IdOf(avatar.Owner);
-                bubbles.BindPlayer(playerId, avatar.transform, NicknameOf(seated, playerId));
+                bubbles.BindPlayer(playerId, avatar.transform);
             }
-        }
-
-        /// <summary>
-        /// Empty rather than the id when the name has not replicated yet: a
-        /// nameplate showing a raw id reads as a bug, so the plate stays hidden
-        /// until the next rebind brings a real name.
-        /// </summary>
-        private static string NicknameOf(
-            IReadOnlyList<RoomParticipant> seated, string playerId)
-        {
-            if (string.IsNullOrEmpty(playerId))
-            {
-                return string.Empty;
-            }
-
-            for (var index = 0; index < seated.Count; index++)
-            {
-                if (string.Equals(seated[index].PlayerId, playerId, StringComparison.Ordinal))
-                {
-                    return seated[index].Nickname;
-                }
-            }
-
-            return string.Empty;
         }
     }
 
