@@ -290,7 +290,6 @@ namespace Game.Tests.EditMode
             public void SetVisible(bool value) { }
             public void SetStartVisible(bool value) { }
             public void SetPlaySettingsVisible(bool value) { }
-            public void ShowLeaveConfirmation(Action confirmed) { }
             public void OpenSettings() => PlaySettingsClicked?.Invoke();
         }
     }

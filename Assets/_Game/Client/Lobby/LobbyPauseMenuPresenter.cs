@@ -218,11 +218,7 @@ namespace Game.Client.Lobby
         /// browser this leads to is a screen made of buttons, and arriving there
         /// with a captured cursor leaves nothing on it clickable.
         /// </remarks>
-        private void OnLeaveClicked()
-        {
-            if (hostSession.IsLocalHost.CurrentValue) view.ShowLeaveConfirmation(Leave);
-            else Leave();
-        }
+        private void OnLeaveClicked() => Leave();
 
         private void Leave()
         {
