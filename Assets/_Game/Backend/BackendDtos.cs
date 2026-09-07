@@ -34,6 +34,37 @@ namespace Game.Backend
         public bool nicknameSet;
         public bool searchable;
         public string createdAt;
+
+        /// <summary>
+        /// Whether <see cref="appearance"/> means anything. JsonUtility turns
+        /// a null object into an object of empty strings, so the flag is the
+        /// only way to tell "never chosen" from "chosen".
+        /// </summary>
+        public bool appearanceSet;
+
+        public AppearanceDto appearance;
+    }
+
+    /// <summary>
+    /// The four parts, as the server stores them. Field names are the wire
+    /// contract; renaming one makes it silently absent.
+    /// </summary>
+    [Serializable]
+    internal sealed class AppearanceDto
+    {
+        public string bodyColor;
+        public string hood;
+        public string shoes;
+        public string face;
+    }
+
+    [Serializable]
+    internal sealed class UpdateAppearanceRequestDto
+    {
+        public string bodyColor;
+        public string hood;
+        public string shoes;
+        public string face;
     }
 
     [Serializable]

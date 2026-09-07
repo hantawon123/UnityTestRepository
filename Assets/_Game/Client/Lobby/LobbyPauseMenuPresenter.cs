@@ -32,7 +32,7 @@ namespace Game.Client.Lobby
     /// is still in the menu, just on a different page of it.
     /// </para>
     /// </remarks>
-    public sealed class LobbyPauseMenuPresenter : IStartable, ITickable, IDisposable
+    public sealed class LobbyPauseMenuPresenter : IStartable, ITickable, IDisposable, IPlaySettingsOpener
     {
         private readonly ILobbyPauseMenuView view;
         private readonly IKeyGuideView keyGuide;
@@ -42,6 +42,12 @@ namespace Game.Client.Lobby
         private IDisposable hostSubscription;
         private PlayerCameraController cameraRig;
         private PlayerMovement lockedMovement;
+
+        /// <summary>
+        /// True while the play settings were opened from an object in the room
+        /// rather than from this menu, so closing them goes back to the room.
+        /// </summary>
+        private bool openedFromWorld;
 
         /// <summary>
         /// Closes whichever screen the menu stepped aside for, or null while the
@@ -175,9 +181,31 @@ namespace Game.Client.Lobby
         private void Close()
         {
             closeOpenScreen = null;
+            openedFromWorld = false;
             view.SetVisible(false);
             SetCursorCaptured(true);
             ReleaseMovement();
+        }
+
+        /// <remarks>
+        /// The same hand-over the menu does for its own button, minus the menu:
+        /// the cursor is freed and the avatar held still so the screen can be
+        /// used, and the flag makes the eventual close return to the room. A
+        /// screen that is already up wins; opening a second one on top of it
+        /// would leave two things claiming Esc.
+        /// </remarks>
+        public void OpenPlaySettingsFromWorld()
+        {
+            if (view.IsOpen || closeOpenScreen != null)
+            {
+                return;
+            }
+
+            SetCursorCaptured(false);
+            LockMovement();
+            openedFromWorld = true;
+            StepAsideFor(playSettings.RequestClose);
+            playSettings.RequestOpen();
         }
 
         /// <remarks>
@@ -203,6 +231,13 @@ namespace Game.Client.Lobby
         {
             if (closeOpenScreen == null)
             {
+                return;
+            }
+
+            // Opened from the room, so there is no menu to come back to.
+            if (openedFromWorld)
+            {
+                Close();
                 return;
             }
 
@@ -236,6 +271,7 @@ namespace Game.Client.Lobby
         private void Leave()
         {
             closeOpenScreen = null;
+            openedFromWorld = false;
             view.SetVisible(false);
             ReleaseMovement();
             SetCursorCaptured(false);

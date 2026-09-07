@@ -8,6 +8,7 @@ using Game.Client.Home;
 using Game.Core.Backend;
 using Game.Core.Flow;
 using Game.Core.Home;
+using Game.Core.Players;
 using Game.Core.Ports;
 using NUnit.Framework;
 using UnityEngine;
@@ -217,6 +218,12 @@ namespace Game.Architecture.Tests
             public UniTask<BackendResult<AccountSnapshot>> SetSearchableAsync(
                 bool searchable, CancellationToken cancellation) => Account();
 
+            public UniTask<BackendResult<AccountSnapshot>> SetAppearanceAsync(
+                AvatarAppearance appearance, CancellationToken cancellation) => Account();
+
+            public UniTask<BackendResult<AccountSnapshot>> ClearAppearanceAsync(
+                CancellationToken cancellation) => Account();
+
             public UniTask<BackendResult> DeleteAccountAsync(CancellationToken cancellation) =>
                 UniTask.FromResult(BackendResult.Success());
 
@@ -302,6 +309,8 @@ namespace Game.Architecture.Tests
             public void OpenHome() { }
 
             public void OpenRoomBrowser() { }
+
+            public void OpenCharacterCloset() { }
 
             public void CreateRoom(string title, bool isPublic, int maxPlayers) { }
 

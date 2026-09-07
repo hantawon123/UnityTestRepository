@@ -34,3 +34,15 @@ springdoc:
 admin:
   username: test-admin
   password: test-password
+
+# 플레이 로그 큐를 자주 비웁니다. 기본 1초를 기다리는 테스트가 여럿 쌓이면 스위트가 느려집니다.
+#
+# 접속 정보는 IntegrationTest 가 컨테이너에서 받아 test.analytics.* 에 넣고 여기서 참조합니다.
+# 한 단계 우회하는 이유는 IntegrationTest 의 주석에 있습니다. 분석 DB 장애를 시험하는 테스트가
+# 이 값만 @TestPropertySource 로 덮어씁니다.
+analytics:
+  flush-interval-ms: 200
+  datasource:
+    url: ${test.analytics.url}
+    username: ${test.analytics.username}
+    password: ${test.analytics.password}

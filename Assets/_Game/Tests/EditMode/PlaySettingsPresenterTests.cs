@@ -265,8 +265,9 @@ namespace Game.Tests.EditMode
             public bool Visible;
             public bool Editable;
             public PlaySettingsDraft Draft;
-            public event Action OpenRequested { add { } remove { } }
+            public event Action OpenRequested;
             public event Action CloseRequested;
+            public void RequestOpen() => OpenRequested?.Invoke();
             public event Action CopyRoomCodeRequested { add { } remove { } }
             public event Action InviteRequested { add { } remove { } }
             public event Action CopyPasswordRequested { add { } remove { } }

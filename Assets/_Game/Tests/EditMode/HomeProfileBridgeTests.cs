@@ -7,6 +7,7 @@ using Game.Bootstrap;
 using Game.Client.Home;
 using Game.Core.Backend;
 using Game.Core.Home;
+using Game.Core.Players;
 using Game.Core.Ports;
 using NUnit.Framework;
 using UnityEngine;
@@ -316,6 +317,19 @@ namespace Game.Architecture.Tests
                     BackendResult<AccountSnapshot>.Success(
                         new AccountSnapshot("user-1", Nickname, NicknameSet, searchable)));
             }
+
+            public UniTask<BackendResult<AccountSnapshot>> SetAppearanceAsync(
+                AvatarAppearance appearance, CancellationToken cancellation) =>
+                UniTask.FromResult(
+                    BackendResult<AccountSnapshot>.Success(
+                        new AccountSnapshot(
+                            "user-1", Nickname, NicknameSet, Searchable, true, appearance)));
+
+            public UniTask<BackendResult<AccountSnapshot>> ClearAppearanceAsync(
+                CancellationToken cancellation) =>
+                UniTask.FromResult(
+                    BackendResult<AccountSnapshot>.Success(
+                        new AccountSnapshot("user-1", Nickname, NicknameSet, Searchable)));
 
             public UniTask<BackendResult> DeleteAccountAsync(CancellationToken cancellation) =>
                 UniTask.FromResult(BackendResult.Success());

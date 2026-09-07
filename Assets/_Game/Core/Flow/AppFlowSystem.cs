@@ -9,7 +9,13 @@ namespace Game.Core.Flow
         Lobby,
         InGame,
         Highlight,
-        Result
+        Result,
+
+        /// <summary>
+        /// Appended rather than placed beside <see cref="Home"/> so the numbers
+        /// the existing states carry do not shift.
+        /// </summary>
+        CharacterCloset
     }
 
     public sealed class AppFlowSystem
@@ -35,8 +41,14 @@ namespace Game.Core.Flow
             switch (CurrentState)
             {
                 case AppFlowState.Home:
-                    return nextState == AppFlowState.RoomBrowser ||
+                    return nextState == AppFlowState.CharacterCloset ||
+                           nextState == AppFlowState.RoomBrowser ||
                            nextState == AppFlowState.Lobby;
+
+                // The closet is a detour rather than a step forward: the only
+                // way on from it is back where it was opened from.
+                case AppFlowState.CharacterCloset:
+                    return nextState == AppFlowState.Home;
                 case AppFlowState.RoomBrowser:
                     return nextState == AppFlowState.Home ||
                            nextState == AppFlowState.Lobby;

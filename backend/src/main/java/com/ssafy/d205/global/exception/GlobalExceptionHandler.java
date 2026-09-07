@@ -65,6 +65,26 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("INVALID_REQUEST", "요청 본문의 값이 형식에 맞지 않습니다."));
     }
 
+    /**
+     * 플레이 로그 배치가 형식은 맞지만 내용 규칙(이벤트 목록, 시각 범위, params 크기)을 어긴
+     * 경우입니다. 형식 위반과 같은 INVALID_REQUEST 를 쓰는 것은 클라이언트의 대응이 같기
+     * 때문입니다. 그 배치를 버리고 재전송하지 않는다. 메시지가 몇 번째 이벤트의 무엇인지 말합니다.
+     */
+    @ExceptionHandler(EventBatchRejectedException.class)
+    public ResponseEntity<ErrorResponse> handleEventBatchRejected(EventBatchRejectedException e) {
+        return ResponseEntity.badRequest().body(new ErrorResponse("INVALID_REQUEST", e.getMessage()));
+    }
+
+    /**
+     * 한 IP 가 플레이 로그를 분당 허용량 넘게 보냈습니다. 인증이 없는 엔드포인트라 이것이 남용을
+     * 막는 유일한 장치입니다. 클라이언트는 잠시 기다린 뒤 스풀에서 다시 보내면 됩니다.
+     */
+    @ExceptionHandler(RateLimitedException.class)
+    public ResponseEntity<ErrorResponse> handleRateLimited(RateLimitedException e) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(new ErrorResponse("RATE_LIMITED", "요청이 너무 잦습니다. 잠시 뒤 다시 보내세요."));
+    }
+
     @ExceptionHandler(MissingRequestHeaderException.class)
     public ResponseEntity<ErrorResponse> handleMissingHeader(MissingRequestHeaderException e) {
         return ResponseEntity.badRequest()

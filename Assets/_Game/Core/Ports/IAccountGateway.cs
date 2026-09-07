@@ -1,6 +1,7 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Backend;
+using Game.Core.Players;
 
 namespace Game.Core.Ports
 {
@@ -55,6 +56,35 @@ namespace Game.Core.Ports
         /// </remarks>
         UniTask<BackendResult<AccountSnapshot>> SetSearchableAsync(
             bool searchable, CancellationToken cancellation);
+
+        /// <summary>
+        /// Stores the appearance the player applied in the closet.
+        /// </summary>
+        /// <remarks>
+        /// All four parts every time: the screen always knows all four, and the
+        /// server refuses a partial write rather than guessing what the missing
+        /// ones should be. Idempotent, so re-applying the same appearance is a
+        /// success and not a conflict.
+        /// <para>
+        /// Answers with the whole account, so a caller can redraw from the
+        /// reply instead of trusting what it sent.
+        /// </para>
+        /// </remarks>
+        UniTask<BackendResult<AccountSnapshot>> SetAppearanceAsync(
+            AvatarAppearance appearance, CancellationToken cancellation);
+
+        /// <summary>
+        /// Forgets the stored appearance, putting this account back to having
+        /// chosen nothing.
+        /// </summary>
+        /// <remarks>
+        /// Not the same as storing the default parts. Stored defaults freeze a
+        /// player on whatever the defaults were the day they reset; forgetting
+        /// leaves them on whatever the defaults are when they next play.
+        /// Succeeds even when nothing was stored.
+        /// </remarks>
+        UniTask<BackendResult<AccountSnapshot>> ClearAppearanceAsync(
+            CancellationToken cancellation);
 
         /// <summary>
         /// Deletes this account, its friendships and its presence.
