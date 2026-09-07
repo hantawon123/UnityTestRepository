@@ -26,6 +26,9 @@ namespace Game.Bootstrap
         private readonly IHomeMenuView view;
         private readonly FriendUiCommands friends;
         private readonly BackendSignIn signIn;
+        private bool refreshing;
+        private bool refreshingRequests;
+        private bool requestsChanged;
         private readonly CancellationTokenSource lifetime = new CancellationTokenSource();
 
         public HomeFriendBridge(
@@ -126,13 +129,15 @@ namespace Game.Bootstrap
 
         private async UniTaskVoid RefreshAsync()
         {
-            if (!await Ready())
+            if (refreshing) return;
+            refreshing = true;
+            try
             {
-                return;
+                if (!await Ready()) return;
+                Report("friend list", await friends.RefreshFriendsAsync(lifetime.Token));
+                await RefreshRequests();
             }
-
-            Report("friend list", await friends.RefreshFriendsAsync(lifetime.Token));
-            await RefreshRequests();
+            finally { refreshing = false; }
         }
 
         private async UniTaskVoid RefreshRequestsAsync()
@@ -150,9 +155,29 @@ namespace Game.Bootstrap
         /// action on either changes what the other should say, so reading one
         /// without the other leaves half the panel stale.
         /// </remarks>
-        private async UniTask RefreshRequests()
+        private async UniTask RefreshRequests(bool afterMutation = false)
+        {
+            if (refreshingRequests)
+            {
+                requestsChanged |= afterMutation;
+                return;
+            }
+            refreshingRequests = true;
+            try
+            {
+                do
+                {
+                    requestsChanged = false;
+                    await ReadRequests();
+                } while (requestsChanged && !lifetime.IsCancellationRequested);
+            }
+            finally { refreshingRequests = false; }
+        }
+
+        private async UniTask ReadRequests()
         {
             var incoming = await friends.ListIncomingRequestsAsync(lifetime.Token);
+            if (lifetime.IsCancellationRequested) return;
             if (incoming.Ok)
             {
                 view.SetIncomingRequests(incoming.Value);
@@ -163,6 +188,7 @@ namespace Game.Bootstrap
             }
 
             var outgoing = await friends.ListOutgoingRequestsAsync(lifetime.Token);
+            if (lifetime.IsCancellationRequested) return;
             if (outgoing.Ok)
             {
                 view.SetOutgoingRequests(outgoing.Value);
@@ -203,7 +229,7 @@ namespace Game.Bootstrap
 
             // The request just sent belongs in the sent list, and if the server
             // settled it into a friendship instead there is nothing to show.
-            await RefreshRequests();
+            await RefreshRequests(afterMutation: true);
         }
 
         private async UniTaskVoid AnswerRequestAsync(string playerId, bool accepted)
@@ -222,7 +248,7 @@ namespace Game.Bootstrap
             // Re-read either way. On success the row is gone; on failure the
             // list this screen is showing is out of date, which is what most of
             // these failures mean.
-            await RefreshRequests();
+            await RefreshRequests(afterMutation: true);
         }
 
         private async UniTaskVoid CancelSentRequestAsync(string playerId)
@@ -233,7 +259,7 @@ namespace Game.Bootstrap
             }
 
             Report("cancel", await friends.CancelSentRequestAsync(playerId, lifetime.Token));
-            await RefreshRequests();
+            await RefreshRequests(afterMutation: true);
         }
 
         /// <remarks>
@@ -279,6 +305,7 @@ namespace Game.Bootstrap
         /// </remarks>
         private void Report(string what, BackendFailure failure)
         {
+            if (lifetime.IsCancellationRequested) return;
             if (failure == BackendFailure.None)
             {
                 view.SetFriendActionError(string.Empty);
