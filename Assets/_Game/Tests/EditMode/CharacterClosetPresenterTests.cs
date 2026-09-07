@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Client.Character;
 using Game.Client.Home;
+using Game.Core.Flow;
 using Game.Core.Players;
 using NUnit.Framework;
 using UnityEngine;
@@ -29,6 +30,7 @@ namespace Game.Architecture.Tests
         private AvatarPartCatalog catalog;
         private FakeClosetView view;
         private FakeApplicationHost host;
+        private AppFlowSystem flow;
 
         [SetUp]
         public void SetUp()
@@ -37,6 +39,11 @@ namespace Game.Architecture.Tests
             JsonUtility.FromJsonOverwrite(TwoCategories, catalog);
             view = new FakeClosetView();
             host = new FakeApplicationHost();
+
+            // Where the application is while this screen is up: Home opened it
+            // and moved the flow on the way in.
+            flow = new AppFlowSystem();
+            flow.TryTransitionTo(AppFlowState.CharacterCloset);
         }
 
         [TearDown]
@@ -182,6 +189,11 @@ namespace Game.Architecture.Tests
             view.PressBack();
 
             Assert.That(host.HomeOpenCount, Is.EqualTo(1));
+            Assert.That(
+                flow.CurrentState,
+                Is.EqualTo(AppFlowState.Home),
+                "Home gates its own menu on this; leaving without moving it " +
+                "left half of Home dead.");
             presenter.Dispose();
         }
 
@@ -339,6 +351,7 @@ namespace Game.Architecture.Tests
             view.AnswerYes();
 
             Assert.That(host.HomeOpenCount, Is.EqualTo(1));
+            Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.Home));
             Assert.That(
                 appearance.Current,
                 Is.EqualTo(AvatarAppearance.Default),
@@ -377,8 +390,33 @@ namespace Game.Architecture.Tests
             presenter.Dispose();
         }
 
+        /// <summary>
+        /// The saver puts the applied appearance back when the account refuses
+        /// it. The screen has to notice, or the player is left looking at a
+        /// choice they cannot re-apply.
+        /// </summary>
+        [Test]
+        public void WhenARefusedSaveIsPutBack_TheButtonsComeBackOn()
+        {
+            var appearance = new AvatarAppearanceState();
+            var presenter = Presenter(appearance);
+            presenter.Start();
+            view.PickPart(AvatarPartCategory.BodyColor, "body_b");
+            view.PressApply();
+            Assert.That(view.ActionsEnabled, Is.False, "Applied, as far as the screen knows.");
+
+            appearance.Apply(AvatarAppearance.Default);
+
+            Assert.That(view.ActionsEnabled, Is.True);
+            Assert.That(
+                presenter.Draft.BodyColorId,
+                Is.EqualTo("body_b"),
+                "What was picked stays picked; only the applied value went back.");
+            presenter.Dispose();
+        }
+
         private CharacterClosetPresenter Presenter(AvatarAppearanceState appearance) =>
-            new CharacterClosetPresenter(view, catalog, appearance, host);
+            new CharacterClosetPresenter(view, catalog, appearance, host, flow);
 
         /// <summary>A player who has applied something already.</summary>
         private static AvatarAppearanceState Wearing(AvatarAppearance appearance)
@@ -410,6 +448,9 @@ namespace Game.Architecture.Tests
 
             /// <summary>Which confirmation is up, or none.</summary>
             public ClosetConfirmKind? ConfirmShown { get; private set; }
+
+            /// <summary>The last thing said about a failed save.</summary>
+            public string SaveError { get; private set; }
 
             public AvatarPartCategory? ShownGroup { get; private set; }
 
@@ -451,6 +492,11 @@ namespace Game.Architecture.Tests
             public void HideConfirm()
             {
                 ConfirmShown = null;
+            }
+
+            public void ShowSaveError(string message)
+            {
+                SaveError = message;
             }
 
             public void PressBack() => BackRequested?.Invoke();
