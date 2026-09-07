@@ -14,8 +14,9 @@ namespace Game.Client.Lobby
     /// the key guide — is an entry in the Esc menu now. See
     /// <see cref="LobbyPauseMenuView"/>.
     /// <para>
-    /// What is left is the things a player reads rather than clicks, and the
-    /// chat field, which the keyboard reaches on its own.
+    /// What is left is the things a player reads rather than clicks, the
+    /// shared key guide, and the chat field, which the keyboard reaches on
+    /// its own.
     /// </para>
     /// </remarks>
     public sealed class LobbyHudView : MonoBehaviour
@@ -59,6 +60,7 @@ namespace Game.Client.Lobby
         {
             var canvas = GetComponentInParent<Canvas>();
             HomeUiFonts.ApplyLegacy(canvas != null ? canvas.transform : transform);
+            KeySettingGuideView.Ensure(transform)?.SetVisible(true);
         }
     }
 }

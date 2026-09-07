@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.Bootstrap;
+using Game.Client;
 using Game.Client.Lobby;
 using Game.Client.Match;
 using Game.Client.Voice;
@@ -144,6 +145,7 @@ namespace Game.Editor
             voiceSo.ApplyModifiedPropertiesWithoutUndo();
 
             var chatBubbleView = EnsureChatBubbleWorld(scope.transform);
+            KeySettingGuideView.Ensure(root);
 
             var hudSo = new SerializedObject(hud);
             hudSo.FindProperty("playerListRoot").objectReferenceValue = playerList;

@@ -40,29 +40,10 @@ namespace Game.Client.Match
         public const float KeyChipPaddingX = 10f;
         public const float KeyChipCornerRadius = 10f;
         public const float KeyIconSize = 24f;
-        public const string ClickKeyLabel = "클릭";
+        public const string ClickKeyLabel = KeySettingGuideView.ClickKeyLabel;
         public static readonly Color KeyChipColor = new Color(0f, 0f, 0f, 0.27f);
-        private const string ClickIconResource = "UI/ic_left_click";
-
-        public static readonly string[] KeyGuideActions =
-        {
-            "공격",
-            "앉기",
-            "엎드리기",
-            "시점 변경",
-            "달리기",
-            "점프"
-        };
-
-        public static readonly string[] KeyGuideLabels =
-        {
-            ClickKeyLabel,
-            "C",
-            "Z",
-            "V",
-            "Shift",
-            "Space"
-        };
+        public static readonly string[] KeyGuideActions = KeySettingGuideView.Actions;
+        public static readonly string[] KeyGuideLabels = KeySettingGuideView.Labels;
 
         private static Sprite keyChipSprite;
 
@@ -77,9 +58,6 @@ namespace Game.Client.Match
 
         [SerializeField]
         private GameObject completeGuide;
-
-        [SerializeField]
-        private GameObject keyGuide;
 
         [SerializeField]
         [Tooltip("Shows the hiding HUD in the editor Game view without entering Play.")]
@@ -128,11 +106,6 @@ namespace Game.Client.Match
             SetRemainingSeconds(remainingSeconds);
             ApplyFonts();
             ApplyUrgency(remainingSeconds);
-            if (keyGuide != null)
-            {
-                keyGuide.SetActive(true);
-            }
-
             SetTopPromptVisible(showTopPrompt);
             SetCompleteGuideVisible(showCompleteGuide);
         }
@@ -144,10 +117,6 @@ namespace Game.Client.Match
             ResetPulseScale();
             SetTopPromptVisible(false);
             SetCompleteGuideVisible(false);
-            if (keyGuide != null)
-            {
-                keyGuide.SetActive(false);
-            }
         }
 
         public void SetRemainingSeconds(double remainingSeconds)
@@ -225,7 +194,6 @@ namespace Game.Client.Match
             }
 
             ApplyUrgency(lastRemainingSeconds);
-            ApplyKeyGuideStyle();
             ApplyCompleteKeyStyle();
         }
 
@@ -311,46 +279,6 @@ namespace Game.Client.Match
             }
         }
 
-        private void ApplyKeyGuideStyle()
-        {
-            if (keyGuide == null)
-            {
-                return;
-            }
-
-            var light = HomeUiFonts.ApplyLight();
-            for (var index = 0; index < KeyGuideActions.Length; index++)
-            {
-                var row = keyGuide.transform.Find($"Row{index}");
-                if (row == null)
-                {
-                    continue;
-                }
-
-                var action = row.Find("Action")?.GetComponent<TMP_Text>();
-                if (action != null)
-                {
-                    action.font = light;
-                    action.fontSize = ActionFontSize;
-                    action.fontStyle = FontStyles.Normal;
-                    action.color = Color.white;
-                }
-
-                var chip = row.Find("Key") as RectTransform;
-                var keyLabel = row.Find("Key/Label")?.GetComponent<TMP_Text>();
-                if (chip != null)
-                {
-                    ApplyKeyChipLook(chip.GetComponent<Image>());
-                    FitKeyChip(chip, keyLabel);
-                }
-
-                if (action != null && chip != null)
-                {
-                    PlaceAction(action.rectTransform, chip.sizeDelta.x);
-                }
-            }
-        }
-
         private void EnsureLayout()
         {
             var rect = transform as RectTransform;
@@ -384,11 +312,7 @@ namespace Game.Client.Match
                 completeGuide = transform.Find("CompleteGuide")?.gameObject;
             }
 
-            if (keyGuide == null)
-            {
-                keyGuide = transform.Find("KeyGuide")?.gameObject;
-            }
-
+            StripLegacyKeyGuide();
             ApplyTopPromptLayout();
         }
 
@@ -467,43 +391,14 @@ namespace Game.Client.Match
                 new Vector2(24f + KeyChipWidth + 12f, 0f),
                 new Vector2(240f, KeyChipHeight),
                 new Vector2(0f, 0.5f));
+        }
 
-            keyGuide = CreateRect(transform, "KeyGuide").gameObject;
-            Place(
-                keyGuide.GetComponent<RectTransform>(),
-                new Vector2(1f, 0.5f),
-                new Vector2(-48f, 0f),
-                new Vector2(280f, 320f),
-                new Vector2(1f, 0.5f));
-
-            for (var index = 0; index < KeyGuideActions.Length; index++)
+        private void StripLegacyKeyGuide()
+        {
+            var leftover = transform.Find("KeyGuide");
+            if (leftover != null)
             {
-                var row = CreateRect(keyGuide.transform, $"Row{index}");
-                Place(
-                    row,
-                    new Vector2(1f, 1f),
-                    new Vector2(-140f, -24f - (index * 48f)),
-                    new Vector2(280f, 40f));
-
-                var action = CreateText(
-                    row,
-                    "Action",
-                    KeyGuideActions[index],
-                    ActionFontSize,
-                    HomeUiFonts.ApplyLight());
-                action.alignment = TextAlignmentOptions.MidlineRight;
-
-                var chip = CreateImage(row, "Key", KeyChipColor, KeyChipSprite);
-                chip.type = Image.Type.Sliced;
-                var keyLabel = CreateText(
-                    chip.transform,
-                    "Label",
-                    KeyGuideLabels[index],
-                    KeyChipFontSize,
-                    HomeUiFonts.ApplyLight());
-                Stretch(keyLabel.rectTransform);
-                FitKeyChip(chip.rectTransform, keyLabel);
-                PlaceAction(action.rectTransform, chip.rectTransform.sizeDelta.x);
+                DestroyImmediate(leftover.gameObject);
             }
         }
 
@@ -517,7 +412,7 @@ namespace Game.Client.Match
             return Mathf.Max(KeyChipWidth, preferredWidth + (KeyChipPaddingX * 2f));
         }
 
-        private static Sprite KeyChipSprite
+        public static Sprite KeyChipSprite
         {
             get
             {
@@ -590,99 +485,6 @@ namespace Game.Client.Match
             chip.sprite = KeyChipSprite;
             chip.type = Image.Type.Sliced;
             chip.pixelsPerUnitMultiplier = 1f;
-        }
-
-        private static void FitKeyChip(RectTransform chip, TMP_Text label)
-        {
-            var usesIcon = label != null && label.text == ClickKeyLabel;
-            var icon = chip.Find("Icon")?.GetComponent<Image>();
-            if (usesIcon)
-            {
-                if (label != null)
-                {
-                    label.gameObject.SetActive(false);
-                }
-
-                icon = EnsureClickIcon(chip);
-                if (icon != null)
-                {
-                    icon.gameObject.SetActive(true);
-                    Place(
-                        icon.rectTransform,
-                        new Vector2(0.5f, 0.5f),
-                        Vector2.zero,
-                        new Vector2(KeyIconSize, KeyIconSize));
-                }
-
-                Place(
-                    chip,
-                    new Vector2(1f, 0.5f),
-                    Vector2.zero,
-                    new Vector2(KeyChipWidth, KeyChipHeight),
-                    new Vector2(1f, 0.5f));
-                return;
-            }
-
-            if (icon != null)
-            {
-                icon.gameObject.SetActive(false);
-            }
-
-            var width = KeyChipWidth;
-            if (label != null)
-            {
-                label.gameObject.SetActive(true);
-                label.font = HomeUiFonts.ApplyLight();
-                label.fontSize = KeyChipFontSize;
-                label.fontStyle = FontStyles.Normal;
-                label.color = Color.white;
-                label.textWrappingMode = TextWrappingModes.NoWrap;
-                label.overflowMode = TextOverflowModes.Overflow;
-                label.ForceMeshUpdate();
-                width = MeasureKeyChipWidth(label.text, label.preferredWidth);
-            }
-
-            Place(
-                chip,
-                new Vector2(1f, 0.5f),
-                Vector2.zero,
-                new Vector2(width, KeyChipHeight),
-                new Vector2(1f, 0.5f));
-        }
-
-        private static Image EnsureClickIcon(RectTransform chip)
-        {
-            if (chip == null)
-            {
-                return null;
-            }
-
-            var existing = chip.Find("Icon")?.GetComponent<Image>();
-            if (existing != null)
-            {
-                if (existing.sprite == null)
-                {
-                    existing.sprite = Resources.Load<Sprite>(ClickIconResource);
-                }
-
-                return existing;
-            }
-
-            var sprite = Resources.Load<Sprite>(ClickIconResource);
-            var icon = CreateImage(chip, "Icon", Color.white, sprite);
-            icon.preserveAspect = true;
-            icon.raycastTarget = false;
-            return icon;
-        }
-
-        private static void PlaceAction(RectTransform action, float chipWidth)
-        {
-            Place(
-                action,
-                new Vector2(1f, 0.5f),
-                new Vector2(-(chipWidth + 8f), 0f),
-                new Vector2(160f, KeyChipHeight),
-                new Vector2(1f, 0.5f));
         }
 
         private static RectTransform CreateRect(Transform parent, string name)
