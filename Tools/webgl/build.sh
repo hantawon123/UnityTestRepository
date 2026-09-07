@@ -34,7 +34,7 @@ docker run --rm --cpus=2 --memory=8g --memory-swap=8g \
 
 run_unity -runTests -testPlatform EditMode \
     -testFilter Game.Architecture.Tests.NetworkContractTests \
-    -testResults /workspace/Logs/webgl-contract-results.xml -logFile /workspace/Logs/webgl-tests.log
-run_unity -quit -executeMethod Game.Editor.WebBuild.Build -logFile /workspace/Logs/webgl-build.log
+    -testResults /workspace/Logs/webgl-contract-results.xml -logFile - 2>&1 | tee Logs/webgl-tests.log
+run_unity -quit -executeMethod Game.Editor.WebBuild.Build -logFile - 2>&1 | tee Logs/webgl-build.log
 test -f Builds/WebGL/index.html
 test "$(cat Builds/WebGL/version.txt)" = "$revision"
