@@ -18,7 +18,7 @@ namespace Game.Client.Match
         Searching
     }
 
-    public interface IMatchChatView
+    public interface IChatView
     {
         event Action<string> SendRequested;
 
@@ -28,7 +28,7 @@ namespace Game.Client.Match
     }
 
     /// <summary>한 줄 입력과 최근 메시지만 표시하는 인게임 채팅 View.</summary>
-    public sealed class MatchChatView : MonoBehaviour, IMatchChatView
+    public sealed class MatchChatView : MonoBehaviour, IChatView
     {
         public const int VisibleMessageCount = 4;
         public const float NameFontSize = 14f;

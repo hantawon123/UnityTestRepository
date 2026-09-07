@@ -99,7 +99,7 @@ namespace Game.Tests.EditMode
             }
         }
 
-        private sealed class FakeView : IMatchChatView
+        private sealed class FakeView : IChatView
         {
             public event Action<string> SendRequested;
             public IReadOnlyList<LobbyChatMessage> LastMessages { get; private set; }

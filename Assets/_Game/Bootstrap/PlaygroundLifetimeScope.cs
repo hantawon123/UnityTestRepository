@@ -114,7 +114,7 @@ namespace Game.Bootstrap
                 : matchHudView.GetComponentInParent<Canvas>();
             var chatView = MatchChatView.Create(chatCanvas == null ? null : chatCanvas.transform);
             var chatBubbleView = MatchChatBubbleView.Create(transform);
-            builder.RegisterComponent(chatView).As<IMatchChatView>();
+            builder.RegisterComponent(chatView).As<IChatView>();
             builder.RegisterComponent(chatBubbleView).As<IMatchChatBubbleView>();
             builder.Register(
                     c => CreateChatLog(

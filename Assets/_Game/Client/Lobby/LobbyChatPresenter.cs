@@ -11,7 +11,7 @@ namespace Game.Client.Lobby
     {
         private readonly ILobbyChatLog chatLog;
         private readonly ILobbyChatTransport transport;
-        private readonly IMatchChatView chatView;
+        private readonly IChatView chatView;
         private readonly ILobbyChatBubbleView bubbleView;
         private IDisposable messagesSubscription;
         private int lastRenderedCount;
@@ -19,7 +19,7 @@ namespace Game.Client.Lobby
         public LobbyChatPresenter(
             ILobbyChatLog chatLog,
             ILobbyChatTransport transport,
-            IMatchChatView chatView,
+            IChatView chatView,
             ILobbyChatBubbleView bubbleView)
         {
             this.chatLog = chatLog ?? throw new ArgumentNullException(nameof(chatLog));

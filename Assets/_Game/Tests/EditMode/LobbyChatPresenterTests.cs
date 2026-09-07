@@ -96,7 +96,7 @@ namespace Game.Tests.EditMode
             Assert.That(message.Text.Length, Is.EqualTo(LobbyChatMessage.MaxTextLength));
         }
 
-        private sealed class FakeChatView : IMatchChatView
+        private sealed class FakeChatView : IChatView
         {
             public event System.Action<string> SendRequested;
             public IReadOnlyList<LobbyChatMessage> LastMessages { get; private set; }

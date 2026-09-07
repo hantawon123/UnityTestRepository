@@ -162,7 +162,7 @@ namespace Game.Bootstrap
             builder.RegisterComponent(kickConfirmView).As<IKickConfirmView>();
             builder.RegisterComponent(transferConfirmView).As<IHostTransferConfirmView>();
             chatView.SetKeepChromeVisible(true);
-            builder.RegisterComponent(chatView).As<IMatchChatView>();
+            builder.RegisterComponent(chatView).As<IChatView>();
             builder.RegisterComponent(chatBubbleView)
                 .AsSelf()
                 .As<ILobbyChatBubbleView>();
