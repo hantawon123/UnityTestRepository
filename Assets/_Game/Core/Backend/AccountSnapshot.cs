@@ -1,4 +1,5 @@
 using System;
+using Game.Core.Players;
 
 namespace Game.Core.Backend
 {
@@ -13,7 +14,12 @@ namespace Game.Core.Backend
     public readonly struct AccountSnapshot
     {
         public AccountSnapshot(
-            string userId, string nickname, bool nicknameSet, bool searchable)
+            string userId,
+            string nickname,
+            bool nicknameSet,
+            bool searchable,
+            bool appearanceSet = false,
+            AvatarAppearance appearance = default)
         {
             if (string.IsNullOrWhiteSpace(userId))
             {
@@ -29,6 +35,8 @@ namespace Game.Core.Backend
             Nickname = nickname.Trim();
             NicknameSet = nicknameSet;
             Searchable = searchable;
+            AppearanceSet = appearanceSet;
+            Appearance = appearance;
         }
 
         /// <summary>
@@ -48,6 +56,31 @@ namespace Game.Core.Backend
         /// moment the server changes how it builds temporary names.
         /// </remarks>
         public bool NicknameSet { get; }
+
+        /// <summary>
+        /// Whether this account has ever applied an appearance.
+        /// </summary>
+        /// <remarks>
+        /// The server sends <c>appearance</c> as null until someone applies
+        /// one, and <see cref="UnityEngine.JsonUtility"/> reads a null object
+        /// as an object with empty fields rather than as null. This is the flag
+        /// that tells the two apart — the same job <see cref="NicknameSet"/>
+        /// does for the invented name.
+        /// </remarks>
+        public bool AppearanceSet { get; }
+
+        /// <summary>
+        /// What this account last applied. Meaningless unless
+        /// <see cref="AppearanceSet"/> is true.
+        /// </summary>
+        /// <remarks>
+        /// The part ids are this client's own: the server stores whatever
+        /// strings it is given and validates only their shape. An id the
+        /// catalogue no longer has is a part to fall back on, not an error —
+        /// otherwise every catalogue edit breaks the players who were wearing
+        /// what changed.
+        /// </remarks>
+        public AvatarAppearance Appearance { get; }
 
         /// <summary>
         /// Whether this player turns up when someone searches nicknames.

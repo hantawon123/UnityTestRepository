@@ -948,6 +948,8 @@ namespace Game.Tests.EditMode
 
             public int RoomBrowserOpenCount { get; private set; }
 
+            public int CharacterClosetOpenCount { get; private set; }
+
             public int LobbyOpenCount { get; private set; }
 
             public string CreatedTitle { get; private set; }
@@ -984,6 +986,11 @@ namespace Game.Tests.EditMode
             public void OpenRoomBrowser()
             {
                 RoomBrowserOpenCount++;
+            }
+
+            public void OpenCharacterCloset()
+            {
+                CharacterClosetOpenCount++;
             }
         }
     }
