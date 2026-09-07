@@ -769,8 +769,14 @@ namespace Game.Client.Match
                 return false;
             }
 
-            return font.name.IndexOf("Paperlogy", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   font.faceInfo.familyName.IndexOf("Paperlogy", StringComparison.OrdinalIgnoreCase) >= 0;
+            if (font.name.IndexOf("Paperlogy", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            var family = font.faceInfo.familyName;
+            return !string.IsNullOrEmpty(family) &&
+                   family.IndexOf("Paperlogy", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private void BindRefs()

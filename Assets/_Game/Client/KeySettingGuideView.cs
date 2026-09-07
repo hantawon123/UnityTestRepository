@@ -538,6 +538,7 @@ namespace Game.Client
                 label.textWrappingMode = TextWrappingModes.NoWrap;
                 label.overflowMode = TextOverflowModes.Overflow;
                 label.ForceMeshUpdate();
+                label.fontSize = KeyChipFontSizeFor(label.text);
                 width = HidingActiveHudView.MeasureKeyChipWidth(label.text, label.preferredWidth);
             }
 

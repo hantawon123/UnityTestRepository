@@ -56,11 +56,21 @@ namespace Game.Client.Lobby
             countdown.text = $"게임 시작까지 {System.Math.Ceiling(remaining)}초";
         }
 
+        public void EnsureSharedGuide()
+        {
+            KeySettingGuideView.Ensure(transform)?.SetVisible(true);
+        }
+
+        private void Awake()
+        {
+            EnsureSharedGuide();
+        }
+
         private void OnEnable()
         {
+            EnsureSharedGuide();
             var canvas = GetComponentInParent<Canvas>();
             HomeUiFonts.ApplyLegacy(canvas != null ? canvas.transform : transform);
-            KeySettingGuideView.Ensure(transform)?.SetVisible(true);
         }
     }
 }

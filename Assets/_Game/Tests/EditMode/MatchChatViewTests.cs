@@ -121,9 +121,13 @@ namespace Game.Architecture.Tests
                 Assert.That(input.textComponent.textWrappingMode, Is.EqualTo(TextWrappingModes.NoWrap));
                 Assert.That(input.textComponent.rectTransform.anchorMax.x, Is.EqualTo(0f));
                 Assert.That(MatchChatView.SendIconGap, Is.EqualTo(8f));
+                Assert.That(input.placeholder, Is.Not.Null);
                 Assert.That(
-                    view.transform.Find("InputPanel/Placeholder").GetComponent<TMP_Text>().text,
+                    (input.placeholder as TMP_Text).text,
                     Is.EqualTo(MatchChatView.PlaceholderText));
+                Assert.That(
+                    view.transform.Find("InputPanel/TextViewport/Placeholder"),
+                    Is.Not.Null);
                 Assert.That(view.transform.Find("InputPanel/Send"), Is.Not.Null);
                 Assert.That(view.GetComponent<Canvas>(), Is.Not.Null);
                 Assert.That(view.GetComponent<Canvas>().overrideSorting, Is.True);

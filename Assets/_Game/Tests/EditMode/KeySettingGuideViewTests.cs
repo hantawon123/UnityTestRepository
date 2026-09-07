@@ -78,9 +78,8 @@ namespace Game.Architecture.Tests
             var playground = new GameObject("PlaygroundHud", typeof(RectTransform), typeof(Canvas));
             try
             {
-                lobby.AddComponent<LobbyHudView>();
-                lobby.SetActive(false);
-                lobby.SetActive(true);
+                var lobbyHud = lobby.AddComponent<LobbyHudView>();
+                lobbyHud.EnsureSharedGuide();
                 var playgroundHud = playground.AddComponent<NetworkMatchHudView>();
                 playgroundHud.SetPhase(MatchPhase.Hiding, "숨기는사람");
 

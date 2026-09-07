@@ -15,7 +15,11 @@ namespace Game.Architecture.Tests
             try
             {
                 var view = MatchVitalsHudView.Create(canvas.transform);
-                view.Show(5, 5, 3, 3);
+                view.Show(
+                    MatchVitalsHudView.DefaultStamina,
+                    MatchVitalsHudView.DefaultStamina,
+                    MatchVitalsHudView.DefaultHits,
+                    MatchVitalsHudView.DefaultHits);
 
                 var panel = view.transform.Find("Panel")?.GetComponent<Image>();
                 Assert.That(panel, Is.Not.Null);
@@ -32,7 +36,7 @@ namespace Game.Architecture.Tests
                 Assert.That(staminaBar.color, Is.EqualTo(MatchVitalsHudView.StaminaColor));
                 Assert.That(
                     view.transform.Find("Panel/Stamina/Value")?.GetComponent<TMP_Text>()?.text,
-                    Is.EqualTo("5"));
+                    Is.EqualTo(MatchVitalsHudView.FormatStamina(MatchVitalsHudView.DefaultStamina)));
 
                 Assert.That(view.transform.Find("Panel/Health/BarTrack/Segment0"), Is.Not.Null);
                 Assert.That(view.transform.Find("Panel/Health/BarTrack/Segment1"), Is.Not.Null);
