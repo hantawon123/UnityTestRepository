@@ -2,6 +2,8 @@ using Game.Client.Home;
 using Game.Client.Match;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 namespace Game.Client
@@ -17,7 +19,9 @@ namespace Game.Client
         public const float MarginRight = 48f;
         public const float ActionFontSize = 18f;
         public const string ClickKeyLabel = "클릭";
-        public static readonly Vector2 PanelSize = new Vector2(280f, 320f);
+        public const string ToggleAction = "키 가이드 on/off";
+        public const string ToggleKeyLabel = "L";
+        public static readonly Vector2 PanelSize = new Vector2(280f, 368f);
 
         public static readonly string[] Actions =
         {
@@ -26,7 +30,8 @@ namespace Game.Client
             "엎드리기",
             "시점 변경",
             "달리기",
-            "점프"
+            "점프",
+            ToggleAction
         };
 
         public static readonly string[] Labels =
@@ -36,14 +41,36 @@ namespace Game.Client
             "Z",
             "V",
             "Shift",
-            "Space"
+            "Space",
+            ToggleKeyLabel
         };
+
+        private static int lastToggleFrame = -1;
+        private CanvasGroup fade;
+
+        public static bool UserVisible { get; private set; } = true;
+
+        public static bool ShouldToggle(bool pressed, bool inputBlocked)
+        {
+            return pressed && !inputBlocked;
+        }
+
+        public static void SetUserVisible(bool visible)
+        {
+            UserVisible = visible;
+            lastToggleFrame = -1;
+        }
 
         public void SetVisible(bool visible)
         {
             if (gameObject.activeSelf != visible)
             {
                 gameObject.SetActive(visible);
+            }
+
+            if (visible)
+            {
+                ApplyUserVisible();
             }
         }
 
@@ -54,6 +81,7 @@ namespace Game.Client
             var view = root.AddComponent<KeySettingGuideView>();
             view.BuildLayout();
             view.ApplyStyle();
+            view.ApplyUserVisible();
             return view;
         }
 
@@ -82,6 +110,7 @@ namespace Game.Client
             }
 
             view.EnsureLayout();
+            view.ApplyUserVisible();
             return view;
         }
 
@@ -122,11 +151,82 @@ namespace Game.Client
             }
         }
 
-        private void Awake() => EnsureLayout();
+        private void Awake()
+        {
+            EnsureLayout();
+            ApplyUserVisible();
+        }
+
+        private void Update()
+        {
+            if (!ShouldToggle(WasTogglePressed(), IsInputBlocked()))
+            {
+                ApplyUserVisible();
+                return;
+            }
+
+            if (lastToggleFrame == Time.frameCount)
+            {
+                ApplyUserVisible();
+                return;
+            }
+
+            lastToggleFrame = Time.frameCount;
+            UserVisible = !UserVisible;
+            ApplyUserVisible();
+        }
+
+        private void ApplyUserVisible()
+        {
+            if (fade == null)
+            {
+                fade = GetComponent<CanvasGroup>();
+                if (fade == null)
+                {
+                    fade = gameObject.AddComponent<CanvasGroup>();
+                }
+
+                fade.blocksRaycasts = false;
+                fade.interactable = false;
+            }
+
+            fade.alpha = UserVisible ? 1f : 0f;
+        }
+
+        private static bool WasTogglePressed()
+        {
+            var keyboard = Keyboard.current;
+            return keyboard != null && keyboard.lKey.wasPressedThisFrame;
+        }
+
+        private static bool IsInputBlocked()
+        {
+            if (MatchChatView.BlocksPlayerInput)
+            {
+                return true;
+            }
+
+            var selected = EventSystem.current != null
+                ? EventSystem.current.currentSelectedGameObject
+                : null;
+            if (selected == null)
+            {
+                return false;
+            }
+
+            var tmp = selected.GetComponent<TMP_InputField>();
+            if (tmp != null && tmp.isFocused)
+            {
+                return true;
+            }
+
+            var legacy = selected.GetComponent<InputField>();
+            return legacy != null && legacy.isFocused;
+        }
 
         private void EnsureLayout()
         {
-            if (transform.Find("Row0") == null)
+            if (transform.Find($"Row{Actions.Length - 1}") == null)
             {
                 BuildLayout();
             }
@@ -289,7 +389,7 @@ namespace Game.Client
                 action,
                 new Vector2(1f, 0.5f),
                 new Vector2(-(chipWidth + 8f), 0f),
-                new Vector2(160f, HidingActiveHudView.KeyChipHeight),
+                new Vector2(220f, HidingActiveHudView.KeyChipHeight),
                 new Vector2(1f, 0.5f));
         }
 

@@ -9,6 +9,36 @@ namespace Game.Architecture.Tests
 {
     public sealed class KeySettingGuideViewTests
     {
+        [SetUp]
+        public void ResetToggle() => KeySettingGuideView.SetUserVisible(true);
+
+        [Test]
+        public void ShouldToggle_IgnoresBlockedInput()
+        {
+            Assert.That(KeySettingGuideView.ShouldToggle(true, false), Is.True);
+            Assert.That(KeySettingGuideView.ShouldToggle(true, true), Is.False);
+            Assert.That(KeySettingGuideView.ShouldToggle(false, false), Is.False);
+        }
+
+        [Test]
+        public void SetUserVisible_HidesTheGuideWithoutDisablingIt()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = KeySettingGuideView.Create(canvas.transform);
+                KeySettingGuideView.SetUserVisible(false);
+                view.SetVisible(true);
+
+                Assert.That(view.gameObject.activeSelf, Is.True);
+                Assert.That(view.GetComponent<CanvasGroup>().alpha, Is.EqualTo(0f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
         [Test]
         public void Create_PlacesSharedRowsOnTheRightEdge()
         {
@@ -28,6 +58,12 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     guide.Find("Row5/Key/Label").GetComponent<TMPro.TMP_Text>().text,
                     Is.EqualTo(KeySettingGuideView.Labels[5]));
+                Assert.That(
+                    guide.Find("Row6/Action").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo(KeySettingGuideView.ToggleAction));
+                Assert.That(
+                    guide.Find("Row6/Key/Label").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo(KeySettingGuideView.ToggleKeyLabel));
             }
             finally
             {
