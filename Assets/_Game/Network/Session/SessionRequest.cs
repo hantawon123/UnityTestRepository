@@ -130,6 +130,20 @@ namespace Game.Network.Session
                 GameMode.Host, roomCode, displayName, mapId, maxPlayers, password, true, !isPrivate);
         }
 
+        /// <summary>
+        /// Opens a private room without a local player for explicit server runs.
+        /// The normal room creation flow continues to use Create (Host mode).
+        /// </summary>
+        public static SessionRequest CreateServer(
+            string roomCode,
+            string displayName,
+            string mapId,
+            int maxPlayers)
+        {
+            return new SessionRequest(
+                GameMode.Server, roomCode, displayName, mapId, maxPlayers, null, true, false);
+        }
+
         /// <summary>Enters an existing room, failing if the code does not exist.</summary>
         public static SessionRequest Join(string roomCode, string password)
         {
