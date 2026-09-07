@@ -21,13 +21,25 @@ namespace Game.Client
         public const float ActionFontSize = 18f;
         public const string ClickKeyLabel = "클릭";
         public const string RightClickKeyLabel = "우클릭";
+        public const string ScrollKeyLabel = "스크롤";
+        public const string RotateYawKeyLabel = "Q / E";
         public const string LeftClickIconResource = "UI/ic_left_click";
         public const string RightClickIconResource = "UI/ic_right_click";
+        public const string ScrollIconResource = "UI/ic_mouse_scroll";
         public const string ToggleAction = "키 가이드 on/off";
         public const string ToggleKeyLabel = "L";
         public const float RowStep = 48f;
+        public const float CompactKeyChipFontSize = 12f;
         public static readonly Vector2 PanelSize = new Vector2(280f, 368f);
         public static readonly Vector2 CarryingPanelSize = new Vector2(280f, 464f);
+        public static readonly Vector2 PlacingPanelSize = new Vector2(280f, 512f);
+
+        public enum Mode
+        {
+            Default,
+            Carrying,
+            Placing
+        }
 
         public static readonly string[] Actions =
         {
@@ -77,22 +89,73 @@ namespace Game.Client
             ToggleKeyLabel
         };
 
+        public static readonly string[] PlacingActions =
+        {
+            "배치 모드 끄기",
+            "배치하기",
+            "가로축 회전",
+            "세로축 회전",
+            "앉기",
+            "엎드리기",
+            "시점 변경",
+            "달리기",
+            "점프",
+            ToggleAction
+        };
+
+        public static readonly string[] PlacingLabels =
+        {
+            RightClickKeyLabel,
+            ClickKeyLabel,
+            RotateYawKeyLabel,
+            ScrollKeyLabel,
+            "C",
+            "Z",
+            "V",
+            "Shift",
+            "Space",
+            ToggleKeyLabel
+        };
+
         private static int lastToggleFrame = -1;
         private CanvasGroup fade;
         private PlayerInteractor localInteractor;
-        private bool carrying;
+        private Mode mode;
 
         public static bool UserVisible { get; private set; } = true;
-        public bool IsCarrying => carrying;
+        public bool IsCarrying => mode == Mode.Carrying;
+        public bool IsPlacing => mode == Mode.Placing;
+        public Mode CurrentMode => mode;
 
         public static string[] ActionsFor(bool isCarrying) =>
-            isCarrying ? CarryingActions : Actions;
+            ActionsFor(isCarrying ? Mode.Carrying : Mode.Default);
+
+        public static string[] ActionsFor(Mode guideMode) =>
+            guideMode == Mode.Placing
+                ? PlacingActions
+                : guideMode == Mode.Carrying
+                    ? CarryingActions
+                    : Actions;
 
         public static string[] LabelsFor(bool isCarrying) =>
-            isCarrying ? CarryingLabels : Labels;
+            LabelsFor(isCarrying ? Mode.Carrying : Mode.Default);
+
+        public static string[] LabelsFor(Mode guideMode) =>
+            guideMode == Mode.Placing
+                ? PlacingLabels
+                : guideMode == Mode.Carrying
+                    ? CarryingLabels
+                    : Labels;
 
         public static Vector2 PanelSizeFor(bool isCarrying) =>
-            isCarrying ? CarryingPanelSize : PanelSize;
+            PanelSizeFor(isCarrying ? Mode.Carrying : Mode.Default);
+
+        public static Vector2 PanelSizeFor(Mode guideMode) =>
+            guideMode == Mode.Placing
+                ? PlacingPanelSize
+                : guideMode == Mode.Carrying
+                    ? CarryingPanelSize
+                    : PanelSize;
 
         public static bool ShouldToggle(bool pressed, bool inputBlocked)
         {
@@ -120,12 +183,17 @@ namespace Game.Client
 
         public void SetCarrying(bool isCarrying)
         {
-            if (carrying == isCarrying && transform.Find($"Row{ActionsFor(isCarrying).Length - 1}") != null)
+            SetMode(isCarrying ? Mode.Carrying : Mode.Default);
+        }
+
+        public void SetMode(Mode guideMode)
+        {
+            if (mode == guideMode && transform.Find($"Row{ActionsFor(guideMode).Length - 1}") != null)
             {
                 return;
             }
 
-            carrying = isCarrying;
+            mode = guideMode;
             SyncRows();
             ApplyStyle();
         }
@@ -173,8 +241,8 @@ namespace Game.Client
         public void ApplyStyle()
         {
             PlacePanel();
-            var actions = ActionsFor(carrying);
-            var labels = LabelsFor(carrying);
+            var actions = ActionsFor(mode);
+            var labels = LabelsFor(mode);
             var light = HomeUiFonts.ApplyLight();
             for (var index = 0; index < actions.Length; index++)
             {
@@ -226,7 +294,7 @@ namespace Game.Client
 
         private void Update()
         {
-            SetCarrying(ReadLocalCarrying());
+            SetMode(ReadLocalMode());
             if (!ShouldToggle(WasTogglePressed(), IsInputBlocked()))
             {
                 ApplyUserVisible();
@@ -306,8 +374,8 @@ namespace Game.Client
         private void SyncRows()
         {
             PlacePanel();
-            var actions = ActionsFor(carrying);
-            var labels = LabelsFor(carrying);
+            var actions = ActionsFor(mode);
+            var labels = LabelsFor(mode);
             for (var index = 0; index < actions.Length; index++)
             {
                 var row = transform.Find($"Row{index}") as RectTransform;
@@ -368,18 +436,29 @@ namespace Game.Client
                 (RectTransform)transform,
                 new Vector2(1f, 0.5f),
                 new Vector2(-MarginRight, 0f),
-                PanelSizeFor(carrying),
+                PanelSizeFor(mode),
                 new Vector2(1f, 0.5f));
         }
 
-        private bool ReadLocalCarrying()
+        private Mode ReadLocalMode()
         {
             if (localInteractor == null || !localInteractor.isActiveAndEnabled)
             {
                 localInteractor = FindLocalInteractor();
             }
 
-            return localInteractor != null && localInteractor.CarriedItem != null;
+            if (localInteractor == null)
+            {
+                return Mode.Default;
+            }
+
+            var placement = localInteractor.GetComponent<ItemPlacementController>();
+            if (placement != null && placement.isActiveAndEnabled && placement.IsPlacing)
+            {
+                return Mode.Placing;
+            }
+
+            return localInteractor.CarriedItem != null ? Mode.Carrying : Mode.Default;
         }
 
         private static PlayerInteractor FindLocalInteractor()
@@ -453,7 +532,7 @@ namespace Game.Client
             {
                 label.gameObject.SetActive(true);
                 label.font = HomeUiFonts.ApplyLight();
-                label.fontSize = HidingActiveHudView.KeyChipFontSize;
+                label.fontSize = KeyChipFontSizeFor(label.text);
                 label.fontStyle = FontStyles.Normal;
                 label.color = Color.white;
                 label.textWrappingMode = TextWrappingModes.NoWrap;
@@ -482,7 +561,19 @@ namespace Game.Client
                 return RightClickIconResource;
             }
 
+            if (label == ScrollKeyLabel)
+            {
+                return ScrollIconResource;
+            }
+
             return null;
+        }
+
+        private static float KeyChipFontSizeFor(string label)
+        {
+            return label == RotateYawKeyLabel
+                ? CompactKeyChipFontSize
+                : HidingActiveHudView.KeyChipFontSize;
         }
 
         private static Image EnsureClickIcon(RectTransform chip, string resource)

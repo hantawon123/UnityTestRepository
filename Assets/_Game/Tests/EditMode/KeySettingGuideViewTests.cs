@@ -175,5 +175,48 @@ namespace Game.Architecture.Tests
                 Object.DestroyImmediate(canvas);
             }
         }
+
+        [Test]
+        public void SetMode_ShowsPlacementRowsWithCompactQEAndScroll()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = KeySettingGuideView.Create(canvas.transform);
+                view.SetMode(KeySettingGuideView.Mode.Placing);
+                var guide = view.GetComponent<RectTransform>();
+
+                Assert.That(view.IsPlacing, Is.True);
+                Assert.That(guide.sizeDelta, Is.EqualTo(KeySettingGuideView.PlacingPanelSize));
+                Assert.That(
+                    guide.Find("Row0/Action").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo("배치 모드 끄기"));
+                Assert.That(
+                    guide.Find("Row0/Key/Label").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo(KeySettingGuideView.RightClickKeyLabel));
+                Assert.That(
+                    guide.Find("Row1/Action").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo("배치하기"));
+                Assert.That(
+                    guide.Find("Row2/Key/Label").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo(KeySettingGuideView.RotateYawKeyLabel));
+                Assert.That(
+                    guide.Find("Row2/Key/Label").GetComponent<TMPro.TMP_Text>().fontSize,
+                    Is.EqualTo(KeySettingGuideView.CompactKeyChipFontSize));
+                Assert.That(
+                    guide.Find("Row3/Action").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo("세로축 회전"));
+                Assert.That(
+                    guide.Find("Row3/Key/Label").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo(KeySettingGuideView.ScrollKeyLabel));
+                Assert.That(
+                    guide.Find("Row9/Action").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo(KeySettingGuideView.ToggleAction));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
     }
 }
