@@ -22,7 +22,7 @@ docker run --rm --cpus=1 --memory=1g --user "$uid:$gid" \
 # This is the actual EC2 host identity used during official activation.
 # Never copy another computer's machine-id or change the license XML.
 run_unity() {
-docker run --rm --cpus=2 --memory=8g --memory-swap=8g \
+docker run --rm --cpus=3 --memory=8g --memory-swap=8g \
     --user "$uid:$gid" -e HOME=/home/unity -e WEBGL_REVISION="$revision" \
     --tmpfs "/home/unity:uid=$uid,gid=$gid,mode=700" \
     --mount type=bind,src=/etc/machine-id,dst=/etc/machine-id,readonly \

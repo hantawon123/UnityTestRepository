@@ -10,7 +10,7 @@ PC 에이전트를 사용하지 않는다. 기존 `backend/Jenkinsfile` 작업�
 - 저장소: 기존 GitLab 저장소와 `gitlab-deploy-token` 읽기 자격 증명 사용.
 - 운영 Branch Specifier: `*/develop`. MR 병합 전 검증에는 `*/feature/server/webgl-delivery` 사용.
 - feature 빌드는 검증·산출물 보관까지만 실행한다. `origin/develop`만 Publish 단계를 실행한다.
-- 실행 동시성 1, 제한 120분. NuGet 복원 1 CPU/1GB, Unity 빌드 2 CPU/8GB.
+- 실행 동시성 1, 제한 120분. NuGet 복원 1 CPU/1GB, Unity 빌드 3 CPU/8GB.
 - Git LFS로 모델·텍스처를 복원하고, NuGetForUnity CLI 4.5.0으로 R3 등을 먼저 복원한다.
 - Unity 이미지: `unityci/editor:ubuntu-6000.3.22f1-webgl-3`, 검증한 digest 고정.
 - Unity `Library`는 Jenkins workspace에 남아 다음 빌드에서 재사용된다. Unity 버전 변경 시 캐시 재생성이 필요하다.
