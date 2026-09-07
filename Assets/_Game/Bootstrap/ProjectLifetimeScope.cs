@@ -63,6 +63,23 @@ namespace Game.Bootstrap
             // pick up the account belonging to whoever last played here.
             RegisterBackend(builder, _backendBaseUrl);
 
+            var metricsUrl = System.Environment.GetEnvironmentVariable("GAME_METRICS_URL");
+            if (!string.IsNullOrEmpty(metricsUrl))
+            {
+                try
+                {
+                    var uploader = new PerformanceUploader(new UnityWebRequestTransport(), metricsUrl,
+                        System.Environment.GetEnvironmentVariable("GAME_METRICS_TOKEN"));
+                    builder.RegisterEntryPoint<PerformanceMonitoring>()
+                        .WithParameter("uploader", uploader)
+                        .WithParameter("build", System.Environment.GetEnvironmentVariable("GAME_METRICS_BUILD") ?? "local");
+                }
+                catch (System.ArgumentException)
+                {
+                    Debug.LogWarning("[Performance] Invalid telemetry configuration; monitoring disabled.");
+                }
+            }
+
             // Shared across Playground and Result so scene unloading cannot reveal gameplay.
             var transition = new GameObject("Highlight Transition").AddComponent<HighlightTransitionView>();
             transition.transform.SetParent(transform, false);
