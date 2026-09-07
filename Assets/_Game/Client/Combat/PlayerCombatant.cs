@@ -161,8 +161,10 @@ namespace Game.Client.Combat
                 interactor.IsInputLocked = stunned;
             }
 
-            if (!isAttacker || stunned || Cursor.lockState != CursorLockMode.Locked)
+            if (!isAttacker || stunned || Cursor.lockState != CursorLockMode.Locked ||
+                (movement != null && movement.Posture == PlayerPosture.Prone))
             {
+                hasPendingHit = false;
                 return;
             }
 

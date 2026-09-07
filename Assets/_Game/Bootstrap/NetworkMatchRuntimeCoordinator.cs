@@ -598,9 +598,9 @@ namespace Game.Bootstrap
             if (composition != null)
             {
                 composition.Session.PlayerItemDestroyed -= OnPlayerItemDestroyed;
-                // Result disables every avatar. The room-level avatars survive
-                // the scene change, so restore them before returning to Lobby.
-                if (network.IsServer)
+                // Keep ending controls locked across scene teardown. ReturnToLobby restores them.
+                if (network.IsServer && composition.Session.CurrentPhase != MatchPhase.Highlight &&
+                    composition.Session.CurrentPhase != MatchPhase.Result)
                 {
                     var players = composition.Session.Players;
                     for (var playerIndex = 0;
