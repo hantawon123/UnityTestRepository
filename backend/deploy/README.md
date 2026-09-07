@@ -151,6 +151,32 @@ EC2 전체가 넘어갑니다. 그래서 9090을 루프백에만 바인딩하고
 **인증서는 certbot이 관리합니다.** `certbot.timer`가 자동 갱신하고 갱신에는
 80번이 열려 있어야 합니다. ufw에서 80을 닫으면 90일 뒤에 만료됩니다.
 
+### Jenkins 체크아웃이 10분 타임아웃으로 죽으면
+
+증상: 콘솔이 `git checkout -f <sha>` 에서 멈춰 `ERROR: Timeout after 10 minutes`,
+`fatal: the remote end hung up unexpectedly` 로 끝나고, 코드와 무관하게 모든 MR 이 빨간불입니다.
+2026-09-07 에 클라이언트가 LFS 클립을 대량으로 올린 뒤 그렇게 됐습니다.
+
+원인: `git checkout` 이 LFS 스머지 필터로 Unity 에셋 3천 개를 GitLab 에서 내려받는데, 백엔드
+파이프라인은 그 파일을 쓰지 않습니다. 내려받기가 느려지면 체크아웃 자체가 타임아웃입니다.
+
+해결은 스머지를 끄는 것입니다. 두 방법을 **둘 다** 합니다. 첫째는 지금 당장 듣고, 둘째는
+재시작 뒤에도 남습니다.
+
+```
+ssh d205 "sudo -u jenkins -H git lfs install --skip-smudge && sudo -u jenkins -H git config --global --get filter.lfs.smudge"
+```
+
+출력이 `git-lfs smudge --skip -- %f` 면 적용된 것입니다. 실행 중인 빌드가 없을 때 아래로 드롭인도 갱신합니다.
+
+```
+scp backend/deploy/jenkins/override.conf d205:/tmp/override.conf
+ssh d205 "sudo install -o root -g root -m 644 /tmp/override.conf /etc/systemd/system/jenkins.service.d/override.conf && sudo systemctl daemon-reload && sudo systemctl restart jenkins"
+```
+
+그 뒤 실패한 MR 의 빌드를 다시 돌립니다. 브랜치에 커밋을 하나 푸시하면 웹훅이 다시 돌리고,
+아니면 Jenkins 의 해당 `MR-*` 잡에서 "지금 빌드" 를 누릅니다. 체크아웃은 수 초로 끝나야 합니다.
+
 ## Jenkins Job 설정
 
 `Jenkinsfile`에 담을 수 없는 설정입니다. Job을 다시 만들면 여기 보고 복원하세요.
