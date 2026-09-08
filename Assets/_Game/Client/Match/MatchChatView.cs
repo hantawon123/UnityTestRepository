@@ -18,7 +18,7 @@ namespace Game.Client.Match
         Searching
     }
 
-    public interface IMatchChatView
+    public interface IChatView
     {
         event Action<string> SendRequested;
 
@@ -28,7 +28,7 @@ namespace Game.Client.Match
     }
 
     /// <summary>한 줄 입력과 최근 메시지만 표시하는 인게임 채팅 View.</summary>
-    public sealed class MatchChatView : MonoBehaviour, IMatchChatView
+    public sealed class MatchChatView : MonoBehaviour, IChatView
     {
         public const int VisibleMessageCount = 4;
         public const float NameFontSize = 14f;
@@ -36,6 +36,7 @@ namespace Game.Client.Match
         public const float InputFontSize = 16f;
         public const string PlaceholderText = "채팅 입력..";
         public const float InputWidth = 320f;
+        public const int PanelRadius = 10;
         public const float ContentPadding = 16f;
         public const float SendIconGap = 8f;
         public const float OpenCooldownSeconds = 0.12f;
@@ -60,7 +61,7 @@ namespace Game.Client.Match
         private readonly TMP_Text[] nameTexts = new TMP_Text[VisibleMessageCount];
         private readonly TMP_Text[] bodyTexts = new TMP_Text[VisibleMessageCount];
         private readonly CanvasGroup[] rowFades = new CanvasGroup[VisibleMessageCount];
-        private static Sprite verticalFadeSprite;
+        private static Sprite historyFadeSprite;
         private TMP_FontAsset cachedFont;
         private Sprite lastSendIcon;
         private Coroutine focusRoutine;
@@ -69,14 +70,17 @@ namespace Game.Client.Match
         private float lastDeactivateUnscaledTime = -1f;
         private bool activated;
         private MatchChatHudMode mode = MatchChatHudMode.Full;
+        private bool keepChromeVisible;
         private bool layoutReady;
         private bool fontPrewarmed;
         private Coroutine prewarmRoutine;
+        private static bool pendingKeepChromeVisible;
 
         public event Action<string> SendRequested;
         public static bool BlocksPlayerInput { get; private set; }
         public bool IsActivated => activated;
         public MatchChatHudMode Mode => mode;
+        public bool KeepChromeVisible => keepChromeVisible;
         public bool IsInputFocused =>
             activated || (inputField != null && inputField.isFocused);
 
@@ -93,7 +97,7 @@ namespace Game.Client.Match
 
         private TMP_FontAsset ResolveFont() => cachedFont ??= ChatFont();
 
-        public static MatchChatView Create(Transform canvasParent)
+        public static MatchChatView Create(Transform canvasParent, bool keepChromeVisible = false)
         {
             var root = new GameObject(
                 "Match Chat",
@@ -113,7 +117,34 @@ namespace Game.Client.Match
                     CanvasScaler.ScaleMode.ScaleWithScreenSize;
             }
 
-            return root.AddComponent<MatchChatView>();
+            return AttachTo(root, keepChromeVisible);
+        }
+
+        public static MatchChatView AttachTo(GameObject host, bool keepChromeVisible)
+        {
+            if (host == null)
+            {
+                throw new ArgumentNullException(nameof(host));
+            }
+
+            pendingKeepChromeVisible = keepChromeVisible;
+            try
+            {
+                var view = host.GetComponent<MatchChatView>() ?? host.AddComponent<MatchChatView>();
+                view.SetKeepChromeVisible(keepChromeVisible);
+                return view;
+            }
+            finally
+            {
+                pendingKeepChromeVisible = false;
+            }
+        }
+
+        public void SetKeepChromeVisible(bool value)
+        {
+            keepChromeVisible = value;
+            EnsureLayout();
+            ApplyPresentation();
         }
 
         public static IReadOnlyList<LobbyChatMessage> VisibleMessages(
@@ -209,6 +240,7 @@ namespace Game.Client.Match
 
         private void Awake()
         {
+            keepChromeVisible = pendingKeepChromeVisible || keepChromeVisible;
             EnsureLayout();
             ApplyFonts();
             SetActivated(false);
@@ -219,6 +251,7 @@ namespace Game.Client.Match
             if (inputField != null)
             {
                 inputField.onSubmit.AddListener(HandleSubmit);
+                inputField.onSelect.AddListener(HandleInputSelected);
             }
 
             if (sendButton != null)
@@ -237,6 +270,7 @@ namespace Game.Client.Match
             if (inputField != null)
             {
                 inputField.onSubmit.RemoveListener(HandleSubmit);
+                inputField.onSelect.RemoveListener(HandleInputSelected);
             }
 
             if (sendButton != null)
@@ -380,6 +414,7 @@ namespace Game.Client.Match
                 var message = list[first + index];
                 ApplyLine(nameTexts[index], message.SenderName, font, NameFontSize, NameColor);
                 ApplyLine(bodyTexts[index], message.Text, font, BodyFontSize, Color.white);
+                bodyTexts[index]?.ForceMeshUpdate();
             }
 
             ApplyRowFade();
@@ -444,6 +479,14 @@ namespace Game.Client.Match
             if (EventSystem.current?.currentSelectedGameObject == inputField.gameObject)
             {
                 EventSystem.current.SetSelectedGameObject(null);
+            }
+        }
+
+        private void HandleInputSelected(string _)
+        {
+            if (!activated && mode != MatchChatHudMode.Hidden)
+            {
+                SetActivated(true);
             }
         }
 
@@ -513,14 +556,16 @@ namespace Game.Client.Match
                 ? historyRect.gameObject
                 : transform.Find("HistoryPanel")?.gameObject;
             var input = transform.Find("InputPanel")?.gameObject;
-            if (history != null && history.activeSelf != ShowsHistory(mode))
+            var showHistory = ShouldShowHistory();
+            var showInput = ShouldShowInput();
+            if (history != null && history.activeSelf != showHistory)
             {
-                history.SetActive(ShowsHistory(mode));
+                history.SetActive(showHistory);
             }
 
-            if (input != null && input.activeSelf != ShowsInput(mode, activated))
+            if (input != null && input.activeSelf != showInput)
             {
-                input.SetActive(ShowsInput(mode, activated));
+                input.SetActive(showInput);
             }
 
             if (transform is not RectTransform root)
@@ -528,8 +573,6 @@ namespace Game.Client.Match
                 return;
             }
 
-            var showHistory = ShowsHistory(mode);
-            var showInput = ShowsInput(mode, activated);
             var height = 0f;
             if (showHistory)
             {
@@ -548,6 +591,12 @@ namespace Game.Client.Match
 
             root.sizeDelta = new Vector2(InputWidth, height);
         }
+
+        private bool ShouldShowHistory() =>
+            keepChromeVisible || ShowsHistory(mode);
+
+        private bool ShouldShowInput() =>
+            keepChromeVisible || ShowsInput(mode, activated);
 
         private void RefreshSendIcon()
         {
@@ -589,6 +638,7 @@ namespace Game.Client.Match
             FitTextViewport();
             IsolateCanvases();
             EnsureHistoryFade();
+            ApplyRoundedPanels();
             ApplyFonts();
             layoutReady = true;
             ApplyInputOverflow();
@@ -719,8 +769,14 @@ namespace Game.Client.Match
                 return false;
             }
 
-            return font.name.IndexOf("Paperlogy", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   font.faceInfo.familyName.IndexOf("Paperlogy", StringComparison.OrdinalIgnoreCase) >= 0;
+            if (font.name.IndexOf("Paperlogy", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            var family = font.faceInfo.familyName;
+            return !string.IsNullOrEmpty(family) &&
+                   family.IndexOf("Paperlogy", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private void BindRefs()
@@ -767,6 +823,8 @@ namespace Game.Client.Match
                 rows[index] = row;
                 nameTexts[index] = row != null ? row.Find("Name")?.GetComponent<TMP_Text>() : null;
                 bodyTexts[index] = row != null ? row.Find("Body")?.GetComponent<TMP_Text>() : null;
+                ApplyWrap(nameTexts[index]);
+                ApplyWrap(bodyTexts[index]);
                 if (row == null)
                 {
                     rowFades[index] = null;
@@ -899,13 +957,6 @@ namespace Game.Client.Match
                 return;
             }
 
-            if (text.textWrappingMode == TextWrappingModes.Normal &&
-                text.overflowMode == TextOverflowModes.Overflow &&
-                !text.enableAutoSizing)
-            {
-                return;
-            }
-
             text.textWrappingMode = TextWrappingModes.Normal;
             text.overflowMode = TextOverflowModes.Overflow;
             text.enableAutoSizing = false;
@@ -916,6 +967,7 @@ namespace Game.Client.Match
                 layout.preferredHeight = -1f;
                 layout.preferredWidth = -1f;
                 layout.flexibleWidth = 1f;
+                layout.flexibleHeight = -1f;
             }
         }
 
@@ -951,27 +1003,55 @@ namespace Game.Client.Match
             }
 
             Stretch(background);
-            var backgroundImage = background.GetComponent<Image>();
-            backgroundImage.sprite = VerticalFadeSprite;
-            backgroundImage.type = Image.Type.Simple;
-            backgroundImage.color = PanelColor;
-            backgroundImage.raycastTarget = false;
-            backgroundImage.preserveAspect = false;
+            ApplyHistoryBackground(background.GetComponent<Image>());
             background.SetSiblingIndex(0);
             itemRoot?.SetAsLastSibling();
         }
 
-        private static Sprite VerticalFadeSprite
+        private void ApplyRoundedPanels()
+        {
+            ApplyRoundedPanel(transform.Find("InputPanel")?.GetComponent<Image>());
+        }
+
+        private static void ApplyRoundedPanel(Image image)
+        {
+            if (image == null)
+            {
+                return;
+            }
+
+            image.sprite = HomeUiFonts.Rounded(PanelRadius);
+            image.type = Image.Type.Sliced;
+            image.color = PanelColor;
+            image.raycastTarget = true;
+            image.preserveAspect = false;
+        }
+
+        private static void ApplyHistoryBackground(Image image)
+        {
+            if (image == null)
+            {
+                return;
+            }
+
+            image.sprite = HistoryFadeSprite;
+            image.type = Image.Type.Simple;
+            image.color = PanelColor;
+            image.raycastTarget = false;
+            image.preserveAspect = false;
+        }
+
+        private static Sprite HistoryFadeSprite
         {
             get
             {
-                if (verticalFadeSprite != null)
+                if (historyFadeSprite != null)
                 {
-                    return verticalFadeSprite;
+                    return historyFadeSprite;
                 }
 
-                const int width = 8;
-                const int height = 128;
+                var width = Mathf.RoundToInt(InputWidth);
+                var height = Mathf.RoundToInt(HistoryHeight);
                 var texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
                 {
                     hideFlags = HideFlags.HideAndDontSave,
@@ -979,27 +1059,46 @@ namespace Game.Client.Match
                     wrapMode = TextureWrapMode.Clamp
                 };
 
+                var halfWidth = width * 0.5f;
+                var halfHeight = height * 0.5f;
+                var radius = PanelRadius;
                 for (var y = 0; y < height; y++)
                 {
-                    var alpha = 1f - (y / (height - 1f));
-                    var color = new Color(1f, 1f, 1f, alpha);
+                    var fade = 1f - (y / (height - 1f));
                     for (var x = 0; x < width; x++)
                     {
-                        texture.SetPixel(x, y, color);
+                        var coverage = RoundedCoverage(x, y, halfWidth, halfHeight, radius);
+                        texture.SetPixel(x, y, new Color(1f, 1f, 1f, coverage * fade));
                     }
                 }
 
                 texture.Apply(false, false);
-                verticalFadeSprite = Sprite.Create(
+                historyFadeSprite = Sprite.Create(
                     texture,
                     new Rect(0f, 0f, width, height),
                     new Vector2(0.5f, 0.5f),
                     100f,
                     0,
                     SpriteMeshType.FullRect);
-                verticalFadeSprite.hideFlags = HideFlags.HideAndDontSave;
-                return verticalFadeSprite;
+                historyFadeSprite.hideFlags = HideFlags.HideAndDontSave;
+                return historyFadeSprite;
             }
+        }
+
+        private static float RoundedCoverage(
+            int x,
+            int y,
+            float halfWidth,
+            float halfHeight,
+            float radius)
+        {
+            var dx = Mathf.Abs(x + 0.5f - halfWidth) - (halfWidth - radius);
+            var dy = Mathf.Abs(y + 0.5f - halfHeight) - (halfHeight - radius);
+            var outside = Mathf.Sqrt(
+                (Mathf.Max(dx, 0f) * Mathf.Max(dx, 0f)) +
+                (Mathf.Max(dy, 0f) * Mathf.Max(dy, 0f)));
+            var distance = outside + Mathf.Min(Mathf.Max(dx, dy), 0f) - radius;
+            return Mathf.Clamp01(0.5f - distance);
         }
 
         private void ClearLegacyLayout()
@@ -1163,7 +1262,7 @@ namespace Game.Client.Match
                 typeof(Image));
             panel.transform.SetParent(parent, false);
             var image = panel.GetComponent<Image>();
-            image.sprite = HomeUiFonts.RoundedSprite;
+            image.sprite = HomeUiFonts.Rounded(PanelRadius);
             image.type = Image.Type.Sliced;
             image.color = PanelColor;
             image.raycastTarget = true;
@@ -1209,7 +1308,8 @@ namespace Game.Client.Match
             text.richText = false;
             var layout = gameObject.GetComponent<LayoutElement>();
             layout.minHeight = fontSize + 4f;
-            layout.preferredHeight = fontSize + 6f;
+            layout.preferredHeight = -1f;
+            layout.flexibleWidth = 1f;
             return text;
         }
 

@@ -10,14 +10,14 @@ namespace Game.Client.Match
     {
         private readonly ILobbyChatLog chatLog;
         private readonly IMatchChatTransport transport;
-        private readonly IMatchChatView view;
+        private readonly IChatView view;
         private readonly IMatchChatBubbleView bubbleView;
         private IDisposable messagesSubscription;
 
         public MatchChatPresenter(
             ILobbyChatLog chatLog,
             IMatchChatTransport transport,
-            IMatchChatView view)
+            IChatView view)
             : this(chatLog, transport, view, null)
         {
         }
@@ -25,7 +25,7 @@ namespace Game.Client.Match
         public MatchChatPresenter(
             ILobbyChatLog chatLog,
             IMatchChatTransport transport,
-            IMatchChatView view,
+            IChatView view,
             IMatchChatBubbleView bubbleView)
         {
             this.chatLog = chatLog ?? throw new ArgumentNullException(nameof(chatLog));

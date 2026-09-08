@@ -299,7 +299,29 @@ namespace Game.Client.Home
 
         public static TMP_FontAsset ApplyLight(TMP_FontAsset fontAsset = null)
         {
-            return koreanLightFont ??= LoadKorean(LightResource, fontAsset);
+            if (koreanLightFont != null)
+            {
+                return koreanLightFont;
+            }
+
+            try
+            {
+                koreanLightFont = LoadKorean(LightResource, fontAsset);
+                return koreanLightFont;
+            }
+            catch (Exception)
+            {
+                try
+                {
+                    koreanLightFont = ApplyRegular(fontAsset);
+                    return koreanLightFont;
+                }
+                catch (Exception)
+                {
+                    koreanLightFont = Apply(fontAsset);
+                    return koreanLightFont;
+                }
+            }
         }
 
         public static TMP_FontAsset ApplyRegular(TMP_FontAsset fontAsset = null)
@@ -420,26 +442,26 @@ namespace Game.Client.Home
 
         private static TMP_FontAsset LoadKorean(string resourcePath, TMP_FontAsset fontAsset)
         {
-            if (fontAsset != null)
+            if (IsUsable(fontAsset))
             {
                 return fontAsset;
             }
 
-            var baked = Resources.Load<TMP_FontAsset>(resourcePath + " SDF");
+            var baked = Resources.Load<TMP_FontAsset>(resourcePath + " SDF")
+                ?? LoadEditorFontAsset(resourcePath + " SDF");
             if (baked != null)
+            {
+                EnsureRuntimeMaterial(baked);
+            }
+
+            if (IsUsable(baked))
             {
                 return baked;
             }
 
             var source = Resources.Load<Font>(resourcePath) ?? LoadEditorFont(resourcePath);
             var loaded = CreateRuntimeKorean(source);
-            if (loaded != null)
-            {
-                return loaded;
-            }
-
-            loaded = TMP_Settings.defaultFontAsset;
-            if (loaded != null)
+            if (IsUsable(loaded))
             {
                 return loaded;
             }
@@ -449,22 +471,47 @@ namespace Game.Client.Home
                 "Assets/_Game/Content/Resources/Fonts.");
         }
 
+        private static bool IsUsable(TMP_FontAsset font)
+        {
+            return font != null && font.material != null;
+        }
+
+        private static TMP_FontAsset LoadEditorFontAsset(string resourcePath)
+        {
+#if UNITY_EDITOR
+            var fileName = EditorFontFileName(resourcePath);
+            return string.IsNullOrEmpty(fileName)
+                ? null
+                : UnityEditor.AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+                    $"Assets/_Game/Content/Fonts/{fileName}.asset");
+#else
+            return null;
+#endif
+        }
+
         private static Font LoadEditorFont(string resourcePath)
         {
 #if UNITY_EDITOR
+            var fileName = EditorFontFileName(resourcePath);
+            return string.IsNullOrEmpty(fileName)
+                ? null
+                : UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(
+                    $"Assets/_Game/Content/Fonts/{fileName}.ttf");
+#else
+            return null;
+#endif
+        }
+
+        private static string EditorFontFileName(string resourcePath)
+        {
             if (string.IsNullOrEmpty(resourcePath))
             {
                 return null;
             }
 
-            var fileName = resourcePath.StartsWith("Fonts/", StringComparison.Ordinal)
+            return resourcePath.StartsWith("Fonts/", StringComparison.Ordinal)
                 ? resourcePath.Substring("Fonts/".Length)
                 : resourcePath;
-            return UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(
-                $"Assets/_Game/Content/Fonts/{fileName}.ttf");
-#else
-            return null;
-#endif
         }
 
         public static TMP_FontAsset CreateRuntimeKorean(Font source, bool prewarmKorean = false)
@@ -489,6 +536,18 @@ namespace Game.Client.Home
             }
 
             loaded.hideFlags = HideFlags.HideAndDontSave;
+            if (string.IsNullOrEmpty(loaded.name) ||
+                loaded.name.IndexOf("Paperlogy", StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                loaded.name = source.name + " SDF";
+            }
+
+            EnsureRuntimeMaterial(loaded);
+            if (loaded.material == null)
+            {
+                return null;
+            }
+
             loaded.TryAddCharacters(
                 "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ .,!?:;-_~/()[]");
             if (prewarmKorean)
@@ -509,6 +568,36 @@ namespace Game.Client.Home
             }
 
             return loaded;
+        }
+
+        private static void EnsureRuntimeMaterial(TMP_FontAsset font)
+        {
+            if (font == null || font.material != null)
+            {
+                return;
+            }
+
+            var shader = Shader.Find("TextMeshPro/Distance Field")
+                ?? Shader.Find("TextMeshPro/Mobile/Distance Field");
+            if (shader == null)
+            {
+                return;
+            }
+
+            var atlas = font.atlasTextures != null && font.atlasTextures.Length > 0
+                ? font.atlasTextures[0]
+                : null;
+            var material = new Material(shader)
+            {
+                name = font.name + " Material",
+                hideFlags = HideFlags.HideAndDontSave
+            };
+            if (atlas != null)
+            {
+                material.SetTexture("_MainTex", atlas);
+            }
+
+            font.material = material;
         }
 
         private static Sprite CreateRoundedSprite(int size, int radius, float pixelsPerUnit)

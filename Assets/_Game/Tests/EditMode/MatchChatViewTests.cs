@@ -1,3 +1,4 @@
+using Game.Client.Home;
 using Game.Client.Match;
 using Game.Core.Lobby;
 using NUnit.Framework;
@@ -41,9 +42,46 @@ namespace Game.Architecture.Tests
                 var history = view.transform.Find("HistoryPanel");
                 Assert.That(history.GetComponent<Mask>(), Is.Null);
                 Assert.That(history.Find("Background"), Is.Not.Null);
+                var historyBackground = history.Find("Background").GetComponent<Image>();
+                Assert.That(historyBackground.type, Is.EqualTo(Image.Type.Simple));
+                Assert.That(historyBackground.sprite, Is.Not.Null);
+                Assert.That(
+                    historyBackground.sprite,
+                    Is.Not.EqualTo(HomeUiFonts.Rounded(MatchChatView.PanelRadius)));
+                Assert.That(historyBackground.sprite.border, Is.EqualTo(Vector4.zero));
+                Assert.That(MatchChatView.PanelRadius, Is.EqualTo(10));
                 var body = view.transform.Find("HistoryPanel/Items/Row3/Body").GetComponent<TMP_Text>();
                 Assert.That(body.textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
                 Assert.That(body.overflowMode, Is.Not.EqualTo(TextOverflowModes.Ellipsis));
+                Assert.That(body.GetComponent<LayoutElement>().preferredHeight, Is.EqualTo(-1f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void SetMessages_WrapsLongBodyAndGrowsRow()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchChatView.Create(canvas.transform);
+                view.SetMessages(new[]
+                {
+                    new LobbyChatMessage(
+                        "a",
+                        "싸피생1",
+                        new string('가', LobbyChatMessage.MaxTextLength))
+                });
+
+                var body = view.transform.Find("HistoryPanel/Items/Row0/Body").GetComponent<TMP_Text>();
+                Assert.That(body.textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
+                Assert.That(body.GetComponent<LayoutElement>().preferredHeight, Is.EqualTo(-1f));
+                Assert.That(
+                    body.rectTransform.rect.height,
+                    Is.GreaterThan(MatchChatView.BodyFontSize + 8f));
             }
             finally
             {
@@ -72,15 +110,24 @@ namespace Game.Architecture.Tests
                 Assert.That(name.font, Is.Not.Null);
                 Assert.That(name.font.name, Does.Contain("Paperlogy").IgnoreCase);
                 Assert.That(body.font.name, Does.Contain("Paperlogy").IgnoreCase);
+                var inputPanel = view.transform.Find("InputPanel").GetComponent<Image>();
+                Assert.That(inputPanel.type, Is.EqualTo(Image.Type.Sliced));
+                Assert.That(
+                    inputPanel.sprite,
+                    Is.EqualTo(HomeUiFonts.Rounded(MatchChatView.PanelRadius)));
                 var input = view.transform.Find("InputPanel").GetComponent<TMP_InputField>();
                 Assert.That(input.fontAsset.name, Does.Contain("Paperlogy").IgnoreCase);
                 Assert.That(input.textComponent.overflowMode, Is.EqualTo(TextOverflowModes.Overflow));
                 Assert.That(input.textComponent.textWrappingMode, Is.EqualTo(TextWrappingModes.NoWrap));
                 Assert.That(input.textComponent.rectTransform.anchorMax.x, Is.EqualTo(0f));
                 Assert.That(MatchChatView.SendIconGap, Is.EqualTo(8f));
+                Assert.That(input.placeholder, Is.Not.Null);
                 Assert.That(
-                    view.transform.Find("InputPanel/Placeholder").GetComponent<TMP_Text>().text,
+                    (input.placeholder as TMP_Text).text,
                     Is.EqualTo(MatchChatView.PlaceholderText));
+                Assert.That(
+                    view.transform.Find("InputPanel/TextViewport/Placeholder"),
+                    Is.Not.Null);
                 Assert.That(view.transform.Find("InputPanel/Send"), Is.Not.Null);
                 Assert.That(view.GetComponent<Canvas>(), Is.Not.Null);
                 Assert.That(view.GetComponent<Canvas>().overrideSorting, Is.True);
@@ -149,6 +196,41 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     view.transform.Find("InputPanel").gameObject.activeSelf,
                     Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void KeepChromeVisible_ShowsHistoryAndInputWhileDeactivated()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchChatView.Create(canvas.transform, keepChromeVisible: true);
+                view.SetMessages(new[]
+                {
+                    new LobbyChatMessage("a", "싸피생1", "하나")
+                });
+
+                Assert.That(view.KeepChromeVisible, Is.True);
+                Assert.That(view.IsActivated, Is.False);
+                Assert.That(
+                    view.transform.Find("HistoryPanel").gameObject.activeSelf,
+                    Is.True);
+                Assert.That(
+                    view.transform.Find("InputPanel").gameObject.activeSelf,
+                    Is.True);
+                view.Deactivate();
+                Assert.That(view.IsActivated, Is.False);
+                Assert.That(
+                    view.transform.Find("HistoryPanel").gameObject.activeSelf,
+                    Is.True);
+                Assert.That(
+                    view.transform.Find("InputPanel").gameObject.activeSelf,
+                    Is.True);
             }
             finally
             {

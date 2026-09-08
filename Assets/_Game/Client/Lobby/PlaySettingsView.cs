@@ -24,8 +24,9 @@ namespace Game.Client.Lobby
 
         /// <summary>
         /// Asks to be closed as if the panel's own close button was pressed.
-        /// See <see cref="IKeyGuideView.RequestClose"/> for why this goes
-        /// through the presenter rather than hiding the panel directly.
+        /// through the presenter rather than hiding the panel directly: Esc has
+        /// to back out of this panel, and the presenter tracks whether it is
+        /// open. Hiding from outside would leave that flag saying open.
         /// </summary>
         void RequestClose();
 

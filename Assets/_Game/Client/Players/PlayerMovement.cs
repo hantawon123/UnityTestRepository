@@ -55,12 +55,18 @@ namespace Game.Client.Players
         private InputAction proneAction;
         private InputAction attackAction;
         private PlayerInteractor interactor;
+        private ItemPlacementController placement;
         private Transform cameraTransform;
         private float verticalVelocity;
         private Vector3 externalVelocity;
 
-        /// <summary>기절 등 외부에서 이동 입력을 잠글 때 사용한다.</summary>
+        /// <summary>Esc 메뉴처럼 이동을 잠시 막을 때 사용한다.</summary>
         public bool IsMovementLocked { get; set; }
+
+        /// <summary>기절이 이동을 막을 때 사용한다. 메뉴 잠금과 같은 플래그를 쓰지 않는다.</summary>
+        public bool IsCombatLocked { get; set; }
+
+        private bool IsLocomotionLocked => IsMovementLocked || IsCombatLocked;
 
         /// <summary>수평 이동 속력(m/s). 애니메이션 등 표현 계층이 읽는다.</summary>
         public float PlanarSpeed
@@ -108,7 +114,7 @@ namespace Game.Client.Players
                 return default;
             }
 
-            if (IsMovementLocked || IsTextInputFocused())
+            if (IsLocomotionLocked || IsTextInputFocused())
             {
                 var heldYaw = stageReference == null && TryEnsureCamera()
                     ? cameraTransform.eulerAngles.y
@@ -149,8 +155,11 @@ namespace Game.Client.Players
             }
 
             // 소지 중인 좌클릭은 던지기/배치 입력이므로 네트워크 공격으로 보내지 않는다.
+            // Esc 메뉴 버튼을 누르는 좌클릭도 펀치로 나가지 않게 한다.
             if ((interactor == null || interactor.CarriedItem == null) &&
-                attackAction.IsPressed())
+                attackAction.IsPressed() &&
+                !ShouldIgnoreAttackInput() &&
+                (placement == null || !placement.BlocksAttack))
             {
                 buttons |= PlayerInputButtons.Attack;
             }
@@ -201,6 +210,7 @@ namespace Game.Client.Players
             proneAction = playerMap.FindAction("Prone", throwIfNotFound: true);
             attackAction = playerMap.FindAction("Attack", throwIfNotFound: true);
             interactor = GetComponent<PlayerInteractor>();
+            placement = GetComponent<ItemPlacementController>();
 
             if (visualRoot == null)
             {
@@ -219,7 +229,7 @@ namespace Game.Client.Players
 
         private void Update()
         {
-            var inputLocked = IsMovementLocked || IsTextInputFocused();
+            var inputLocked = IsLocomotionLocked || IsTextInputFocused();
             var input = inputLocked ? Vector2.zero : moveAction.ReadValue<Vector2>();
             var direction = ToCameraRelativeDirection(input);
 
@@ -256,6 +266,19 @@ namespace Game.Client.Players
                 transform.rotation = Quaternion.RotateTowards(
                     transform.rotation, targetRotation, movementConfig.RotationSpeedDegrees * Time.deltaTime);
             }
+        }
+
+        /// <summary>
+        /// 커서가 풀려 있거나 UI 위를 누른 좌클릭은 펀치가 아니다.
+        /// </summary>
+        public static bool ShouldIgnoreAttackInput()
+        {
+            if (Cursor.lockState != CursorLockMode.Locked)
+            {
+                return true;
+            }
+
+            return EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
         }
 
         /// <summary>

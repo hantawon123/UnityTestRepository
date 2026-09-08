@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.Client.Lobby;
+using Game.Client.Match;
 using Game.Core.Lobby;
 using NUnit.Framework;
 
@@ -95,7 +96,7 @@ namespace Game.Tests.EditMode
             Assert.That(message.Text.Length, Is.EqualTo(LobbyChatMessage.MaxTextLength));
         }
 
-        private sealed class FakeChatView : ILobbyChatView
+        private sealed class FakeChatView : IChatView
         {
             public event System.Action<string> SendRequested;
             public IReadOnlyList<LobbyChatMessage> LastMessages { get; private set; }
@@ -113,9 +114,13 @@ namespace Game.Tests.EditMode
             public void EmitSend(string text) => SendRequested?.Invoke(text);
         }
 
-        private sealed class FakeBubbleView : ILobbyChatBubbleView
+        private sealed class FakeBubbleView : IMatchChatBubbleView
         {
             public List<LobbyChatMessage> Shown { get; } = new();
+
+            public void BindPlayer(string playerId, UnityEngine.Transform playerRoot)
+            {
+            }
 
             public void Show(LobbyChatMessage message) => Shown.Add(message);
 

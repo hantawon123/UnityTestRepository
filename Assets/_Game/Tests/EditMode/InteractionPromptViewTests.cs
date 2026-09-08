@@ -49,6 +49,7 @@ namespace Game.Architecture.Tests
                 view.Show("F", "물건 잡기", follow.transform);
 
                 Assert.That(view.IsVisible, Is.True);
+                Assert.That(view.GetComponent<Canvas>().pixelPerfect, Is.False);
                 Assert.That(view.KeyBox.color, Is.EqualTo(InteractionPromptView.KeyBoxColor));
                 Assert.That(view.KeyBox.color.a, Is.EqualTo(0.27f));
                 Assert.That(view.KeyLabel.gameObject.activeSelf, Is.True);

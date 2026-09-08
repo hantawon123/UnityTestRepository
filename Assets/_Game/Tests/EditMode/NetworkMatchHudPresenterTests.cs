@@ -365,6 +365,49 @@ namespace Game.Architecture.Tests
             }
         }
 
+        [TestCase(MatchPhase.Hiding, 60d, 30d)]
+        [TestCase(MatchPhase.Searching, 300d, 300d)]
+        public void Intro_ReportsOnlyAfterPresentationAndWaitsForSharedDeadline(MatchPhase phase, double duration, double displayedTime)
+        {
+            var network = new FakeNetwork { ServerTime = 100d };
+            var view = new FakeView { IntroPresented = false };
+            using var room = new RoomBrowserSystem();
+            room.MatchStarted(new[] { new MatchParticipant("host", 0), new MatchParticipant("client", 1) });
+            var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+            try
+            {
+                using var presenter = new NetworkMatchHudPresenter(network, network, room, rules, view);
+                presenter.Start();
+                network.Publish(new MatchStateSnapshot(phase, 0d));
+                presenter.Tick();
+                Assert.That(network.IntroReadyReports, Is.Empty);
+                network.ServerTime = 120d;
+                network.PublishItemAssignment("Soda_01");
+                presenter.Tick();
+                Assert.That(network.IntroReadyReports, Is.Empty, "Showing a view is not proof that it was presented.");
+                view.IntroPresented = true;
+                presenter.Tick();
+                presenter.Tick();
+                Assert.That(network.IntroReadyReports, Is.EqualTo(new[] { phase }));
+                network.ServerTime = 150d;
+                presenter.Tick();
+                Assert.That(view.IsPhaseIntroPresented(phase), Is.True);
+                Assert.That(view.RemainingSeconds, Is.EqualTo(displayedTime));
+                network.Publish(new MatchStateSnapshot(phase, 153d + duration));
+                network.ServerTime = 152.9d;
+                presenter.Tick();
+                Assert.That(view.IsPhaseIntroPresented(phase), Is.True);
+                network.ServerTime = 153d;
+                presenter.Tick();
+                Assert.That(view.IsPhaseIntroPresented(phase), Is.False);
+                Assert.That(view.RemainingSeconds, Is.EqualTo(displayedTime));
+                network.ServerTime = 154d;
+                presenter.Tick();
+                Assert.That(view.RemainingSeconds, Is.EqualTo(displayedTime - 1d));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(rules); }
+        }
+
         [Test]
         public void HidingStart_ShowsEachPlayersAssignedItemThenHides()
         {
@@ -384,10 +427,11 @@ namespace Game.Architecture.Tests
                 presenter.Start();
 
                 network.PublishItemAssignment("Soda_01");
-                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 103d));
                 presenter.Tick();
                 Assert.That(view.HidingIntroVisible, Is.True);
                 Assert.That(view.HidingIntroItem, Is.EqualTo("탄산음료"));
+                Assert.That(view.RemainingSeconds, Is.EqualTo(30d));
 
                 network.ServerTime = 42.9d;
                 presenter.Tick();
@@ -421,7 +465,7 @@ namespace Game.Architecture.Tests
                     network, network, room, rules, view);
                 presenter.Start();
 
-                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 103d));
                 presenter.Tick();
                 Assert.That(view.HidingIntroVisible, Is.False);
 
@@ -455,7 +499,7 @@ namespace Game.Architecture.Tests
                 presenter.Start();
 
                 network.PublishItemAssignment("Soda_01");
-                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 103d));
                 presenter.Tick();
                 Assert.That(view.HidingIntroVisible, Is.False);
             }
@@ -534,7 +578,7 @@ namespace Game.Architecture.Tests
                     network, network, room, rules, view);
                 presenter.Start();
 
-                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 103d));
                 presenter.Tick();
                 Assert.That(view.HidingTurnStartVisible, Is.True);
                 Assert.That(view.TopHudVisible, Is.False);
@@ -655,10 +699,11 @@ namespace Game.Architecture.Tests
                 presenter.Start();
 
                 network.PublishItemAssignment("Soda_01");
-                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 400d));
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 403d));
                 presenter.Tick();
                 Assert.That(view.SearchingIntroVisible, Is.True);
                 Assert.That(view.SearchingIntroItem, Is.EqualTo("탄산음료"));
+                Assert.That(view.RemainingSeconds, Is.EqualTo(300d));
                 Assert.That(view.HidingTurnStartVisible, Is.False);
 
                 network.ServerTime = 102.9d;
@@ -693,7 +738,7 @@ namespace Game.Architecture.Tests
                     network, network, room, rules, view);
                 presenter.Start();
 
-                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 400d));
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 403d));
                 presenter.Tick();
                 Assert.That(view.SearchingIntroVisible, Is.False);
 
@@ -727,7 +772,7 @@ namespace Game.Architecture.Tests
                 presenter.Start();
 
                 network.PublishItemAssignment("Soda_01");
-                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 400d));
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 403d));
                 presenter.Tick();
                 Assert.That(view.SearchingIntroVisible, Is.False);
             }
@@ -992,6 +1037,9 @@ namespace Game.Architecture.Tests
 
         private sealed class FakeView : INetworkMatchHudView
         {
+            public bool IntroPresented { get; set; } = true;
+            public bool IsPhaseIntroPresented(MatchPhase phase) => IntroPresented &&
+                (phase == MatchPhase.Hiding ? HidingIntroVisible : phase == MatchPhase.Searching && SearchingIntroVisible);
             public MatchPhase Phase { get; private set; }
             public double RemainingSeconds { get; private set; }
             public double EndCountdown { get; private set; }
@@ -1197,8 +1245,11 @@ namespace Game.Architecture.Tests
             INetworkMatchEvents,
             INetworkMatchRuntimeSource,
             INetworkResultNavigation,
-            INetworkHighlightReady
+            INetworkHighlightReady,
+            INetworkPhaseIntroReady
         {
+            public List<MatchPhase> IntroReadyReports { get; } = new();
+            public bool TryConfirmPhaseIntroReady(MatchPhase phase) { IntroReadyReports.Add(phase); return true; }
             public IReadOnlyList<PlayerItemStatusSnapshot> LatestPlayerItemStatuses { get; set; } =
                 Array.Empty<PlayerItemStatusSnapshot>();
             public bool IsRuntimeReady { get; set; } = true;

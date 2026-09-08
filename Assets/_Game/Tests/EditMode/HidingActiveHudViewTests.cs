@@ -41,44 +41,7 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     completeKey.GetComponent<UnityEngine.UI.Image>().color,
                     Is.EqualTo(HidingActiveHudView.KeyChipColor));
-
-                var action = view.transform.Find("KeyGuide/Row0/Action")?.GetComponent<TMPro.TMP_Text>();
-                Assert.That(action, Is.Not.Null);
-                Assert.That(action.text, Is.EqualTo("공격"));
-                Assert.That(action.fontSize, Is.EqualTo(HidingActiveHudView.ActionFontSize));
-
-                var clickChip = view.transform.Find("KeyGuide/Row0/Key") as RectTransform;
-                var clickIcon = view.transform.Find("KeyGuide/Row0/Key/Icon") as RectTransform;
-                Assert.That(clickChip, Is.Not.Null);
-                Assert.That(clickChip.sizeDelta, Is.EqualTo(new Vector2(
-                    HidingActiveHudView.KeyChipWidth,
-                    HidingActiveHudView.KeyChipHeight)));
-                Assert.That(clickIcon, Is.Not.Null);
-                Assert.That(clickIcon.sizeDelta, Is.EqualTo(new Vector2(
-                    HidingActiveHudView.KeyIconSize,
-                    HidingActiveHudView.KeyIconSize)));
-                Assert.That(view.transform.Find("KeyGuide/Row0/Key/Label").gameObject.activeSelf, Is.False);
-
-                var singleChip = view.transform.Find("KeyGuide/Row1/Key") as RectTransform;
-                Assert.That(singleChip, Is.Not.Null);
-                Assert.That(singleChip.sizeDelta, Is.EqualTo(new Vector2(
-                    HidingActiveHudView.KeyChipWidth,
-                    HidingActiveHudView.KeyChipHeight)));
-                var chipImage = singleChip.GetComponent<UnityEngine.UI.Image>();
-                Assert.That(chipImage.color, Is.EqualTo(HidingActiveHudView.KeyChipColor));
-                Assert.That(chipImage.sprite.border.x, Is.EqualTo(HidingActiveHudView.KeyChipCornerRadius));
-
-                var spaceLabel = view.transform.Find("KeyGuide/Row5/Key/Label")?.GetComponent<TMPro.TMP_Text>();
-                Assert.That(spaceLabel, Is.Not.Null);
-                Assert.That(spaceLabel.fontSize, Is.EqualTo(HidingActiveHudView.KeyChipFontSize));
-                var spaceChip = view.transform.Find("KeyGuide/Row5/Key") as RectTransform;
-                Assert.That(spaceChip, Is.Not.Null);
-                Assert.That(
-                    spaceChip.sizeDelta.x,
-                    Is.EqualTo(HidingActiveHudView.MeasureKeyChipWidth(
-                        spaceLabel.text,
-                        spaceLabel.preferredWidth)));
-                Assert.That(view.transform.Find("KeyGuide").GetComponent<RectTransform>().anchorMin.x, Is.EqualTo(1f));
+                Assert.That(view.transform.Find("KeyGuide"), Is.Null);
             }
             finally
             {
@@ -134,7 +97,7 @@ namespace Game.Architecture.Tests
 
                 Assert.That(view.transform.Find("TopPrompt").gameObject.activeSelf, Is.False);
                 Assert.That(view.transform.Find("CompleteGuide").gameObject.activeSelf, Is.False);
-                Assert.That(view.transform.Find("KeyGuide").gameObject.activeSelf, Is.True);
+                Assert.That(view.transform.Find("KeyGuide"), Is.Null);
             }
             finally
             {

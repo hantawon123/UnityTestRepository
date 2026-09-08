@@ -43,6 +43,7 @@ namespace Game.Network.Session
         INetworkMatchAuthority,
         INetworkMatchEvents,
         INetworkHighlightReady,
+        INetworkPhaseIntroReady,
         INetworkResultNavigation,
         ILobbyChatTransport,
         IMatchChatTransport,
@@ -77,6 +78,17 @@ namespace Game.Network.Session
         public bool IsHighlightInProgress =>
             _matchStarter != null && _matchStarter.CurrentPhase == MatchPhase.Highlight;
         public bool IsLocalHighlightComplete => _localHighlightComplete;
+
+        public bool TryConfirmPhaseIntroReady(MatchPhase phase) =>
+            _matchStarter != null && _matchStarter.RequestPhaseIntroReady(phase);
+
+        public bool IsWaitingForMatch => IsRuntimeReady && _matchStarter != null &&
+            !_matchStarter.HasStartedMatch && _matchStarter.CurrentPhase == MatchPhase.Waiting;
+
+        public bool ConfigureLobbyObjects(IReadOnlyList<WorldObjectState> objects) =>
+            IsWaitingForMatch && _matchStarter.ConfigureLobbyObjects(objects);
+
+        public void PublishInteractionState() => _matchStarter?.PublishSceneState();
 
         public bool TryConfirmHighlightReady()
         {
@@ -873,6 +885,10 @@ namespace Game.Network.Session
 
         internal static NetworkProjectConfig ConfigureSession(NetworkProjectConfig config)
         {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // Browser play uses the existing Host/Client rules. Native defaults stay unchanged.
+            config.AllowClientServerModesInWebGL = true;
+#endif
             // Runtime-only policy; the serialized project settings remain available for restoration.
             // config.HostMigration.EnableAutoUpdate = true;
             config.HostMigration.EnableAutoUpdate = false;
@@ -1528,6 +1544,10 @@ namespace Game.Network.Session
             // The deployment supplies its region through ProjectLifetimeScope,
             // so changing regions does not require recompiling network code.
             settings.FixedRegion = _regions?.Current.Code;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // Keep incompatible browser releases out of each other's rooms.
+            settings.AppVersion = $"web-{Application.version}";
+#endif
             return settings;
         }
 

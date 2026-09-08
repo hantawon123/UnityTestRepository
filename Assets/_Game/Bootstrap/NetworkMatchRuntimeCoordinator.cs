@@ -187,6 +187,7 @@ namespace Game.Bootstrap
             }
 
             runtime.Tick();
+            composition.Session.TryStartPhaseIntro(network.ServerTime);
             SynchronizePlayers();
             PublishSnapshotIfChanged();
         }
@@ -250,6 +251,7 @@ namespace Game.Bootstrap
                     }
                 }
 
+                if (migration == null) created.Session.EnablePhaseIntros(waitForReady: true);
                 if (!network.BindMatchSession(
                         created.Session,
                         configuration.ShredderEjectionPose) ||
@@ -485,10 +487,15 @@ namespace Game.Bootstrap
                 var stageOpen = phase == MatchPhase.Highlight &&
                                 network is INetworkResultNavigation navigation &&
                                 navigation.IsResultSceneLoaded;
-                var enabled = phase == MatchPhase.Hiding ||
+                var isEndCountdown = phase == MatchPhase.Highlight &&
+                                     session.TryGetResult(out var matchResult) &&
+                                     now < matchResult.EndedAt +
+                                     MatchSessionCoordinator.HighlightPostRollSeconds;
+                var enabled = !session.IsPhaseIntro(now) && (phase == MatchPhase.Hiding ||
                                (phase == MatchPhase.Searching &&
                                 !session.IsPlayerStunned(playerIndex, now)) ||
-                               stageOpen;
+                               isEndCountdown ||
+                               stageOpen);
                 if (hasSynchronizedPlayers &&
                     synchronizedControls[playerIndex] == enabled)
                 {

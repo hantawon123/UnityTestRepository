@@ -121,10 +121,12 @@ namespace Game.Architecture.Tests
                 network.PublishLineUp(new[] { new MatchParticipant("host", 0), new MatchParticipant("client", 1) });
                 network.PublishSimulationTick();
                 var session = network.BoundSession;
+                ConfirmAllIntroReady(network);
                 if (departurePhase != MatchPhase.Hiding)
                 {
                     network.ServerTime = session.CaptureStateSnapshot().PhaseEndsAt;
                     network.PublishSimulationTick();
+                    ConfirmAllIntroReady(network);
                 }
                 if (departurePhase == MatchPhase.Highlight || departurePhase == MatchPhase.Result)
                 {
@@ -202,6 +204,18 @@ namespace Game.Architecture.Tests
                 network.PublishSimulationTick();
 
                 Assert.That(network.BoundSession, Is.Not.Null);
+                Assert.That(network.Snapshots[0].PhaseEndsAt, Is.Zero);
+                Assert.That(network.BoundSession.ConfirmPhaseIntroReady(0, MatchPhase.Hiding), Is.True);
+                network.PublishSimulationTick();
+                Assert.That(network.Snapshots, Has.Count.EqualTo(1), "One participant is still loading.");
+                Assert.That(network.BoundSession.ConfirmPhaseIntroReady(1, MatchPhase.Hiding), Is.True);
+                network.PublishSimulationTick();
+                Assert.That(network.Controls[0], Is.False);
+                Assert.That(network.Controls[1], Is.False);
+                Assert.That(network.BoundSession.GetRemainingSeconds(network.ServerTime), Is.EqualTo(60d));
+                Assert.That(network.BoundSession.TryHoldObject(0, "Soda_01", network.ServerTime), Is.False);
+                network.ServerTime += MatchIntroTiming.VisibleSeconds;
+                network.PublishSimulationTick();
                 Assert.That(network.ResetStaminaPlayers, Is.EquivalentTo(new[] { 0, 1 }));
                 Assert.That(network.InitializedAssignmentPlayers, Is.EqualTo(new[] { 0 }));
                 Assert.That(network.PublishedAssignmentPlayers, Is.EqualTo(new[] { 0, 1, 0 }));
@@ -210,8 +224,8 @@ namespace Game.Architecture.Tests
                 Assert.That(network.PlayerItemStatuses[0].Count, Is.EqualTo(2));
                 Assert.That(network.PlayerItemStatuses[0][0].IsDestroyed, Is.False);
                 Assert.That(network.PlayerItemStatuses[0][1].IsDestroyed, Is.False);
-                Assert.That(network.Snapshots, Has.Count.EqualTo(1));
-                Assert.That(network.Snapshots[0].Phase, Is.EqualTo(MatchPhase.Hiding));
+                Assert.That(network.Snapshots, Has.Count.EqualTo(2));
+                Assert.That(network.Snapshots[1].Phase, Is.EqualTo(MatchPhase.Hiding));
                 // 숨기기 페이즈: 숨기는 사람과 밖의 대기자 모두 조작 가능.
                 Assert.That(network.Controls[0], Is.True);
                 Assert.That(network.Controls[1], Is.True);
@@ -219,7 +233,7 @@ namespace Game.Architecture.Tests
                 Assert.That(network.TeleportedPoses[0].position.z, Is.EqualTo(-10f));
                 Assert.That(network.TeleportedPoses[1].position.z, Is.EqualTo(0f));
 
-                network.ServerTime = 10d + rules.HidingTurnDurationSeconds;
+                network.ServerTime = 10d + MatchIntroTiming.VisibleSeconds + rules.HidingTurnDurationSeconds;
                 network.PublishSimulationTick();
 
                 // 턴 교대 후에도 두 플레이어 모두 조작 가능.
@@ -238,14 +252,23 @@ namespace Game.Architecture.Tests
                 Assert.That(network.TeleportedPoses[2].position.z, Is.EqualTo(0f));
                 Assert.That(network.TeleportedPoses[3].position.z, Is.EqualTo(-10f));
 
-                network.ServerTime = network.Snapshots[0].PhaseEndsAt;
+                network.ServerTime = network.Snapshots[1].PhaseEndsAt;
                 network.PublishSimulationTick();
 
-                Assert.That(network.Snapshots, Has.Count.EqualTo(2));
-                Assert.That(network.Snapshots[1].Phase, Is.EqualTo(MatchPhase.Searching));
+                Assert.That(network.Snapshots, Has.Count.EqualTo(3));
+                Assert.That(network.Snapshots[2].Phase, Is.EqualTo(MatchPhase.Searching));
+                Assert.That(network.Snapshots[2].PhaseEndsAt, Is.Zero);
+                ConfirmAllIntroReady(network);
+                Assert.That(network.Controls[0], Is.False);
+                Assert.That(network.Controls[1], Is.False);
+                Assert.That(network.BoundSession.GetRemainingSeconds(network.ServerTime), Is.EqualTo(300d));
+                Assert.That(network.BoundSession.TryHoldObject(0,
+                    network.BoundSession.Assignments[0].Item.ItemId, network.ServerTime), Is.False);
+                network.ServerTime += MatchIntroTiming.VisibleSeconds;
+                network.PublishSimulationTick();
                 Assert.That(network.Controls[0], Is.True);
                 Assert.That(network.Controls[1], Is.True);
-                var searchingStartedAt = network.Snapshots[0].PhaseEndsAt;
+                var searchingStartedAt = network.Snapshots[1].PhaseEndsAt + MatchIntroTiming.VisibleSeconds;
                 Assert.That(
                     network.BoundSession.TryHoldObject(
                         0,
@@ -300,12 +323,12 @@ namespace Game.Architecture.Tests
                             "client"),
                     }),
                     Is.True);
-                network.ServerTime = network.Snapshots[1].PhaseEndsAt;
+                network.ServerTime = network.Snapshots[3].PhaseEndsAt;
                 network.PublishSimulationTick();
 
-                Assert.That(network.Snapshots, Has.Count.EqualTo(3));
-                Assert.That(network.Snapshots[2].Phase, Is.EqualTo(MatchPhase.Highlight));
-                Assert.That(network.Snapshots[2].PhaseEndsAt, Is.Zero);
+                Assert.That(network.Snapshots, Has.Count.EqualTo(5));
+                Assert.That(network.Snapshots[4].Phase, Is.EqualTo(MatchPhase.Highlight));
+                Assert.That(network.Snapshots[4].PhaseEndsAt, Is.Zero);
                 Assert.That(network.HighlightReplay, Is.Null.Or.Empty);
                 Assert.That(network.Controls[0], Is.True);
                 Assert.That(network.Controls[1], Is.True);
@@ -338,28 +361,37 @@ namespace Game.Architecture.Tests
                 {
                     network.IsHighlightReplayReady = true;
                     network.PublishSimulationTick();
-                    Assert.That(network.Snapshots[3].Phase, Is.EqualTo(MatchPhase.Highlight));
-                    Assert.That(network.Snapshots[3].PhaseEndsAt, Is.EqualTo(network.ServerTime +
+                    Assert.That(network.Snapshots[5].Phase, Is.EqualTo(MatchPhase.Highlight));
+                    Assert.That(network.Snapshots[5].PhaseEndsAt, Is.EqualTo(network.ServerTime +
                         HighlightPresentationTiming.ReadyLeadSeconds + 4d +
                         HighlightPresentationTiming.OverheadSeconds).Within(0.001));
-                    network.ServerTime = network.Snapshots[3].PhaseEndsAt;
+                    network.ServerTime = network.Snapshots[5].PhaseEndsAt;
                     network.PublishSimulationTick();
                 }
 
-                Assert.That(network.Snapshots, Has.Count.EqualTo(readinessTimeout ? 4 : 5));
+                Assert.That(network.Snapshots, Has.Count.EqualTo(readinessTimeout ? 6 : 7));
                 Assert.That(network.Snapshots[network.Snapshots.Count - 1].Phase, Is.EqualTo(MatchPhase.Result));
 
                 coordinator.Dispose();
 
                 Assert.That(network.BoundSession, Is.Null);
                 Assert.That(network.UnbindCount, Is.EqualTo(1));
-                Assert.That(network.Controls[0], Is.True);
-                Assert.That(network.Controls[1], Is.True);
+                // Result teardown retains the lock until ReturnToLobby restores controls.
+                Assert.That(network.Controls[0], Is.False);
+                Assert.That(network.Controls[1], Is.False);
             }
             finally
             {
                 UnityEngine.Object.DestroyImmediate(rules);
             }
+        }
+
+        private static void ConfirmAllIntroReady(FakeNetworkAuthority network)
+        {
+            var session = network.BoundSession;
+            for (var i = 0; i < session.Players.Players.Count; i++)
+                session.ConfirmPhaseIntroReady(i, session.CurrentPhase);
+            network.PublishSimulationTick();
         }
 
         private static Pose[] CreateSpawnPoints()
