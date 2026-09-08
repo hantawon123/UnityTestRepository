@@ -140,6 +140,7 @@ namespace Game.Tests.EditMode
             public event Action InviteRequested { add { } remove { } }
             public event Action CopyPasswordRequested { add { } remove { } }
             public event Action SaveTitleRequested { add { } remove { } }
+            public event Action StartRequested { add { } remove { } }
             public void SetVisible(bool visible) { }
             public void SetEditable(bool editable) { }
             public void SetDraft(PlaySettingsDraft draft) { }

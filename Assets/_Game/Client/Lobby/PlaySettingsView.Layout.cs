@@ -326,8 +326,18 @@ namespace Game.Client.Lobby
 
         private void AddSectionTitle(RectTransform parent, string title)
         {
-            var rect = CreateLayoutRow(parent, 48f);
-            CreateHeaderText(rect, title);
+            var row = CreateLayoutRow(parent, PlaySettingsStyle.Layout.SectionTitleHeight);
+            row.name = "SectionTitleRow";
+
+            var label = row.gameObject.AddComponent<Text>();
+            label.text = title;
+            label.font = ExtraBoldFont();
+            label.fontSize = PlaySettingsStyle.FontSize.SectionTitle;
+            label.color = PlaySettingsStyle.Palette.Text;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.raycastTarget = false;
+            ApplySingleLine(label);
+            Stretch(label.rectTransform);
         }
 
         private void BuildTitleRow(RectTransform parent)
@@ -544,7 +554,7 @@ namespace Game.Client.Lobby
             ConfigureVerticalGroup(leftMain, TextAnchor.MiddleCenter, 8f);
 
             CreateSectionTitleText(leftMain, "맵 선택");
-            var mapPicker = CreateHorizontalPickerRow(leftMain, PlaySettingsStyle.Layout.MapPreviewSize);
+            var mapPicker = CreateHorizontalPickerRow(leftMain, PlaySettingsStyle.Layout.MapPreviewSize.y);
             mapPrevButton = CreateLayoutArrowButton(mapPicker, isLeft: true);
             mapPreviewImage = CreateMapPreviewImage(mapPicker);
             mapNextButton = CreateLayoutArrowButton(mapPicker, isLeft: false);
@@ -655,14 +665,15 @@ namespace Game.Client.Lobby
             var preview = CreateRect("MapPreview", parent);
             var element = preview.gameObject.AddComponent<LayoutElement>();
             var size = PlaySettingsStyle.Layout.MapPreviewSize;
-            element.preferredWidth = size;
-            element.preferredHeight = size;
-            element.minWidth = size;
-            element.minHeight = size;
+            element.preferredWidth = size.x;
+            element.preferredHeight = size.y;
+            element.minWidth = size.x;
+            element.minHeight = size.y;
             var image = preview.gameObject.AddComponent<Image>();
             image.sprite = HomeUiFonts.Rounded(16);
             image.type = Image.Type.Sliced;
             image.color = PlaySettingsStyle.Palette.MapPreview;
+            image.preserveAspect = true;
             image.raycastTarget = false;
             return image;
         }
@@ -701,15 +712,45 @@ namespace Game.Client.Lobby
         {
             var rect = CreateRect("ApplyButton", footer);
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(PlaySettingsStyle.ApplyButtonWidth, PlaySettingsStyle.ApplyButtonHeight);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+
             var fill = rect.gameObject.AddComponent<Image>();
-            fill.sprite = HomeUiFonts.Rounded(10);
+            fill.sprite = HomeUiFonts.Rounded(PlaySettingsStyle.ApplyButtonRadius);
             fill.type = Image.Type.Sliced;
             fill.color = PlaySettingsStyle.Palette.ApplyFill;
+
+            var layout = rect.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(
+                Mathf.RoundToInt(PlaySettingsStyle.ApplyPaddingHorizontal),
+                Mathf.RoundToInt(PlaySettingsStyle.ApplyPaddingHorizontal),
+                Mathf.RoundToInt(PlaySettingsStyle.ApplyPaddingVertical),
+                Mathf.RoundToInt(PlaySettingsStyle.ApplyPaddingVertical));
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+
+            var fitter = rect.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = fill;
-            CreateBodyText(rect, "적용하기", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero).alignment =
-                TextAnchor.MiddleCenter;
+
+            var labelRect = CreateRect("Text", rect);
+            var labelElement = labelRect.gameObject.AddComponent<LayoutElement>();
+            labelElement.preferredHeight = PlaySettingsStyle.FontSize.Apply;
+            labelElement.minHeight = PlaySettingsStyle.FontSize.Apply;
+
+            var label = labelRect.gameObject.AddComponent<Text>();
+            label.text = "적용하기";
+            label.font = MediumFont();
+            label.fontSize = PlaySettingsStyle.FontSize.Apply;
+            label.color = PlaySettingsStyle.Palette.Text;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.raycastTarget = false;
+            ApplySingleLine(label);
             return button;
         }
 
@@ -729,19 +770,6 @@ namespace Game.Client.Lobby
             label.color = PlaySettingsStyle.Palette.Text;
             label.alignment = TextAnchor.UpperCenter;
             label.raycastTarget = false;
-        }
-
-        private void CreateHeaderText(RectTransform parent, string text)
-        {
-            var label = parent.gameObject.AddComponent<Text>();
-            label.text = text;
-            label.font = BodyFont();
-            label.fontSize = PlaySettingsStyle.FontSize.Body;
-            label.color = PlaySettingsStyle.Palette.Text;
-            label.alignment = TextAnchor.UpperLeft;
-            label.raycastTarget = false;
-            var rect = label.rectTransform;
-            Stretch(rect);
         }
 
         private Text CreateBodyText(
@@ -792,6 +820,8 @@ namespace Game.Client.Lobby
 
         private static Font bodyFont;
         private static Font headerFont;
+        private static Font extraBoldFont;
+        private static Font mediumFont;
         private static Sprite copyIcon;
         private static Sprite arrowLeftIcon;
         private static Sprite arrowRightIcon;
@@ -802,6 +832,28 @@ namespace Game.Client.Lobby
         private static Font HeaderFont() =>
             headerFont ??= Resources.Load<Font>(PlaySettingsStyle.HeaderFontResource)
             ?? BodyFont();
+
+        private static Font ExtraBoldFont() =>
+            extraBoldFont ??= Resources.Load<Font>(PlaySettingsStyle.GameStartFontResource)
+            ?? HeaderFont();
+
+        private static Font MediumFont()
+        {
+            if (mediumFont != null)
+            {
+                return mediumFont;
+            }
+
+            mediumFont = Resources.Load<Font>(PlaySettingsStyle.MediumFontResource);
+#if UNITY_EDITOR
+            if (mediumFont == null)
+            {
+                mediumFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(
+                    "Assets/_Game/Content/Fonts/Paperlogy-5Medium.ttf");
+            }
+#endif
+            return mediumFont ?? BodyFont();
+        }
 
         private static Sprite LoadCopyIcon()
         {

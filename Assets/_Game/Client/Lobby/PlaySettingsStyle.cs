@@ -19,12 +19,15 @@ namespace Game.Client.Lobby
         public const float RowHeight = 88f;
         public const float RowSpacing = 8f;
         public const float MapSectionHeight = 260f;
-        public const float ApplyButtonWidth = 270f;
-        public const float ApplyButtonHeight = 47f;
-        public const int LayoutVersion = 13;
+        public const float ApplyPaddingHorizontal = 80f;
+        public const float ApplyPaddingVertical = 11f;
+        public const int ApplyButtonRadius = 32;
+        public const int LayoutVersion = 16;
 
         public const string RegularFontResource = "Fonts/Paperlogy-4Regular";
+        public const string MediumFontResource = "Fonts/Paperlogy-5Medium";
         public const string HeaderFontResource = "Fonts/Paperlogy-9Black";
+        public const string GameStartFontResource = "Fonts/Paperlogy-8ExtraBold";
         public const string CopyIconResource = "UI/ic_copy";
         public const string ArrowLeftIconResource = "UI/Icon_Left";
         public const string ArrowRightIconResource = "UI/Icon_Right";
@@ -35,8 +38,7 @@ namespace Game.Client.Lobby
             public static readonly Color ScrollBackground = FromHex(0x0B1018, 1f);
             public static readonly Color Border = Color.white;
             public static readonly Color Text = Color.white;
-            public static readonly Color RowHover = FromHex(0xF5F3F1, 0.16f);
-            public static readonly Color MapPreview = FromHex(0x8E8E8E);
+            public static readonly Color MapPreview = FromHex(0x8E8E8E, 0.8f);
             public static readonly Color Underline = FromHex(0xF5F3F1, 0.5f);
             public static readonly Color ApplyFill = FromHex(0xFF7032);
             public static readonly Color Divider = FromHex(0xF5F3F1, 0.16f);
@@ -46,14 +48,26 @@ namespace Game.Client.Lobby
         public static class FontSize
         {
             public const int Header = 36;
+            public const int SectionTitle = 36;
             public const int Body = 28;
             public const int Counter = 24;
             public const int MapName = 18;
+            public const int Apply = 32;
+            public const int GameStart = 55;
+        }
+
+        public static class Overlay
+        {
+            public const int SortingOrder = 90;
+            public static readonly Color Scrim = new Color(0f, 0f, 0f, 200f / 255f);
+            public static readonly Vector2 GameStartPosition = new Vector2(-120f, 40f);
+            public static readonly Vector2 GameStartSize = new Vector2(400f, 80f);
         }
 
         public static class Layout
         {
-            public const float MapPreviewSize = 120f;
+            public const float RowRadius = 44f;
+            public static readonly Vector2 MapPreviewSize = new Vector2(200f, 150f);
             public const float MapSlotSize = 90f;
             public const float MapSlotSpacing = 12f;
             public const float ArrowSize = 24f;

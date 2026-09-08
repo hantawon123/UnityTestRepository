@@ -91,7 +91,7 @@ namespace Game.Client.Lobby
 
             if (mapNameText != null)
             {
-                mapNameText.text = selected.DisplayName;
+                mapNameText.text = selected.Label;
             }
 
             if (mapPreviewImage != null)

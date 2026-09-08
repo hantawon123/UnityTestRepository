@@ -35,6 +35,7 @@ namespace Game.Client.Lobby
             view.InviteRequested += Invite;
             view.CopyPasswordRequested += CopyPassword;
             view.SaveTitleRequested += SaveTitle;
+            view.StartRequested += StartMatch;
             pauseMenu.PlaySettingsClicked += Open;
             hostSubscription = hostSession.IsLocalHost.Subscribe(HandleHostChanged);
             settingsSubscription = hostSession.Settings.Subscribe(HandleSettingsChanged);
@@ -48,6 +49,7 @@ namespace Game.Client.Lobby
             view.InviteRequested -= Invite;
             view.CopyPasswordRequested -= CopyPassword;
             view.SaveTitleRequested -= SaveTitle;
+            view.StartRequested -= StartMatch;
             pauseMenu.PlaySettingsClicked -= Open;
             hostSubscription?.Dispose();
             settingsSubscription?.Dispose();
@@ -107,6 +109,22 @@ namespace Game.Client.Lobby
             isOpen = false;
             view.SetVisible(false);
             SetInteractionPromptVisible(true);
+        }
+
+        private void StartMatch()
+        {
+            if (!isOpen)
+            {
+                return;
+            }
+
+            Close();
+            if (isOpen)
+            {
+                return;
+            }
+
+            hostSession.RequestStart();
         }
 
         private static void SetInteractionPromptVisible(bool visible)

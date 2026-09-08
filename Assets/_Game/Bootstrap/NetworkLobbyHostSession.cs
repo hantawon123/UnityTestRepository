@@ -145,7 +145,9 @@ namespace Game.Bootstrap
                         draft.DestructionLimit));
             var mapId = MapCatalog.Contains(draft.MapId)
                 ? draft.MapId.Trim()
-                : settings.CurrentValue.MapId;
+                : string.IsNullOrWhiteSpace(draft.MapId)
+                    ? MapCatalog.PickRandom()
+                    : settings.CurrentValue.MapId;
             var applied = new PlaySettingsDraft(
                 draft.Title,
                 draft.RoomCode,

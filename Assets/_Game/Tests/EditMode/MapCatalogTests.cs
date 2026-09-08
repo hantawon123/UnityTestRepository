@@ -15,6 +15,7 @@ namespace Game.Tests.EditMode
             Assert.That(MapCatalog.Contains("unknown"), Is.False);
             Assert.That(LobbyMapCatalog.Maps.Count, Is.EqualTo(MapCatalog.MapIds.Count));
             Assert.That(LobbyMapCatalog.Maps[0].Id, Is.EqualTo(MapCatalog.PlaygroundId));
+            Assert.That(MapCatalog.PickRandom(), Is.EqualTo(MapCatalog.PlaygroundId));
         }
     }
 }

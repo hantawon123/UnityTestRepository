@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
-using Game.Client.Character;
 using Game.Client.Home;
 using Game.Client.Rooms;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
+using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 namespace Game.Client.Lobby
@@ -18,6 +19,7 @@ namespace Game.Client.Lobby
         event Action InviteRequested;
         event Action CopyPasswordRequested;
         event Action SaveTitleRequested;
+        event Action StartRequested;
 
         void SetVisible(bool visible);
         void SetEditable(bool editable);
@@ -64,8 +66,11 @@ namespace Game.Client.Lobby
         private Button destructionPlusButton;
 
         private GameObject overlayRoot;
+        private TextMeshProUGUI gameStartLabel;
+        private Button gameStartButton;
 
-        private static readonly float[] SprintOptions = { 0.5f, 1f, 1.5f, 2f, 3f };        private readonly List<Text> ruleValues = new();
+        private static readonly float[] SprintOptions = { 0.5f, 1f, 1.5f, 2f, 3f };
+        private readonly List<Text> ruleValues = new();
         private readonly List<Button> ruleMinus = new();
         private readonly List<Button> rulePlus = new();
 
@@ -78,8 +83,9 @@ namespace Game.Client.Lobby
         private int selectedMapIndex;
         private bool editable;
         private MatchRuleSettings matchRules = MatchRuleSettings.Default;
-        private IReadOnlyList<LobbyMapOption> maps = LobbyMapCatalog.Maps;
+        private IReadOnlyList<PlaySettingsMapOption> maps = PlaySettingsMapCatalog.All;
         private readonly Dictionary<Button, UnityEngine.Events.UnityAction> boundActions = new();
+        private int openedOnFrame = int.MinValue;
 
         public event Action OpenRequested;
         public event Action CloseRequested;
@@ -87,6 +93,7 @@ namespace Game.Client.Lobby
         public event Action InviteRequested;
         public event Action CopyPasswordRequested;
         public event Action SaveTitleRequested;
+        public event Action StartRequested;
 
         private void OnEnable()
         {
@@ -96,6 +103,7 @@ namespace Game.Client.Lobby
             if (titleInput != null) titleInput.onValueChanged.AddListener(OnTitleChanged);
             Bind(openButton, () => OpenRequested?.Invoke());
             Bind(closeButton, RequestClose);
+            Bind(gameStartButton, RequestStart);
             Bind(copyRoomCodeButton, () => CopyRoomCodeRequested?.Invoke());
             Bind(applyButton, RequestClose);
             Bind(maxPlayersMinusButton, () => SetMaxPlayers(maxPlayers - 1));
@@ -116,6 +124,7 @@ namespace Game.Client.Lobby
             Unbind(applyButton);
             Unbind(openButton);
             Unbind(closeButton);
+            Unbind(gameStartButton);
             Unbind(copyRoomCodeButton);
             Unbind(maxPlayersMinusButton);
             Unbind(maxPlayersPlusButton);
@@ -126,6 +135,25 @@ namespace Game.Client.Lobby
             UnbindMapSlots();
             Unbind(categoryPrevButton);
             Unbind(categoryNextButton);
+        }
+
+        private void Update()
+        {
+            if (overlayRoot == null || !overlayRoot.activeInHierarchy)
+            {
+                return;
+            }
+
+            if (Time.frameCount <= openedOnFrame)
+            {
+                return;
+            }
+
+            var keyboard = Keyboard.current;
+            if (keyboard != null && keyboard.fKey.wasPressedThisFrame)
+            {
+                RequestClose();
+            }
         }
 
         public void SetVisible(bool visible)
@@ -143,9 +171,11 @@ namespace Game.Client.Lobby
             }
 
             SetBackButtonVisible(visible);
-
+            SetGameStartLabelVisible(visible);
             if (visible)
             {
+                openedOnFrame = Time.frameCount;
+                BringOverlayForward();
                 RebuildSettingsScrollLayout();
                 EnsureMapUiReady();
 
@@ -175,6 +205,11 @@ namespace Game.Client.Lobby
         public void RequestClose()
         {
             if (!editable || RoomSettings.IsValidTitle(ReadDraft().Title)) CloseRequested?.Invoke();
+        }
+
+        private void RequestStart()
+        {
+            if (!editable || RoomSettings.IsValidTitle(ReadDraft().Title)) StartRequested?.Invoke();
         }
 
         public void SetEditable(bool value)
@@ -223,7 +258,11 @@ namespace Game.Client.Lobby
                     draft.DestructionLimit,
                     PlaySettingsDraft.MinDestructionLimit,
                     PlaySettingsDraft.MaxDestructionLimit);
-            selectedMapIndex = LobbyMapCatalog.IndexOf(draft.MapId);
+            selectedMapIndex = PlaySettingsMapCatalog.IndexOf(draft.MapId);
+            if (selectedMapIndex < 0)
+            {
+                selectedMapIndex = PlaySettingsMapCatalog.DefaultIndex;
+            }
 
             if (titleText != null)
             {
@@ -483,6 +522,14 @@ namespace Game.Client.Lobby
                     ? panelTransform.parent.parent as RectTransform
                     : null;
                 RemoveDuplicateOverlays(dedupeRoot, overlayRoot);
+                if (dedupeRoot != null && overlayRoot != null)
+                {
+                    var adoptedOverlay = (RectTransform)overlayRoot.transform;
+                    StyleBackButton(adoptedOverlay);
+                    EnsureGameStartLabel(dedupeRoot, adoptedOverlay);
+                    BringOverlayForward();
+                }
+
                 return;
             }
 
@@ -501,33 +548,34 @@ namespace Game.Client.Lobby
             if (existing != null)
             {
                 overlayRoot = existing.gameObject;
-                RemoveLegacyBackdrop(existing);
+                EnsureOverlayScrim(existing);
                 panelTransform.SetParent(existing, false);
                 RemoveDuplicateOverlays(hudRoot, overlayRoot);
-                StyleBackButton(hudRoot, existing);
+                StyleBackButton(existing);
+                EnsureGameStartLabel(hudRoot, existing);
                 overlayRoot.SetActive(panel.activeSelf);
                 SetBackButtonVisible(overlayRoot.activeSelf);
+                SetGameStartLabelVisible(overlayRoot.activeSelf);
                 return;
             }
 
             RemoveDuplicateOverlays(hudRoot, null);
 
             overlayRoot = new GameObject("PlaySettingsOverlay", typeof(RectTransform));
-            var overlayRect = (RectTransform)overlayRoot.transform;
-            overlayRect.SetParent(hudRoot, false);
-            overlayRect.SetSiblingIndex(panelTransform.GetSiblingIndex());
-            StretchRect(overlayRect);
+            var createdOverlay = (RectTransform)overlayRoot.transform;
+            createdOverlay.SetParent(hudRoot, false);
+            createdOverlay.SetSiblingIndex(panelTransform.GetSiblingIndex());
+            StretchRect(createdOverlay);
 
-            var dimGo = new GameObject("Dim", typeof(RectTransform), typeof(Image));
-            dimGo.transform.SetParent(overlayRect, false);
-            StretchRect(dimGo.GetComponent<RectTransform>());
-            dimGo.GetComponent<Image>().color = CharacterClosetStyle.Palette.Dim;
+            EnsureOverlayScrim(createdOverlay);
 
-            panelTransform.SetParent(overlayRect, false);
-            StyleBackButton(hudRoot, overlayRect);
+            panelTransform.SetParent(createdOverlay, false);
+            StyleBackButton(createdOverlay);
+            EnsureGameStartLabel(hudRoot, createdOverlay);
 
             overlayRoot.SetActive(panel.activeSelf);
             SetBackButtonVisible(overlayRoot.activeSelf);
+            SetGameStartLabelVisible(overlayRoot.activeSelf);
         }
 
         private bool TryAdoptOverlay(RectTransform panelTransform)
@@ -536,16 +584,16 @@ namespace Game.Client.Lobby
             if (parent != null && parent.name == "PlaySettingsOverlay")
             {
                 overlayRoot = parent.gameObject;
-                RemoveLegacyBackdrop(parent);
+                EnsureOverlayScrim(parent);
                 return true;
             }
 
             return false;
         }
 
-        private static void RemoveLegacyBackdrop(RectTransform overlayRect)
+        private static void RemoveLegacyBackdrop(RectTransform overlayTransform)
         {
-            var legacy = overlayRect.Find("Backdrop");
+            var legacy = overlayTransform.Find("Backdrop");
             if (legacy == null)
             {
                 return;
@@ -558,6 +606,69 @@ namespace Game.Client.Lobby
             else
             {
                 UnityEngine.Object.DestroyImmediate(legacy.gameObject);
+            }
+        }
+
+        private static void EnsureOverlayScrim(RectTransform overlayTransform)
+        {
+            RemoveLegacyBackdrop(overlayTransform);
+            EnsureOverlayCanvas(overlayTransform);
+
+            var dimTransform = overlayTransform.Find("Dim") as RectTransform;
+            if (dimTransform == null)
+            {
+                var dimGo = new GameObject("Dim", typeof(RectTransform), typeof(Image));
+                dimTransform = dimGo.GetComponent<RectTransform>();
+                dimTransform.SetParent(overlayTransform, false);
+                StretchRect(dimTransform);
+            }
+
+            dimTransform.SetSiblingIndex(0);
+            var dimImage = dimTransform.GetComponent<Image>();
+            dimImage.color = PlaySettingsStyle.Overlay.Scrim;
+            dimImage.raycastTarget = true;
+        }
+
+        private static void EnsureOverlayCanvas(RectTransform overlayTransform)
+        {
+            if (overlayTransform == null)
+            {
+                return;
+            }
+
+            var canvas = overlayTransform.GetComponent<Canvas>();
+            if (canvas == null)
+            {
+                canvas = overlayTransform.gameObject.AddComponent<Canvas>();
+            }
+
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = PlaySettingsStyle.Overlay.SortingOrder;
+
+            if (overlayTransform.GetComponent<GraphicRaycaster>() == null)
+            {
+                overlayTransform.gameObject.AddComponent<GraphicRaycaster>();
+            }
+        }
+
+        private void BringOverlayForward()
+        {
+            if (overlayRoot == null)
+            {
+                return;
+            }
+
+            var overlayTransform = (RectTransform)overlayRoot.transform;
+            EnsureOverlayCanvas(overlayTransform);
+            overlayTransform.SetAsLastSibling();
+            if (closeButton != null)
+            {
+                closeButton.transform.SetAsLastSibling();
+            }
+
+            if (gameStartLabel != null)
+            {
+                gameStartLabel.transform.SetAsLastSibling();
             }
         }
 
@@ -587,16 +698,15 @@ namespace Game.Client.Lobby
             }
         }
 
-        private void StyleBackButton(RectTransform hudRoot, RectTransform overlay)
+        private void StyleBackButton(RectTransform overlay)
         {
-            if (closeButton == null || hudRoot == null)
+            if (closeButton == null || overlay == null)
             {
                 return;
             }
 
             var rect = closeButton.GetComponent<RectTransform>();
-            rect.SetParent(hudRoot, false);
-            rect.SetSiblingIndex(overlay.GetSiblingIndex() + 1);
+            rect.SetParent(overlay, false);
             rect.anchorMin = new Vector2(0f, 1f);
             rect.anchorMax = new Vector2(0f, 1f);
             rect.pivot = new Vector2(0f, 1f);
@@ -638,6 +748,104 @@ namespace Game.Client.Lobby
             if (visible)
             {
                 closeButton.transform.SetAsLastSibling();
+            }
+        }
+
+        private void EnsureGameStartLabel(RectTransform hudRoot, RectTransform overlay)
+        {
+            if (overlay == null)
+            {
+                return;
+            }
+
+            if (gameStartLabel == null)
+            {
+                var existing = overlay.Find("GameStartLabel") ?? hudRoot?.Find("GameStartLabel");
+                if (existing != null)
+                {
+                    gameStartLabel = existing.GetComponent<TextMeshProUGUI>();
+                }
+
+                if (gameStartLabel == null)
+                {
+                    CreateGameStartLabel(overlay);
+                }
+            }
+
+            if (gameStartLabel != null)
+            {
+                gameStartLabel.transform.SetParent(overlay, false);
+            }
+
+            EnsureGameStartButton();
+        }
+
+        private void CreateGameStartLabel(RectTransform overlay)
+        {
+            var labelGo = new GameObject("GameStartLabel", typeof(RectTransform));
+            var rect = labelGo.GetComponent<RectTransform>();
+            rect.SetParent(overlay, false);
+            rect.anchorMin = new Vector2(1f, 0f);
+            rect.anchorMax = new Vector2(1f, 0f);
+            rect.pivot = new Vector2(1f, 0f);
+            rect.anchoredPosition = PlaySettingsStyle.Overlay.GameStartPosition;
+            rect.sizeDelta = PlaySettingsStyle.Overlay.GameStartSize;
+
+            gameStartLabel = labelGo.AddComponent<TextMeshProUGUI>();
+            var font = HomeUiFonts.ApplyExtraBold();
+            if (font != null)
+            {
+                gameStartLabel.font = font;
+                if (font.material != null)
+                {
+                    gameStartLabel.fontSharedMaterial = font.material;
+                }
+            }
+
+            gameStartLabel.fontSize = PlaySettingsStyle.FontSize.GameStart;
+            gameStartLabel.text = "게임시작";
+            gameStartLabel.alignment = TextAlignmentOptions.BottomRight;
+            gameStartLabel.color = Color.white;
+            gameStartLabel.raycastTarget = false;
+            gameStartLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            gameStartLabel.overflowMode = TextOverflowModes.Overflow;
+            labelGo.SetActive(false);
+        }
+
+        private void EnsureGameStartButton()
+        {
+            if (gameStartLabel == null)
+            {
+                return;
+            }
+
+            gameStartLabel.raycastTarget = true;
+            gameStartButton = gameStartLabel.GetComponent<Button>();
+            if (gameStartButton == null)
+            {
+                gameStartButton = gameStartLabel.gameObject.AddComponent<Button>();
+            }
+
+            if (gameStartButton == null)
+            {
+                return;
+            }
+
+            gameStartButton.targetGraphic = gameStartLabel;
+            gameStartButton.transition = Selectable.Transition.None;
+        }
+
+        private void SetGameStartLabelVisible(bool visible)
+        {
+            if (gameStartLabel == null)
+            {
+                return;
+            }
+
+            gameStartLabel.gameObject.SetActive(visible);
+            if (visible)
+            {
+                gameStartLabel.transform.SetAsLastSibling();
             }
         }
 

@@ -86,6 +86,38 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Host_StartRequested_ClosesThenRequestsStart()
+        {
+            using var session = new HostSession();
+            session.SetLocalHost(true);
+            var view = new SettingsView();
+            var menu = new PauseView();
+            using var presenter = new PlaySettingsPresenter(session, view, menu);
+            presenter.Start();
+            menu.OpenSettings();
+            view.Draft = Draft(4);
+            view.RequestStart();
+            Assert.That(view.Visible, Is.False);
+            Assert.That(session.ApplyCount, Is.EqualTo(1));
+            Assert.That(session.StartCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Guest_StartRequested_ClosesWithoutStarting()
+        {
+            using var session = new HostSession();
+            session.SetLocalHost(false);
+            var view = new SettingsView();
+            var menu = new PauseView();
+            using var presenter = new PlaySettingsPresenter(session, view, menu);
+            presenter.Start();
+            menu.OpenSettings();
+            view.RequestStart();
+            Assert.That(view.Visible, Is.False);
+            Assert.That(session.StartCount, Is.Zero);
+        }
+
+        [Test]
         public void Host_RepeatedOpenPreservesEdit_AndRepeatedCloseAppliesOnce()
         {
             using var session = new HostSession();
@@ -258,13 +290,22 @@ namespace Game.Tests.EditMode
             public ReadOnlyReactiveProperty<bool> IsLocalHost => host;
             public ReadOnlyReactiveProperty<PlaySettingsDraft> Settings => settings;
             public int ApplyCount;
+            public int StartCount;
             public event Action StartRequested { add { } remove { } }
             public event Action<string> KickRequested { add { } remove { } }
             public event Action<string> HostTransferRequested { add { } remove { } }
             public event Action<PlaySettingsDraft> SettingsApplyRequested { add { } remove { } }
             public void SetLocalHost(bool value) => host.Value = value;
             public void ReplaceSettings(PlaySettingsDraft value) => settings.Value = value;
-            public void RequestStart() { }
+            public void RequestStart()
+            {
+                if (!host.CurrentValue)
+                {
+                    return;
+                }
+
+                StartCount++;
+            }
             public void RequestKick(string id) { }
             public void RequestHostTransfer(string id) { }
             public void RequestApplySettings(PlaySettingsDraft value) { ApplyCount++; settings.Value = value; }
@@ -283,7 +324,9 @@ namespace Game.Tests.EditMode
             public event Action InviteRequested { add { } remove { } }
             public event Action CopyPasswordRequested { add { } remove { } }
             public event Action SaveTitleRequested;
+            public event Action StartRequested;
             public void SaveTitle() => SaveTitleRequested?.Invoke();
+            public void RequestStart() => StartRequested?.Invoke();
             public void SetVisible(bool value) => Visible = value;
             public void SetEditable(bool value) => Editable = value;
             public void SetDraft(PlaySettingsDraft value) => Draft = value;
