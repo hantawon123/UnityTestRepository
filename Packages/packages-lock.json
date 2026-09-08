@@ -16,6 +16,13 @@
       "dependencies": {},
       "hash": "2e993ff18f28c931602a07292df0b0804eebef99"
     },
+    "com.endel.nativewebsocket": {
+      "version": "https://github.com/endel/NativeWebSocket.git#upm-2",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "c612a4fef60f2ae57614b73202d2d261ba56aa3e"
+    },
     "com.github-glitchenzo.nugetforunity": {
       "version": "https://github.com/GlitchEnzo/NuGetForUnity.git?path=/src/NuGetForUnity#v4.5.0",
       "depth": 0,

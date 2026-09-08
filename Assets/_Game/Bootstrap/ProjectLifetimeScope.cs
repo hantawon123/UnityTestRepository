@@ -179,17 +179,19 @@ namespace Game.Bootstrap
         /// </remarks>
         private static void RegisterBackend(IContainerBuilder builder, string baseUrl)
         {
-            var client = new BackendClient(
-                new UnityWebRequestTransport(),
-                new BackendEndpoint(baseUrl),
-                new BackendSession(DeviceIdentity.Current()));
+            var endpoint = new BackendEndpoint(baseUrl);
+            var session = new BackendSession(DeviceIdentity.Current());
+            var client = new BackendClient(new UnityWebRequestTransport(), endpoint, session);
+
+            // First, because the presence gateway sends over it when it is up.
+            var frames = RegisterNotifications(builder, endpoint, session);
 
             // The client itself is not registered. Nothing above this line has a
             // reason to hold it, and a container that hands it out is one where
             // a presenter can send its own request and skip the ports entirely.
             builder.RegisterInstance<IAccountGateway>(new AccountGateway(client));
             builder.RegisterInstance<IFriendGateway>(new FriendGateway(client));
-            builder.RegisterInstance<IPresenceGateway>(new PresenceGateway(client));
+            builder.RegisterInstance<IPresenceGateway>(new PresenceGateway(client, frames));
             builder.RegisterInstance<IInviteGateway>(new InviteGateway(client));
             builder.RegisterInstance<IReportGateway>(new ReportGateway(client));
 
@@ -209,6 +211,54 @@ namespace Game.Bootstrap
             // remembers. Registered beside it rather than in RegisterServices,
             // because without an account there is nothing to remember.
             builder.RegisterEntryPoint<AvatarAppearanceSeed>();
+        }
+
+        /// <summary>
+        /// Registers the realtime channel, or a silent stand-in when the socket
+        /// package is not in this build.
+        /// </summary>
+        /// <remarks>
+        /// Two branches so that <see cref="INotificationStream"/> always resolves.
+        /// The screens that subscribe to it should not each have to ask whether
+        /// there is a channel; with the stand-in they simply never hear anything,
+        /// which is what they heard before the channel existed.
+        /// <para>
+        /// The define is set by this assembly's versionDefines when
+        /// com.endel.nativewebsocket resolves. Without it the adapter is not
+        /// compiled at all, which is also what keeps <c>dotnet build</c> — which
+        /// never sees Unity packages — building the rest of the assembly.
+        /// </para>
+        /// </remarks>
+        /// <returns>
+        /// The sender the presence gateway puts its frames through. Returned
+        /// rather than resolved so the gateway, which is built by hand above, can
+        /// be handed the same instance the container holds.
+        /// </returns>
+        private static INotificationFrameSender RegisterNotifications(
+            IContainerBuilder builder, BackendEndpoint endpoint, BackendSession session)
+        {
+#if NATIVEWEBSOCKET_PRESENT
+            var transport = new NativeWebSocketTransport(endpoint.TimeoutSeconds);
+            builder.RegisterInstance(transport).As<IWebSocketTransport>().As<ITickable>();
+
+            var stream = new WebSocketNotificationStream(transport, endpoint, session);
+            builder.RegisterInstance(stream)
+                .As<INotificationStream>()
+                .As<INotificationFrameSender>()
+                .AsSelf();
+
+            builder.RegisterEntryPoint<NotificationLink>();
+            return stream;
+#else
+            Debug.LogWarning(
+                "[Notifications] NativeWebSocket is not in this build. Realtime notifications are off; "
+                + "lists refresh when opened, as before.");
+            var silent = new SilentNotificationStream();
+            builder.RegisterInstance(silent)
+                .As<INotificationStream>()
+                .As<INotificationFrameSender>();
+            return silent;
+#endif
         }
 
         /// <param name="networkPrefabs">
@@ -321,6 +371,7 @@ namespace Game.Bootstrap
                         c.Resolve<ServerRegionSystem>()),
                     Lifetime.Singleton)
                 .AsSelf()
+                .As<IRoomSessionProbe>()
                 .As<INetworkMatchRuntimeSource>()
                 .As<INetworkMatchAuthority>()
                 .As<INetworkMatchEvents>()

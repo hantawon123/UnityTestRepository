@@ -37,6 +37,7 @@ namespace Game.Network.Session
     /// </remarks>
     public sealed partial class NetworkRunnerService :
         INetworkRunnerCallbacks,
+        IRoomSessionProbe,
         IMatchSceneDirector,
         INetworkMatchRuntimeSource,
         INetworkPlayerReplayStateSource,

@@ -6,6 +6,7 @@ using Cysharp.Threading.Tasks;
 using Game.Backend;
 using Game.Core.Backend;
 using Game.Core.Home;
+using Game.Core.Ports;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -259,30 +260,127 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public async Task AnOnlineHeartbeatOmitsTheSessionEntirely()
+        public async Task OutOfARoom_TheRestReportOmitsTheSessionEntirely()
         {
             var transport = new FakeTransport();
             var client = SignedIn(transport, out _);
             transport.Answer(204, string.Empty);
 
-            await new PresenceGateway(client).ReportAsync(null, CancellationToken.None);
+            await new PresenceGateway(client, new FakeFrameSender())
+                .ReportAsync(null, RoomSessionKind.Lobby, CancellationToken.None);
 
-            // The server reads a present sessionId as being in a game, and
+            // The server reads a present sessionId as being in a room, and
             // JsonUtility writes a null string as "". Sending the field at all
-            // would report this player into a room with no name.
+            // would report this player into a room with no name. The kind is
+            // dropped with it: out of a room there is nothing to be either of.
             Assert.That(transport.LastCall.JsonBody, Is.EqualTo("{}"));
         }
 
         [Test]
-        public async Task AnInGameHeartbeatCarriesTheRoom()
+        public async Task InARoom_TheRestReportCarriesTheRoomAndItsKind()
         {
             var transport = new FakeTransport();
             var client = SignedIn(transport, out _);
+            var presence = new PresenceGateway(client, new FakeFrameSender());
+
             transport.Answer(204, string.Empty);
+            await presence.ReportAsync("room-7", RoomSessionKind.Lobby, CancellationToken.None);
+            Assert.That(transport.LastCall.JsonBody, Is.EqualTo("{\"sessionId\":\"room-7\",\"sessionKind\":\"LOBBY\"}"));
 
-            await new PresenceGateway(client).ReportAsync("room-7", CancellationToken.None);
+            // Same room, now a match. The room code cannot show it; only the kind can.
+            transport.Answer(204, string.Empty);
+            await presence.ReportAsync("room-7", RoomSessionKind.Match, CancellationToken.None);
+            Assert.That(transport.LastCall.JsonBody, Is.EqualTo("{\"sessionId\":\"room-7\",\"sessionKind\":\"MATCH\"}"));
+        }
 
-            Assert.That(transport.LastCall.JsonBody, Is.EqualTo("{\"sessionId\":\"room-7\"}"));
+        [Test]
+        public async Task WhileTheLinkIsUp_TheReportGoesAsAFrameAndNoRequestIsMade()
+        {
+            var transport = new FakeTransport();
+            var client = SignedIn(transport, out _);
+            var frames = new FakeFrameSender { Connected = true };
+
+            var result = await new PresenceGateway(client, frames)
+                .ReportAsync("room-7", RoomSessionKind.Match, CancellationToken.None);
+
+            Assert.That(result.Ok, Is.True);
+            Assert.That(transport.Calls, Is.Empty);
+            Assert.That(frames.Sent.Count, Is.EqualTo(1));
+            Assert.That(frames.Sent[0], Is.EqualTo("{\"type\":\"PRESENCE\",\"sessionId\":\"room-7\",\"sessionKind\":\"MATCH\"}"));
+        }
+
+        [Test]
+        public async Task OutOfARoom_TheFrameCarriesOnlyItsType()
+        {
+            var transport = new FakeTransport();
+            var client = SignedIn(transport, out _);
+            var frames = new FakeFrameSender { Connected = true };
+
+            await new PresenceGateway(client, frames)
+                .ReportAsync(null, RoomSessionKind.Lobby, CancellationToken.None);
+
+            // The server reads a blank sessionId in a frame as out of a room, but
+            // the shape is kept identical to the REST body so the two wires can
+            // never disagree about what "out of a room" looks like.
+            Assert.That(frames.Sent[0], Is.EqualTo("{\"type\":\"PRESENCE\"}"));
+        }
+
+        [Test]
+        public async Task WhenTheLinkDrops_TheSameReportFallsBackToRest()
+        {
+            var transport = new FakeTransport();
+            var client = SignedIn(transport, out _);
+            var frames = new FakeFrameSender { Connected = true };
+            var presence = new PresenceGateway(client, frames);
+            await presence.ReportAsync("room-7", RoomSessionKind.Lobby, CancellationToken.None);
+
+            frames.Connected = false;
+            transport.Answer(204, string.Empty);
+            var result = await presence.ReportAsync("room-7", RoomSessionKind.Match, CancellationToken.None);
+
+            Assert.That(result.Ok, Is.True);
+            Assert.That(frames.Sent.Count, Is.EqualTo(1), "nothing more went to the socket");
+            Assert.That(transport.LastCall.Method, Is.EqualTo(HttpMethod.Put));
+            Assert.That(transport.LastCall.JsonBody, Does.Contain("\"sessionKind\":\"MATCH\""));
+        }
+
+        [Test]
+        public async Task ALobbyPresenceIsReadAsInLobby()
+        {
+            var transport = new FakeTransport();
+            var client = SignedIn(transport, out _);
+            transport.Answer(200,
+                "{\"friends\":[{\"userId\":\"a\",\"nickname\":\"가\",\"presence\":\"IN_LOBBY\"}]}");
+
+            var result = await new FriendGateway(client).ListFriendsAsync(CancellationToken.None);
+
+            // Not folded into InGame and not dropped to Offline. The server tells
+            // the lobby from the match so the screen can, and a friend waiting in
+            // a lobby is online in every sense that matters to the list.
+            Assert.That(result.Value[0].Presence, Is.EqualTo(FriendPresence.InLobby));
+            Assert.That(result.Value[0].IsOnline, Is.True);
+        }
+
+        /// <summary>
+        /// The notification socket as the presence gateway sees it: up or down,
+        /// and a record of what was handed to it.
+        /// </summary>
+        private sealed class FakeFrameSender : INotificationFrameSender
+        {
+            public readonly List<string> Sent = new List<string>();
+
+            public bool Connected { get; set; }
+
+            public bool TrySend(string json)
+            {
+                if (!Connected)
+                {
+                    return false;
+                }
+
+                Sent.Add(json);
+                return true;
+            }
         }
 
         [Test]
