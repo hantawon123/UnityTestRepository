@@ -93,15 +93,18 @@
 
 ## 6. 아바타 세우기 — Result 씬 통합 (731, 2026-09-08)
 
-- **방식**: 하이라이트 리플레이가 쓰는 `ReplayVisual`로 각 플레이어의 **실제 아바타 렌더러·애니메이터를 복제**해 무대 자리에 세운다. 외형(탈·색)이 그대로 따라오고 네트워크 트랜스폼은 건드리지 않는다. 결과 화면이 끝나면 복제본을 지워 원본이 다시 보이므로 뒤따르는 리플레이에 영향 없음.
-- **Result 씬**: 에디터 메뉴 `Game/Ending/1. Place Ending Stage In Result Scene`이 `EndingStage` 루트(y -300, 인게임 맵과 겹치지 않게)에 환경 프리팹 + `EndingCamera`(depth 5, 인게임 카메라 0 위에 덮음, FOV 40.4, PP·SMAA) + `Visuals` 컨테이너를 놓고 `ResultLifetimeScope.endingStage`에 연결한다. 기존 결과 문구 캔버스(ScreenSpaceOverlay, sortingOrder 100)는 그 위에 그대로 얹힌다.
+- **방식 (2차 확정)**: 호스트(권한자)가 숨기기 스폰과 같은 경로 `NetworkRunnerService.TryTeleportPlayer`로 **실제 아바타를 무대 자리로 텔레포트**한다. 위치는 Fusion이 전원에 동기화. 철창·벽 콜라이더가 실제로 가두고, 걸어 다니는 모습이 고정 카메라에 보인다.
+  - 1차는 리플레이의 `ReplayVisual` 복제본을 세우는 방식이었으나, 진짜 플레이어는 인게임 맵에 남아 "갇힘"을 확인할 수 없어 폐기(2026-09-08).
+  - 이동은 허용(가둠을 체감), 물건 상호작용(`PlayerInteractor.IsInputLocked`)만 잠금. 클라이언트는 카메라 전환과 문구 배경 끄기만 담당.
+  - 결과가 끝나면 하이라이트가 복제본으로 재생되고, 로비 로드 시 스폰 재배치가 아바타를 되돌린다.
+- **Result 씬**: 에디터 메뉴 `Game/Ending/1. Place Ending Stage In Result Scene`이 `EndingStage` 루트(y -300, 인게임 맵과 겹치지 않게)에 환경 프리팹 + `EndingCamera`(depth 5, 인게임 카메라 0 위에 덮음, FOV 40.4, PP·SMAA) + `Visuals` 컨테이너를 놓고 `ResultLifetimeScope.endingStage`에 연결한다. 기존 결과 문구 캔버스(ScreenSpaceOverlay, sortingOrder 100)는 그 위에 얹힌다.
 - **코드**
   - `EndingStageLayout`(Core): 참가자 + 승자 명단 → (탈출 여부, 자리 번호). 플레이어 번호 순, 자리 부족 시 마지막 자리 재사용. 단위 테스트 `EndingStageLayoutTests`.
-  - `EndingStage`(Client): 카메라·앵커·스폰 루트·복제본 컨테이너 참조, `ShowCamera/HideCamera/Slot`.
-  - `EndingStagePresenter`(Bootstrap): 결과 도착 여부(`NetworkResultLobbyReturnController.HasMatchResult`, `LastWinnerPlayerIndices` 추가)와 참가자 명단으로 배치, `PlayerAvatar`를 PlayerId로 찾아 복제. 결과가 늦게 오는 클라이언트를 위해 Tick에서 재시도.
+  - `EndingStage`(Client): 카메라·앵커·스폰 루트 참조, `ShowCamera/HideCamera/Slot`.
+  - `EndingStagePresenter`(Bootstrap): 호스트에서 결과(`NetworkResultLobbyReturnController.HasMatchResult`, `LastWinnerPlayerIndices`)와 참가자 명단으로 배치 후 텔레포트, 실패한 플레이어는 Tick에서 재시도. 전원 완료 시 `[Ending] Staged N of M players (escaped K)` 로그.
   - `ResultLifetimeScope`: 카메라·조명 끄기에서 무대 하위는 예외. 무대가 없으면 기존 텍스트 전용 흐름 그대로.
-- **미리보기**: `Game/Ending/2. Preview Avatars In Active Scene`이 조립 씬 스폰 12자리에 `PlayerCharacter` 복제본을 세운다(저장하지 말고 3번으로 정리). 결과 `ending-stage-preview-v1.png`: 탈출자 6은 철창을 보고(등이 카메라), 체포자 6은 철창 안에서 카메라를 본다. 실제로는 합쳐서 최대 6명.
-- **남은 것**: 실제 매치 종료로 E2E 확인(콘솔 `[Ending] Staged N of M players`), Celebrate/Dejected 애니메이션(현재 Idle), 노출 시간 5초 조정, 조명 베이크.
+- **미리보기**: `Game/Ending/2. Preview Avatars In Active Scene`이 조립 씬 스폰 12자리에 `PlayerCharacter` 복제본을 세운다(저장하지 말고 3번으로 정리). `ending-stage-preview-v1.png`.
+- **남은 것**: Celebrate/Dejected 애니메이션(현재 Idle·이동), 조명 톤·베이크.
 
 ## 7. 첫 E2E 테스트와 수정 (2026-09-08)
 
