@@ -23,6 +23,17 @@ def write_atomic(path, content):
     os.replace(staging, path)
 
 
+def validate_build(directory, sha):
+    if (directory / 'version.txt').read_text().strip() != sha:
+        raise ValueError('Build version does not match the release commit')
+    if not (directory / 'index.html').is_file():
+        raise ValueError('Missing WebGL entry point')
+    for suffix in ('.wasm.gz', '.data.gz', '.framework.js.gz', '.loader.js'):
+        if not any(path.is_file() and path.stat().st_size > 0
+                   for path in (directory / 'Build').glob('*' + suffix)):
+            raise ValueError('Missing or empty WebGL build artifact: ' + suffix)
+
+
 def publish(root, sha, sequence=None, source=None):
     sha = revision(sha)
     root = Path(root).resolve()
@@ -39,13 +50,7 @@ def publish(root, sha, sequence=None, source=None):
         destination = releases / sha
         if source is not None:
             source = Path(source).resolve()
-            if (source / 'version.txt').read_text().strip() != sha:
-                raise ValueError('Build version does not match the release commit')
-            if not (source / 'index.html').is_file():
-                raise ValueError('Missing WebGL entry point')
-            for suffix in ('.wasm.gz', '.data.gz', '.framework.js.gz', '.loader.js'):
-                if not any((source / 'Build').glob('*' + suffix)):
-                    raise ValueError('Missing WebGL build artifact: ' + suffix)
+            validate_build(source, sha)
             if not destination.exists():
                 with tempfile.TemporaryDirectory(dir=releases, prefix='.staging-') as temporary:
                     staged = Path(temporary) / 'release'
@@ -65,6 +70,8 @@ def publish(root, sha, sequence=None, source=None):
                     staged.rename(destination)
         elif not (destination / 'index.html').is_file():
             raise ValueError('Rollback target is not a published release')
+        # Existing immutable releases must still be complete before selecting them.
+        validate_build(destination, sha)
         site = root / 'site'
         site.mkdir(exist_ok=True)
         write_atomic(site / 'index.html', Path(__file__).with_name('index.html').read_bytes())

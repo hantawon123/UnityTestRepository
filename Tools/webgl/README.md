@@ -56,6 +56,9 @@ PC 렌더링 효과를 유지한 상태에서 빌드 시간과 셰이더 변형 
 python3 Tools/webgl/test_changes.py
 bash Tools/webgl/test_build.sh
 python3 Tools/webgl/test_publish.py
+
+# 업데이트 알림은 사용자 확인 전 페이지를 이동시키지 않는지 검사 (Node.js)
+node Tools/webgl/test_release_info.cjs
 ```
 
 ## 재개 이력
@@ -129,7 +132,9 @@ python3 Tools/webgl/test_publish.py
 - 로컬 Unity 6000.3.22f1 WebGL 빌드 성공, 브라우저 홈 표시·비공개 방 생성·코드 입장 확인.
 - 동일 PC의 브라우저에서 4명 연결 및 호스트 시작 카운트다운 확인. 6인 전체 경기·음성 검증은 미완료.
 - EC2 계정 OAuth 및 무료 Personal 활성화 성공. 동일 EC2 Docker에서 Unity 빈 프로젝트 생성·정상 종료 확인.
-- Linux 배포/롤백 자동 검사와 nginx 문법 검사 통과. 실제 Jenkins 프로젝트 빌드 및 HTTPS 검증은 진행 중.
+- EC2 Jenkins #11 develop 빌드·HTTPS 게시 성공. 공개 이전 버전 롤백과 현재 버전 복원 검증 통과.
+- 롤백 및 기존 버전 재선택 시에도 version.txt와 필수 빌드 파일의 존재·비어 있지 않음을 검사한다.
+- 최신 완료 증빙과 미완료 범위는 [마무리 검증 기록](acceptance-2026-09-08.md)을 참고한다.
 - 브라우저 Host/Client는 Photon 권장 토폴로지가 아니다. Host 탭이 백그라운드로 가면 경기 지연/연결 끊김이 발생할 수 있다.
 - 여러 내장 브라우저를 동시에 제어하는 검증 중 Chromium PointerLock UnknownError가 관측됐다. 6인 안정성 검증 성공으로 간주하지 않는다.
 - WebRTC 음성 DSP는 WebGL에서 지원되지 않는다는 Photon 경고가 있다. 실제 마이크 송수신은 별도 검증 대상이다.
