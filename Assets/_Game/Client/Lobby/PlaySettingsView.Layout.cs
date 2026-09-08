@@ -113,6 +113,12 @@ namespace Game.Client.Lobby
                     copyFeedbackText = text;
                 }
             }
+
+            var shiftTransform = FindDeepChild(content, "CopiedFeedbackShift");
+            if (shiftTransform != null)
+            {
+                copyFeedbackShift = shiftTransform.gameObject;
+            }
         }
 
         private static Transform FindDeepChild(Transform root, string name)
@@ -259,6 +265,7 @@ namespace Game.Client.Lobby
             BuildBody(body);
 
             header.SetAsLastSibling();
+            footer.SetAsLastSibling();
             stroke.SetSiblingIndex(0);
 
             var stamp = CreateRect("LayoutStamp", root);
@@ -451,6 +458,14 @@ namespace Game.Client.Lobby
             copyFeedbackRoot = feedbackRect.gameObject;
             feedbackRect.gameObject.SetActive(false);
 
+            var feedbackShift = CreateRect("CopiedFeedbackShift", group);
+            var shiftElement = feedbackShift.gameObject.AddComponent<LayoutElement>();
+            shiftElement.preferredWidth = PlaySettingsStyle.Layout.CopiedFeedbackShift;
+            shiftElement.minWidth = PlaySettingsStyle.Layout.CopiedFeedbackShift;
+            shiftElement.preferredHeight = 1f;
+            feedbackShift.gameObject.SetActive(false);
+            copyFeedbackShift = feedbackShift.gameObject;
+
             var valueRect = CreateRect("RoomCodeValue", group);
             var valueElement = valueRect.gameObject.AddComponent<LayoutElement>();
             valueElement.preferredWidth = PlaySettingsStyle.Layout.RoomCodeValueWidth;
@@ -604,13 +619,15 @@ namespace Game.Client.Lobby
 
             var leftMain = CreateRect("Main", left);
             Stretch(leftMain);
-            ConfigureVerticalGroup(leftMain, TextAnchor.MiddleCenter, 8f);
+            ConfigureVerticalGroup(leftMain, TextAnchor.MiddleCenter, 0f);
 
             CreateSectionTitleText(leftMain, "맵 선택");
+            AddFlexibleSpacer(leftMain, PlaySettingsStyle.Layout.MapColumnSpacing);
             var mapPicker = CreateHorizontalPickerRow(leftMain, PlaySettingsStyle.Layout.MapPreviewSize.y);
             mapPrevButton = CreateLayoutArrowButton(mapPicker, isLeft: true);
             mapPreviewImage = CreateMapPreviewImage(mapPicker);
             mapNextButton = CreateLayoutArrowButton(mapPicker, isLeft: false);
+            AddFlexibleSpacer(leftMain, PlaySettingsStyle.Layout.MapNameSpacing);
             mapNameText = CreateSectionBodyText(leftMain, string.Empty, PlaySettingsStyle.FontSize.MapName, "MapName");
 
             var rightMain = CreateRect("Main", right);
@@ -637,6 +654,15 @@ namespace Game.Client.Lobby
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
             layout.spacing = spacing;
+        }
+
+        private static void AddFlexibleSpacer(RectTransform parent, float height)
+        {
+            var spacer = CreateRect("Spacer", parent);
+            var element = spacer.gameObject.AddComponent<LayoutElement>();
+            element.preferredHeight = height;
+            element.minHeight = height;
+            element.flexibleHeight = 0f;
         }
 
         private static RectTransform CreateHorizontalPickerRow(RectTransform parent, float height)
@@ -722,11 +748,12 @@ namespace Game.Client.Lobby
             element.preferredHeight = size.y;
             element.minWidth = size.x;
             element.minHeight = size.y;
+            preview.sizeDelta = size;
             var image = preview.gameObject.AddComponent<Image>();
             image.sprite = HomeUiFonts.Rounded(16);
             image.type = Image.Type.Sliced;
             image.color = PlaySettingsStyle.Palette.MapPreview;
-            image.preserveAspect = true;
+            image.preserveAspect = false;
             image.raycastTarget = false;
             return image;
         }
@@ -742,7 +769,6 @@ namespace Game.Client.Lobby
             rect.pivot = new Vector2(0.5f, 0.5f);
 
             var fill = rect.gameObject.AddComponent<Image>();
-            fill.sprite = HomeUiFonts.Rounded(PlaySettingsStyle.ApplyButtonRadius);
             fill.type = Image.Type.Sliced;
             fill.color = PlaySettingsStyle.Palette.ApplyFill;
 
@@ -751,8 +777,6 @@ namespace Game.Client.Lobby
 
             var labelRect = CreateRect("Text", rect);
             Stretch(labelRect);
-            labelRect.offsetMin = new Vector2(paddingX, paddingY);
-            labelRect.offsetMax = new Vector2(-paddingX, -paddingY);
 
             var label = labelRect.gameObject.AddComponent<Text>();
             label.text = "적용하기";
@@ -761,10 +785,19 @@ namespace Game.Client.Lobby
             label.color = PlaySettingsStyle.Palette.Text;
             label.alignment = TextAnchor.MiddleCenter;
             label.raycastTarget = false;
-            ApplySingleLine(label);
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            label.verticalOverflow = VerticalWrapMode.Overflow;
 
-            var textWidth = Mathf.Max(label.preferredWidth, 1f);
-            rect.sizeDelta = new Vector2(textWidth + (paddingX * 2f), fontSize + (paddingY * 2f));
+            var textWidth = Mathf.Max(label.preferredWidth, 128f);
+            var textHeight = Mathf.Max(label.preferredHeight, fontSize);
+            var height = textHeight + (paddingY * 2f);
+            rect.sizeDelta = new Vector2(textWidth + (paddingX * 2f), height);
+            rect.anchoredPosition = Vector2.zero;
+
+            var radius = Mathf.Min(
+                PlaySettingsStyle.ApplyButtonRadius,
+                Mathf.Max(8, Mathf.FloorToInt((height * 0.5f) - 1f)));
+            fill.sprite = HomeUiFonts.Rounded(radius);
             return button;
         }
 

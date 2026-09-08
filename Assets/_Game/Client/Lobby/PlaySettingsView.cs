@@ -59,6 +59,7 @@ namespace Game.Client.Lobby
         private Image copyIconImage;
         private Text copyFeedbackText;
         private GameObject copyFeedbackRoot;
+        private GameObject copyFeedbackShift;
         private Coroutine copyFeedbackRoutine;
         private bool copyCooldownActive;
         private Text titleText;
@@ -246,6 +247,11 @@ namespace Game.Client.Lobby
                 copyFeedbackRoot.SetActive(true);
             }
 
+            if (copyFeedbackShift != null)
+            {
+                copyFeedbackShift.SetActive(true);
+            }
+
             if (copyIconImage != null)
             {
                 copyIconImage.sprite = LoadCopyCheckIcon() ?? LoadCopyIcon();
@@ -285,6 +291,11 @@ namespace Game.Client.Lobby
             if (copyFeedbackRoot != null)
             {
                 copyFeedbackRoot.SetActive(false);
+            }
+
+            if (copyFeedbackShift != null)
+            {
+                copyFeedbackShift.SetActive(false);
             }
 
             if (copyIconImage != null)
