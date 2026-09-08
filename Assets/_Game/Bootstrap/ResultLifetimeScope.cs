@@ -12,6 +12,7 @@ namespace Game.Bootstrap
     public sealed class ResultLifetimeScope : LifetimeScope
     {
         [SerializeField] private ResultView view;
+        [SerializeField] private EndingStage endingStage;
         private bool waitingForSceneLoad;
         private GameObject[] sceneRoots = Array.Empty<GameObject>();
 
@@ -49,6 +50,12 @@ namespace Game.Bootstrap
             view.Initialize();
             builder.RegisterComponent(view).As<IResultView>();
             builder.RegisterEntryPoint<ResultPresenter>();
+            if (endingStage != null)
+            {
+                // 유치장 무대: 승자는 철창 앞, 패자는 철창 안에 아바타 복제본을 세운다.
+                builder.RegisterComponent(endingStage);
+                builder.RegisterEntryPoint<EndingStagePresenter>();
+            }
             builder.RegisterBuildCallback(_ => Debug.Log(
                 $"[SceneTiming] Result scope ready, " +
                 $"elapsed={Time.realtimeSinceStartupAsDouble - configureStartedAt:F3}s."));
@@ -59,16 +66,21 @@ namespace Game.Bootstrap
             // Result is a screen-space overlay. Fusion can merge network-loaded
             // content into one Unity scene, so SceneManager.sceneCount cannot
             // tell whether its camera would compete with Playground's output.
+            // The ending stage is the exception: its camera and lights are the
+            // point of the scene. Its presenter turns the camera on when it runs.
             foreach (var root in sceneRoots)
             {
                 foreach (var camera in root.GetComponentsInChildren<Camera>(true))
-                    camera.enabled = false;
+                    if (!IsOnEndingStage(camera.transform)) camera.enabled = false;
                 foreach (var listener in root.GetComponentsInChildren<AudioListener>(true))
                     listener.enabled = false;
                 foreach (var light in root.GetComponentsInChildren<Light>(true))
-                    light.enabled = false;
+                    if (!IsOnEndingStage(light.transform)) light.enabled = false;
             }
         }
+
+        private bool IsOnEndingStage(Transform target) =>
+            endingStage != null && target.IsChildOf(endingStage.transform);
     }
 
     public sealed class ResultPresenter : IStartable, ITickable, IDisposable

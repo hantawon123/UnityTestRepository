@@ -34,6 +34,12 @@ namespace Game.Bootstrap
         public string ResultHeadline { get; private set; } = string.Empty;
         public string ResultSubtitle { get; private set; } = string.Empty;
 
+        /// <summary>결과가 도착해 승자 명단을 알 수 있는 상태인지. 다음 경기 시작 시 해제된다.</summary>
+        public bool HasMatchResult { get; private set; }
+
+        /// <summary>마지막 경기의 승자(탈출) 플레이어 번호. 결과가 없으면 빈 목록.</summary>
+        public IReadOnlyList<int> LastWinnerPlayerIndices { get; private set; } = Array.Empty<int>();
+
         public NetworkResultLobbyReturnController(
             INetworkMatchEvents events, INetworkResultNavigation navigation, RoomBrowserSystem room)
         {
@@ -126,6 +132,8 @@ namespace Game.Bootstrap
                 ResultHeadline = string.Empty;
                 ResultSubtitle = "표시할 경기 결과가 없습니다.";
                 resultText.Value = ResultSubtitle;
+                HasMatchResult = false;
+                LastWinnerPlayerIndices = Array.Empty<int>();
             }
         }
 
@@ -137,6 +145,10 @@ namespace Game.Bootstrap
             resultDataFallbackAt = -1d;
             resultDataFallbackActive = false;
             resultLoadAt = result.EndedAt + HighlightPresentationTiming.FadeSeconds;
+            LastWinnerPlayerIndices = result.WinnerPlayerIndices != null
+                ? new List<int>(result.WinnerPlayerIndices)
+                : Array.Empty<int>();
+            HasMatchResult = true;
             ApplyEndOutcome(result);
         }
 
