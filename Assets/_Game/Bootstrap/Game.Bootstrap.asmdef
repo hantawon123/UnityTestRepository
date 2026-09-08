@@ -11,7 +11,8 @@
         "Game.SOAP",
         "UniTask",
         "VContainer",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "colyseus.nativewebsocket"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -20,6 +21,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.endel.nativewebsocket",
+            "expression": "2.0.0",
+            "define": "NATIVEWEBSOCKET_PRESENT"
+        }
+    ],
     "noEngineReferences": false
 }
