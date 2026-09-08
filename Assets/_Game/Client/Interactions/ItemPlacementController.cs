@@ -52,6 +52,8 @@ namespace Game.Client.Interactions
         private Vector3 placementCenterOffset;
         private Vector3 placementHalfExtents;
         private InteractionPromptView promptView;
+        private Sprite placeIcon;
+        private bool? lastGhostValid;
 
         private void Awake()
         {
@@ -160,6 +162,7 @@ namespace Game.Client.Interactions
                 ghostRenderers = null;
             }
 
+            lastGhostValid = null;
             promptView?.Hide();
         }
 
@@ -251,7 +254,12 @@ namespace Game.Client.Interactions
 
             // 보정 한도까지 올려도 겹치면 그때만 배치 불가(빨간색).
             isCurrentPoseValid = !IsOverlapping() && HasSupport();
-            ApplyGhostMaterial(isCurrentPoseValid ? ghostValidMaterial : ghostInvalidMaterial);
+            if (lastGhostValid != isCurrentPoseValid)
+            {
+                ApplyGhostMaterial(isCurrentPoseValid ? ghostValidMaterial : ghostInvalidMaterial);
+                lastGhostValid = isCurrentPoseValid;
+            }
+
             RefreshPlacementPrompt();
         }
 
@@ -391,11 +399,17 @@ namespace Game.Client.Interactions
                 return;
             }
 
+            if (promptView != null && promptView.IsVisible)
+            {
+                return;
+            }
+
+            placeIcon ??= InteractionPromptView.LoadLeftClickIcon();
             PromptView.Show(
                 string.Empty,
                 PlaceActionLabel,
                 ghost.transform,
-                InteractionPromptView.LoadLeftClickIcon());
+                placeIcon);
         }
 
         private InteractionPromptView PromptView =>
