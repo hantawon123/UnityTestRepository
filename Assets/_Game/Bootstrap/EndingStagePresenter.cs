@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Cameras;
 using Game.Client.Interactions;
 using Game.Client.Match;
 using Game.Client.Players;
@@ -37,6 +38,7 @@ namespace Game.Bootstrap
         private PlayerInteractor lockedInteractor;
         private ItemPlacementController lockedPlacement;
         private PlayerMovement stagedMovement;
+        private PlayerCameraController bodyShownRig;
         private readonly HashSet<int> itemHiddenFor = new();
         private readonly List<Renderer> hiddenItemRenderers = new();
 
@@ -68,6 +70,7 @@ namespace Game.Bootstrap
             backdropHidden = true;
             stage.ShowCamera();
             LockLocalInteraction();
+            ShowLocalBody();
             TryStage();
         }
 
@@ -78,7 +81,22 @@ namespace Game.Bootstrap
             // everyone the authority knows about has been placed.
             if (!staged) TryStage();
             if (lockedInteractor == null) LockLocalInteraction();
+            if (bodyShownRig == null) ShowLocalBody();
             HideArrestedItems();
+        }
+
+        /// <remarks>
+        /// In first person the rig hides the player's own body (shadows only).
+        /// The stage camera is a different camera looking at that body, so the
+        /// winner would show up as a floating item. Force the body on for the
+        /// duration and hand the choice back afterwards.
+        /// </remarks>
+        private void ShowLocalBody()
+        {
+            var rig = UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>(FindObjectsInactive.Include);
+            if (rig == null) return;
+            rig.SetBodyVisibleOverride(true);
+            bodyShownRig = rig;
         }
 
         public void Dispose()
@@ -86,6 +104,8 @@ namespace Game.Bootstrap
             stage.HideCamera();
             if (backdropHidden) view.SetBackdropVisible(true);
             UnlockLocalInteraction();
+            if (bodyShownRig != null) bodyShownRig.SetBodyVisibleOverride(false);
+            bodyShownRig = null;
             foreach (var renderer in hiddenItemRenderers)
                 if (renderer != null) renderer.forceRenderingOff = false;
             hiddenItemRenderers.Clear();
