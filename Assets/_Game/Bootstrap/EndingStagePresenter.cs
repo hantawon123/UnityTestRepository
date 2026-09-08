@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Client.Interactions;
 using Game.Client.Match;
+using Game.Client.Players;
 using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Network.Players;
@@ -34,6 +35,7 @@ namespace Game.Bootstrap
         private bool backdropHidden;
         private bool staged;
         private PlayerInteractor lockedInteractor;
+        private PlayerMovement stagedMovement;
 
         public EndingStagePresenter(
             NetworkResultLobbyReturnController result,
@@ -133,6 +135,13 @@ namespace Game.Bootstrap
                 if (!avatar.IsOwner) continue;
                 lockedInteractor = avatar.GetComponent<PlayerInteractor>();
                 if (lockedInteractor != null) lockedInteractor.IsInputLocked = true;
+
+                // WASD는 고정 무대 카메라 기준(W = 화면 안쪽), 몸은 이동 방향을 향한다.
+                stagedMovement = avatar.GetComponent<PlayerMovement>();
+                if (stagedMovement != null && stage.StageCamera != null)
+                {
+                    stagedMovement.SetStageControl(stage.StageCamera.transform);
+                }
                 return;
             }
         }
@@ -141,6 +150,8 @@ namespace Game.Bootstrap
         {
             if (lockedInteractor != null) lockedInteractor.IsInputLocked = false;
             lockedInteractor = null;
+            if (stagedMovement != null) stagedMovement.ClearStageControl();
+            stagedMovement = null;
         }
     }
 }
