@@ -118,6 +118,15 @@
 - 네 번째 테스트: 움직이긴 하나 **WASD 기준이 이상함**. 원인은 이동이 각자의 플레이어 카메라 리그(무대에서는 보이지 않음) 기준이고, 몸이 그 카메라 방향을 향하는 기본 규칙 때문. 요구: W = 화면 안쪽(카메라에서 멀어짐), S = 카메라 쪽, A/D = 화면 좌우, 처음 방향은 체포자 카메라 쪽·탈출자 등지기.
   - 수정: `PlayerMovement.SetStageControl(Transform)` — 지정되면 이동은 그 참조(무대 카메라)의 앞·오른쪽 기준으로 계산하고, 입력 의도를 "이동 방향으로 전진 + 그 방향의 yaw"로 바꿔 보낸다. 모터는 lookYaw로 몸을 돌리므로 **몸이 이동 방향을 향하고**, 멈추면 현재 방향을 유지(텔레포트로 준 초기 방향 그대로). `EndingStagePresenter`가 로컬 아바타에 지정·해제.
 
+## 8. 카메라 구도 C안과 뒷벽 (2026-09-08)
+
+- 캐릭터가 작게 보인다는 피드백 → 방 크기를 줄이지 않고 **카메라를 당김**. 게임 카메라 렌더로 세 안을 비교:
+  - A(기존): 앵커 (0, 1.85, 7.6), 화각 40.4 → 탈출자 약 40%, 체포자 약 29% 높이.
+  - B: 5.9 m로 확 당기면 앞줄 탈출자의 등이 화면을 가림(폐기).
+  - **C(채택)**: 앵커 **(0, 1.75, 6.6), 피치 4°, 화각 40**, 탈출자 줄을 철창 쪽으로 당김 → 앞줄 (-1.5, 1.2) (0, 1.0) (1.5, 1.2), 뒷줄 (-2.2, 2.0) (0, 2.1) (2.2, 2.0). 탈출자 약 45%, 체포자 약 32%, 철창이 화면에 꽉 참.
+- **카메라 뒷벽**: 탈출자가 카메라 뒤로 걸어가 사라지지 않게 카메라 1 m 뒤(z 7.6~7.9)에 폭 8 m·높이 5 m 보이지 않는 BoxCollider `StageBounds/COLLIDER_Camera_Backstop` 추가. 레이캐스트 검증: 뒷줄에서 카메라 쪽 5.5 m 지점에서 막힘.
+- Result 씬 무대 재배치(`Game/Ending/1`)로 반영, EndingBuild 카메라도 동일. 주의: 프리팹을 저장한 같은 프레임에 재배치하면 옛 프리팹이 들어가므로 `AssetDatabase.ImportAsset(ForceUpdate)` 후 실행해야 함(메뉴 재실행 시에도 참고).
+
 ## 참고 파일
 - 결과 흐름: `Assets/_Game/Bootstrap/ResultLifetimeScope.cs`, `NetworkResultLobbyReturnController.cs`, `Assets/_Game/Content/Scenes/Result.unity`
 - 리플레이 아바타 재생: `Assets/_Game/Bootstrap/HighlightReplayPlayer.cs`
