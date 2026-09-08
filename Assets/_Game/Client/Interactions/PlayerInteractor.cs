@@ -29,10 +29,21 @@ namespace Game.Client.Interactions
         private const int MaxAimHits = 8;
         public bool HudVisible { get; private set; } = true;
 
+        private bool interactionPromptVisible = true;
+
         public void SetHudVisible(bool visible)
         {
             HudVisible = visible;
             RefreshInteractionCue();
+        }
+
+        public void SetInteractionPromptVisible(bool visible)
+        {
+            interactionPromptVisible = visible;
+            if (!visible)
+            {
+                promptView?.Hide();
+            }
         }
 
         [SerializeField]
@@ -417,6 +428,7 @@ namespace Game.Client.Interactions
             follow = null;
 
             if (!HudVisible ||
+                !interactionPromptVisible ||
                 placementController is { IsPlacing: true } ||
                 aimedTarget is not IInteractable interactable ||
                 !interactable.CanInteract(this) ||

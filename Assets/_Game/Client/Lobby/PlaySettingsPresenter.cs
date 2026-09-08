@@ -51,6 +51,10 @@ namespace Game.Client.Lobby
             pauseMenu.PlaySettingsClicked -= Open;
             hostSubscription?.Dispose();
             settingsSubscription?.Dispose();
+            if (isOpen)
+            {
+                SetInteractionPromptVisible(true);
+            }
         }
 
         private void HandleHostChanged(bool isHost)
@@ -78,6 +82,7 @@ namespace Game.Client.Lobby
             view.SetEditable(hostSession.IsLocalHost.CurrentValue);
             DisplaySettings(hostSession.Settings.CurrentValue);
             isOpen = true;
+            SetInteractionPromptVisible(false);
             view.SetVisible(true);
         }
 
@@ -92,7 +97,6 @@ namespace Game.Client.Lobby
             {
                 var draft = view.ReadDraft();
                 if (!RoomSettings.IsValidTitle(draft.Title)) return;
-                // An untouched host view may be older than the accepted session settings.
                 if (!draft.Equals(displayedSettings) &&
                     !draft.Equals(hostSession.Settings.CurrentValue))
                 {
@@ -102,6 +106,17 @@ namespace Game.Client.Lobby
 
             isOpen = false;
             view.SetVisible(false);
+            SetInteractionPromptVisible(true);
+        }
+
+        private static void SetInteractionPromptVisible(bool visible)
+        {
+            var interactors = UnityEngine.Object.FindObjectsByType<Interactions.PlayerInteractor>(
+                FindObjectsSortMode.None);
+            for (var i = 0; i < interactors.Length; i++)
+            {
+                interactors[i].SetInteractionPromptVisible(visible);
+            }
         }
 
         private void DisplaySettings(PlaySettingsDraft draft)
