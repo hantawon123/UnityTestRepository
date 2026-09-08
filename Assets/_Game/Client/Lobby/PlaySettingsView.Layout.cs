@@ -605,44 +605,62 @@ namespace Game.Client.Lobby
 
         private void BuildMapSection(RectTransform parent)
         {
-            var left = CreateRect("MapSelect", parent);
-            left.anchorMin = new Vector2(0f, 0f);
-            left.anchorMax = new Vector2(0.5f, 1f);
-            left.offsetMin = Vector2.zero;
-            left.offsetMax = Vector2.zero;
+            ConfigureVerticalGroup(parent, TextAnchor.UpperCenter, PlaySettingsStyle.Layout.MapColumnSpacing);
 
-            var right = CreateRect("CategorySelect", parent);
-            right.anchorMin = new Vector2(0.5f, 0f);
-            right.anchorMax = new Vector2(1f, 1f);
-            right.offsetMin = Vector2.zero;
-            right.offsetMax = Vector2.zero;
+            var titleRow = CreateLayoutRow(parent, PlaySettingsStyle.Layout.SectionTitleHeight);
+            titleRow.name = "SectionTitles";
+            CreateCenteredText(
+                CreateHalf(titleRow, "MapTitle", 0f, 0.5f),
+                "맵 선택",
+                PlaySettingsStyle.FontSize.Body,
+                PlaySettingsStyle.Palette.Text);
+            CreateCenteredText(
+                CreateHalf(titleRow, "CategoryTitle", 0.5f, 1f),
+                "카테고리 선택",
+                PlaySettingsStyle.FontSize.Body,
+                PlaySettingsStyle.Palette.Text);
 
-            var leftMain = CreateRect("Main", left);
-            Stretch(leftMain);
-            ConfigureVerticalGroup(leftMain, TextAnchor.MiddleCenter, 0f);
+            var pickerHeight = PlaySettingsStyle.Layout.MapPreviewSize.y;
+            var pickerRow = CreateLayoutRow(parent, pickerHeight);
+            pickerRow.name = "Pickers";
 
-            CreateSectionTitleText(leftMain, "맵 선택");
-            AddFlexibleSpacer(leftMain, PlaySettingsStyle.Layout.MapColumnSpacing);
-            var mapPicker = CreateHorizontalPickerRow(leftMain, PlaySettingsStyle.Layout.MapPreviewSize.y);
+            var mapPicker = CreateHorizontalPickerRow(CreateHalf(pickerRow, "MapSelect", 0f, 0.5f), pickerHeight);
+            Stretch(mapPicker);
             mapPrevButton = CreateLayoutArrowButton(mapPicker, isLeft: true);
             mapPreviewImage = CreateMapPreviewImage(mapPicker);
             mapNextButton = CreateLayoutArrowButton(mapPicker, isLeft: false);
-            AddFlexibleSpacer(leftMain, PlaySettingsStyle.Layout.MapNameSpacing);
-            mapNameText = CreateSectionBodyText(leftMain, string.Empty, PlaySettingsStyle.FontSize.MapName, "MapName");
 
-            var rightMain = CreateRect("Main", right);
-            Stretch(rightMain);
-            ConfigureVerticalGroup(rightMain, TextAnchor.MiddleCenter, 8f);
-            CreateSectionTitleText(rightMain, "카테고리 선택");
-            var categoryPicker = CreateHorizontalPickerRow(rightMain, PlaySettingsStyle.Layout.CategoryPickerHeight);
+            var categoryPicker = CreateHorizontalPickerRow(
+                CreateHalf(pickerRow, "CategorySelect", 0.5f, 1f),
+                pickerHeight);
+            Stretch(categoryPicker);
             categoryPrevButton = CreateLayoutArrowButton(categoryPicker, isLeft: true);
             categoryPrevButton.gameObject.name = "CategoryPrev";
             categoryText = CreatePickerValueText(
                 categoryPicker,
                 PlaySettingsCategoryCatalog.Default.Label,
-                PlaySettingsStyle.Layout.CategoryPickerHeight);
+                pickerHeight);
             categoryNextButton = CreateLayoutArrowButton(categoryPicker, isLeft: false);
             categoryNextButton.gameObject.name = "CategoryNext";
+
+            var nameRow = CreateLayoutRow(parent, PlaySettingsStyle.FontSize.MapName + 8f);
+            nameRow.name = "MapNameRow";
+            mapNameText = CreateCenteredText(
+                CreateHalf(nameRow, "MapName", 0f, 0.5f),
+                string.Empty,
+                PlaySettingsStyle.FontSize.MapName,
+                PlaySettingsStyle.Palette.Text);
+        }
+
+        private static RectTransform CreateHalf(RectTransform parent, string name, float minX, float maxX)
+        {
+            var rect = CreateRect(name, parent);
+            rect.anchorMin = new Vector2(minX, 0f);
+            rect.anchorMax = new Vector2(maxX, 1f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            return rect;
         }
 
         private static void ConfigureVerticalGroup(RectTransform rect, TextAnchor alignment, float spacing)
@@ -654,15 +672,6 @@ namespace Game.Client.Lobby
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
             layout.spacing = spacing;
-        }
-
-        private static void AddFlexibleSpacer(RectTransform parent, float height)
-        {
-            var spacer = CreateRect("Spacer", parent);
-            var element = spacer.gameObject.AddComponent<LayoutElement>();
-            element.preferredHeight = height;
-            element.minHeight = height;
-            element.flexibleHeight = 0f;
         }
 
         private static RectTransform CreateHorizontalPickerRow(RectTransform parent, float height)
@@ -679,28 +688,6 @@ namespace Game.Client.Lobby
             layout.childForceExpandHeight = false;
             layout.spacing = PlaySettingsStyle.Layout.PickerSpacing;
             return row;
-        }
-
-        private static Text CreateSectionTitleText(RectTransform parent, string text)
-        {
-            var row = CreateRect("SectionTitle", parent);
-            var element = row.gameObject.AddComponent<LayoutElement>();
-            element.preferredHeight = PlaySettingsStyle.Layout.SectionTitleHeight;
-            element.minHeight = PlaySettingsStyle.Layout.SectionTitleHeight;
-            return CreateCenteredText(row, text, PlaySettingsStyle.FontSize.Body, PlaySettingsStyle.Palette.Text);
-        }
-
-        private static Text CreateSectionBodyText(
-            RectTransform parent,
-            string text,
-            int fontSize,
-            string rowName = "SectionText")
-        {
-            var row = CreateRect(rowName, parent);
-            var element = row.gameObject.AddComponent<LayoutElement>();
-            element.preferredHeight = fontSize + 8f;
-            element.minHeight = fontSize + 8f;
-            return CreateCenteredText(row, text, fontSize, PlaySettingsStyle.Palette.Text);
         }
 
         private static Text CreatePickerValueText(RectTransform parent, string text, float rowHeight)

@@ -15,9 +15,9 @@ namespace Game.Client.Lobby
     /// the key guide — is an entry in the Esc menu now. See
     /// <see cref="LobbyPauseMenuView"/>.
     /// <para>
-    /// What is left is the things a player reads rather than clicks, the
-    /// shared key guide, and the chat field, which the keyboard reaches on
-    /// its own.
+    /// What is left is the things a player reads rather than clicks: the
+    /// category/map card, the shared key guide, and the chat field, which
+    /// the keyboard reaches on its own.
     /// </para>
     /// </remarks>
     public sealed class LobbyHudView : MonoBehaviour
@@ -101,14 +101,42 @@ namespace Game.Client.Lobby
             KeySettingGuideView.Ensure(transform)?.SetVisible(true);
         }
 
+        public LobbyMatchInfoView EnsureMatchInfo()
+        {
+            var info = LobbyMatchInfoView.Ensure(transform);
+            PlacePlayerListBelowMatchInfo();
+            return info;
+        }
+
+        public void SetMatchInfo(string categoryLabel, string mapLabel)
+        {
+            EnsureMatchInfo()?.SetInfo(categoryLabel, mapLabel);
+        }
+
+        private void PlacePlayerListBelowMatchInfo()
+        {
+            if (playerListRoot == null)
+            {
+                return;
+            }
+
+            playerListRoot.anchorMin = playerListRoot.anchorMax = new Vector2(1f, 1f);
+            playerListRoot.pivot = new Vector2(1f, 1f);
+            playerListRoot.anchoredPosition = new Vector2(
+                -24f,
+                -LobbyMatchInfoView.PlayerListTopOffset);
+        }
+
         private void Awake()
         {
             EnsureSharedGuide();
+            EnsureMatchInfo();
         }
 
         private void OnEnable()
         {
             EnsureSharedGuide();
+            EnsureMatchInfo();
             var canvas = GetComponentInParent<Canvas>();
             HomeUiFonts.ApplyLegacy(canvas != null ? canvas.transform : transform);
         }

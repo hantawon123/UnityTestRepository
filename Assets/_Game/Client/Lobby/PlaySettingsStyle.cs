@@ -22,7 +22,7 @@ namespace Game.Client.Lobby
         public const float ApplyPaddingHorizontal = 80f;
         public const float ApplyPaddingVertical = 11f;
         public const int ApplyButtonRadius = 32;
-        public const int LayoutVersion = 20;
+        public const int LayoutVersion = 21;
 
         public const string RegularFontResource = "Fonts/Paperlogy-4Regular";
         public const string MediumFontResource = "Fonts/Paperlogy-5Medium";
@@ -80,9 +80,7 @@ namespace Game.Client.Lobby
             public const float ControlSpacing = 24f;
             public const float PickerSpacing = 16f;
             public const float MapColumnSpacing = 8f;
-            public const float MapNameSpacing = 4f;
             public const float SectionTitleHeight = 36f;
-            public const float CategoryPickerHeight = 36f;
             public const float CategoryValueMinWidth = 200f;
         }
 

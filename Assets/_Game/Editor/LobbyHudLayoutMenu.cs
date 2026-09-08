@@ -62,7 +62,12 @@ namespace Game.Editor
             var chat = GetOrCreateSlot(root, "ChatRoot", new Color(0.15f, 0.16f, 0.2f, 0.75f));
             var voice = GetOrCreateSlot(root, "VoiceButton", new Color(0.25f, 0.25f, 0.28f, 0.9f));
 
-            Place(playerList, Anchor.TopRight, new Vector2(-24f, -24f), new Vector2(300f, 420f));
+            // Sits under the always-on category/map card in the top-right.
+            Place(
+                playerList,
+                Anchor.TopRight,
+                new Vector2(-24f, -LobbyMatchInfoView.PlayerListTopOffset),
+                new Vector2(300f, 420f));
             Place(
                 chat,
                 Anchor.BottomLeft,
@@ -136,6 +141,7 @@ namespace Game.Editor
 
             var chatBubbleView = EnsureChatBubbleWorld(scope.transform);
             KeySettingGuideView.Ensure(root);
+            LobbyMatchInfoView.Ensure(root);
 
             var hudSo = new SerializedObject(hud);
             hudSo.FindProperty("playerListRoot").objectReferenceValue = playerList;
