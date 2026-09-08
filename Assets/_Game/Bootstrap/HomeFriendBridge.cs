@@ -5,6 +5,8 @@ using Cysharp.Threading.Tasks;
 using Game.Client.Home;
 using Game.Core.Backend;
 using Game.Core.Home;
+using Game.Core.Ports;
+using R3;
 using UnityEngine;
 using VContainer.Unity;
 
@@ -20,25 +22,38 @@ namespace Game.Bootstrap
     /// <see cref="NetworkRoomScreenBridge"/> uses for the room browser. Without
     /// it the panel showed a list it had invented: four friends and seven
     /// strangers who existed only in <c>HomeLifetimeScope</c>.
+    /// <para>
+    /// It also listens to the backend. When the server pushes that a request
+    /// arrived, was answered or went away, the affected lists are read again, so
+    /// the request badge moves without the player reopening the panel. The push
+    /// is only the cue; what is shown still comes from the same REST reads the
+    /// buttons trigger, so a missed push costs nothing the next read does not
+    /// repair.
+    /// </para>
     /// </remarks>
     public sealed class HomeFriendBridge : IStartable, IDisposable
     {
         private readonly IHomeMenuView view;
         private readonly FriendUiCommands friends;
         private readonly BackendSignIn signIn;
+        private readonly INotificationStream notifications;
         private bool refreshing;
         private bool refreshingRequests;
         private bool requestsChanged;
+        private IDisposable pushed;
+        private IDisposable relinked;
         private readonly CancellationTokenSource lifetime = new CancellationTokenSource();
 
         public HomeFriendBridge(
             IHomeMenuView view,
             FriendUiCommands friends,
-            BackendSignIn signIn)
+            BackendSignIn signIn,
+            INotificationStream notifications)
         {
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.friends = friends ?? throw new ArgumentNullException(nameof(friends));
             this.signIn = signIn ?? throw new ArgumentNullException(nameof(signIn));
+            this.notifications = notifications ?? throw new ArgumentNullException(nameof(notifications));
         }
 
         public void Start()
@@ -52,6 +67,15 @@ namespace Game.Bootstrap
             view.FriendRequestCancelled += OnFriendRequestCancelled;
             view.FriendListRefreshRequested += OnRefreshRequested;
             view.FriendRemoved += OnFriendRemoved;
+
+            pushed = notifications.Notifications.Subscribe(OnPushed);
+
+            // The requests are re-read here on every reconnection, because this
+            // panel is the only thing that holds them. The friend list has a store
+            // of its own and is caught up by NotificationLink, project-wide.
+            relinked = notifications.State
+                .Where(state => state == NotificationLinkState.Connected)
+                .Subscribe(_ => RefreshRequestsAfterPushAsync().Forget());
 
             // Loaded before the player opens anything, so the panel is filled
             // the first time rather than after it appears empty.
@@ -70,10 +94,84 @@ namespace Game.Bootstrap
             view.FriendListRefreshRequested -= OnRefreshRequested;
             view.FriendRemoved -= OnFriendRemoved;
 
+            pushed?.Dispose();
+            relinked?.Dispose();
+
             // Everything in flight is abandoned rather than allowed to write to
             // a screen that is being torn down.
             lifetime.Cancel();
             lifetime.Dispose();
+        }
+
+        /// <summary>
+        /// Something changed on the server. Read back whichever lists it touched.
+        /// </summary>
+        /// <remarks>
+        /// A push is treated like one of this screen's own mutations: if a read
+        /// is already in flight, one more is queued behind it rather than
+        /// started beside it or dropped. Dropped would miss a change the
+        /// in-flight read was issued too early to see; beside it would race two
+        /// answers onto the same panel.
+        /// <para>
+        /// Failures are logged, not shown. The player did nothing to cause this
+        /// read, and an error line appearing on its own would read as the panel
+        /// breaking rather than as the network hiccup it is.
+        /// </para>
+        /// </remarks>
+        private void OnPushed(ServerNotification notification)
+        {
+            switch (notification.Kind)
+            {
+                case ServerNotificationKind.FriendRequestReceived:
+                case ServerNotificationKind.FriendRequestRemoved:
+                    RefreshRequestsAfterPushAsync().Forget();
+                    break;
+
+                case ServerNotificationKind.FriendRequestAccepted:
+                    // A new friend, and one fewer sent request.
+                    RefreshFriendsAfterPushAsync(andRequests: true).Forget();
+                    break;
+
+                case ServerNotificationKind.FriendRemoved:
+                    RefreshFriendsAfterPushAsync(andRequests: false).Forget();
+                    break;
+
+                case ServerNotificationKind.RoomInviteReceived:
+                    // The toast owns invites. This panel shows none, so there is
+                    // nothing here to re-read.
+                    break;
+            }
+        }
+
+        private async UniTaskVoid RefreshRequestsAfterPushAsync()
+        {
+            if (!await Ready())
+            {
+                return;
+            }
+
+            await RefreshRequests(afterMutation: true);
+        }
+
+        private async UniTaskVoid RefreshFriendsAfterPushAsync(bool andRequests)
+        {
+            if (!await Ready())
+            {
+                return;
+            }
+
+            // Forced so that a refresh a button started a moment ago, with its
+            // own token, does not stand in for the read this push asks for.
+            var failure = await friends.RefreshFriendsAsync(lifetime.Token, force: true);
+            if (failure != BackendFailure.None && failure != BackendFailure.Cancelled)
+            {
+                Debug.LogWarning($"[Friends] friend list did not reload after a push: {failure}.");
+            }
+
+            if (andRequests)
+            {
+                await RefreshRequests(afterMutation: true);
+            }
         }
 
         private void OnActionClicked(HomeMenuAction action)
