@@ -49,7 +49,13 @@ public class UserPresence {
     @Column(name = "session_id", length = 64)
     private String sessionId;
 
-    /** 마지막 생존 신호. 30초 주기입니다. */
+    /**
+     * 마지막 생존 신호.
+     *
+     * <p>이제 <b>서버가</b> 밉니다. 알림 WebSocket 이 살아 있는 사람들의 이 컬럼을 한
+     * 문장으로 갱신합니다(PresenceHeartbeat). 클라이언트가 30초마다 PUT 을 보내던
+     * 때에는 요청 하나가 이 컬럼 하나를 밀었고, 접속자 수만큼 트랜잭션이 생겼습니다.
+     */
     @Column(name = "heartbeat_at", nullable = false, length = 14)
     private String heartbeatAt;
 
@@ -67,6 +73,11 @@ public class UserPresence {
 
     public static UserPresence of(Integer userSeq, String sessionId, SessionKind sessionKind, String now) {
         return new UserPresence(userSeq, statusFor(sessionId, sessionKind), sessionId, now);
+    }
+
+    /** 알림 채널에 처음 붙은 사람의 첫 행. 룸 밖이라 ONLINE 입니다. */
+    public static UserPresence online(Integer userSeq, String now) {
+        return new UserPresence(userSeq, PresenceStatus.ONLINE, null, now);
     }
 
     /**
@@ -94,7 +105,30 @@ public class UserPresence {
         }
     }
 
-    /** 앱을 정상 종료할 때 부릅니다. 타임아웃을 기다리지 않고 바로 내려갑니다. */
+    /**
+     * 알림 채널에 붙었습니다. 이것이 곧 접속 신호입니다.
+     *
+     * <p><b>이미 룸 안이면 상태를 건드리지 않습니다.</b> 탭이나 기기를 하나 더 연 것일
+     * 수도 있고, 경기 중에 연결이 끊겼다 다시 붙은 것일 수도 있습니다. 어느 쪽이든
+     * 붙었다는 사실만으로 사람을 방에서 끌어내면 친구 목록에서 경기 중인 사람이
+     * ONLINE 으로 잘못 보입니다.
+     *
+     * <p>정말 룸 밖으로 나온 클라이언트는 {@code HELLO_ACK} 직후 자기 상태를 다시
+     * 보고하므로 그 프레임이 곧바로 교정합니다.
+     */
+    public void connected(String now) {
+        this.heartbeatAt = now;
+        if (this.status == PresenceStatus.OFFLINE) {
+            this.status = PresenceStatus.ONLINE;
+            this.sessionId = null;
+            this.updatedAt = now;
+        }
+    }
+
+    /**
+     * 앱을 정상 종료하거나 알림 채널의 마지막 연결이 끊겼을 때 부릅니다. 타임아웃을
+     * 기다리지 않고 바로 내려갑니다.
+     */
     public void goOffline(String now) {
         this.heartbeatAt = now;
         if (this.status != PresenceStatus.OFFLINE) {

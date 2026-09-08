@@ -43,7 +43,9 @@ class NotificationPublisherTest {
      * 상속합니다.
      */
     private static NotificationSessionRegistry deliveryThatFails() {
-        return new NotificationSessionRegistry() {
+        // 이벤트 발행은 붙고 끊길 때만 쓰이고 여기서는 발송만 봅니다. 아무것도 하지 않는
+        // 발행자를 넘겨 스프링 컨텍스트 없이 둡니다.
+        return new NotificationSessionRegistry(event -> { }) {
             @Override
             public int deliver(Integer userSeq, String json) {
                 throw new SessionLimitExceededException("Buffer size limit reached", CloseStatus.NO_STATUS_CODE);

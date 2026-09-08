@@ -5,6 +5,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
+
 import com.ssafy.d205.domain.presence.entity.UserPresence;
 
 public interface UserPresenceRepository extends JpaRepository<UserPresence, Integer> {
@@ -34,4 +36,25 @@ public interface UserPresenceRepository extends JpaRepository<UserPresence, Inte
                AND heartbeat_at < :threshold
             """, nativeQuery = true)
     int markStaleOffline(@Param("threshold") String threshold, @Param("now") String now);
+
+    /**
+     * 알림 채널에 붙어 있는 사람들의 하트비트를 한 번에 밉니다. PresenceHeartbeat 가 부릅니다.
+     *
+     * <p><b>이 한 문장이 클라이언트의 주기 PUT 을 대체합니다.</b> 예전에는 접속자 천 명이면
+     * 30초마다 요청 천 개가 들어와 각각 트랜잭션을 열고 users 와 user_presence 를 조회한 뒤
+     * UPDATE 를 냈습니다. 지금은 접속자가 몇 명이든 문장 하나입니다.
+     *
+     * <p>status 는 건드리지 않습니다. 접속·종료·방 이동은 그 순간에 각자 씁니다. 여기서
+     * 상태까지 손대면 방금 OFFLINE 이 된 사람을 한 틱 늦게 되살리는 경합이 생깁니다.
+     *
+     * <p><b>빈 목록으로 부르지 마세요.</b> {@code IN ()} 는 MySQL 문법 오류입니다. 붙어 있는
+     * 사람이 없으면 호출부가 아예 건너뜁니다.
+     */
+    @Modifying
+    @Query(value = """
+            UPDATE user_presence
+               SET heartbeat_at = :now
+             WHERE user_seq IN (:userSeqs)
+            """, nativeQuery = true)
+    int refreshHeartbeats(@Param("userSeqs") Collection<Integer> userSeqs, @Param("now") String now);
 }

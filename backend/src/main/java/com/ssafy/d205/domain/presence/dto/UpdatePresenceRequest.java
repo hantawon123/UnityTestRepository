@@ -22,11 +22,21 @@ import com.ssafy.d205.domain.presence.entity.SessionKind;
  *                    ONLINE 으로 정해져 있어 되돌려서 나아지는 것이 없습니다.
  */
 public record UpdatePresenceRequest(
-        @Size(max = 64, message = "sessionId는 64자를 넘을 수 없습니다.")
+        @Size(max = MAX_SESSION_ID_LENGTH, message = "sessionId는 64자를 넘을 수 없습니다.")
         String sessionId,
 
         SessionKind sessionKind
 ) {
+
+    /**
+     * user_presence.session_id 컬럼의 길이입니다.
+     *
+     * <p>상수로 뺀 이유는 이 값을 검사하는 곳이 둘이 됐기 때문입니다. REST 본문은 위의
+     * &#64;Size 가 400 으로 되돌리고, WebSocket {@code PRESENCE} 프레임은 되돌릴 응답이
+     * 없어 핸들러가 직접 재고 버립니다. 두 곳이 각자 64 를 적으면 컬럼을 늘리는 날
+     * 한쪽만 고쳐집니다.
+     */
+    public static final int MAX_SESSION_ID_LENGTH = 64;
 
     /**
      * 없는 sessionKind 를 MATCH 로 메꾼 값. <b>기본값을 여기 한 곳에만 둡니다.</b>
