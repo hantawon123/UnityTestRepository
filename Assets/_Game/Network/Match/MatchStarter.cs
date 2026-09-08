@@ -27,7 +27,7 @@ namespace Game.Network.Match
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
-    public sealed class MatchStarter : MonoBehaviour
+    public sealed partial class MatchStarter : MonoBehaviour
     {
         private static readonly Vector3 ShredderEjectionLocalVelocity =
             new(0f, 1.5f, 4f);
@@ -746,6 +746,7 @@ namespace Game.Network.Match
 
         public bool TryHoldObject(PlayerRef source, string objectId)
         {
+            if (IsLobby) return TryHoldLobbyObject(source, objectId);
             if (!TryGetPlayerIndex(source, out var playerIndex) ||
                 !TryGetPlayerPose(playerIndex, out var playerPose) ||
                 !_state.CanHoldObject(objectId) ||
@@ -761,6 +762,7 @@ namespace Game.Network.Match
 
         public bool TryReleaseHeldObject(PlayerRef source, Pose pose)
         {
+            if (IsLobby) return TryReleaseLobbyObject(source, pose, default, false);
             if (!TryGetPlayerIndex(source, out var playerIndex) ||
                 !TryGetPlayerPose(playerIndex, out var playerPose) ||
                 !_interactionRules.IsValidRelease(playerPose, pose) ||
@@ -776,6 +778,7 @@ namespace Game.Network.Match
 
         public bool TryDropHeldObject(PlayerRef source, Pose pose)
         {
+            if (IsLobby) return TryReleaseLobbyObject(source, pose, default, false);
             if (!TryGetPlayerIndex(source, out var playerIndex) ||
                 !TryGetPlayerPose(playerIndex, out var playerPose) ||
                 !_interactionRules.IsValidRelease(playerPose, pose) ||
@@ -794,6 +797,7 @@ namespace Game.Network.Match
             Pose pose,
             Vector3 initialVelocity)
         {
+            if (IsLobby) return TryReleaseLobbyObject(source, pose, initialVelocity, true);
             if (!TryGetPlayerIndex(source, out var playerIndex) ||
                 !TryGetPlayerPose(playerIndex, out var playerPose) ||
                 !_interactionRules.IsValidThrow(
@@ -819,6 +823,9 @@ namespace Game.Network.Match
             Pose pose,
             int expectedVersion)
         {
+            if (IsLobby)
+                return lobbyObjects != null && _state.TrySetObjectSettled(objectId, pose, expectedVersion) &&
+                    lobbyObjects.TrySetPose(objectId, pose);
             if (_state == null || _session == null ||
                 !_session.TryGetObjectPose(objectId, out _) ||
                 !_state.TrySetObjectSettled(objectId, pose, expectedVersion))
@@ -928,6 +935,7 @@ namespace Game.Network.Match
 
         public bool TryHandlePlayerLeft(PlayerRef player)
         {
+            if (IsLobby) return ReleaseDepartedLobbyObject(player);
             // Result has unloaded the scene-owned session; the replicated roster remains.
             if (_session == null && _state != null && _state.Phase == MatchPhase.Result && player.IsRealPlayer)
             {
@@ -1203,6 +1211,7 @@ namespace Game.Network.Match
         /// <summary>Forgets the room. The line-up goes with the session.</summary>
         public void Clear()
         {
+            lobbyObjects = null;
             _state = null;
             _lastPublishedStarted = false;
 

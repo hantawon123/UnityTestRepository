@@ -18,7 +18,7 @@ namespace Game.Client.Match
     [DisallowMultipleComponent]
     public sealed class SearchingIntroView : MonoBehaviour, ISearchingIntroView
     {
-        public const float VisibleSeconds = 3f;
+        public const float VisibleSeconds = Game.Core.Match.MatchIntroTiming.VisibleSeconds;
         public const float FontSize = 55f;
         public const string TitleText = "숨기기 시간이 끝났습니다.";
         public const string BodyText =

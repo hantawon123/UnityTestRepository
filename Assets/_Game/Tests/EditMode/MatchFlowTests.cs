@@ -29,6 +29,28 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void PhaseIntros_PreserveFullPlayTimeAndDelayFirstHidingTurn()
+        {
+            flow.EnablePhaseIntros();
+            flow.Start(10d);
+            Assert.That(state.PhaseEndsAt.CurrentValue, Is.EqualTo(193d));
+            Assert.That(flow.IsPhaseIntro(12.9d), Is.True);
+            Assert.That(flow.GetRemainingSeconds(12.9d), Is.EqualTo(180d));
+            Assert.That(flow.GetCurrentHidingTurnIndex(12.9d), Is.EqualTo(-1));
+            Assert.That(flow.GetHidingTurnRemainingSeconds(12.9d), Is.EqualTo(30d));
+            Assert.That(flow.IsPhaseIntro(13d), Is.False);
+            Assert.That(flow.GetCurrentHidingTurnIndex(13d), Is.Zero);
+            Assert.That(flow.GetHidingTurnRemainingSeconds(14d), Is.EqualTo(29d));
+            Assert.That(flow.AdvanceIfExpired(193d), Is.True);
+            Assert.That(flow.IsPhaseIntro(195.9d), Is.True);
+            Assert.That(flow.GetRemainingSeconds(195.9d), Is.EqualTo(flow.SearchingDurationSeconds));
+            Assert.That(flow.IsPhaseIntro(196d), Is.False);
+            Assert.That(flow.GetRemainingSeconds(197d), Is.EqualTo(flow.SearchingDurationSeconds - 1d));
+            Assert.That(flow.AdvanceIfExpired(195.9d + flow.SearchingDurationSeconds), Is.False);
+            Assert.That(flow.AdvanceIfExpired(196d + flow.SearchingDurationSeconds), Is.True);
+        }
+
+        [Test]
         public void Start_EntersHidingAndSetsDeadline()
         {
             var started = flow.Start(10d);

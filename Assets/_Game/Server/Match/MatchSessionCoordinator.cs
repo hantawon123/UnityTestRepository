@@ -255,6 +255,9 @@ namespace Game.Server.Match
             return flow.GetRemainingSeconds(now);
         }
 
+        public void EnablePhaseIntros() => flow.EnablePhaseIntros();
+        public bool IsPhaseIntro(double now) => flow.IsPhaseIntro(now);
+
         public int GetCurrentHidingTurnIndex(double now)
         {
             return flow.GetCurrentHidingTurnIndex(now);
@@ -992,7 +995,7 @@ namespace Game.Server.Match
 
         private bool IsSearchingAt(double now)
         {
-            return state.CurrentPhase.CurrentValue == MatchPhase.Searching &&
+            return !flow.IsPhaseIntro(now) && state.CurrentPhase.CurrentValue == MatchPhase.Searching &&
                    flow.GetRemainingSeconds(now) > 0d;
         }
 
@@ -1006,7 +1009,7 @@ namespace Game.Server.Match
         private bool CanFight(int playerIndex, double now)
         {
             var phase = state.CurrentPhase.CurrentValue;
-            return Players.IsActive(playerIndex) &&
+            return !flow.IsPhaseIntro(now) && Players.IsActive(playerIndex) &&
                    (phase == MatchPhase.Hiding &&
                     flow.GetRemainingSeconds(now) > 0d ||
                     IsSearchingAt(now)) &&
@@ -1238,7 +1241,7 @@ namespace Game.Server.Match
             switch (state.CurrentPhase.CurrentValue)
             {
                 case MatchPhase.Hiding when now >= state.PhaseEndsAt.CurrentValue:
-                    searchingStartedAt = state.PhaseEndsAt.CurrentValue;
+                    searchingStartedAt = state.PhaseEndsAt.CurrentValue + flow.PhaseIntroDurationSeconds;
                     break;
                 case MatchPhase.Searching:
                     searchingStartedAt = state.PhaseEndsAt.CurrentValue - flow.SearchingDurationSeconds;

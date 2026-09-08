@@ -78,6 +78,14 @@ namespace Game.Network.Session
             _matchStarter != null && _matchStarter.CurrentPhase == MatchPhase.Highlight;
         public bool IsLocalHighlightComplete => _localHighlightComplete;
 
+        public bool IsWaitingForMatch => IsRuntimeReady && _matchStarter != null &&
+            !_matchStarter.HasStartedMatch && _matchStarter.CurrentPhase == MatchPhase.Waiting;
+
+        public bool ConfigureLobbyObjects(IReadOnlyList<WorldObjectState> objects) =>
+            IsWaitingForMatch && _matchStarter.ConfigureLobbyObjects(objects);
+
+        public void PublishInteractionState() => _matchStarter?.PublishSceneState();
+
         public bool TryConfirmHighlightReady()
         {
             if (_runner == null || !_runner.IsRunning || !_highlightLobbyPrepared) return false;

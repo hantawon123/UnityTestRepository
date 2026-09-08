@@ -202,6 +202,12 @@ namespace Game.Architecture.Tests
                 network.PublishSimulationTick();
 
                 Assert.That(network.BoundSession, Is.Not.Null);
+                Assert.That(network.Controls[0], Is.False);
+                Assert.That(network.Controls[1], Is.False);
+                Assert.That(network.BoundSession.GetRemainingSeconds(network.ServerTime), Is.EqualTo(60d));
+                Assert.That(network.BoundSession.TryHoldObject(0, "Soda_01", network.ServerTime), Is.False);
+                network.ServerTime += MatchIntroTiming.VisibleSeconds;
+                network.PublishSimulationTick();
                 Assert.That(network.ResetStaminaPlayers, Is.EquivalentTo(new[] { 0, 1 }));
                 Assert.That(network.InitializedAssignmentPlayers, Is.EqualTo(new[] { 0 }));
                 Assert.That(network.PublishedAssignmentPlayers, Is.EqualTo(new[] { 0, 1, 0 }));
@@ -219,7 +225,7 @@ namespace Game.Architecture.Tests
                 Assert.That(network.TeleportedPoses[0].position.z, Is.EqualTo(-10f));
                 Assert.That(network.TeleportedPoses[1].position.z, Is.EqualTo(0f));
 
-                network.ServerTime = 10d + rules.HidingTurnDurationSeconds;
+                network.ServerTime = 10d + MatchIntroTiming.VisibleSeconds + rules.HidingTurnDurationSeconds;
                 network.PublishSimulationTick();
 
                 // 턴 교대 후에도 두 플레이어 모두 조작 가능.
@@ -243,9 +249,16 @@ namespace Game.Architecture.Tests
 
                 Assert.That(network.Snapshots, Has.Count.EqualTo(2));
                 Assert.That(network.Snapshots[1].Phase, Is.EqualTo(MatchPhase.Searching));
+                Assert.That(network.Controls[0], Is.False);
+                Assert.That(network.Controls[1], Is.False);
+                Assert.That(network.BoundSession.GetRemainingSeconds(network.ServerTime), Is.EqualTo(300d));
+                Assert.That(network.BoundSession.TryHoldObject(0,
+                    network.BoundSession.Assignments[0].Item.ItemId, network.ServerTime), Is.False);
+                network.ServerTime += MatchIntroTiming.VisibleSeconds;
+                network.PublishSimulationTick();
                 Assert.That(network.Controls[0], Is.True);
                 Assert.That(network.Controls[1], Is.True);
-                var searchingStartedAt = network.Snapshots[0].PhaseEndsAt;
+                var searchingStartedAt = network.Snapshots[0].PhaseEndsAt + MatchIntroTiming.VisibleSeconds;
                 Assert.That(
                     network.BoundSession.TryHoldObject(
                         0,
@@ -353,6 +366,7 @@ namespace Game.Architecture.Tests
 
                 Assert.That(network.BoundSession, Is.Null);
                 Assert.That(network.UnbindCount, Is.EqualTo(1));
+                // Result teardown retains the lock until ReturnToLobby restores controls.
                 Assert.That(network.Controls[0], Is.False);
                 Assert.That(network.Controls[1], Is.False);
             }

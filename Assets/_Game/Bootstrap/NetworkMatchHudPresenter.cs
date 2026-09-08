@@ -134,7 +134,9 @@ namespace Game.Bootstrap
                     now,
                     room.MatchParticipants.CurrentValue.Count,
                     HidingTurnDurationSeconds)
-                : Math.Max(0d, snapshot.PhaseEndsAt - now));
+                : snapshot.Phase == MatchPhase.Searching
+                    ? Math.Min(SearchingDurationSeconds, Math.Max(0d, snapshot.PhaseEndsAt - now))
+                    : Math.Max(0d, snapshot.PhaseEndsAt - now));
 
             // Whose turn it is moves with time, not with any event: the phase
             // stays Hiding while the turn travels down the line-up.
@@ -372,7 +374,7 @@ namespace Game.Bootstrap
             }
 
             var startedAt = snapshot.PhaseEndsAt - (HidingTurnDurationSeconds * playerCount);
-            var endsAt = startedAt + HidingIntroView.VisibleSeconds;
+            var endsAt = startedAt;
             if (clock.ServerTime >= endsAt)
             {
                 return;
@@ -416,7 +418,7 @@ namespace Game.Bootstrap
             }
 
             var startedAt = snapshot.PhaseEndsAt - SearchingDurationSeconds;
-            var endsAt = startedAt + SearchingIntroView.VisibleSeconds;
+            var endsAt = startedAt;
             if (clock.ServerTime >= endsAt)
             {
                 return;
@@ -537,9 +539,7 @@ namespace Game.Bootstrap
             var turnStartedAt = isLocalTurn
                 ? phaseStartedAt + (turnIndex * HidingTurnDurationSeconds)
                 : 0d;
-            var overlayStartsAt = Math.Max(
-                turnStartedAt,
-                phaseStartedAt + HidingIntroView.VisibleSeconds);
+            var overlayStartsAt = turnStartedAt;
             var showStartOverlay = isLocalTurn &&
                                    now >= overlayStartsAt &&
                                    now < overlayStartsAt + HidingTurnStartView.VisibleSeconds;

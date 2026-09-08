@@ -384,10 +384,11 @@ namespace Game.Architecture.Tests
                 presenter.Start();
 
                 network.PublishItemAssignment("Soda_01");
-                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 103d));
                 presenter.Tick();
                 Assert.That(view.HidingIntroVisible, Is.True);
                 Assert.That(view.HidingIntroItem, Is.EqualTo("탄산음료"));
+                Assert.That(view.RemainingSeconds, Is.EqualTo(30d));
 
                 network.ServerTime = 42.9d;
                 presenter.Tick();
@@ -421,7 +422,7 @@ namespace Game.Architecture.Tests
                     network, network, room, rules, view);
                 presenter.Start();
 
-                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 103d));
                 presenter.Tick();
                 Assert.That(view.HidingIntroVisible, Is.False);
 
@@ -455,7 +456,7 @@ namespace Game.Architecture.Tests
                 presenter.Start();
 
                 network.PublishItemAssignment("Soda_01");
-                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 103d));
                 presenter.Tick();
                 Assert.That(view.HidingIntroVisible, Is.False);
             }
@@ -534,7 +535,7 @@ namespace Game.Architecture.Tests
                     network, network, room, rules, view);
                 presenter.Start();
 
-                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 100d));
+                network.Publish(new MatchStateSnapshot(MatchPhase.Hiding, 103d));
                 presenter.Tick();
                 Assert.That(view.HidingTurnStartVisible, Is.True);
                 Assert.That(view.TopHudVisible, Is.False);
@@ -655,10 +656,11 @@ namespace Game.Architecture.Tests
                 presenter.Start();
 
                 network.PublishItemAssignment("Soda_01");
-                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 400d));
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 403d));
                 presenter.Tick();
                 Assert.That(view.SearchingIntroVisible, Is.True);
                 Assert.That(view.SearchingIntroItem, Is.EqualTo("탄산음료"));
+                Assert.That(view.RemainingSeconds, Is.EqualTo(300d));
                 Assert.That(view.HidingTurnStartVisible, Is.False);
 
                 network.ServerTime = 102.9d;
@@ -693,7 +695,7 @@ namespace Game.Architecture.Tests
                     network, network, room, rules, view);
                 presenter.Start();
 
-                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 400d));
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 403d));
                 presenter.Tick();
                 Assert.That(view.SearchingIntroVisible, Is.False);
 
@@ -727,7 +729,7 @@ namespace Game.Architecture.Tests
                 presenter.Start();
 
                 network.PublishItemAssignment("Soda_01");
-                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 400d));
+                network.Publish(new MatchStateSnapshot(MatchPhase.Searching, 403d));
                 presenter.Tick();
                 Assert.That(view.SearchingIntroVisible, Is.False);
             }

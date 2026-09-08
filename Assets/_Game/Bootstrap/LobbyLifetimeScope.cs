@@ -191,6 +191,8 @@ namespace Game.Bootstrap
             builder.RegisterComponent(entryCover).As<IHighlightTransitionView>();
             builder.RegisterEntryPoint<LobbyPlayerCameraBinder>();
             builder.RegisterEntryPoint<LobbyPlayerAnimationBinder>();
+            builder.RegisterEntryPoint<NetworkInteractionSceneBridge>()
+                .WithParameter(true).WithParameter(gameObject.scene);
             // Voluntary requests reach the project-owned session/exit flow through the bridge.
             builder.Register<LobbyExitPresenter>(Lifetime.Scoped);
             builder.RegisterEntryPoint<NetworkLobbyExitBridge>();
