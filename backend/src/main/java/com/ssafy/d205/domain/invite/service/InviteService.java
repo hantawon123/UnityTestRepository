@@ -1,6 +1,7 @@
 package com.ssafy.d205.domain.invite.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,10 +14,15 @@ import com.ssafy.d205.domain.invite.dto.InviteSummary;
 import com.ssafy.d205.domain.invite.entity.InviteExpiry;
 import com.ssafy.d205.domain.invite.entity.RoomInvite;
 import com.ssafy.d205.domain.invite.repository.RoomInviteRepository;
+import com.ssafy.d205.domain.notification.event.UserNotificationEvent;
+import com.ssafy.d205.domain.presence.entity.PresenceStatus;
+import com.ssafy.d205.domain.presence.entity.PresenceTimeout;
+import com.ssafy.d205.domain.presence.repository.UserPresenceRepository;
 import com.ssafy.d205.domain.user.entity.User;
 import com.ssafy.d205.domain.user.repository.UserRepository;
 import com.ssafy.d205.global.common.TimeProvider;
 import com.ssafy.d205.global.exception.NotFriendsException;
+import com.ssafy.d205.global.exception.TargetInGameException;
 import com.ssafy.d205.global.exception.TargetUserNotFoundException;
 import com.ssafy.d205.global.exception.UnknownCallerException;
 
@@ -35,7 +41,9 @@ public class InviteService {
     private final RoomInviteRepository roomInviteRepository;
     private final FriendshipRepository friendshipRepository;
     private final UserRepository userRepository;
+    private final UserPresenceRepository userPresenceRepository;
     private final TimeProvider timeProvider;
+    private final ApplicationEventPublisher events;
 
     /**
      * 친구를 방으로 부릅니다.
@@ -45,6 +53,13 @@ public class InviteService {
      *
      * <p>같은 사람을 같은 방으로 다시 부르면 새 초대가 생기지 않고 시각만 새로 씁니다.
      * 두 번 눌렀다고 초대가 둘이 되지는 않고, 다시 부르면 만료 시계가 처음부터 갑니다.
+     *
+     * <p><b>로비나 경기 중인 친구는 부를 수 없습니다.</b> 초대 토스트는 홈에서만 뜨므로 지금
+     * 보내도 상대는 못 보고 3분 뒤 조용히 사라질 뿐입니다. 보낸 사람에게 바로 알리는 편이
+     * 낫습니다. 로비와 경기 중은 서버가 구분하지 않고 둘 다 IN_GAME 입니다.
+     *
+     * <p>저장이 커밋되면 상대에게 ROOM_INVITE_RECEIVED 알림이 갑니다. 갱신도 알립니다. 상대
+     * 화면에서 토스트가 이미 사라졌을 수 있고, 다시 부른 것은 다시 봐 달라는 뜻입니다.
      */
     @Transactional
     public void send(String callerUserId, String targetUserId, String roomCode) {
@@ -60,6 +75,9 @@ public class InviteService {
         if (friendship.isEmpty() || friendship.get().isPending()) {
             throw new NotFriendsException();
         }
+        if (isInGame(target)) {
+            throw new TargetInGameException();
+        }
 
         String now = timeProvider.now();
         Optional<RoomInvite> existing = roomInviteRepository
@@ -67,10 +85,11 @@ public class InviteService {
 
         if (existing.isPresent()) {
             existing.get().renew(now);
-            return;
+        } else {
+            roomInviteRepository.save(RoomInvite.of(me.getSeq(), target.getSeq(), roomCode, now));
         }
 
-        roomInviteRepository.save(RoomInvite.of(me.getSeq(), target.getSeq(), roomCode, now));
+        events.publishEvent(UserNotificationEvent.roomInviteReceived(target, me, roomCode));
     }
 
     /**
@@ -114,6 +133,21 @@ public class InviteService {
         User inviter = target(inviterUserId);
 
         roomInviteRepository.deleteFromInviter(me.getSeq(), inviter.getSeq());
+    }
+
+    /**
+     * 상대가 로비나 경기 중인지. 친구 목록이 쓰는 것과 같은 판정입니다.
+     *
+     * <p>저장된 status 만 보면 크래시로 죽은 클라이언트가 스윕 전까지 게임 중으로 남아 그 사람을
+     * 부를 수 없게 됩니다. 그래서 마지막 하트비트가 타임아웃 안인지도 함께 봅니다. 하트비트가
+     * 끊긴 지 오래된 상대는 오프라인이고, 오프라인인 사람은 부를 수 있습니다.
+     */
+    private boolean isInGame(User target) {
+        String thresholdAt = timeProvider.minus(PresenceTimeout.TIMEOUT);
+        PresenceStatus status = userPresenceRepository.findById(target.getSeq())
+                .map(p -> PresenceTimeout.effective(p.getStatus().name(), p.getHeartbeatAt(), thresholdAt))
+                .orElse(PresenceStatus.OFFLINE);
+        return status == PresenceStatus.IN_GAME;
     }
 
     private User caller(String userId) {
