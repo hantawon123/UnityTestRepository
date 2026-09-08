@@ -1,0 +1,86 @@
+using UnityEngine;
+
+namespace Game.Client.Lobby
+{
+    /// <summary>
+    /// Colours and measurements for the play settings modal.
+    /// </summary>
+    public static class PlaySettingsStyle
+    {
+        public static readonly Vector2 ModalSize = new Vector2(1000f, 800f);
+
+        public const int PanelRadius = 30;
+        public const float BorderWidth = 1f;
+
+        public const float HeaderHeight = 90f;
+        public const float TitleTopPadding = 24f;
+        public const float FooterHeight = 96f;
+        public const float SidePadding = 40f;
+        public const float RowHeight = 88f;
+        public const float RowSpacing = 8f;
+        public const float MapSectionHeight = 260f;
+        public const float ApplyButtonWidth = 270f;
+        public const float ApplyButtonHeight = 47f;
+        public const int LayoutVersion = 13;
+
+        public const string RegularFontResource = "Fonts/Paperlogy-4Regular";
+        public const string HeaderFontResource = "Fonts/Paperlogy-9Black";
+        public const string CopyIconResource = "UI/ic_copy";
+        public const string ArrowLeftIconResource = "UI/Icon_Left";
+        public const string ArrowRightIconResource = "UI/Icon_Right";
+
+        public static class Palette
+        {
+            public static readonly Color PanelFill = FromHex(0x0B1018, 0.8f);
+            public static readonly Color ScrollBackground = FromHex(0x0B1018, 1f);
+            public static readonly Color Border = Color.white;
+            public static readonly Color Text = Color.white;
+            public static readonly Color RowHover = FromHex(0xF5F3F1, 0.16f);
+            public static readonly Color MapPreview = FromHex(0x8E8E8E);
+            public static readonly Color Underline = FromHex(0xF5F3F1, 0.5f);
+            public static readonly Color ApplyFill = FromHex(0xFF7032);
+            public static readonly Color Divider = FromHex(0xF5F3F1, 0.16f);
+            public static readonly Color Arrow = Color.white;
+        }
+
+        public static class FontSize
+        {
+            public const int Header = 36;
+            public const int Body = 28;
+            public const int Counter = 24;
+            public const int MapName = 18;
+        }
+
+        public static class Layout
+        {
+            public const float MapPreviewSize = 120f;
+            public const float MapSlotSize = 90f;
+            public const float MapSlotSpacing = 12f;
+            public const float ArrowSize = 24f;
+            public const float CopyIconSize = 32f;
+            public const float LabelAreaRatio = 0.42f;
+            public const float RoomCodeValueWidth = 160f;
+            public const float RoomCodeControlSpacing = 8f;
+            public const float ControlValueWidth = 132f;
+            public const float ControlSpacing = 24f;
+            public const float PickerSpacing = 16f;
+            public const float SectionTitleHeight = 36f;
+            public const float CategoryPickerHeight = 36f;
+            public const float CategoryValueMinWidth = 140f;
+        }
+
+        public static class MapSlotPalette
+        {
+            public static readonly Color Normal = new Color(0.45f, 0.45f, 0.5f, 1f);
+            public static readonly Color Selected = new Color(0.92f, 0.92f, 0.95f, 1f);
+            public static readonly Color SelectionOutline = new Color(0.95f, 0.95f, 1f, 1f);
+        }
+
+        private static Color FromHex(uint rgb, float alpha = 1f) =>
+            new Color(
+                ((rgb >> 16) & 0xFF) / 255f,
+                ((rgb >> 8) & 0xFF) / 255f,
+                (rgb & 0xFF) / 255f,
+                alpha);
+    }
+}
