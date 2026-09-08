@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -63,7 +64,7 @@ namespace Game.Client.Lobby
 
         [SerializeField]
         private Text titleText;
-        private InputField titleInput;
+        private TMP_InputField titleInput;
         private Button saveTitleButton;
         private string savedTitle = string.Empty;
 
@@ -278,14 +279,27 @@ namespace Game.Client.Lobby
             inputRect.offsetMin = original.offsetMin;
             inputRect.offsetMax = original.offsetMax - new Vector2(90, 0);
             inputRect.GetComponent<Image>().color = HomeStyle.Palette.InputFill;
-            var inputText = Instantiate(titleText, inputRect);
-            inputText.name = "Text";
+            var viewport = new GameObject("Text Area", typeof(RectTransform), typeof(RectMask2D)).GetComponent<RectTransform>();
+            viewport.SetParent(inputRect, false);
+            viewport.anchorMin = Vector2.zero;
+            viewport.anchorMax = Vector2.one;
+            viewport.offsetMin = new Vector2(8, 0);
+            viewport.offsetMax = new Vector2(-8, 0);
+            var inputText = new GameObject("Text", typeof(RectTransform)).AddComponent<TextMeshProUGUI>();
+            inputText.transform.SetParent(viewport, false);
+            inputText.font = HomeUiFonts.Apply();
+            inputText.fontSize = titleText.fontSize;
+            inputText.color = titleText.color;
+            inputText.alignment = TextAlignmentOptions.MidlineLeft;
+            inputText.richText = false;
             inputText.rectTransform.anchorMin = Vector2.zero;
             inputText.rectTransform.anchorMax = Vector2.one;
-            inputText.rectTransform.offsetMin = new Vector2(8, 0);
-            inputText.rectTransform.offsetMax = new Vector2(-8, 0);
-            titleInput = inputRect.gameObject.AddComponent<InputField>();
+            inputText.rectTransform.offsetMin = Vector2.zero;
+            inputText.rectTransform.offsetMax = Vector2.zero;
+            titleInput = inputRect.gameObject.AddComponent<TMP_InputField>();
             titleInput.textComponent = inputText;
+            titleInput.textViewport = viewport;
+            titleInput.lineType = TMP_InputField.LineType.SingleLine;
             titleInput.targetGraphic = inputRect.GetComponent<Image>();
             titleInput.characterLimit = RoomSettings.MaxTitleLength;
             titleInput.SetTextWithoutNotify(title);

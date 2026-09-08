@@ -141,12 +141,15 @@ namespace Game.Client.Cameras
 
         private void OnDisable()
         {
+            Game.Client.Common.WebPointerInput.Arm(false);
             playerMap?.Disable();
             SetCursorLocked(false);
         }
 
         private void Update()
         {
+            Game.Client.Common.WebPointerInput.Arm(!migrationSuspended && cursorCaptureEnabled &&
+                !PlayerMovement.IsTextInputFocused() && !IsPointerOverUi());
             if (migrationSuspended) return;
             if (PlayerMovement.IsTextInputFocused())
             {

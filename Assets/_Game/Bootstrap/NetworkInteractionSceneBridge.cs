@@ -45,6 +45,7 @@ namespace Game.Bootstrap
             Array.Empty<PlayerInteractionStateSnapshot>();
         private string assignedItemId;
         private double nextAssignmentRequestAt;
+        private double nextHeldStateCheckAt;
         private CarryableItem highlightedAssignment;
         private PlayerCameraController cameraRig;
         private Transform cameraTarget;
@@ -208,7 +209,8 @@ namespace Game.Bootstrap
                 var interactor = avatar.GetComponent<PlayerInteractor>();
                 if (interactor != null)
                 {
-                    interactor.BindCommands(acceptsLocalInput ? this : null);
+                    // A disabled network avatar must never fall back to standalone item mutation.
+                    interactor.BindCommands(this);
                     interactor.enabled = acceptsLocalInput;
                     interactors[playerIndex] = interactor;
 
@@ -297,16 +299,19 @@ namespace Game.Bootstrap
 
         private void ApplyObjectStates()
         {
+            var checkHeldState = Time.unscaledTimeAsDouble >= nextHeldStateCheckAt;
+            if (checkHeldState) nextHeldStateCheckAt = Time.unscaledTimeAsDouble + 0.5d;
             for (var index = 0; index < objectStates.Length; index++)
             {
                 var state = objectStates[index];
-                if (appliedVersions.TryGetValue(state.ObjectId, out var version) &&
-                    version >= state.Version)
+                if (!items.TryGetValue(state.ObjectId, out var item) || item == null)
                 {
                     continue;
                 }
 
-                if (!items.TryGetValue(state.ObjectId, out var item) || item == null)
+                if (appliedVersions.TryGetValue(state.ObjectId, out var version) &&
+                    (version > state.Version ||
+                     (version == state.Version && (!checkHeldState || IsHeldStateAligned(state, item)))))
                 {
                     continue;
                 }
@@ -370,6 +375,18 @@ namespace Game.Bootstrap
 
                 appliedVersions[state.ObjectId] = state.Version;
             }
+        }
+
+        private bool IsHeldStateAligned(MatchObjectStateSnapshot state, CarryableItem item)
+        {
+            var held = false;
+            foreach (var pair in interactors)
+            {
+                if (pair.Value.CarriedItem != item) continue;
+                if (pair.Key != state.HolderPlayerIndex) return false;
+                held = true;
+            }
+            return state.HolderPlayerIndex >= 0 ? held && item.IsCarried : !held && !item.IsCarried;
         }
 
         private void ConfirmSettledObjects()

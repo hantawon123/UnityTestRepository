@@ -11,6 +11,30 @@ namespace Game.Architecture.Tests
     public sealed class MatchChatViewTests
     {
         [Test]
+        public void BrowserCancel_ReleasesGameplayInputWithoutSendingDraft()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = MatchChatView.Create(canvas.transform, keepChromeVisible: true);
+                view.SetMode(MatchChatHudMode.Full);
+                var input = view.GetComponentInChildren<TMP_InputField>(true);
+                input.text = "한글 초안";
+                var sent = false;
+                view.SendRequested += _ => sent = true;
+                typeof(MatchChatView).GetMethod("SetActivated",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, new object[] { true });
+                Assert.That(MatchChatView.BlocksPlayerInput, Is.True);
+                view.OnCancel(new UnityEngine.EventSystems.BaseEventData(null));
+                Assert.That(MatchChatView.BlocksPlayerInput, Is.False);
+                Assert.That(input.text, Is.EqualTo("한글 초안"));
+                Assert.That(sent, Is.False);
+            }
+            finally { Object.DestroyImmediate(canvas); }
+        }
+
+        [Test]
         public void SetMessages_ShowsLastFour_NewestAtBottom()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));

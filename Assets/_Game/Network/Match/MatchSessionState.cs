@@ -695,9 +695,10 @@ namespace Game.Network.Match
             Quaternion rotation,
             RpcInfo info = default)
         {
-            StarterOf(Runner)?.TryReleaseHeldObject(
+            if (StarterOf(Runner)?.TryReleaseHeldObject(
                 info.Source,
-                new Pose(position, rotation));
+                new Pose(position, rotation)) != true)
+                RPC_InteractionRejected(info.Source, "release");
         }
 
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
@@ -706,9 +707,10 @@ namespace Game.Network.Match
             Quaternion rotation,
             RpcInfo info = default)
         {
-            StarterOf(Runner)?.TryDropHeldObject(
+            if (StarterOf(Runner)?.TryDropHeldObject(
                 info.Source,
-                new Pose(position, rotation));
+                new Pose(position, rotation)) != true)
+                RPC_InteractionRejected(info.Source, "drop");
         }
 
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
@@ -718,10 +720,19 @@ namespace Game.Network.Match
             Vector3 initialVelocity,
             RpcInfo info = default)
         {
-            StarterOf(Runner)?.TryThrowHeldObject(
+            if (StarterOf(Runner)?.TryThrowHeldObject(
                 info.Source,
                 new Pose(position, rotation),
-                initialVelocity);
+                initialVelocity) != true)
+                RPC_InteractionRejected(info.Source, "throw");
+        }
+
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        private void RPC_InteractionRejected([RpcTarget] PlayerRef target, string action)
+        {
+            // Re-publish the replicated authority snapshot; never clear ownership locally.
+            PublishObjectStates();
+            Debug.LogWarning($"[Interaction] {action} rejected by authority; refreshed item state.");
         }
 
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
