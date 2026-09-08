@@ -26,6 +26,23 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void TryTransitionTo_SettingsIsADetourFromHome()
+        {
+            var flow = new AppFlowSystem();
+            Assert.That(flow.TryTransitionTo(AppFlowState.Settings), Is.True);
+
+            // The only way on from the settings screen is back where it was
+            // opened from.
+            Assert.That(flow.TryTransitionTo(AppFlowState.RoomBrowser), Is.False);
+            Assert.That(flow.TryTransitionTo(AppFlowState.Lobby), Is.False);
+            Assert.That(flow.TryTransitionTo(AppFlowState.Home), Is.True);
+
+            flow.TryTransitionTo(AppFlowState.RoomBrowser);
+            Assert.That(flow.TryTransitionTo(AppFlowState.Settings), Is.False,
+                "Settings opens from Home only; the browser has no button for it.");
+        }
+
+        [Test]
         public void ExitSession_KickCanReturnToBrowser_AndRejectsSessionDestination()
         {
             var flow = new AppFlowSystem();

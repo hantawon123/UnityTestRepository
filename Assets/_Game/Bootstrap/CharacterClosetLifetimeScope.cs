@@ -76,6 +76,8 @@ namespace Game.Bootstrap
 
             public void OpenCharacterCloset() => scenes.OpenCharacterCloset();
 
+            public void OpenSettings() => scenes.OpenSettings();
+
             /// <summary>
             /// Not from here. The closet answers the Home presenter's interface
             /// only because leaving is the one thing every screen does.

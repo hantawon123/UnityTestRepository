@@ -312,6 +312,8 @@ namespace Game.Architecture.Tests
 
             public void OpenCharacterCloset() { }
 
+            public void OpenSettings() { }
+
             public void CreateRoom(string title, bool isPublic, int maxPlayers) { }
 
             public void OpenLobby() { }
