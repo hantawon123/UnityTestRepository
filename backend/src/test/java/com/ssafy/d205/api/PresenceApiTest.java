@@ -215,6 +215,23 @@ class PresenceApiTest extends IntegrationTest {
     }
 
     @Test
+    @DisplayName("빈 문자열 sessionKind는 400")
+    void emptySessionKindIsBadRequest() throws Exception {
+        // 클라이언트가 실수로 보낼 수 있는 모양이라 확인해 둡니다. Unity 의 JsonUtility 는
+        // null 문자열을 "" 로 씁니다. sessionKind 를 채우지 않은 DTO 를 그대로 보내면 이
+        // 요청이 되고, 조용히 MATCH 로 처리되는 것보다 거절하는 편이 낫습니다 -- 클라이언트가
+        // 그 필드를 보내려 했다는 뜻이니까요.
+        String me = createUser();
+
+        mvc.perform(put("/api/v1/presence")
+                        .header(USER_ID_HEADER, me)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sessionId\":\"ROOM42\",\"sessionKind\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
     @DisplayName("스윕이 로비에 있던 행도 오프라인으로 내린다")
     void sweepMarksStaleLobbyRowsOffline() throws Exception {
         // 스윕 조건이 status IN (...) 목록이라 PresenceStatus 에 값을 더하면 그 목록에도
