@@ -60,6 +60,15 @@
 - 데모 카메라: (0, 1.85, 7.6) / (4.5, 180, 0) / FOV 40.4, Post Processing 켜짐, 배경 단색. 컨셉 구도와 같은 정면 샷.
 - 컨셉(차가운 형광 톤)과 데모(온색 펜던트)의 차이는 729 조명에서 색온도·영역광 추가로 맞춘다.
 
+## 3. 환경 프리팹과 배치 (727 시작, 2026-09-07)
+
+- `Assets/_Game/Content/Prefabs/EndingHoldingEnvironment.prefab` — 씬 결정(Result.unity 확장 vs 별도 씬)과 무관하게 먼저 만든 단위.
+  - `Police_Holding_Stylized`(유치장 에셋, 원점) · `EndingCameraAnchor`(0, 1.85, 7.6 / 4.5, 180, 0 / FOV 40.4) · `EscapeSpawnPoints` 6 · `ArrestSpawnPoints` 6
+  - 탈출자 스폰(복도, 카메라를 향해 +Z): 앞줄 (-1.6, 2.2) (0, 1.9) (1.6, 2.2), 뒷줄 (-2.1, 3.0) (0, 3.05) (2.1, 3.0)
+  - 체포자 스폰(유치장 안, 철창 뒤 0.6 m): (-2.4, -0.6) (-1.2, -0.7) (0, -0.6) (1.2, -0.7) (2.4, -0.6), 예비 (0, -1.6)
+  - 구도 검증(카메라 투영 계산): 12명 모두 화면 안. 철창은 화면 세로 0.28~0.83 구간, 체포자 머리 0.58·발 0.30, 탈출자 앞줄 발 0.08~0.15. 뒷줄을 z 3.4에 두면 발이 화면 아래 가장자리에 걸려 3.0으로 당김.
+- URP는 에디터 모드 `Camera.Render()`로 라이트가 반영되지 않아 미리보기 렌더는 불가. 스크린샷은 씬 조립 후 씬 뷰로 찍는다.
+
 ## 참고 파일
 - 결과 흐름: `Assets/_Game/Bootstrap/ResultLifetimeScope.cs`, `NetworkResultLobbyReturnController.cs`, `Assets/_Game/Content/Scenes/Result.unity`
 - 리플레이 아바타 재생: `Assets/_Game/Bootstrap/HighlightReplayPlayer.cs`
