@@ -367,6 +367,10 @@ namespace Game.Tests.EditMode
             public void OpenCharacterCloset()
             {
             }
+
+            public void OpenSettings()
+            {
+            }
         }
     }
 }

@@ -15,7 +15,13 @@ namespace Game.Core.Flow
         /// Appended rather than placed beside <see cref="Home"/> so the numbers
         /// the existing states carry do not shift.
         /// </summary>
-        CharacterCloset
+        CharacterCloset,
+
+        /// <summary>
+        /// The settings screen. Like the closet, a detour off Home that only
+        /// leads back to it. Appended for the same reason.
+        /// </summary>
+        Settings
     }
 
     public sealed class AppFlowSystem
@@ -42,12 +48,14 @@ namespace Game.Core.Flow
             {
                 case AppFlowState.Home:
                     return nextState == AppFlowState.CharacterCloset ||
+                           nextState == AppFlowState.Settings ||
                            nextState == AppFlowState.RoomBrowser ||
                            nextState == AppFlowState.Lobby;
 
                 // The closet is a detour rather than a step forward: the only
                 // way on from it is back where it was opened from.
                 case AppFlowState.CharacterCloset:
+                case AppFlowState.Settings:
                     return nextState == AppFlowState.Home;
                 case AppFlowState.RoomBrowser:
                     return nextState == AppFlowState.Home ||

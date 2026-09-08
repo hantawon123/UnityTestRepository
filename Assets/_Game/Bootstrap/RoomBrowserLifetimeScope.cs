@@ -81,6 +81,8 @@ namespace Game.Bootstrap
 
             public void OpenCharacterCloset() => scenes.OpenCharacterCloset();
 
+            public void OpenSettings() => scenes.OpenSettings();
+
             /// <summary>
             /// Not from here. The room screen has its own way of opening a
             /// room; this host answers the Home presenter's interface only

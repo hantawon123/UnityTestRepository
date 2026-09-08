@@ -1,0 +1,197 @@
+using System;
+using Game.Core.Settings;
+
+namespace Game.Client.Settings
+{
+    /// <summary>
+    /// The six tabs down the left of the settings screen, in the order they
+    /// are drawn.
+    /// </summary>
+    public enum SettingsTab
+    {
+        General,
+        Graphics,
+        Interface,
+        Sound,
+        Controls,
+        Notifications
+    }
+
+    /// <summary>
+    /// Which confirmation is being asked for. The three share one panel and
+    /// differ in their words and in what the two buttons do, so the presenter
+    /// has to know which one it put up.
+    /// </summary>
+    public enum SettingsConfirmKind
+    {
+        /// <summary>초기화 under the panel: this tab back to its defaults.</summary>
+        ResetTab,
+
+        /// <summary>전체설정 초기화 at the top right: every tab back to its defaults.</summary>
+        ResetAll,
+
+        /// <summary>
+        /// ← 이전 with changes not yet applied. Its right button saves and
+        /// leaves, its left button leaves without saving, and its X stays.
+        /// </summary>
+        Discard
+    }
+
+    /// <summary>
+    /// The settings screen, as the presenter needs it: what it can be asked
+    /// to draw and what the player can do on it.
+    /// </summary>
+    public interface ISettingsView
+    {
+        /// <summary>The arrow at the top left.</summary>
+        event Action BackRequested;
+
+        /// <summary>전체설정 초기화 at the top right.</summary>
+        event Action ResetAllRequested;
+
+        event Action<SettingsTab> TabSelected;
+
+        /// <summary>
+        /// One of the language picker's arrows: -1 for the left, +1 for the
+        /// right.
+        /// </summary>
+        event Action<int> LanguageStepRequested;
+
+        /// <summary>
+        /// One of a 그래픽 row's arrows, carrying the row it belongs to and
+        /// which way it points.
+        /// </summary>
+        event Action<GraphicsOption, int> GraphicsStepRequested;
+
+        /// <inheritdoc cref="GraphicsStepRequested"/>
+        event Action<InterfaceOption, int> InterfaceStepRequested;
+
+        /// <inheritdoc cref="GraphicsStepRequested"/>
+        event Action<NotificationOption, int> NotificationStepRequested;
+
+        /// <summary>A volume slider, wherever it was dragged to, in percent.</summary>
+        event Action<SoundVolume, int> VolumeChanged;
+
+        /// <summary>One of the microphone picker's arrows.</summary>
+        event Action<int> MicrophoneDeviceStepRequested;
+
+        /// <summary>One of the input mode picker's arrows.</summary>
+        event Action<int> InputModeStepRequested;
+
+        /// <summary>마이크 테스트, which starts a test or stops the one running.</summary>
+        event Action MicrophoneTestToggled;
+
+        /// <summary>A key plate, which asks to be put on something else.</summary>
+        event Action<ControlAction> RebindRequested;
+
+        /// <summary>A 감도 slider, wherever it was dragged to.</summary>
+        event Action<ControlSensitivity, int> SensitivityChanged;
+
+        /// <summary>One of a 반전 row's arrows.</summary>
+        event Action<ControlToggle, int> ReversalStepRequested;
+
+        /// <summary>피드백 보내기 on the row, which opens the writing panel.</summary>
+        event Action FeedbackRequested;
+
+        /// <summary>What is in the writing box, as it is typed.</summary>
+        event Action<string> FeedbackEdited;
+
+        /// <summary>Its 보내기, carrying what was written.</summary>
+        event Action<string> FeedbackSubmitted;
+
+        /// <summary>Its 취소, its X, or Escape.</summary>
+        event Action FeedbackDismissed;
+
+        /// <summary>초기화 under the panel.</summary>
+        event Action ResetRequested;
+
+        event Action ApplyRequested;
+
+        /// <summary>The right, orange button of whichever confirmation is up.</summary>
+        event Action ConfirmAccepted;
+
+        /// <summary>Its left, grey button.</summary>
+        event Action ConfirmDeclined;
+
+        /// <summary>Its X, or Escape.</summary>
+        event Action ConfirmDismissed;
+
+        /// <summary>Marks a tab as the one being looked at and shows its contents.</summary>
+        void ShowTab(SettingsTab tab);
+
+        /// <summary>
+        /// Puts a language's name in the picker. <paramref name="canStep"/>
+        /// false draws the arrows as unavailable, for a catalogue with nowhere
+        /// else to go.
+        /// </summary>
+        void ShowLanguage(string label, bool canStep);
+
+        /// <summary>Puts a chosen value in one 그래픽 row's picker.</summary>
+        void ShowGraphics(GraphicsOption option, string label, bool canStep);
+
+        /// <inheritdoc cref="ShowGraphics"/>
+        void ShowInterface(InterfaceOption option, string label, bool canStep);
+
+        /// <inheritdoc cref="ShowGraphics"/>
+        void ShowNotification(NotificationOption option, string label, bool canStep);
+
+        /// <summary>Moves one volume's handle and the figure beside it.</summary>
+        void ShowVolume(SoundVolume volume, int percent);
+
+        void ShowMicrophoneDevice(string label, bool canStep);
+
+        void ShowInputMode(string label, bool canStep);
+
+        /// <summary>Paints 마이크 테스트 for whether a test is running.</summary>
+        void ShowMicrophoneTest(bool running);
+
+        /// <summary>Puts the name of a key on one action's plate.</summary>
+        void ShowBinding(ControlAction action, string label);
+
+        /// <summary>
+        /// Says which plate is waiting for a press, or none.
+        /// </summary>
+        /// <remarks>
+        /// One at a time, so one call rather than a flag on every plate. While
+        /// a plate is waiting the screen stops taking clicks, because the press
+        /// being waited for may well be a mouse button: without that, choosing
+        /// 좌클릭 would also press whatever the pointer happened to be over.
+        /// </remarks>
+        void ShowRebinding(ControlAction? listening);
+
+        void ShowSensitivity(ControlSensitivity sensitivity, int percent);
+
+        void ShowReversal(ControlToggle toggle, string label, bool canStep);
+
+        /// <summary>
+        /// Turns 초기화 and 적용하기 on or off, which is the screen's whole
+        /// account of whether anything has been changed.
+        /// </summary>
+        void SetActionsEnabled(bool enabled);
+
+        /// <param name="tab">
+        /// The tab a <see cref="SettingsConfirmKind.ResetTab"/> question names.
+        /// Ignored by the other two.
+        /// </param>
+        void ShowConfirm(SettingsConfirmKind kind, SettingsTab tab);
+
+        void HideConfirm();
+
+        /// <summary>
+        /// Opens the writing panel, empty. Closing it is what clears it, so
+        /// what was typed cannot come back on a later visit.
+        /// </summary>
+        void ShowFeedback();
+
+        void HideFeedback();
+
+        /// <summary>
+        /// Turns 보내기 on or off, which is the panel's whole account of
+        /// whether there is anything worth sending.
+        /// </summary>
+        void SetFeedbackSubmitEnabled(bool enabled);
+
+        /// <summary>A passing message over the screen, for something that could not be done.</summary>
+        void ShowNotice(string title, string message);
+    }
+}
