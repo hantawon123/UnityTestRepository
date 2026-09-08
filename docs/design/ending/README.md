@@ -103,6 +103,14 @@
 - **미리보기**: `Game/Ending/2. Preview Avatars In Active Scene`이 조립 씬 스폰 12자리에 `PlayerCharacter` 복제본을 세운다(저장하지 말고 3번으로 정리). 결과 `ending-stage-preview-v1.png`: 탈출자 6은 철창을 보고(등이 카메라), 체포자 6은 철창 안에서 카메라를 본다. 실제로는 합쳐서 최대 6명.
 - **남은 것**: 실제 매치 종료로 E2E 확인(콘솔 `[Ending] Staged N of M players`), Celebrate/Dejected 애니메이션(현재 Idle), 노출 시간 5초 조정, 조명 베이크.
 
+## 7. 첫 E2E 테스트와 수정 (2026-09-08)
+
+- 실제 매치 종료로 확인: 프레젠터 로그 `[Ending] Staged 2 of 2 players (escaped 0)` 정상. 그러나 **무대가 보이지 않음** → 결과 문구 캔버스가 원래 인게임 위에 문구만 띄우던 화면이라 전체 화면 불투명 검은 배경(`Result Background`)을 깔고 있었음.
+  - 수정: `IResultView.SetBackdropVisible` 추가, `EndingStagePresenter`가 무대가 연결된 경우 배경을 끄고 종료 시 복원. 무대 없는 씬은 예전 그대로.
+- 두 번째 테스트: 무대·아바타·문구 정상 표시. 피드백 두 가지 반영.
+  - 노출 시간 5초 → **8초** (`NetworkResultLobbyReturnController.ResultDisplaySeconds`). 하이라이트 3클립은 그대로.
+  - 결과 화면 동안 로컬 플레이어가 자기 캐릭터를 움직일 수 있었음(카메라는 무대 고정이라 복제본은 그대로지만 원본이 맵을 돌아다님). 로비 Esc 메뉴와 같은 잠금(`PlayerMovement.IsMovementLocked`, `PlayerInteractor.IsInputLocked`)을 무대 표시 동안 걸고 종료 시 해제.
+
 ## 참고 파일
 - 결과 흐름: `Assets/_Game/Bootstrap/ResultLifetimeScope.cs`, `NetworkResultLobbyReturnController.cs`, `Assets/_Game/Content/Scenes/Result.unity`
 - 리플레이 아바타 재생: `Assets/_Game/Bootstrap/HighlightReplayPlayer.cs`
