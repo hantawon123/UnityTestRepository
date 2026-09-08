@@ -25,9 +25,12 @@ public enum NotificationType {
      */
     FRIEND_REQUEST_REMOVED,
 
-    /** 친구가 나를 방으로 불렀다. 같은 방으로 다시 부른 갱신도 여기에 해당한다. */
-    ROOM_INVITE_RECEIVED,
+    /**
+     * 친구 관계가 끊겼다. 상대가 끊은 경우입니다. 두 사람 사이의 방 초대도 함께 사라지므로
+     * 친구 목록과 받은 초대 목록을 다시 읽는다.
+     */
+    FRIEND_REMOVED,
 
-    /** 상대와 주고받은 초대가 서버에서 지워졌다. 지금은 친구를 끊을 때만 일어난다. */
-    ROOM_INVITE_REMOVED
+    /** 친구가 나를 방으로 불렀다. 같은 방으로 다시 부른 갱신도 여기에 해당한다. */
+    ROOM_INVITE_RECEIVED
 }

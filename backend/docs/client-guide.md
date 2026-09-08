@@ -504,8 +504,8 @@ ACCOUNT_NOT_FOUND` 입니다 — 남의 계정이 존재하는지 알 수 없게
 | `FRIEND_REQUEST_RECEIVED` | 누가 나에게 친구 요청을 보냄 | 홈이면 토스트. 받은 요청 목록을 다시 읽습니다 |
 | `FRIEND_REQUEST_ACCEPTED` | 내가 보낸 요청을 상대가 수락 | 친구 목록과 보낸 요청 목록을 다시 읽습니다 |
 | `FRIEND_REQUEST_REMOVED` | 상대가 거절했거나 취소함. 어느 쪽인지는 알려주지 않습니다 | 받은·보낸 요청 목록을 다시 읽습니다 |
+| `FRIEND_REMOVED` | 상대가 친구를 끊음. 둘 사이의 방 초대도 함께 지워집니다 | 친구 목록과 받은 초대 목록을 다시 읽습니다 |
 | `ROOM_INVITE_RECEIVED` | 친구가 나를 방으로 부름. 같은 방으로 다시 부른 갱신도 포함 | 홈이면 토스트. `roomCode` 로 입장합니다 |
-| `ROOM_INVITE_REMOVED` | 상대와의 초대가 서버에서 지워짐. 지금은 친구 끊기 때만 | 받은 초대 목록을 다시 읽습니다 |
 
 `roomCode` 는 방 초대에만 있고 나머지는 `null` 입니다. `sentAt` 은 다른 API 와 같은
 `yyyyMMddHHmmss` UTC 입니다. **모르는 `type` 은 무시하세요.** 서버가 종류를 더해도 옛

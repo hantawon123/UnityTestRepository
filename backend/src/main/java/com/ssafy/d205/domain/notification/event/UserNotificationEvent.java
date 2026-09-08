@@ -39,12 +39,12 @@ public record UserNotificationEvent(
         return of(target, NotificationType.FRIEND_REQUEST_REMOVED, from, null);
     }
 
-    public static UserNotificationEvent roomInviteReceived(User invitee, User inviter, String roomCode) {
-        return of(invitee, NotificationType.ROOM_INVITE_RECEIVED, inviter, roomCode);
+    public static UserNotificationEvent friendRemoved(User target, User from) {
+        return of(target, NotificationType.FRIEND_REMOVED, from, null);
     }
 
-    public static UserNotificationEvent roomInviteRemoved(User target, User from) {
-        return of(target, NotificationType.ROOM_INVITE_REMOVED, from, null);
+    public static UserNotificationEvent roomInviteReceived(User invitee, User inviter, String roomCode) {
+        return of(invitee, NotificationType.ROOM_INVITE_RECEIVED, inviter, roomCode);
     }
 
     private static UserNotificationEvent of(User target, NotificationType type, User from, String roomCode) {

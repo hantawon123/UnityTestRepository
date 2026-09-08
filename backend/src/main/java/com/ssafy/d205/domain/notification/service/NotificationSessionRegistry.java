@@ -8,6 +8,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
+import org.springframework.web.socket.handler.SessionLimitExceededException;
 
 import java.io.IOException;
 import java.util.Map;
@@ -111,9 +112,10 @@ public class NotificationSessionRegistry {
         try {
             session.sendMessage(message);
             return true;
-        } catch (IOException | IllegalStateException e) {
-            // 데코레이터는 시간·버퍼 한도를 넘기면 스스로 세션을 닫고 IllegalStateException 을
-            // 냅니다. 어느 쪽이든 이 연결은 끝났습니다.
+        } catch (IOException | IllegalStateException | SessionLimitExceededException e) {
+            // 데코레이터는 시간·버퍼 한도를 넘기면 스스로 세션을 닫고 SessionLimitExceededException
+            // 을 냅니다. 이것은 IllegalStateException 이 아니라 RuntimeException 을 바로 상속하므로
+            // 따로 적어야 합니다. 어느 쪽이든 이 연결은 끝났습니다.
             log.debug("알림 전송에 실패해 연결 {} 을 정리합니다: {}", session.getId(), e.getMessage());
             unbind(session);
             closeQuietly(session);

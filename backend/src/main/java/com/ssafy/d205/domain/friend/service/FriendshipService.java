@@ -152,9 +152,9 @@ public class FriendshipService {
 
         friendshipRepository.delete(friendship);
         friendshipRepository.deleteInvitesBetween(me.getSeq(), other.getSeq());
-        // 상대 화면에 내 초대가 토스트로 남아 있을 수 있습니다. 눌러도 NOT_FOUND 지만, 지워진
-        // 것을 알려 화면이 먼저 치우게 합니다.
-        events.publishEvent(UserNotificationEvent.roomInviteRemoved(other, me));
+        // 상대 화면에는 아직 내가 친구로 있고, 내가 보낸 초대도 토스트로 남아 있을 수 있습니다.
+        // 눌러도 NOT_FRIENDS 지만, 끊긴 것을 알려 화면이 먼저 치우게 합니다.
+        events.publishEvent(UserNotificationEvent.friendRemoved(other, me));
     }
 
     /**

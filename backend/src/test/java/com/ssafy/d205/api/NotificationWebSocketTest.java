@@ -188,8 +188,8 @@ class NotificationWebSocketTest extends IntegrationTest {
     }
 
     @Test
-    @DisplayName("친구를 끊으면 상대에게 초대가 지워졌다는 프레임이 간다")
-    void unfriendingPushesInviteRemoved() throws Exception {
+    @DisplayName("친구를 끊으면 상대에게 끊겼다는 프레임이 간다")
+    void unfriendingPushesFriendRemoved() throws Exception {
         String host = createUser();
         String guest = createUser();
         befriend(host, guest);
@@ -200,7 +200,7 @@ class NotificationWebSocketTest extends IntegrationTest {
                 .andExpect(status().isNoContent());
 
         JsonNode frame = guestClient.next();
-        assertThat(frame.path("type").asText()).isEqualTo("ROOM_INVITE_REMOVED");
+        assertThat(frame.path("type").asText()).isEqualTo("FRIEND_REMOVED");
         assertThat(frame.path("from").path("userId").asText()).isEqualTo(host);
     }
 
