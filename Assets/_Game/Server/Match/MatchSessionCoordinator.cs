@@ -255,7 +255,26 @@ namespace Game.Server.Match
             return flow.GetRemainingSeconds(now);
         }
 
-        public void EnablePhaseIntros() => flow.EnablePhaseIntros();
+        private readonly HashSet<int> introReadyPlayers = new();
+        private MatchPhase readyPhase;
+        public bool IsWaitingForIntroReady => flow.IsWaitingForIntroReady;
+        public void EnablePhaseIntros(bool waitForReady = false) => flow.EnablePhaseIntros(waitForReady);
+
+        public bool ConfirmPhaseIntroReady(int playerIndex, MatchPhase phase)
+        {
+            if (!IsWaitingForIntroReady || phase != CurrentPhase || playerIndex < 0 ||
+                playerIndex >= Players.Players.Count || !Players.IsActive(playerIndex)) return false;
+            if (readyPhase != phase) { introReadyPlayers.Clear(); readyPhase = phase; }
+            return introReadyPlayers.Add(playerIndex);
+        }
+
+        public bool TryStartPhaseIntro(double now)
+        {
+            if (!IsWaitingForIntroReady || readyPhase != CurrentPhase) return false;
+            for (var i = 0; i < Players.Players.Count; i++)
+                if (Players.IsActive(i) && !introReadyPlayers.Contains(i)) return false;
+            return Players.ActivePlayerCount > 0 && flow.SchedulePhaseIntro(now);
+        }
         public bool IsPhaseIntro(double now) => flow.IsPhaseIntro(now);
 
         public int GetCurrentHidingTurnIndex(double now)
@@ -297,6 +316,8 @@ namespace Game.Server.Match
         public bool AdvanceTime(double now, IReadOnlyList<Vector3> lastKnownPlayerPositions)
         {
             flow.GetRemainingSeconds(now);
+
+            if (IsWaitingForIntroReady) return false;
 
             if (lastKnownPlayerPositions == null ||
                 lastKnownPlayerPositions.Count != Players.Players.Count)
@@ -814,7 +835,7 @@ namespace Game.Server.Match
             if (replayUnavailable) return false;
             var phase = state.CurrentPhase.CurrentValue;
             var searchingStartedAt = state.PhaseEndsAt.CurrentValue - flow.SearchingDurationSeconds;
-            var canRecordSearching = phase == MatchPhase.Searching &&
+            var canRecordSearching = phase == MatchPhase.Searching && state.PhaseEndsAt.CurrentValue > 0d &&
                                      now >= searchingStartedAt + HighlightRecordingDelaySeconds;
             var canRecordPostRoll = phase == MatchPhase.Highlight && result.HasValue &&
                                     now <= result.Value.EndedAt + HighlightPostRollSeconds +
@@ -1184,6 +1205,7 @@ namespace Game.Server.Match
             switch (state.CurrentPhase.CurrentValue)
             {
                 case MatchPhase.Hiding:
+                    if (flow.WaitsForIntroReady) { searchingEndedAt = 0d; return false; }
                     searchingEndedAt =
                         state.PhaseEndsAt.CurrentValue + flow.SearchingDurationSeconds;
                     return now >= searchingEndedAt;
@@ -1240,10 +1262,10 @@ namespace Game.Server.Match
             double searchingStartedAt;
             switch (state.CurrentPhase.CurrentValue)
             {
-                case MatchPhase.Hiding when now >= state.PhaseEndsAt.CurrentValue:
+                case MatchPhase.Hiding when !flow.WaitsForIntroReady && now >= state.PhaseEndsAt.CurrentValue:
                     searchingStartedAt = state.PhaseEndsAt.CurrentValue + flow.PhaseIntroDurationSeconds;
                     break;
-                case MatchPhase.Searching:
+                case MatchPhase.Searching when state.PhaseEndsAt.CurrentValue > 0d:
                     searchingStartedAt = state.PhaseEndsAt.CurrentValue - flow.SearchingDurationSeconds;
                     break;
                 default:

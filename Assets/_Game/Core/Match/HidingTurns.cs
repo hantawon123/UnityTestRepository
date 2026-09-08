@@ -33,6 +33,7 @@ namespace Game.Core.Match
             double turnDurationSeconds)
         {
             if (phase != MatchPhase.Hiding ||
+                phaseEndsAt == 0d ||
                 playerCount <= 0 ||
                 turnDurationSeconds <= 0d)
             {
@@ -63,7 +64,7 @@ namespace Game.Core.Match
             if (turnIndex == NoTurn)
             {
                 if (phase == MatchPhase.Hiding && playerCount > 0 && turnDurationSeconds > 0d &&
-                    now < StartedAt(phaseEndsAt, playerCount, turnDurationSeconds))
+                    (phaseEndsAt == 0d || now < StartedAt(phaseEndsAt, playerCount, turnDurationSeconds)))
                     return turnDurationSeconds;
                 return 0d;
             }

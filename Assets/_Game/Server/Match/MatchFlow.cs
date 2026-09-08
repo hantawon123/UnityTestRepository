@@ -17,19 +17,35 @@ namespace Game.Server.Match
         private bool phaseIntrosEnabled;
         public double PhaseIntroDurationSeconds => phaseIntrosEnabled ? MatchIntroTiming.VisibleSeconds : 0d;
 
-        public void EnablePhaseIntros()
+        public bool WaitsForIntroReady { get; private set; }
+        public bool IsWaitingForIntroReady => WaitsForIntroReady &&
+            (state.CurrentPhase.CurrentValue == MatchPhase.Hiding || state.CurrentPhase.CurrentValue == MatchPhase.Searching) &&
+            state.PhaseEndsAt.CurrentValue == 0d;
+
+        public void EnablePhaseIntros(bool waitForReady = false)
         {
             if (state.CurrentPhase.CurrentValue != MatchPhase.Waiting)
                 throw new InvalidOperationException("Enable phase intros before starting the match.");
             phaseIntrosEnabled = true;
+            WaitsForIntroReady = waitForReady;
+        }
+
+        public bool SchedulePhaseIntro(double now)
+        {
+            ValidateTime(now);
+            if (!IsWaitingForIntroReady) return false;
+            var phase = state.CurrentPhase.CurrentValue;
+            state.EnterPhase(phase, now + MatchIntroTiming.VisibleSeconds +
+                (phase == MatchPhase.Hiding ? HidingDurationSeconds : SearchingDurationSeconds));
+            return true;
         }
 
         public bool IsPhaseIntro(double now) => phaseIntrosEnabled &&
             (state.CurrentPhase.CurrentValue == MatchPhase.Hiding ||
              state.CurrentPhase.CurrentValue == MatchPhase.Searching) &&
-            now < state.PhaseEndsAt.CurrentValue -
+            (IsWaitingForIntroReady || now < state.PhaseEndsAt.CurrentValue -
                 (state.CurrentPhase.CurrentValue == MatchPhase.Hiding
-                    ? HidingDurationSeconds : SearchingDurationSeconds);
+                    ? HidingDurationSeconds : SearchingDurationSeconds));
 
         public void SetHighlightPresentationDuration(double duration)
         {
@@ -97,6 +113,8 @@ namespace Game.Server.Match
         public double GetRemainingSeconds(double now)
         {
             ValidateTime(now);
+            if (IsWaitingForIntroReady)
+                return state.CurrentPhase.CurrentValue == MatchPhase.Hiding ? HidingDurationSeconds : SearchingDurationSeconds;
             var remaining = Math.Max(0d, state.PhaseEndsAt.CurrentValue - now);
             return state.CurrentPhase.CurrentValue switch
             {
@@ -191,6 +209,11 @@ namespace Game.Server.Match
 
         private void EnterPhase(MatchPhase phase, double startedAt)
         {
+            if (WaitsForIntroReady && (phase == MatchPhase.Hiding || phase == MatchPhase.Searching))
+            {
+                state.EnterPhase(phase, 0d);
+                return;
+            }
             var duration = phase switch
             {
                 MatchPhase.Hiding => HidingDurationSeconds,
