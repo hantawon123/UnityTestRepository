@@ -12,6 +12,8 @@ EC2가 날아가면 같이 사라집니다.
 | `install-jenkins.sh` | (서버에서 실행) | Jenkins 설치, docker 그룹 등록 |
 | `jenkins/override.conf` | `/etc/systemd/system/jenkins.service.d/` | Jenkins 포트·바인딩·프리픽스 |
 | `verify.sh` | (서버에서 실행) | 배포 상태 한 번에 확인 |
+| `mysql/init/01-analytics-grant.sh` | (compose.local 이 마운트, 테스트가 복사) | 앱 계정에 분석 스키마 권한 |
+| `mysql/init/02-analytics-accounts.sh` | (같음) | Metabase 용 읽기 계정 `d205_reader` 와 설정 저장용 `metabase` 계정 |
 
 파이프라인 정의는 이 디렉터리가 아니라 `../Jenkinsfile`에 있습니다.
 
@@ -25,7 +27,18 @@ EC2가 날아가면 같이 사라집니다.
         └─ :443 ──▶ nginx ─┬─ /jenkins/ ─▶ 127.0.0.1:9090  Jenkins
                             └─ /         ─▶ 127.0.0.1:8080  앱 컨테이너
                                                               └▶ d205-mysql (포트 미공개)
+                                                                  ├─ d205            게임 (풀 10)
+                                                                  ├─ d205_analytics  플레이 로그 (풀 3)
+                                                                  └─ metabase        대시보드 설정
+        └─ :8443 ──▶ nginx (Basic Auth) ─▶ 127.0.0.1:3000  Metabase ─▶ d205-mysql (d205_reader, SELECT 만)
 ```
+
+대시보드가 `/analytics/` 가 아니라 8443 포트인 이유는 `nginx/d205.conf` 의 8443 블록 주석에
+있습니다. 한 줄로 요약하면 Metabase 는 하위 경로 아래에서 동작하지 못합니다.
+
+한 MySQL 인스턴스에 스키마가 둘입니다. 앱은 커넥션 풀을 따로 두어 로그 쓰기가 막혀도
+게임 API 가 기다리지 않게 합니다. 별도 서비스로 나누지 않은 이유는 지라 에픽
+S15P21D205-780 에 있습니다.
 
 ## 적용 방법
 
@@ -40,6 +53,98 @@ ssh d205 'sudo install -o root -g root -m 644 /tmp/d205.conf /etc/nginx/sites-av
 ```
 
 `nginx -t`가 실패하면 `&&`가 끊겨 reload까지 가지 않으므로 기존 설정이 유지됩니다.
+
+분석 스키마 권한 (플레이 로그 수집을 처음 배포하기 전에 **한 번**):
+
+```
+scp backend/deploy/mysql/init/01-analytics-grant.sh d205:/tmp/01-analytics-grant.sh
+ssh d205 "docker cp /tmp/01-analytics-grant.sh d205-mysql:/tmp/analytics-grant.sh && docker exec d205-mysql bash /tmp/analytics-grant.sh"
+```
+
+initdb 용 스크립트를 그대로 컨테이너 안에서 실행합니다. 컨테이너에는 compose 가 넘긴
+`MYSQL_USER` 와 `MYSQL_ROOT_PASSWORD` 가 있어서 스크립트가 그 값을 씁니다. 비밀번호를 명령줄에
+적지 않는 이유이기도 합니다. 성공하면 `[analytics-grant] <계정> 에게 d205_analytics 권한을
+주었습니다.` 가 찍힙니다. 이 스크립트는 MySQL 이 데이터 볼륨을 처음 만들 때만 자동으로 돌아서,
+이미 초기화된 운영 볼륨에는 이렇게 손으로 한 번 실행해야 합니다. 스키마와 테이블은 앱이
+첫 접속에서 만듭니다(`createDatabaseIfNotExist`, Flyway).
+
+GRANT 만 하는 스크립트라 두 번 실행해도 해가 없습니다.
+
+권한 없이 배포해도 앱은 뜹니다. 대신 이벤트가 전부 버려지고 로그에 30초마다
+`분석 DB 를 준비하지 못했습니다` ERROR 가 남습니다. 그 로그가 보이면 위 명령을 실행하면
+되고, 앱을 다시 띄울 필요는 없습니다.
+
+### 대시보드 (Metabase) 처음 올리기
+
+순서가 중요합니다. `.env` 가 먼저고, 계정이 그다음이고, 배포는 마지막입니다.
+`compose.prod.yml` 이 `METABASE_DB_PASSWORD` 를 `:?` 로 요구하므로 `.env` 에 없으면
+Jenkins 의 compose 단계가 그 자리에서 멈춥니다.
+
+**1. `.env` 에 두 줄 추가. 두 곳에.** 값은 길고 무작위로, 그리고 **두 곳이 같아야** 합니다.
+
+```
+ANALYTICS_READER_PASSWORD=...
+METABASE_DB_PASSWORD=...
+```
+
+- 서버의 `/home/ubuntu/d205/.env`: 아래 2번 계정 스크립트와 `verify.sh` 가 읽습니다.
+- **Jenkins 의 비밀 파일 `d205-backend-env`**: 배포의 compose 가 읽습니다. `Jenkins 관리 → Credentials
+  → d205-backend-env → Update` 에서 두 줄을 더한 파일을 올립니다. 이걸 빠뜨리면 develop 빌드가
+  `required variable METABASE_DB_PASSWORD is missing a value` 로 멈춥니다(2026-09-07 #79). 서비스는
+  교체 전이라 멀쩡하고, 파일을 올린 뒤 "지금 빌드" 를 누르면 됩니다.
+- 두 곳의 값이 다르면 Metabase 가 자기 DB 에 못 붙어 재시작을 반복합니다. 해시로 비교하려면
+  `ssh d205 'set -a; . /home/ubuntu/d205/.env; set +a; printf %s $METABASE_DB_PASSWORD | md5sum; printf %s $(docker exec d205-metabase printenv MB_DB_PASS) | md5sum'`
+  두 줄이 같아야 합니다.
+
+**2. MySQL 계정 만들기** (한 번. 두 번 해도 무해):
+
+```
+scp backend/deploy/mysql/init/02-analytics-accounts.sh d205:/tmp/02-analytics-accounts.sh
+ssh d205 "set -a; . /home/ubuntu/d205/.env; set +a; docker cp /tmp/02-analytics-accounts.sh d205-mysql:/tmp/analytics-accounts.sh && docker exec -e ANALYTICS_READER_PASSWORD -e METABASE_DB_PASSWORD d205-mysql bash /tmp/analytics-accounts.sh"
+```
+
+비밀번호는 `docker exec -e` 로 그 순간만 넘깁니다. `compose.prod.yml` 의 mysql 환경변수에
+넣지 않는 이유는, 환경변수를 바꾸면 compose 가 MySQL 컨테이너를 다시 만들어 배포 중 DB 가
+잠깐 끊기기 때문입니다. 성공하면 `[analytics-accounts] d205_reader 에게 ...` 와
+`[analytics-accounts] metabase 스키마와 계정을 준비했습니다.` 두 줄이 찍힙니다.
+
+**3. nginx 8443 과 Basic Auth**
+
+```
+ssh d205 "sudo apt-get install -y apache2-utils && sudo htpasswd -c /etc/nginx/.htpasswd-analytics d205"
+ssh d205 "sudo ufw allow 8443/tcp"
+scp backend/deploy/nginx/d205.conf d205:/tmp/d205.conf
+ssh d205 "sudo install -o root -g root -m 644 /tmp/d205.conf /etc/nginx/sites-available/d205 && sudo nginx -t && sudo systemctl reload nginx"
+```
+
+첫 줄은 비밀번호를 물어봅니다. 프롬프트가 떠야 하므로 PowerShell 에서는 `ssh -t` 로 실행하고,
+명령은 한 번만 붙여 넣습니다(두 번 붙으면 htpasswd 가 인자를 잘못 받아 사용법만 출력합니다).
+그 계정과 비밀번호를 팀에 공유합니다. 저장소에는 두지 않습니다.
+EC2 보안 그룹의 8443 은 2026-09-07 에 열었습니다. 다른 계정으로 EC2 를 새로 받으면 다시 열어야 합니다.
+
+8443 에서 **어떤 계정을 넣어도 403** 이면 비밀번호 파일이 없는 것입니다. nginx 는 `auth_basic_user_file`
+이 없으면 401 대신 403 을 냅니다. `ls -l /etc/nginx/.htpasswd-analytics` 로 확인하고 위 첫 줄을 다시
+실행하세요. 파일은 요청마다 읽으므로 nginx 재시작은 필요 없습니다.
+
+Basic Auth 를 통과했는데 **502** 면 Metabase 컨테이너가 3000 에서 응답하지 않는 것입니다.
+`docker logs d205-metabase 2>&1 | grep -E 'Initialization (FAILED|COMPLETE)'` 로 봅니다. FAILED 가
+반복되면 자기 DB 에 못 붙는 것이고, 원인은 셋 중 하나입니다. 계정 스크립트(2번) 미실행, 두 `.env`
+값 불일치(1번), 또는 compose 의 `MB_DB_CONNECTION_URI` 에서 `allowPublicKeyRetrieval=true` 가 빠짐.
+Metabase 는 원인 예외를 로그에 남기지 않아 이 셋을 순서대로 확인해야 합니다.
+
+**4. 배포.** develop 에 머지하면 Jenkins 가 `compose up` 으로 Metabase 컨테이너까지 올립니다.
+첫 기동은 자기 스키마에 마이그레이션을 돌려 1분 넘게 걸리고 메모리를 1GB 가까이 씁니다.
+`bash /tmp/verify.sh` 의 "대시보드" 절에서 내부 3000 이 응답하고 8443 이 401 이면 정상입니다.
+
+**5. Metabase 첫 설정** (브라우저, `https://j15d205.p.ssafy.io:8443`, Basic Auth 뒤에 Metabase
+자체 관리자 계정을 만드는 화면이 뜹니다):
+
+- 관리자 계정을 만들고 그 정보를 팀에 공유합니다.
+- "데이터베이스 추가" 에서 MySQL, 호스트 `mysql`, 포트 `3306`, 데이터베이스 `d205_analytics`,
+  사용자 `d205_reader`, 비밀번호는 `.env` 의 `ANALYTICS_READER_PASSWORD`. 이름은 "플레이 로그".
+- 같은 계정으로 데이터베이스 `d205` 를 하나 더 추가합니다. 이름은 "게임". `users` 와 조인할 때 씁니다.
+- 앱 계정(`DB_USERNAME`)을 넣지 마세요. 그 계정은 쓸 수 있는 계정이라 Metabase 의 SQL 창이
+  게임 데이터를 지우는 창이 됩니다.
 
 Jenkins 설치:
 
@@ -66,6 +171,32 @@ EC2 전체가 넘어갑니다. 그래서 9090을 루프백에만 바인딩하고
 
 **인증서는 certbot이 관리합니다.** `certbot.timer`가 자동 갱신하고 갱신에는
 80번이 열려 있어야 합니다. ufw에서 80을 닫으면 90일 뒤에 만료됩니다.
+
+### Jenkins 체크아웃이 10분 타임아웃으로 죽으면
+
+증상: 콘솔이 `git checkout -f <sha>` 에서 멈춰 `ERROR: Timeout after 10 minutes`,
+`fatal: the remote end hung up unexpectedly` 로 끝나고, 코드와 무관하게 모든 MR 이 빨간불입니다.
+2026-09-07 에 클라이언트가 LFS 클립을 대량으로 올린 뒤 그렇게 됐습니다.
+
+원인: `git checkout` 이 LFS 스머지 필터로 Unity 에셋 3천 개를 GitLab 에서 내려받는데, 백엔드
+파이프라인은 그 파일을 쓰지 않습니다. 내려받기가 느려지면 체크아웃 자체가 타임아웃입니다.
+
+해결은 스머지를 끄는 것입니다. 두 방법을 **둘 다** 합니다. 첫째는 지금 당장 듣고, 둘째는
+재시작 뒤에도 남습니다.
+
+```
+ssh d205 "sudo -u jenkins -H git lfs install --skip-smudge && sudo -u jenkins -H git config --global --get filter.lfs.smudge"
+```
+
+출력이 `git-lfs smudge --skip -- %f` 면 적용된 것입니다. 실행 중인 빌드가 없을 때 아래로 드롭인도 갱신합니다.
+
+```
+scp backend/deploy/jenkins/override.conf d205:/tmp/override.conf
+ssh d205 "sudo install -o root -g root -m 644 /tmp/override.conf /etc/systemd/system/jenkins.service.d/override.conf && sudo systemctl daemon-reload && sudo systemctl restart jenkins"
+```
+
+그 뒤 실패한 MR 의 빌드를 다시 돌립니다. 브랜치에 커밋을 하나 푸시하면 웹훅이 다시 돌리고,
+아니면 Jenkins 의 해당 `MR-*` 잡에서 "지금 빌드" 를 누릅니다. 체크아웃은 수 초로 끝나야 합니다.
 
 ## Jenkins Job 설정
 

@@ -49,6 +49,14 @@ namespace Game.Network.Voice
         public ReadOnlyReactiveProperty<bool> IsMuted => muted;
         public ReadOnlyReactiveProperty<bool> IsTransmitting => transmitting;
 
+        internal static void AttachServer(NetworkRunner runner)
+        {
+            // VoiceNetworkObject registers remote speakers in Spawned even on
+            // a server. Supply its local registry without connecting to Voice.
+            var connection = runner.gameObject.AddComponent<VoiceConnection>();
+            connection.enabled = false;
+        }
+
         /// <summary>
         /// Builds the voice client onto a runner object and returns the rig that
         /// drives it.

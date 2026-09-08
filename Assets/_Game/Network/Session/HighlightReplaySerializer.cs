@@ -23,10 +23,11 @@ namespace Game.Network.Session
 
         public static byte[] SerializeCompressed(IReadOnlyList<HighlightReplayData> replay)
         {
-            var raw = Serialize(replay);
+            using var raw = new MemoryStream();
+            WriteReplay(raw, replay);
             using var output = new MemoryStream();
             using (var gzip = new GZipStream(output, System.IO.Compression.CompressionLevel.Fastest, leaveOpen: true))
-                gzip.Write(raw, 0, raw.Length);
+                gzip.Write(raw.GetBuffer(), 0, (int)raw.Length);
             if (output.Length > MaxPayloadBytes)
                 throw new ArgumentException("Compressed replay exceeds transfer capacity.", nameof(replay));
             return output.ToArray();
@@ -48,13 +49,21 @@ namespace Game.Network.Session
                     if (output.Length + read > MaxPayloadBytes) return false;
                     output.Write(buffer, 0, read);
                 }
-                return TryDeserialize(output.ToArray(), out replay);
+                output.Position = 0;
+                return TryDeserialize(output, out replay);
             }
             catch (InvalidDataException) { return false; }
             catch (IOException) { return false; }
         }
 
         public static byte[] Serialize(IReadOnlyList<HighlightReplayData> replay)
+        {
+            using var stream = new MemoryStream();
+            WriteReplay(stream, replay);
+            return stream.ToArray();
+        }
+
+        private static void WriteReplay(MemoryStream stream, IReadOnlyList<HighlightReplayData> replay)
         {
             if (replay == null ||
                 replay.Count > MaxHighlightCount)
@@ -64,7 +73,6 @@ namespace Game.Network.Session
                     nameof(replay));
             }
 
-            using var stream = new MemoryStream();
             using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
             writer.Write(Magic);
             writer.Write(Version);
@@ -82,8 +90,6 @@ namespace Game.Network.Session
                     "Highlight replay payload exceeds 8 MB.",
                     nameof(replay));
             }
-
-            return stream.ToArray();
         }
 
         public static bool TryDeserialize(
@@ -96,9 +102,15 @@ namespace Game.Network.Session
                 return false;
             }
 
+            using var stream = new MemoryStream(data.ToArray(), writable: false);
+            return TryDeserialize(stream, out replay);
+        }
+
+        private static bool TryDeserialize(MemoryStream stream, out HighlightReplayData[] replay)
+        {
+            replay = Array.Empty<HighlightReplayData>();
             try
             {
-                using var stream = new MemoryStream(data.ToArray(), writable: false);
                 using var reader = new BinaryReader(stream, Encoding.UTF8, leaveOpen: true);
                 if (reader.ReadInt32() != Magic || reader.ReadByte() != Version)
                 {

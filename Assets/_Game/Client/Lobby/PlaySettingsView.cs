@@ -29,6 +29,13 @@ namespace Game.Client.Lobby
         /// open. Hiding from outside would leave that flag saying open.
         /// </summary>
         void RequestClose();
+
+        /// <summary>
+        /// Asks to be opened as if the panel's own open button was pressed, so
+        /// the presenter fills the draft and decides editability before the
+        /// panel shows. Used by objects in the room that lead to this screen.
+        /// </summary>
+        void RequestOpen();
     }
 
     public sealed class PlaySettingsView : MonoBehaviour, IPlaySettingsView
@@ -174,6 +181,8 @@ namespace Game.Client.Lobby
                 panel.SetActive(visible);
             }
         }
+
+        public void RequestOpen() => OpenRequested?.Invoke();
 
         public void RequestClose()
         {

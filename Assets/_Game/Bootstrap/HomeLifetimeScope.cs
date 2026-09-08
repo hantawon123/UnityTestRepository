@@ -221,6 +221,8 @@ namespace Game.Bootstrap
 
             public void OpenHome() => scenes.OpenHome();
 
+            public void OpenCharacterCloset() => scenes.OpenCharacterCloset();
+
             /// <summary>
             /// Opens the room browser, and starts filling its list on the way.
             /// </summary>

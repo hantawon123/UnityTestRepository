@@ -3,6 +3,12 @@
     "schemas" : {
       "AccountResponse" : {
         "properties" : {
+          "appearance" : {
+            "$ref" : "#/components/schemas/AppearanceResponse"
+          },
+          "appearanceSet" : {
+            "type" : "boolean"
+          },
           "createdAt" : {
             "type" : "string"
           },
@@ -24,6 +30,23 @@
       "AdminSession" : {
         "properties" : {
           "username" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "AppearanceResponse" : {
+        "properties" : {
+          "bodyColor" : {
+            "type" : "string"
+          },
+          "face" : {
+            "type" : "string"
+          },
+          "hood" : {
+            "type" : "string"
+          },
+          "shoes" : {
             "type" : "string"
           }
         },
@@ -84,6 +107,91 @@
         },
         "type" : "object"
       },
+      "GameEventRequest" : {
+        "properties" : {
+          "clientSeq" : {
+            "format" : "int64",
+            "maximum" : 4294967295,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "clientSessionId" : {
+            "minLength" : 1,
+            "pattern" : "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+            "type" : "string"
+          },
+          "eventName" : {
+            "maxLength" : 64,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "fromHost" : {
+            "type" : "boolean"
+          },
+          "mapId" : {
+            "maxLength" : 32,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "matchId" : {
+            "pattern" : "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+            "type" : "string"
+          },
+          "matchTimeMs" : {
+            "format" : "int64",
+            "maximum" : 4294967295,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "occurredAt" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "params" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "phase" : {
+            "maxLength" : 16,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "posX" : {
+            "format" : "float",
+            "type" : "number"
+          },
+          "posY" : {
+            "format" : "float",
+            "type" : "number"
+          },
+          "posZ" : {
+            "format" : "float",
+            "type" : "number"
+          },
+          "roomCode" : {
+            "maxLength" : 6,
+            "minLength" : 6,
+            "type" : "string"
+          },
+          "schemaVer" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "userPublicId" : {
+            "pattern" : "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "clientSeq",
+          "clientSessionId",
+          "eventName",
+          "fromHost",
+          "occurredAt",
+          "schemaVer"
+        ],
+        "type" : "object"
+      },
       "InviteListResponse" : {
         "properties" : {
           "invites" : {
@@ -123,6 +231,95 @@
         "required" : [
           "deviceId"
         ],
+        "type" : "object"
+      },
+      "JsonNode" : {
+        "properties" : {
+          "array" : {
+            "type" : "boolean"
+          },
+          "bigDecimal" : {
+            "type" : "boolean"
+          },
+          "bigInteger" : {
+            "type" : "boolean"
+          },
+          "binary" : {
+            "type" : "boolean"
+          },
+          "boolean" : {
+            "type" : "boolean"
+          },
+          "container" : {
+            "type" : "boolean"
+          },
+          "double" : {
+            "type" : "boolean"
+          },
+          "embeddedValue" : {
+            "type" : "boolean"
+          },
+          "empty" : {
+            "type" : "boolean"
+          },
+          "float" : {
+            "type" : "boolean"
+          },
+          "floatingPointNumber" : {
+            "type" : "boolean"
+          },
+          "int" : {
+            "type" : "boolean"
+          },
+          "integralNumber" : {
+            "type" : "boolean"
+          },
+          "long" : {
+            "type" : "boolean"
+          },
+          "missingNode" : {
+            "type" : "boolean"
+          },
+          "nodeType" : {
+            "enum" : [
+              "ARRAY",
+              "BINARY",
+              "BOOLEAN",
+              "MISSING",
+              "NULL",
+              "NUMBER",
+              "OBJECT",
+              "POJO",
+              "STRING"
+            ],
+            "type" : "string"
+          },
+          "null" : {
+            "type" : "boolean"
+          },
+          "number" : {
+            "type" : "boolean"
+          },
+          "object" : {
+            "type" : "boolean"
+          },
+          "pojo" : {
+            "type" : "boolean"
+          },
+          "short" : {
+            "type" : "boolean"
+          },
+          "string" : {
+            "type" : "boolean"
+          },
+          "textual" : {
+            "deprecated" : true,
+            "type" : "boolean"
+          },
+          "valueNode" : {
+            "type" : "boolean"
+          }
+        },
         "type" : "object"
       },
       "ListResponse" : {
@@ -298,6 +495,37 @@
         ],
         "type" : "object"
       },
+      "UpdateAppearanceRequest" : {
+        "properties" : {
+          "bodyColor" : {
+            "minLength" : 1,
+            "pattern" : "^[\\x21-\\x7E]{1,32}$",
+            "type" : "string"
+          },
+          "face" : {
+            "minLength" : 1,
+            "pattern" : "^[\\x21-\\x7E]{1,32}$",
+            "type" : "string"
+          },
+          "hood" : {
+            "minLength" : 1,
+            "pattern" : "^[\\x21-\\x7E]{1,32}$",
+            "type" : "string"
+          },
+          "shoes" : {
+            "minLength" : 1,
+            "pattern" : "^[\\x21-\\x7E]{1,32}$",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "bodyColor",
+          "face",
+          "hood",
+          "shoes"
+        ],
+        "type" : "object"
+      },
       "UpdateNicknameRequest" : {
         "properties" : {
           "nickname" : {
@@ -468,6 +696,74 @@
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/UpdateNicknameRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "account-controller"
+        ]
+      }
+    },
+    "/api/v1/accounts/me/appearance" : {
+      "delete" : {
+        "operationId" : "clearAppearance",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "account-controller"
+        ]
+      },
+      "put" : {
+        "operationId" : "setAppearance",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateAppearanceRequest"
               }
             }
           },
@@ -664,6 +960,32 @@
         },
         "tags" : [
           "admin-session-controller"
+        ]
+      }
+    },
+    "/api/v1/events" : {
+      "post" : {
+        "operationId" : "ingest",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "items" : {
+                  "$ref" : "#/components/schemas/GameEventRequest"
+                },
+                "type" : "array"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Accepted"
+          }
+        },
+        "tags" : [
+          "game-event-controller"
         ]
       }
     },

@@ -121,6 +121,69 @@ PUT /api/v1/accounts/me/searchable
 **같은 방에 있었던 사람은 예외입니다.** `public_id` 를 Photon `UserId` 로도 쓰므로,
 같이 게임한 사람은 검색을 꺼도 친구 요청을 보낼 수 있습니다. 의도한 동작입니다.
 
+### 외형
+
+옷장에서 고른 파츠 넷을 계정에 저장합니다.
+
+```
+PUT /api/v1/accounts/me/appearance
+{ "bodyColor": "body_black", "hood": "hood_bear_purple", "shoes": "shoes_pink", "face": "face_smile" }
+```
+
+바뀐 계정을 그대로 돌려줍니다. 응답의 `appearance` 로 캐릭터를 다시 그리면 됩니다.
+
+**넷 다 필수입니다.** 하나라도 빠지면 `400` 입니다. 화면은 늘 넷을 다 알고 있으므로 부분
+갱신은 없습니다.
+
+**멱등합니다.** 처음 저장과 덮어쓰기가 같은 요청이고, 같은 값을 다시 보내도 성공입니다.
+
+#### 서버는 파츠 목록을 모릅니다
+
+값은 클라이언트가 정한 파츠 id 이고 서버는 **형식만** 봅니다. 공백 없는 ASCII 출력 문자로
+1~32자입니다. `#A1B2C3` 같은 색상값도 통과합니다. 한글과 공백은 막힙니다.
+
+그래서 **처음 보는 id 도 그대로 저장되고 그대로 돌아옵니다.** 카탈로그에서 파츠를 빼거나
+이름을 바꾼 뒤에도 이전에 저장한 값은 남습니다. 응답에서 모르는 id 를 읽으면 그 파츠만
+기본값으로 대체하세요. 그렇지 않으면 카탈로그를 고칠 때마다 옛 사용자의 캐릭터가 깨집니다.
+
+32자는 저장 길이일 뿐입니다. 파츠 id 문자열은 네트워크를 타지 않습니다. 로비와 경기에서
+외형은 **카탈로그 인덱스(byte)** 로 복제하고, 문자열 id 는 서버와 이 클라이언트 사이에서만
+오갑니다. 스폰할 때 id 를 인덱스로 한 번 바꾸고, 모르는 id 는 기본 파츠의 인덱스로 둡니다.
+그래서 카탈로그 순서를 바꿔도 서버에 저장된 외형은 깨지지 않습니다. 같은 빌드 안에서
+인덱스만 일치하면 됩니다.
+
+#### 조회는 따로 없습니다
+
+`POST /api/v1/accounts` 와 `GET /api/v1/accounts/me` 응답에 실려 옵니다. 앱을 켜서 계정을
+발급받는 그 응답으로 외형까지 알 수 있고, 호출이 하나 늘지 않습니다.
+
+```json
+{ "userId": "...", "nickname": "...", "appearanceSet": true,
+  "appearance": { "bodyColor": "body_black", "hood": "hood_bear_purple", "shoes": "shoes_pink", "face": "face_smile" } }
+```
+
+**저장한 적이 없으면 `appearanceSet` 이 `false` 이고 `appearance` 는 `null` 입니다.** 그때는
+클라이언트의 기본 파츠를 씁니다.
+
+**`appearance == null` 로 판별하지 마세요.** `JsonUtility` 는 JSON 의 `null` 객체를 null 로
+읽지 않고 필드가 비어 있는 객체를 만듭니다. `appearanceSet` 이 그 함정을 피하려고 있는
+값입니다. `nicknameSet` 과 같은 역할입니다.
+
+남의 외형을 서버에서 조회하는 길은 없습니다. 로비와 경기에서 다른 사람의 외형은 위에 적은
+대로 Photon 으로 인덱스를 복제해 봅니다. 서버는 내 것만 기억합니다.
+
+#### 초기화
+
+```
+DELETE /api/v1/accounts/me/appearance
+```
+
+저장한 외형을 지우고 "아직 고르지 않은" 상태로 돌아갑니다. 응답은 위와 같은 계정이고
+`appearanceSet` 이 `false` 입니다. 저장한 적이 없어도 `200` 입니다.
+
+기본 파츠를 PUT 하는 것과 다릅니다. 그렇게 하면 기본 파츠가 나중에 바뀌어도 초기화한 사람은
+옛 값에 남습니다. 지우면 그때의 기본값이 쓰입니다.
+
 ---
 
 ## 4. 시각 형식
@@ -161,6 +224,7 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 | `ALREADY_FRIENDS` | 409 | 이미 친구 | 목록을 다시 불러옵니다 |
 | `REQUEST_ALREADY_SENT` | 409 | 이미 보낸 요청 | 목록을 다시 불러옵니다 |
 | `CONFLICT` | 409 | 동시 요청이 겹침 | 다시 시도하면 대개 됩니다 |
+| `RATE_LIMITED` | 429 | 한 IP 가 플레이 로그를 분당 허용량 넘게 보냄 | 그 배치를 스풀에 두고 다음 flush 에 다시 보냅니다 |
 | `NICKNAME_GENERATION_FAILED` | 500 | 서버가 임시 닉네임을 못 만듦 | 서버 문제입니다. 재시도 |
 
 `ACCOUNT_NOT_FOUND` 와 `TARGET_NOT_FOUND` 를 나눈 이유가 대응이 다르기 때문입니다.
@@ -324,7 +388,55 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 
 ---
 
-## 9. 계정 삭제
+## 9. 플레이 로그 전송
+
+`POST /api/v1/events` 에 이벤트 배열을 보냅니다. **무엇을 언제 보내는지는 여기 없습니다.**
+그건 [`analytics-events.md`](analytics-events.md) 가 정하고, 이 절은 HTTP 규약만 적습니다.
+
+```json
+[{ "occurredAt": 1788750000000, "clientSessionId": "…uuid…", "clientSeq": 0,
+   "roomCode": "ABC234", "matchId": null, "matchTimeMs": null, "userPublicId": "…uuid…",
+   "eventName": "scene_enter", "phase": null, "mapId": null,
+   "posX": null, "posY": null, "posZ": null,
+   "fromHost": false, "schemaVer": 1, "params": { "scene": "Lobby" } }]
+```
+
+- **`X-User-Id` 헤더를 붙이지 않습니다.** 주체는 이벤트마다 `userPublicId` 로 들어가고, 호스트가
+  다른 플레이어를 대신해 보내므로 요청 하나가 한 사람의 것이 아닙니다.
+- **`202` 는 "받았다"이지 "저장했다"가 아닙니다.** 응답 본문이 없고, 저장은 서버가 뒤에서 합니다.
+- 한 요청에 **200건**까지입니다. 클라이언트는 50건마다 flush 하므로 평소에는 닿지 않습니다.
+- `occurredAt` 은 **UTC epoch 밀리초**입니다. 다른 API 의 14자 문자열과 다릅니다.
+- `params` 는 JSON 객체여야 하고 2KB 이내입니다. 배열이나 문자열을 넣으면 `400` 입니다.
+
+### 400 은 재전송하지 않습니다
+
+배치 안의 이벤트 하나가 규칙을 어기면 **배치 전체가 `400`** 입니다. 일부만 받으면 무엇이
+들어갔는지 알 수 없어 재전송을 판단할 수 없기 때문입니다. `message` 가 `events[3]: …` 처럼
+몇 번째가 왜 틀렸는지 말합니다. 400 을 받은 배치는 스풀에서 지우세요. 다시 보내도 같은 답입니다.
+
+거부되는 경우:
+
+- `eventName` 이 명세 목록에 없음
+- `occurredAt` 이 **지금-7일 ~ 지금+5분** 밖. 기기 시계가 크게 틀린 경우이고, 그 배치는 잃습니다
+- 필수 필드(`occurredAt`, `clientSessionId`, `clientSeq`, `eventName`, `fromHost`, `schemaVer`) 누락
+- 배열이 비었거나 200건 초과
+
+### 429 는 재전송합니다
+
+한 IP 에서 분당 600요청을 넘기면 `RATE_LIMITED` 입니다. 클라이언트 하나는 10초마다 한 번
+보내므로 혼자서는 닿지 않고, 같은 교실의 수십 명이 공용 IP 하나로 보여도 닿지 않게 잡은
+값입니다. 스풀 재전송이 몰릴 때 닿을 수 있는데, 그 배치는 스풀에 그대로 두고 다음 flush 에
+다시 보내면 됩니다.
+
+### 같은 이벤트를 두 번 보내도 됩니다
+
+`202` 를 받지 못한 배치를 스풀에서 다시 보내면 서버가 `(clientSessionId, clientSeq, occurredAt)`
+으로 중복을 알아보고 조용히 버립니다. **그래서 `clientSeq` 는 재전송해도 같은 값이어야 합니다.**
+스풀에 쓸 때 이미 붙어 있어야 합니다.
+
+---
+
+## 10. 계정 삭제
 
 `DELETE /api/v1/accounts/me` 는 **되돌릴 수 없습니다.** 계정과 함께 친구 관계와 접속
 기록이 모두 사라집니다. 복구 수단이 없으니 확인 화면을 반드시 두세요.

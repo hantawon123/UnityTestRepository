@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.ssafy.d205.domain.user.dto.AccountResponse;
 import com.ssafy.d205.domain.user.dto.IssueAccountRequest;
 import com.ssafy.d205.domain.user.dto.IssuedAccount;
+import com.ssafy.d205.domain.user.dto.UpdateAppearanceRequest;
 import com.ssafy.d205.domain.user.dto.UpdateNicknameRequest;
 import com.ssafy.d205.domain.user.dto.UpdateSearchableRequest;
 import com.ssafy.d205.domain.user.service.AccountService;
@@ -92,6 +93,38 @@ public class AccountController {
     public AccountResponse setSearchable(@RequestHeader(USER_ID_HEADER) String userId,
                                          @Valid @RequestBody UpdateSearchableRequest request) {
         return accountService.setSearchable(userId, request.searchable());
+    }
+
+    /**
+     * 옷장에서 고른 외형을 저장합니다. 파츠 넷이 모두 필수입니다.
+     *
+     * <p>PUT 인 이유는 검색 허용 설정과 같습니다. 처음 저장과 덮어쓰기가 한 요청이고, 같은 값을
+     * 다시 보내도 성공입니다.
+     *
+     * <p>서버는 파츠 id 의 뜻을 모릅니다. 형식만 보고 그대로 저장하며, 클라이언트가 모르는
+     * id 를 돌려받으면 기본 파츠로 대체해야 합니다.
+     *
+     * <p>바뀐 계정을 그대로 돌려줍니다. 화면이 응답으로 캐릭터를 다시 그리면 됩니다.
+     */
+    @PutMapping("/me/appearance")
+    public AccountResponse setAppearance(@RequestHeader(USER_ID_HEADER) String userId,
+                                         @Valid @RequestBody UpdateAppearanceRequest request) {
+        return accountService.setAppearance(userId, request);
+    }
+
+    /**
+     * 외형을 초기화합니다. "아직 고르지 않은" 상태로 돌아가고 appearance 는 null 이 됩니다.
+     *
+     * <p>클라이언트가 기본 파츠로 PUT 하는 것과 다릅니다. 그러면 기본 파츠가 나중에 바뀌어도
+     * 초기화한 사람은 옛 값에 남습니다. 지우면 그때의 기본값이 쓰입니다.
+     *
+     * <p>이미 없는 것을 지워도 200 입니다. 초기화 버튼을 두 번 눌러도 오류가 아닙니다.
+     * 204 가 아니라 계정을 돌려주는 것은 다른 설정 변경과 같은 모양을 유지해 화면이 응답으로
+     * 다시 그릴 수 있게 하기 위해서입니다.
+     */
+    @DeleteMapping("/me/appearance")
+    public AccountResponse clearAppearance(@RequestHeader(USER_ID_HEADER) String userId) {
+        return accountService.clearAppearance(userId);
     }
 
     /**

@@ -1,6 +1,7 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Backend;
+using Game.Core.Players;
 using Game.Core.Ports;
 
 namespace Game.Backend
@@ -88,6 +89,38 @@ namespace Game.Backend
                 : BackendResult<AccountSnapshot>.Failed(answer.Failure);
         }
 
+        public async UniTask<BackendResult<AccountSnapshot>> SetAppearanceAsync(
+            AvatarAppearance appearance, CancellationToken cancellation)
+        {
+            var body = new UpdateAppearanceRequestDto
+            {
+                bodyColor = appearance.BodyColorId,
+                hood = appearance.HoodId,
+                shoes = appearance.ShoesId,
+                face = appearance.FaceId
+            };
+
+            // PUT rather than PATCH: all four parts travel together, and
+            // applying the same appearance twice has to succeed.
+            var answer = await client.CallAsync<AccountResponseDto>(
+                HttpMethod.Put, Me + "/appearance", body, BackendAuth.UserId, cancellation);
+
+            return answer.Ok
+                ? Map(answer.Value)
+                : BackendResult<AccountSnapshot>.Failed(answer.Failure);
+        }
+
+        public async UniTask<BackendResult<AccountSnapshot>> ClearAppearanceAsync(
+            CancellationToken cancellation)
+        {
+            var answer = await client.CallAsync<AccountResponseDto>(
+                HttpMethod.Delete, Me + "/appearance", null, BackendAuth.UserId, cancellation);
+
+            return answer.Ok
+                ? Map(answer.Value)
+                : BackendResult<AccountSnapshot>.Failed(answer.Failure);
+        }
+
         public async UniTask<BackendResult> DeleteAccountAsync(CancellationToken cancellation)
         {
             // The only call that sends the device identifier. Deletion cannot be
@@ -112,6 +145,25 @@ namespace Game.Backend
         /// here as a failure instead of thrown, so a malformed answer looks like
         /// every other failed call to the caller.
         /// </remarks>
+        /// <remarks>
+        /// Only read when the account says it has an appearance. The object is
+        /// there either way — JsonUtility invents one for a null — and reading
+        /// it unconditionally would dress every new player in four empty ids.
+        /// </remarks>
+        private static AvatarAppearance ReadAppearance(AccountResponseDto dto)
+        {
+            if (!dto.appearanceSet || dto.appearance == null)
+            {
+                return AvatarAppearance.Default;
+            }
+
+            return new AvatarAppearance(
+                dto.appearance.bodyColor,
+                dto.appearance.hood,
+                dto.appearance.shoes,
+                dto.appearance.face);
+        }
+
         private static BackendResult<AccountSnapshot> Map(AccountResponseDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.userId) || string.IsNullOrWhiteSpace(dto.nickname))
@@ -121,7 +173,12 @@ namespace Game.Backend
 
             return BackendResult<AccountSnapshot>.Success(
                 new AccountSnapshot(
-                    dto.userId, dto.nickname, dto.nicknameSet, dto.searchable));
+                    dto.userId,
+                    dto.nickname,
+                    dto.nicknameSet,
+                    dto.searchable,
+                    dto.appearanceSet,
+                    ReadAppearance(dto)));
         }
     }
 }

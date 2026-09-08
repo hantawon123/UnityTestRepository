@@ -10,6 +10,17 @@ spring:
   jpa:
     show-sql: true
 
+# 분석 DB. 같은 컨테이너, 같은 계정, 다른 스키마입니다. createDatabaseIfNotExist 가 첫 접속에서
+# 스키마를 만들고 Flyway 가 테이블을 만듭니다. 계정에 그 권한이 있어야 하는데, 그건
+# compose.local.yml 이 마운트하는 deploy/mysql/init 스크립트가 줍니다.
+# serverTimezone 이 게임 DB(Asia/Seoul)와 다른 UTC 인 것은 의도입니다. game_event 의 DATETIME 은
+# 전부 UTC 라고 명세가 정했습니다.
+analytics:
+  datasource:
+    url: jdbc:mysql://localhost:3307/d205_analytics?createDatabaseIfNotExist=true&characterEncoding=UTF-8&serverTimezone=UTC&rewriteBatchedStatements=true
+    username: d205
+    password: d205local
+
 logging:
   level:
     com.ssafy.d205: debug

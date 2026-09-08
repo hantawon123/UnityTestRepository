@@ -14,6 +14,10 @@ services:
       MYSQL_DATABASE: d205
       MYSQL_USER: d205
       MYSQL_PASSWORD: d205local
+      # 분석용 계정 비밀번호. deploy/mysql/init/02-analytics-accounts.sh 가 볼륨 초기화 때 읽습니다.
+      # 로컬 컨테이너 전용 값이라 저장소에 둡니다. 운영은 .env 에서 옵니다.
+      ANALYTICS_READER_PASSWORD: readerlocal
+      METABASE_DB_PASSWORD: metabaselocal
       TZ: Asia/Seoul
     # 닉네임에 한글과 이모지가 들어올 수 있어 utf8mb4로 고정합니다.
     command:
@@ -25,6 +29,12 @@ services:
       - "3307:3306"
     volumes:
       - d205-mysql-data:/var/lib/mysql
+      # 앱 계정에 분석 스키마(d205_analytics) 권한을 주는 스크립트. MySQL 은 이 디렉터리를
+      # 데이터 볼륨이 비어 있을 때 한 번만 읽습니다. 이 줄이 생기기 전에 만든 볼륨이 있으면
+      # 돌지 않으므로 둘 중 하나를 하세요.
+      #   docker compose -f compose.local.yml down -v   (로컬 데이터를 버리고 새로 시작)
+      #   또는 deploy/README.md 의 GRANT 명령을 로컬 컨테이너에 실행
+      - ./deploy/mysql/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       # 애플리케이션이 붙기 전에 MySQL이 실제로 질의를 받을 수 있는지 확인합니다.
       # 컨테이너가 떴다는 것과 DB가 준비됐다는 것은 다릅니다.
@@ -33,6 +43,27 @@ services:
       timeout: 5s
       retries: 20
       start_period: 20s
+
+  # 대시보드. 운영과 같은 이미지·설정으로 로컬에서 확인할 수 있게 둡니다. http://localhost:3000
+  # 첫 기동에 1분쯤 걸리고 메모리를 1GB 가까이 씁니다. 필요 없으면 `up -d mysql` 로 MySQL 만 띄우세요.
+  metabase:
+    image: metabase/metabase:v0.63.16.6
+    container_name: d205-metabase-local
+    environment:
+      MB_DB_TYPE: mysql
+      # allowPublicKeyRetrieval 이 없으면 MySQL 8.4 의 caching_sha2_password 계정에 붙지 못합니다.
+      # 자세한 이유는 compose.prod.yml 의 같은 자리에 있습니다.
+      MB_DB_CONNECTION_URI: mysql://mysql:3306/metabase?allowPublicKeyRetrieval=true
+      MB_DB_USER: metabase
+      MB_DB_PASS: metabaselocal
+      MB_SITE_URL: http://localhost:3000
+      JAVA_OPTS: -Xmx1g
+      TZ: Asia/Seoul
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
 
 volumes:
   d205-mysql-data:

@@ -175,6 +175,10 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<LobbyPlayerListPresenter>();
             builder.RegisterEntryPoint<LobbyPauseMenuPresenter>();
             builder.RegisterEntryPoint<PlaySettingsPresenter>();
+            // The board in the room opens the same play settings screen; it
+            // reaches the menu through IPlaySettingsOpener, which the pause
+            // menu presenter implements.
+            builder.RegisterEntryPoint<LobbyPlanBoardPresenter>();
             builder.RegisterEntryPoint<VoicePresenter>();
             builder.RegisterEntryPoint<LobbyChatPresenter>();
             builder.RegisterEntryPoint<ChatBubbleBinder>();

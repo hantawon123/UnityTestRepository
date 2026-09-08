@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Client.Home;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -8,17 +9,27 @@ using VContainer.Unity;
 namespace Game.Bootstrap
 {
     /// <summary>
-    /// Keeps the two frontend screens loaded and swaps their scene roots.
-    /// Gameplay scenes remain owned by Fusion and unload this pair normally.
+    /// Keeps the frontend screens loaded and swaps their scene roots.
+    /// Gameplay scenes remain owned by Fusion and unload them normally.
     /// </summary>
+    /// <remarks>
+    /// Home and the room browser are kept warm in each other's company because
+    /// the player crosses between them constantly and both are cheap. The
+    /// closet is not preloaded: it carries a lit room and a character, and it
+    /// is opened far less often than it is passed by.
+    /// </remarks>
     internal sealed class FrontendSceneCoordinator : IStartable, IDisposable
     {
         private const string Home = UnityHomeApplicationHost.HomeSceneName;
         private const string Room = UnityHomeApplicationHost.RoomBrowserSceneName;
+        private const string Closet = UnityHomeApplicationHost.CharacterClosetSceneName;
+
+        private static readonly string[] Frontends = { Home, Room, Closet };
 
         private string desiredScene;
-        private AsyncOperation homeLoad;
-        private AsyncOperation roomLoad;
+        private readonly Dictionary<string, AsyncOperation> loads =
+            new Dictionary<string, AsyncOperation>(StringComparer.Ordinal);
+
         private double switchStartedAt = -1d;
         private readonly EventSystem sharedEventSystem;
 
@@ -56,6 +67,8 @@ namespace Game.Bootstrap
 
         public void OpenRoomBrowser() => Open(Room);
 
+        public void OpenCharacterCloset() => Open(Closet);
+
         private void Open(string sceneName)
         {
             desiredScene = sceneName;
@@ -74,8 +87,11 @@ namespace Game.Bootstrap
         {
             if (!IsFrontend(scene))
             {
-                SetRootsActive(GetLoadedScene(Home), false);
-                SetRootsActive(GetLoadedScene(Room), false);
+                foreach (var frontend in Frontends)
+                {
+                    SetRootsActive(GetLoadedScene(frontend), false);
+                }
+
                 sharedEventSystem.gameObject.SetActive(false);
                 return;
             }
@@ -84,8 +100,7 @@ namespace Game.Bootstrap
             ActivateSharedEventSystem();
             ClearLoad(scene.name);
 
-            var counterpart = GetLoadedScene(scene.name == Home ? Room : Home);
-            if (!counterpart.IsValid())
+            if (!AnyOtherFrontendLoaded(scene.name))
             {
                 // This frontend was entered from a gameplay/session scene.
                 desiredScene = scene.name;
@@ -117,10 +132,16 @@ namespace Game.Bootstrap
                 return false;
             }
 
-            var other = GetLoadedScene(sceneName == Home ? Room : Home);
             SetRootsActive(target, true);
             SceneManager.SetActiveScene(target);
-            SetRootsActive(other, false);
+            foreach (var frontend in Frontends)
+            {
+                if (!string.Equals(frontend, sceneName, StringComparison.Ordinal))
+                {
+                    SetRootsActive(GetLoadedScene(frontend), false);
+                }
+            }
+
             ActivateSharedEventSystem();
 
             if (switchStartedAt >= 0d)
@@ -135,6 +156,12 @@ namespace Game.Bootstrap
             return true;
         }
 
+        /// <summary>
+        /// Keeps Home and the room browser warm for each other. The closet is
+        /// deliberately absent: it is loaded when it is asked for, and asking
+        /// for Home does not pay for a room and a character nobody is looking
+        /// at.
+        /// </summary>
         private void EnsureCounterpartLoaded(string visibleScene)
         {
             if (string.Equals(visibleScene, Home, StringComparison.Ordinal))
@@ -145,6 +172,20 @@ namespace Game.Bootstrap
             {
                 EnsureLoaded(Home);
             }
+        }
+
+        private bool AnyOtherFrontendLoaded(string sceneName)
+        {
+            foreach (var frontend in Frontends)
+            {
+                if (!string.Equals(frontend, sceneName, StringComparison.Ordinal) &&
+                    GetLoadedScene(frontend).IsValid())
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void EnsureLoaded(string sceneName)
@@ -167,23 +208,12 @@ namespace Game.Bootstrap
         }
 
         private AsyncOperation GetLoad(string sceneName) =>
-            string.Equals(sceneName, Home, StringComparison.Ordinal)
-                ? homeLoad
-                : roomLoad;
+            loads.TryGetValue(sceneName, out var operation) ? operation : null;
 
-        private void SetLoad(string sceneName, AsyncOperation operation)
-        {
-            if (string.Equals(sceneName, Home, StringComparison.Ordinal))
-            {
-                homeLoad = operation;
-            }
-            else
-            {
-                roomLoad = operation;
-            }
-        }
+        private void SetLoad(string sceneName, AsyncOperation operation) =>
+            loads[sceneName] = operation;
 
-        private void ClearLoad(string sceneName) => SetLoad(sceneName, null);
+        private void ClearLoad(string sceneName) => loads.Remove(sceneName);
 
         private static Scene GetLoadedScene(string sceneName)
         {
@@ -191,10 +221,23 @@ namespace Game.Bootstrap
             return scene.IsValid() && scene.isLoaded ? scene : default;
         }
 
-        private static bool IsFrontend(Scene scene) =>
-            scene.IsValid() &&
-            (string.Equals(scene.name, Home, StringComparison.Ordinal) ||
-             string.Equals(scene.name, Room, StringComparison.Ordinal));
+        private static bool IsFrontend(Scene scene)
+        {
+            if (!scene.IsValid())
+            {
+                return false;
+            }
+
+            foreach (var frontend in Frontends)
+            {
+                if (string.Equals(scene.name, frontend, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         private static void SetRootsActive(Scene scene, bool active)
         {

@@ -2,6 +2,7 @@ package com.ssafy.d205.domain.user.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,8 +11,12 @@ import java.util.Optional;
 
 import com.ssafy.d205.domain.user.dto.AccountResponse;
 import com.ssafy.d205.domain.user.dto.IssuedAccount;
+import com.ssafy.d205.domain.user.dto.UpdateAppearanceRequest;
 import com.ssafy.d205.domain.user.entity.AuthProvider;
 import com.ssafy.d205.domain.user.entity.User;
+import com.ssafy.d205.domain.user.entity.UserAppearance;
+import com.ssafy.d205.domain.user.event.AccountDeletedEvent;
+import com.ssafy.d205.domain.user.repository.UserAppearanceRepository;
 import com.ssafy.d205.domain.user.repository.UserIdentityRepository;
 import com.ssafy.d205.domain.user.repository.UserRepository;
 import com.ssafy.d205.global.common.TimeProvider;
@@ -33,7 +38,9 @@ public class AccountService {
     private final AccountRegistrar accountRegistrar;
     private final UserRepository userRepository;
     private final UserIdentityRepository userIdentityRepository;
+    private final UserAppearanceRepository userAppearanceRepository;
     private final TimeProvider timeProvider;
+    private final ApplicationEventPublisher events;
 
     /**
      * 기기 식별자로 계정을 발급합니다. <b>멱등합니다.</b>
@@ -50,7 +57,7 @@ public class AccountService {
     public IssuedAccount issue(String deviceId) {
         Optional<User> existing = findByDevice(deviceId);
         if (existing.isPresent()) {
-            return new IssuedAccount(AccountResponse.from(existing.get()), false);
+            return new IssuedAccount(respond(existing.get()), false);
         }
 
         for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -67,7 +74,7 @@ public class AccountService {
                 // 없으면 2번으로 판단합니다. 상태를 보고 판단하는 쪽이 튼튼합니다.
                 Optional<User> winner = findByDevice(deviceId);
                 if (winner.isPresent()) {
-                    return new IssuedAccount(AccountResponse.from(winner.get()), false);
+                    return new IssuedAccount(respond(winner.get()), false);
                 }
             }
         }
@@ -76,9 +83,51 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public AccountResponse get(String userId) {
-        return userRepository.findByPublicId(userId)
-                .map(AccountResponse::from)
-                .orElseThrow(() -> new UnknownCallerException(userId));
+        return respond(caller(userId));
+    }
+
+    /**
+     * 옷장에서 고른 외형을 저장합니다. <b>멱등합니다.</b>
+     *
+     * <p>PUT 하나로 넣기와 덮어쓰기를 다 합니다. 처음 저장인지 아닌지를 클라이언트가 구분해
+     * 부를 이유가 없고, 같은 값을 다시 저장해도 성공입니다. 적용 버튼을 두 번 눌렀다고
+     * 오류가 날 이유가 없습니다.
+     *
+     * <p>파츠 id 가 실제로 있는지는 보지 않습니다. 형식은 요청 검증이 봤고, 목록은 서버가
+     * 모릅니다(AppearancePolicy).
+     */
+    @Transactional
+    public AccountResponse setAppearance(String userId, UpdateAppearanceRequest request) {
+        User user = caller(userId);
+
+        userAppearanceRepository.upsert(
+                user.getSeq(),
+                request.bodyColor(),
+                request.hood(),
+                request.shoes(),
+                request.face(),
+                timeProvider.now());
+
+        return respond(user);
+    }
+
+    /**
+     * 외형을 초기화합니다. 행을 지워 "아직 고르지 않은" 상태로 되돌립니다.
+     *
+     * <p>클라이언트가 기본 파츠로 PUT 하게 두지 않은 이유가 있습니다. 그렇게 하면 한 번
+     * 저장한 사람은 영원히 appearanceSet 이 true 이고, 나중에 기본 파츠가 바뀌어도 초기화를
+     * 누른 사람들은 옛 기본값에 못 박힙니다. 행이 없으면 클라이언트가 그때의 기본값을 씁니다.
+     *
+     * <p>없는 행을 지워도 성공입니다. 초기화를 두 번 눌러도 결과는 같습니다.
+     */
+    @Transactional
+    public AccountResponse clearAppearance(String userId) {
+        User user = caller(userId);
+
+        userAppearanceRepository.findById(user.getSeq())
+                .ifPresent(userAppearanceRepository::delete);
+
+        return AccountResponse.from(user);
     }
 
     /**
@@ -106,24 +155,22 @@ public class AccountService {
      */
     @Transactional
     public AccountResponse setSearchable(String userId, boolean searchable) {
-        User user = userRepository.findByPublicId(userId)
-                .orElseThrow(() -> new UnknownCallerException(userId));
+        User user = caller(userId);
 
         user.setSearchable(searchable, timeProvider.now());
-        return AccountResponse.from(user);
+        return respond(user);
     }
 
     @Transactional
     public AccountResponse rename(String userId, String nickname) {
-        User user = userRepository.findByPublicId(userId)
-                .orElseThrow(() -> new UnknownCallerException(userId));
+        User user = caller(userId);
 
         if (!user.getNickname().equals(nickname) && userRepository.existsByNickname(nickname)) {
             throw new NicknameTakenException(nickname);
         }
 
         user.rename(nickname, timeProvider.now());
-        return AccountResponse.from(user);
+        return respond(user);
     }
 
     /**
@@ -183,9 +230,31 @@ public class AccountService {
         // 로드해 쓰는 코드를 넣으면 영속성 컨텍스트에 살아 있는 자식이 남고, flush 순서에
         // 따라 FK 위반이나 지워진 행의 부활이 생깁니다.
         userRepository.delete(user);
+
+        // 플레이 로그(분석 스키마)는 CASCADE 가 닿지 않는 다른 DB 접속입니다. 거기서 이 사람의
+        // 식별자를 지우는 일은 커밋 뒤에 듣는 쪽(GameEventEraser)이 합니다. 여기서 직접 부르면
+        // 분석 DB 장애가 탈퇴를 실패시키고, 롤백되면 지울 이유가 없는 행을 지웁니다.
+        events.publishEvent(new AccountDeletedEvent(user.getPublicId()));
     }
 
     private Optional<User> findByDevice(String deviceId) {
         return userIdentityRepository.findUserByProviderAndProviderUserId(AuthProvider.DEVICE, deviceId);
+    }
+
+    private User caller(String userId) {
+        return userRepository.findByPublicId(userId)
+                .orElseThrow(() -> new UnknownCallerException(userId));
+    }
+
+    /**
+     * 계정 응답을 만듭니다. 외형이 있으면 함께 싣습니다.
+     *
+     * <p>계정을 돌려주는 모든 경로가 이 메서드를 지납니다. 발급, 조회, 닉네임 변경, 검색 허용
+     * 변경 중 하나에서만 외형이 빠지면 클라이언트는 그 응답으로 화면을 다시 그리다가 옷장이
+     * 기본값으로 튀는 것을 봅니다.
+     */
+    private AccountResponse respond(User user) {
+        UserAppearance appearance = userAppearanceRepository.findById(user.getSeq()).orElse(null);
+        return AccountResponse.from(user, appearance);
     }
 }

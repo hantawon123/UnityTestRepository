@@ -1,0 +1,169 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 025a1ec5115ffff4c9831ac475e979a6, type: 3}
+  m_Name: AvatarPartCatalog
+  m_EditorClassIdentifier: 
+  groups:
+  - category: 0
+    label: 몸 색상
+    icon: {fileID: 21300000, guid: 8eb0ca68a04a2d64d8aa8e1e577c3cc4, type: 3}
+    parts:
+    - id: body_coral
+      label: 코랄
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.98, g: 0.608, b: 0.49, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 2800000, guid: 7c083af4a90c80941b35532163860bb8, type: 3}
+    - id: body_lavender
+      label: 라벤더
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.725, g: 0.62, b: 0.922, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 2800000, guid: ae9cc10eaf9e09048beb54b4395c9081, type: 3}
+    - id: body_lemon
+      label: 레몬
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.98, g: 0.863, b: 0.471, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 2800000, guid: 4968b40bce949504faf890bc6b11074c, type: 3}
+    - id: body_mint
+      label: 민트
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.596, g: 0.871, b: 0.769, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 2800000, guid: 3327bad86f487a84ea353224ccbb0924, type: 3}
+    - id: body_pink
+      label: 핑크
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.961, g: 0.663, b: 0.784, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 2800000, guid: 788282810062ef94cac55e38c733dc8a, type: 3}
+    - id: body_purple
+      label: 퍼플
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.588, g: 0.439, b: 0.824, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 2800000, guid: e37e82f9f6ba61b43b3ea823c2108c8e, type: 3}
+    - id: body_skyblue
+      label: 스카이블루
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.529, g: 0.808, b: 0.922, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 2800000, guid: 72f8b249013e6cb4c906c58440ed980d, type: 3}
+  - category: 1
+    label: 후드
+    icon: {fileID: 21300000, guid: 99e3019848c5f124fb335ec60cf70cf3, type: 3}
+    parts:
+    - id: hood_cream
+      label: 크림
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.961, g: 0.902, b: 0.784, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+    - id: hood_pink
+      label: 핑크
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.949, g: 0.655, b: 0.765, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+    - id: hood_sky
+      label: 하늘
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.659, g: 0.796, b: 0.91, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+    - id: hood_mint
+      label: 민트
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.663, g: 0.878, b: 0.808, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+    - id: hood_grey
+      label: 그레이
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.788, g: 0.8, b: 0.82, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+    - id: hood_lavender
+      label: 라벤더
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.765, g: 0.702, b: 0.91, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+  - category: 2
+    label: 신발
+    icon: {fileID: 21300000, guid: 96070b8ff9657ef4bbe9d404e7796d12, type: 3}
+    parts:
+    - id: shoes_orange
+      label: 오렌지
+      thumbnail: {fileID: 0}
+      swatch: {r: 1.0, g: 0.541, b: 0.239, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+    - id: shoes_lavender
+      label: 라벤더
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.765, g: 0.702, b: 0.91, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+    - id: shoes_blue
+      label: 블루
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.306, g: 0.498, b: 0.878, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+    - id: shoes_mint
+      label: 민트
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.663, g: 0.878, b: 0.808, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+    - id: shoes_yellow
+      label: 옐로
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.961, g: 0.824, b: 0.29, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+    - id: shoes_hotpink
+      label: 핫핑크
+      thumbnail: {fileID: 0}
+      swatch: {r: 1.0, g: 0.373, b: 0.635, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+  - category: 3
+    label: 표정
+    icon: {fileID: 21300000, guid: f4f89123c01c4ba4b987af38122601f0, type: 3}
+    parts:
+    - id: face_default
+      label: 기본
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.851, g: 0.851, b: 0.851, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+    - id: face_smile
+      label: 미소
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.851, g: 0.851, b: 0.851, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+    - id: face_surprised
+      label: 놀람
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.851, g: 0.851, b: 0.851, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
+    - id: face_wink
+      label: 윙크
+      thumbnail: {fileID: 0}
+      swatch: {r: 0.851, g: 0.851, b: 0.851, a: 1}
+      material: {fileID: 0}
+      texture: {fileID: 0}
