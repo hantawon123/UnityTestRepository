@@ -311,15 +311,34 @@ class InviteApiTest extends IntegrationTest {
     }
 
     @Test
-    @DisplayName("로비나 경기 중인 친구는 부를 수 없다")
+    @DisplayName("경기 중인 친구는 부를 수 없다")
     void friendsInAGameCannotBeInvited() throws Exception {
         String host = createUser();
         String guest = createUser();
         befriend(host, guest);
-        heartbeat(guest, "3XQ4TZ");
+        heartbeat(guest, "3XQ4TZ", "MATCH");
 
-        // 초대 토스트는 홈에서만 뜹니다. 지금 보내면 상대는 못 보고 3분 뒤 조용히 사라질
-        // 뿐이라, 보낸 사람에게 바로 알리는 편이 낫습니다.
+        // 초대 토스트는 홈과 게임 찾기에서만 뜹니다. 지금 보내면 상대는 못 보고 3분 뒤
+        // 조용히 사라질 뿐이라, 보낸 사람에게 바로 알리는 편이 낫습니다.
+        mvc.perform(post("/api/v1/invites")
+                        .header(USER_ID_HEADER, host)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(guest, ROOM)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TARGET_IN_GAME"));
+        assertThat(inviteRows(guest)).isZero();
+    }
+
+    @Test
+    @DisplayName("로비에 있는 친구도 부를 수 없다")
+    void friendsInALobbyCannotBeInvitedEither() throws Exception {
+        // 친구 목록은 로비와 경기 중을 나눠 보여주지만 초대는 둘 다 막습니다. 나눈 것은
+        // 표시를 위한 것이고, 로비에 있는 사람도 토스트를 보지 못하는 것은 같습니다.
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+        heartbeat(guest, "3XQ4TZ", "LOBBY");
+
         mvc.perform(post("/api/v1/invites")
                         .header(USER_ID_HEADER, host)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -424,6 +443,14 @@ class InviteApiTest extends IntegrationTest {
                   JOIN users u ON u.users_seq = i.invitee_seq
                  WHERE u.public_id = ?
                 """, String.class, inviteeUserId);
+    }
+
+    private void heartbeat(String userId, String sessionId, String sessionKind) throws Exception {
+        mvc.perform(put("/api/v1/presence")
+                        .header(USER_ID_HEADER, userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sessionId\":\"" + sessionId + "\",\"sessionKind\":\"" + sessionKind + "\"}"))
+                .andExpect(status().isNoContent());
     }
 
     private void heartbeat(String userId, String sessionId) throws Exception {

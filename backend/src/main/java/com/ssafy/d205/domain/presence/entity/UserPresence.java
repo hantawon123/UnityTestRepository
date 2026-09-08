@@ -45,7 +45,7 @@ public class UserPresence {
     @Column(name = "status", nullable = false, length = 16)
     private PresenceStatus status;
 
-    /** Photon 룸 식별자. IN_GAME 이 아니면 NULL 입니다. */
+    /** Photon 룸 식별자. 룸 안(IN_LOBBY, IN_GAME)이 아니면 NULL 입니다. */
     @Column(name = "session_id", length = 64)
     private String sessionId;
 
@@ -65,8 +65,8 @@ public class UserPresence {
         this.updatedAt = at;
     }
 
-    public static UserPresence of(Integer userSeq, String sessionId, String now) {
-        return new UserPresence(userSeq, statusFor(sessionId), sessionId, now);
+    public static UserPresence of(Integer userSeq, String sessionId, SessionKind sessionKind, String now) {
+        return new UserPresence(userSeq, statusFor(sessionId, sessionKind), sessionId, now);
     }
 
     /**
@@ -76,11 +76,15 @@ public class UserPresence {
      * 하트비트는 30초마다 오고 상태 변화는 드물게 일어나므로 둘을 구분해야 "언제부터
      * 이 상태인지"를 알 수 있습니다.
      *
-     * <p>방을 옮기는 것도 상태 변화로 봅니다. IN_GAME 은 그대로지만 다른 방이라
+     * <p>방을 옮기는 것도 상태 변화로 봅니다. 상태 이름은 그대로지만 다른 방이라
      * sessionId 가 달라지고, 그 시점을 남기는 것이 맞습니다.
+     *
+     * <p>로비에서 경기로 넘어가는 것도 상태 변화입니다. 그때는 <b>sessionId 가 그대로</b>
+     * 입니다 — 같은 룸이 경기 씬으로 넘어간 것이니까요. 상태 이름이 달라지는 것으로만
+     * 알아챌 수 있습니다.
      */
-    public void report(String sessionId, String now) {
-        PresenceStatus next = statusFor(sessionId);
+    public void report(String sessionId, SessionKind sessionKind, String now) {
+        PresenceStatus next = statusFor(sessionId, sessionKind);
         this.heartbeatAt = now;
 
         if (this.status != next || !Objects.equals(this.sessionId, sessionId)) {
@@ -101,13 +105,19 @@ public class UserPresence {
     }
 
     /**
-     * 상태를 sessionId 로 유도합니다.
+     * 상태를 sessionId 와 sessionKind 로 유도합니다.
      *
      * <p>클라이언트가 status 를 직접 보내지 않는 이유입니다. 보내게 하면 "IN_GAME 인데
      * sessionId 가 없다" 같은 <b>잘못된 조합이 표현 가능</b>해지고, 그걸 막는 검증
      * 규칙을 따로 만들어야 합니다. 유도하면 애초에 표현할 수 없습니다.
+     *
+     * <p>sessionId 가 없으면 룸 밖이라 sessionKind 를 보지 않습니다. 룸 밖인데 로비라고
+     * 주장하는 요청이 와도 상태는 ONLINE 하나로 정해집니다.
      */
-    private static PresenceStatus statusFor(String sessionId) {
-        return sessionId == null ? PresenceStatus.ONLINE : PresenceStatus.IN_GAME;
+    private static PresenceStatus statusFor(String sessionId, SessionKind sessionKind) {
+        if (sessionId == null) {
+            return PresenceStatus.ONLINE;
+        }
+        return sessionKind == SessionKind.LOBBY ? PresenceStatus.IN_LOBBY : PresenceStatus.IN_GAME;
     }
 }

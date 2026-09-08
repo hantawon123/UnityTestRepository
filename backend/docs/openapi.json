@@ -97,6 +97,7 @@
             "enum" : [
               "OFFLINE",
               "ONLINE",
+              "IN_LOBBY",
               "IN_GAME"
             ],
             "type" : "string"
@@ -544,6 +545,13 @@
           "sessionId" : {
             "maxLength" : 64,
             "minLength" : 0,
+            "type" : "string"
+          },
+          "sessionKind" : {
+            "enum" : [
+              "LOBBY",
+              "MATCH"
+            ],
             "type" : "string"
           }
         },

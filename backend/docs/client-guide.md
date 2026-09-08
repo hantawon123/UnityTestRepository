@@ -236,7 +236,17 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 
 ## 6. 접속 상태
 
-친구 목록의 `presence` 는 `OFFLINE` / `ONLINE` / `IN_GAME` 셋 중 하나입니다.
+친구 목록의 `presence` 는 `OFFLINE` / `ONLINE` / `IN_LOBBY` / `IN_GAME` 넷 중 하나입니다.
+
+| 값 | 뜻 |
+| --- | --- |
+| `OFFLINE` | 게임을 켜지 않았거나 하트비트가 90초 넘게 끊겼습니다 |
+| `ONLINE` | 게임은 켰지만 Photon 룸 밖입니다. 홈이나 게임 찾기 화면 |
+| `IN_LOBBY` | 룸에 들어가 사람을 기다리는 중 |
+| `IN_GAME` | 경기 중 |
+
+`IN_LOBBY` 와 `IN_GAME` 을 나눈 것은 **화면 표시를 위한 것입니다.** 초대는 둘 다
+막힙니다(7절) — 로비에 있는 사람도 토스트를 보지 못하는 것은 같습니다.
 
 게임 안의 실시간(위치·동작)은 Photon Fusion 이 담당하고, 서버는 클라이언트가 보내는
 하트비트로만 접속 상태를 압니다. 그래서 하트비트를 안 보내면 친구 목록에서 계속
@@ -247,8 +257,12 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 - 하트비트는 **30초마다** 보냅니다.
 - 서버는 마지막 하트비트가 **90초** 넘으면 오프라인으로 봅니다. 30초 주기면 두 번
   놓쳐도 버팁니다.
-- `sessionId` 를 함께 보내면 `IN_GAME`, 안 보내면 `ONLINE` 입니다. 상태를 직접 지정하는
-  값은 없습니다 — 방에 있으면 게임 중입니다.
+- `sessionId` 를 안 보내면 `ONLINE` 입니다. 보내면 룸 안이고, 로비인지 경기인지는
+  `sessionKind` 가 정합니다 — `LOBBY` 면 `IN_LOBBY`, `MATCH` 면 `IN_GAME`.
+- **`sessionKind` 를 생략하면 `MATCH` 로 봅니다.** 이 필드가 생기기 전의 클라이언트가
+  지금과 똑같이 동작하도록 한 것입니다. 로비를 로비로 보이게 하려면 반드시 보내세요.
+- `sessionId` 가 없으면 `sessionKind` 는 무시합니다. 룸 밖이면 상태는 `ONLINE` 하나입니다.
+- 상태를 직접 지정하는 값은 없습니다. 잘못된 조합을 아예 표현할 수 없게 한 것입니다.
 - 게임을 끄기 전에 **`DELETE /api/v1/presence`** 를 부릅니다. 그러면 즉시 오프라인이 되고,
   친구들이 90초 동안 유령을 보지 않습니다.
 
@@ -260,14 +274,21 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 | Fusion 이벤트 | 보낼 것 |
 | --- | --- |
 | `OnConnectedToServer` | `sessionId` 없이 → `ONLINE` |
-| `OnPlayerJoined` (내가 방에 들어감) | 그 방의 `sessionId` → `IN_GAME` |
+| `OnPlayerJoined` (내가 방에 들어감) | 그 방의 `sessionId` + `sessionKind: "LOBBY"` → `IN_LOBBY` |
+| 경기 시작 (로비 씬 → 경기 씬) | **같은** `sessionId` + `sessionKind: "MATCH"` → `IN_GAME` |
+| 경기 종료로 로비로 돌아옴 | 같은 `sessionId` + `sessionKind: "LOBBY"` → `IN_LOBBY` |
 | 방을 나감 / `OnDisconnectedFromServer` | `sessionId` 없이 → `ONLINE` |
 | 앱 종료 (`OnApplicationQuit`) | `DELETE /api/v1/presence` |
 
 `sessionId` 는 방을 식별하는 문자열이면 됩니다(Fusion 의 세션 이름 등). 64자 이내이고,
-넘으면 `INVALID_REQUEST` 입니다.
+넘으면 `INVALID_REQUEST` 입니다. `sessionKind` 가 `LOBBY` 도 `MATCH` 도 아니면 역시
+`INVALID_REQUEST` 입니다.
 
-방을 옮기면 같은 `IN_GAME` 이지만 `sessionId` 가 달라집니다. 그냥 새 값으로 보내면 됩니다.
+**경기 시작은 `sessionId` 가 바뀌지 않습니다.** 로비와 경기는 같은 Photon 룸이고 그 룸이
+씬을 갈아타는 것뿐이라, 서버가 알아챌 방법은 `sessionKind` 하나입니다. 이 전환 시점에
+보내지 않으면 경기 중인 내내 `IN_LOBBY` 로 보입니다.
+
+방을 옮기면 `sessionId` 가 달라집니다. 그냥 새 값으로 보내면 됩니다.
 
 ### 크래시하면
 

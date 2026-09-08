@@ -33,7 +33,7 @@ public class PresenceController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void report(@RequestHeader(USER_ID_HEADER) String userId,
                        @Valid @RequestBody UpdatePresenceRequest request) {
-        presenceService.report(userId, request.sessionId());
+        presenceService.report(userId, request.sessionId(), request.sessionKindOrMatch());
     }
 
     /** 정상 종료를 알립니다. 타임아웃을 기다리지 않고 친구 목록에서 바로 내려갑니다. */
