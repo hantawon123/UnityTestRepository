@@ -1,6 +1,8 @@
 package com.ssafy.d205.domain.notification.service;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.PingMessage;
@@ -14,6 +16,9 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
+import com.ssafy.d205.domain.notification.event.UserConnectedEvent;
+import com.ssafy.d205.domain.notification.event.UserDisconnectedEvent;
 
 /**
  * 누가 어느 연결에 붙어 있는지. 알림을 보낼 때 여기서 상대의 연결을 찾습니다.
@@ -29,8 +34,14 @@ import java.util.concurrent.ConcurrentHashMap;
  * 동시에 두 스레드가 보내면 깨지는데, 알림은 커밋한 요청 스레드에서 나가고 ping 은 스케줄러
  * 스레드에서 나가 겹칠 수 있습니다. 감싸면 한 번에 하나만 보내고, 상대가 받지 않아 버퍼가
  * 쌓이면 연결을 끊습니다.
+ *
+ * <p><b>이 클래스는 DB 를 모릅니다.</b> 연결이 열리고 닫히는 것은 접속 상태의 유일한 근거가
+ * 됐지만(S15P21D205-890), 그 사실을 프레즌스에 알리는 일은 이벤트로 넘깁니다. 나중에
+ * 인스턴스를 늘려 Redis pub/sub 으로 바꿀 때 손대는 곳을 이 파일 하나로 묶어 두려는
+ * 것입니다.
  */
 @Component
+@RequiredArgsConstructor
 @Slf4j
 public class NotificationSessionRegistry {
 
@@ -46,8 +57,14 @@ public class NotificationSessionRegistry {
     private final Map<Integer, Set<WebSocketSession>> byUser = new ConcurrentHashMap<>();
     private final Map<String, Binding> bySessionId = new ConcurrentHashMap<>();
 
+    private final ApplicationEventPublisher events;
+
     /**
-     * 연결을 사람에 묶습니다.
+     * 연결을 사람에 묶고 {@link UserConnectedEvent} 를 발행합니다.
+     *
+     * <p>발행은 <b>동기</b>입니다. 프레즌스가 ONLINE 을 쓰는 것이 이 메서드가 돌아오기
+     * 전에 끝나므로, 핸들러가 곧이어 보내는 {@code HELLO_ACK} 를 받은 클라이언트가 친구
+     * 목록을 바로 조회해도 자기가 온라인으로 보입니다.
      *
      * @return 이후 보내기에 써야 하는, 감싸진 세션. 원본으로 보내면 동시 전송 보호가 빠집니다
      */
@@ -55,6 +72,7 @@ public class NotificationSessionRegistry {
         WebSocketSession session = new ConcurrentWebSocketSessionDecorator(raw, SEND_TIME_LIMIT_MS, BUFFER_SIZE_LIMIT);
         bySessionId.put(raw.getId(), new Binding(userSeq, session));
         byUser.computeIfAbsent(userSeq, key -> ConcurrentHashMap.newKeySet()).add(session);
+        events.publishEvent(new UserConnectedEvent(userSeq));
         return session;
     }
 
@@ -62,16 +80,40 @@ public class NotificationSessionRegistry {
         return bySessionId.containsKey(session.getId());
     }
 
-    /** 연결을 지웁니다. 묶이지 않은 연결이면 아무 일도 없습니다. */
+    /** 이 연결이 누구 것인지. 묶이지 않은 연결이면 null 입니다. */
+    public Integer userSeqOf(WebSocketSession session) {
+        Binding binding = bySessionId.get(session.getId());
+        return binding == null ? null : binding.userSeq();
+    }
+
+    /**
+     * 지금 붙어 있는 사람들. 하트비트를 한 문장으로 밀 때 씁니다.
+     *
+     * <p>연결이 아니라 <b>사람</b>의 집합입니다. 탭을 셋 열어 둔 사람은 한 번만 나옵니다.
+     */
+    public Set<Integer> boundUserSeqs() {
+        return Set.copyOf(byUser.keySet());
+    }
+
+    /**
+     * 연결을 지웁니다. 묶이지 않은 연결이면 아무 일도 없습니다.
+     *
+     * <p>그 사람의 마지막 연결이었으면 {@link UserDisconnectedEvent} 를 발행합니다.
+     * computeIfPresent 가 null 을 돌려주는 것이 그 신호입니다 — 남은 세션이 없어
+     * 항목째로 사라졌다는 뜻입니다.
+     */
     public void unbind(WebSocketSession session) {
         Binding binding = bySessionId.remove(session.getId());
         if (binding == null) {
             return;
         }
-        byUser.computeIfPresent(binding.userSeq(), (key, sessions) -> {
+        Set<WebSocketSession> remaining = byUser.computeIfPresent(binding.userSeq(), (key, sessions) -> {
             sessions.remove(binding.session());
             return sessions.isEmpty() ? null : sessions;
         });
+        if (remaining == null) {
+            events.publishEvent(new UserDisconnectedEvent(binding.userSeq()));
+        }
     }
 
     /**
