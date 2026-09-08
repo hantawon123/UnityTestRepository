@@ -48,6 +48,9 @@ namespace Game.Editor
         private const string LabelFontPath = "Assets/_Game/Content/Fonts/Paperlogy-7Bold SDF.asset";
         private const string LabelMaterialPath = "Assets/_Game/Content/Materials/MAT_PlanBoardLabel.mat";
 
+        // 작업대는 서벽(x -3)에 붙어 있어 정면은 방 안쪽 +X. 라벨은 이쪽을 향해 고정한다(카메라 추적 없음).
+        private static readonly Vector3 LabelFacing = Vector3.right;
+
         // 순백(1.0)은 포스트프로세스 톤매핑에 눌려 회색빛으로 보여 HDR 밝기를 준다. 블룸이 살짝 얹힌다.
         private static readonly Color LabelFaceColor = new(1.8f, 1.8f, 1.8f, 1f);
         private const float LabelFaceDilate = 0.12f;
@@ -182,6 +185,8 @@ namespace Game.Editor
             var root = new GameObject(LabelObjectName);
             root.transform.SetParent(parent, worldPositionStays: false);
             root.transform.position = worldPosition;
+            // TMP 텍스트의 앞면은 -Z이므로 +Z를 정면의 반대(벽 쪽)로 두면 글자가 방 안쪽을 본다.
+            root.transform.rotation = Quaternion.LookRotation(-LabelFacing, Vector3.up);
             var labelComponent = root.AddComponent<LobbyPlanBoardLabel>();
 
             CreateText(root.transform, "Title", LabelText, LabelFontSize, Vector3.zero, new Vector2(4f, 0.5f), font, material);
