@@ -55,6 +55,7 @@ namespace Game.Client.Players
         private InputAction proneAction;
         private InputAction attackAction;
         private PlayerInteractor interactor;
+        private ItemPlacementController placement;
         private Transform cameraTransform;
         private float verticalVelocity;
         private Vector3 externalVelocity;
@@ -142,7 +143,8 @@ namespace Game.Client.Players
             // Esc 메뉴 버튼을 누르는 좌클릭도 펀치로 나가지 않게 한다.
             if ((interactor == null || interactor.CarriedItem == null) &&
                 attackAction.IsPressed() &&
-                !ShouldIgnoreAttackInput())
+                !ShouldIgnoreAttackInput() &&
+                (placement == null || !placement.BlocksAttack))
             {
                 buttons |= PlayerInputButtons.Attack;
             }
@@ -179,6 +181,7 @@ namespace Game.Client.Players
             proneAction = playerMap.FindAction("Prone", throwIfNotFound: true);
             attackAction = playerMap.FindAction("Attack", throwIfNotFound: true);
             interactor = GetComponent<PlayerInteractor>();
+            placement = GetComponent<ItemPlacementController>();
 
             if (visualRoot == null)
             {

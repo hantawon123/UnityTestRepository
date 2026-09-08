@@ -34,6 +34,13 @@ namespace Game.Client.Interactions
 
         public bool IsPlacing { get; private set; }
 
+        /// <summary>
+        /// 배치 확정 좌클릭이 손을 비운 뒤 같은 입력으로 펀치가 나가지 않게 한다.
+        /// </summary>
+        public bool BlocksAttack => IsPlacing || suppressAttackUntilRelease;
+
+        private bool suppressAttackUntilRelease;
+
         private PlayerInteractor interactor;
         private InputActionMap playerMap;
         private InputAction placementModeAction;
@@ -94,6 +101,12 @@ namespace Game.Client.Interactions
 
         private void Update()
         {
+            if (suppressAttackUntilRelease &&
+                (confirmAction == null || !confirmAction.IsPressed()))
+            {
+                suppressAttackUntilRelease = false;
+            }
+
             if (Cursor.lockState != CursorLockMode.Locked)
             {
                 ExitPlacementMode();
@@ -128,6 +141,7 @@ namespace Game.Client.Interactions
 
             if (confirmAction.WasPressedThisFrame() && isCurrentPoseValid)
             {
+                suppressAttackUntilRelease = true;
                 ConfirmPlacement();
             }
         }
@@ -150,6 +164,11 @@ namespace Game.Client.Interactions
             }
 
             IsPlacing = false;
+            if (confirmAction != null && confirmAction.IsPressed())
+            {
+                suppressAttackUntilRelease = true;
+            }
+
             if (interactor != null)
             {
                 interactor.IsThrowSuppressed = false;

@@ -41,6 +41,7 @@ namespace Game.Client.Combat
         private InputActionMap playerMap;
         private InputAction attackAction;
         private PlayerInteractor interactor;
+        private ItemPlacementController placement;
         private PlayerMovement movement;
         private Renderer[] visualRenderers;
         private MaterialPropertyBlock propertyBlock;
@@ -83,6 +84,7 @@ namespace Game.Client.Combat
             }
 
             interactor = GetComponent<PlayerInteractor>();
+            placement = GetComponent<ItemPlacementController>();
             movement = GetComponent<PlayerMovement>();
             propertyBlock = new MaterialPropertyBlock();
 
@@ -164,6 +166,7 @@ namespace Game.Client.Combat
             }
 
             if (!isAttacker || stunned || PlayerMovement.ShouldIgnoreAttackInput() ||
+                (placement != null && placement.BlocksAttack) ||
                 (movement != null && movement.Posture == PlayerPosture.Prone))
             {
                 hasPendingHit = false;
