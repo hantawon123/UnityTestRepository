@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -18,8 +19,10 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -28,10 +31,15 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ssafy.d205.domain.notification.service.NotificationSessionRegistry;
+import com.ssafy.d205.domain.presence.service.PresenceHeartbeat;
+import com.ssafy.d205.global.common.Timestamps;
 import com.ssafy.d205.support.IntegrationTest;
 
 /**
@@ -61,6 +69,12 @@ class NotificationWebSocketTest extends IntegrationTest {
 
     @Autowired
     NotificationSessionRegistry registry;
+
+    @Autowired
+    JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    PresenceHeartbeat presenceHeartbeat;
 
     private final List<Client> clients = new ArrayList<>();
 
@@ -275,6 +289,170 @@ class NotificationWebSocketTest extends IntegrationTest {
         assertThat(registry.connectionCount()).isEqualTo(before);
     }
 
+    @Test
+    @DisplayName("붙으면 접속 상태가 ONLINE 이 된다")
+    void connectingMakesOnline() throws Exception {
+        String me = createUser();
+
+        connectAs(me);
+
+        // 연결이 살아 있다는 것 자체가 온라인 신호입니다. 클라이언트가 따로 알려 주는
+        // 것은 아무것도 없습니다.
+        assertThat(presenceOf(me).get("status")).isEqualTo("ONLINE");
+    }
+
+    @Test
+    @DisplayName("주기 하트비트가 없어도 친구 목록에서 ONLINE 으로 남는다")
+    void statusSurvivesWithoutAClientHeartbeat() throws Exception {
+        String me = createUser();
+        String friend = createUser();
+        befriend(friend, me);
+        connectAs(me);
+
+        // 클라이언트가 90초 넘게 아무것도 보내지 않은 상황을 만듭니다. 예전에는 이것이
+        // 곧 크래시였고, 조회가 이 사람을 오프라인으로 판정했습니다. 이제 붙어 있는
+        // 사람의 하트비트는 서버가 밉니다.
+        makeHeartbeatStale(me);
+        presenceHeartbeat.refresh();
+
+        mvc.perform(get("/api/v1/friends").header(USER_ID_HEADER, friend))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.friends[0].userId").value(me))
+                .andExpect(jsonPath("$.friends[0].presence").value("ONLINE"));
+    }
+
+    @Test
+    @DisplayName("붙어 있지 않으면 갱신이 되지 않아 만료가 오프라인으로 데려간다")
+    void aUserWhoIsNotConnectedExpires() throws Exception {
+        String me = createUser();
+        String friend = createUser();
+        befriend(friend, me);
+
+        // 소켓 없이 REST 로만 보고한 사람입니다. 갱신 대상이 아니므로 낡은 채로 남습니다.
+        // 서버가 죽었다 살아난 뒤 남은 행이 정리되는 것이 이 경로입니다.
+        heartbeat(me, null);
+        makeHeartbeatStale(me);
+        presenceHeartbeat.refresh();
+
+        mvc.perform(get("/api/v1/friends").header(USER_ID_HEADER, friend))
+                .andExpect(jsonPath("$.friends[0].presence").value("OFFLINE"));
+    }
+
+    @Test
+    @DisplayName("연결을 닫으면 만료를 기다리지 않고 OFFLINE 이 된다")
+    void closingGoesOfflineWithoutWaitingForTheTimeout() throws Exception {
+        String me = createUser();
+        Client client = connectAs(me);
+
+        client.session.close();
+
+        awaitPresence(me, "OFFLINE");
+    }
+
+    @Test
+    @DisplayName("연결이 둘이면 하나가 닫혀도 ONLINE 이고, 마지막이 닫히면 OFFLINE 이다")
+    void onlyTheLastConnectionClosingGoesOffline() throws Exception {
+        String me = createUser();
+        Client first = connectAs(me);
+        Client second = connectAs(me);
+        int both = registry.connectionCount();
+
+        first.session.close();
+
+        // 탭을 둘 열어 둔 사람이 하나를 닫은 것은 접속이 끊긴 것이 아닙니다. 여기서
+        // 내려버리면 남은 탭에서 자기가 오프라인으로 보입니다.
+        awaitConnectionCount(both - 1);
+        assertThat(presenceOf(me).get("status")).isEqualTo("ONLINE");
+
+        second.session.close();
+
+        awaitPresence(me, "OFFLINE");
+    }
+
+    @Test
+    @DisplayName("PRESENCE 프레임으로 로비와 경기 중을 알린다")
+    void presenceFrameReportsLobbyAndMatch() throws Exception {
+        String me = createUser();
+        Client client = connectAs(me);
+
+        client.presence(ROOM, "LOBBY");
+        awaitPresence(me, "IN_LOBBY");
+
+        // 로비에서 경기로 넘어가도 룸은 그대로입니다. sessionId 가 같고 상태만 바뀝니다.
+        client.presence(ROOM, "MATCH");
+        awaitPresence(me, "IN_GAME");
+        assertThat(presenceOf(me).get("session_id")).isEqualTo(ROOM);
+
+        // 룸을 나오면 sessionId 를 빼고 보냅니다.
+        client.presence(null, null);
+        awaitPresence(me, "ONLINE");
+        assertThat(presenceOf(me).get("session_id")).isNull();
+    }
+
+    @Test
+    @DisplayName("PRESENCE 프레임으로 로비에 들어간 친구는 초대가 막힌다")
+    void invitingAFriendWhoReportedLobbyIsBlocked() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+        Client guestClient = connectAs(guest);
+
+        guestClient.presence(ROOM, "LOBBY");
+        awaitPresence(guest, "IN_LOBBY");
+
+        // 885 의 차단이 프레임으로 들어온 상태에도 그대로 걸립니다.
+        mvc.perform(post("/api/v1/invites")
+                        .header(USER_ID_HEADER, host)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"userId\":\"" + guest + "\",\"roomCode\":\"" + ROOM + "\"}"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("두 번째 연결이 경기 중인 사람을 방에서 끌어내지 않는다")
+    void aSecondConnectionDoesNotPullTheUserOutOfTheMatch() throws Exception {
+        String me = createUser();
+        Client first = connectAs(me);
+        first.presence(ROOM, "MATCH");
+        awaitPresence(me, "IN_GAME");
+
+        connectAs(me);
+
+        // 기기를 하나 더 켠 것이거나 경기 중 재접속입니다. 붙었다는 사실만으로 ONLINE 으로
+        // 되돌리면 친구 목록에서 경기 중인 사람을 부를 수 있는 것처럼 보입니다.
+        assertThat(presenceOf(me).get("status")).isEqualTo("IN_GAME");
+        assertThat(presenceOf(me).get("session_id")).isEqualTo(ROOM);
+    }
+
+    @Test
+    @DisplayName("HELLO 없이 보낸 PRESENCE 프레임은 무시한다")
+    void aPresenceFrameWithoutHelloIsIgnored() throws Exception {
+        String me = createUser();
+        Client client = connect();
+
+        client.presence(ROOM, "MATCH");
+
+        // 누구의 프레임인지 알 수 없습니다. 끊지 않는 이유는 HELLO 마감이 이미 그 일을
+        // 하기 때문이고, 그 마감에 걸려 닫히는 것으로 확인합니다.
+        assertThat(client.closed.await(WAIT.toMillis(), TimeUnit.MILLISECONDS)).isTrue();
+        assertThat(presenceRowMissing(me)).isTrue();
+    }
+
+    @Test
+    @DisplayName("모르는 sessionKind 프레임은 버리고 연결은 살려 둔다")
+    void anUnknownSessionKindFrameIsDropped() throws Exception {
+        String me = createUser();
+        Client client = connectAs(me);
+
+        client.presence(ROOM, "SOMETHING_ELSE");
+
+        // 푸시 채널에는 400 으로 되돌릴 자리가 없습니다. 끊어버리면 오타 하나로 실시간
+        // 알림 전체를 잃습니다.
+        assertThat(client.nothingWithin(Duration.ofSeconds(1))).isTrue();
+        assertThat(client.session.isOpen()).isTrue();
+        assertThat(presenceOf(me).get("status")).isEqualTo("ONLINE");
+    }
+
     /** 테스트용 클라이언트. 받은 프레임을 큐에 쌓고, 닫히면 래치를 내립니다. */
     private final class Client extends TextWebSocketHandler {
 
@@ -296,6 +474,18 @@ class NotificationWebSocketTest extends IntegrationTest {
 
         void hello(String userId) throws IOException {
             session.sendMessage(new TextMessage("{\"type\":\"HELLO\",\"userId\":\"" + userId + "\"}"));
+        }
+
+        /** 방을 오갈 때 보내는 프레임. 룸 밖이면 둘 다 null 로 둡니다. */
+        void presence(String sessionId, String sessionKind) throws IOException {
+            StringBuilder frame = new StringBuilder("{\"type\":\"PRESENCE\"");
+            if (sessionId != null) {
+                frame.append(",\"sessionId\":\"").append(sessionId).append('"');
+            }
+            if (sessionKind != null) {
+                frame.append(",\"sessionKind\":\"").append(sessionKind).append('"');
+            }
+            session.sendMessage(new TextMessage(frame.append('}').toString()));
         }
 
         JsonNode next() throws InterruptedException {
@@ -368,5 +558,66 @@ class NotificationWebSocketTest extends IntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"userId\":\"" + to + "\",\"roomCode\":\"" + roomCode + "\"}"))
                 .andExpect(status().isCreated());
+    }
+
+    /** REST 하트비트. 소켓 없이 보고한 사람을 만들 때만 씁니다. */
+    private void heartbeat(String userId, String sessionId) throws Exception {
+        mvc.perform(put("/api/v1/presence")
+                        .header(USER_ID_HEADER, userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(sessionId == null ? "{}" : "{\"sessionId\":\"" + sessionId + "\"}"))
+                .andExpect(status().isNoContent());
+    }
+
+    private Map<String, Object> presenceOf(String userId) {
+        return jdbcTemplate.queryForMap("""
+                SELECT p.status, p.session_id, p.heartbeat_at
+                  FROM user_presence p
+                  JOIN users u ON u.users_seq = p.user_seq
+                 WHERE u.public_id = ?
+                """, userId);
+    }
+
+    private boolean presenceRowMissing(String userId) {
+        Integer rows = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                  FROM user_presence p
+                  JOIN users u ON u.users_seq = p.user_seq
+                 WHERE u.public_id = ?
+                """, Integer.class, userId);
+        return rows != null && rows == 0;
+    }
+
+    /** 타임아웃(90초)보다 오래된 하트비트로 바꿔 클라이언트가 조용한 상황을 만듭니다. */
+    private void makeHeartbeatStale(String userId) {
+        jdbcTemplate.update("UPDATE user_presence p JOIN users u ON u.users_seq = p.user_seq"
+                + " SET p.heartbeat_at = ? WHERE u.public_id = ?",
+                Timestamps.format(Instant.now().minusSeconds(200)), userId);
+    }
+
+    /**
+     * 접속 상태가 기대한 값이 될 때까지 기다립니다.
+     *
+     * <p>연결이 닫히는 것과 프레임이 처리되는 것은 서버 쪽 스레드에서 일어납니다. 클라이언트가
+     * {@code close()} 나 {@code sendMessage()} 에서 돌아온 시점에는 아직 쓰이지 않았을 수
+     * 있어서, 곧바로 확인하면 간헐적으로 실패합니다.
+     */
+    private void awaitPresence(String userId, String expected) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + WAIT.toMillis();
+        while (System.currentTimeMillis() < deadline) {
+            if (expected.equals(presenceOf(userId).get("status"))) {
+                return;
+            }
+            Thread.sleep(20);
+        }
+        assertThat(presenceOf(userId).get("status")).isEqualTo(expected);
+    }
+
+    private void awaitConnectionCount(int expected) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + WAIT.toMillis();
+        while (registry.connectionCount() != expected && System.currentTimeMillis() < deadline) {
+            Thread.sleep(20);
+        }
+        assertThat(registry.connectionCount()).isEqualTo(expected);
     }
 }

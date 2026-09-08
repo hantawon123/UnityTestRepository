@@ -9,6 +9,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -19,9 +21,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ssafy.d205.domain.presence.entity.SessionKind;
+import com.ssafy.d205.domain.presence.service.PresenceService;
 import com.ssafy.d205.domain.presence.service.PresenceSweeper;
 import com.ssafy.d205.global.common.Timestamps;
 import com.ssafy.d205.support.IntegrationTest;
+import com.ssafy.d205.support.StatementRecorder;
 
 class PresenceApiTest extends IntegrationTest {
 
@@ -38,6 +43,9 @@ class PresenceApiTest extends IntegrationTest {
 
     @Autowired
     PresenceSweeper presenceSweeper;
+
+    @Autowired
+    PresenceService presenceService;
 
     @Test
     @DisplayName("첫 하트비트가 접속 기록을 만든다")
@@ -232,6 +240,92 @@ class PresenceApiTest extends IntegrationTest {
     }
 
     @Test
+    @DisplayName("하트비트 갱신은 사람이 몇 명이든 UPDATE 한 문장이다")
+    void refreshingIsOneStatementForAnyNumberOfUsers() throws Exception {
+        // 이것이 890 의 요점입니다. 예전에는 접속자 한 명이 30초마다 요청 하나를 보내
+        // 트랜잭션 하나와 UPDATE 하나를 만들었습니다. 접속자 수에 그대로 비례했습니다.
+        List<Integer> everyone = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            String user = createUser();
+            heartbeat(user, null);
+            everyone.add(seqOf(user));
+        }
+
+        // 예전 방식을 같은 계측으로 재봅니다. 이 줄이 없으면 검사기가 아무것도 세지 못하는
+        // 상태에서도 아래 두 단정이 통과할 수 있습니다 — 0 이 아니라 1 을 세는지, 그리고
+        // 5 와 1 을 구분하는지가 여기서 드러납니다.
+        //
+        // 사람마다 다른 방을 주는 이유가 있습니다. 같은 상태를 다시 보고하면 시각이 초
+        // 단위라 같은 초 안에서는 바뀌는 필드가 없고, Hibernate 가 UPDATE 를 아예 내지
+        // 않습니다. 그러면 다섯 번 불러도 문장이 다섯 개가 아닙니다.
+        StatementRecorder.start();
+        for (int i = 0; i < everyone.size(); i++) {
+            presenceService.reportBound(everyone.get(i), "ROOM" + i, SessionKind.MATCH);
+        }
+        List<String> oneByOne = StatementRecorder.stop();
+
+        StatementRecorder.start();
+        presenceService.refreshHeartbeats(List.of(everyone.getFirst()));
+        List<String> forOne = StatementRecorder.stop();
+
+        StatementRecorder.start();
+        presenceService.refreshHeartbeats(everyone);
+        List<String> forFive = StatementRecorder.stop();
+
+        assertThat(StatementRecorder.writesOn(oneByOne, "user_presence")).hasSize(5);
+        assertThat(StatementRecorder.writesOn(forOne, "user_presence")).hasSize(1);
+        assertThat(StatementRecorder.writesOn(forFive, "user_presence")).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("갱신은 넘긴 사람만 밀고 나머지는 건드리지 않는다")
+    void refreshingTouchesOnlyTheGivenUsers() throws Exception {
+        String connected = createUser();
+        String gone = createUser();
+        heartbeat(connected, "ROOM01");
+        heartbeat(gone, "ROOM02");
+        makeHeartbeatStale(connected);
+        makeHeartbeatStale(gone);
+
+        presenceService.refreshHeartbeats(List.of(seqOf(connected)));
+
+        // 붙어 있는 쪽은 되살아나고, 끊긴 쪽은 낡은 채로 남아 스윕이 데려갑니다.
+        String threshold = Timestamps.format(Instant.now().minusSeconds(90));
+        assertThat((String) presenceOf(connected).get("heartbeat_at")).isGreaterThan(threshold);
+        assertThat((String) presenceOf(gone).get("heartbeat_at")).isLessThan(threshold);
+    }
+
+    @Test
+    @DisplayName("갱신은 상태를 건드리지 않는다")
+    void refreshingLeavesTheStatusAlone() throws Exception {
+        String me = createUser();
+        heartbeat(me, "ROOM42", "LOBBY");
+        makeUpdatedAtOld(me);
+        String updatedAt = (String) presenceOf(me).get("updated_at");
+
+        presenceService.refreshHeartbeats(List.of(seqOf(me)));
+
+        // 접속·종료·방 이동만 상태를 바꿉니다. 갱신이 상태까지 손대면 방금 오프라인이 된
+        // 사람을 한 틱 늦게 되살리는 경합이 생깁니다.
+        Map<String, Object> row = presenceOf(me);
+        assertThat(row.get("status")).isEqualTo("IN_LOBBY");
+        assertThat(row.get("session_id")).isEqualTo("ROOM42");
+        assertThat(row.get("updated_at")).isEqualTo(updatedAt);
+    }
+
+    @Test
+    @DisplayName("붙어 있는 사람이 없으면 갱신은 아무 문장도 내지 않는다")
+    void refreshingNobodyIssuesNoStatement() {
+        // IN () 는 MySQL 문법 오류입니다. 호출부가 빈 목록을 걸러내는지 봅니다.
+        StatementRecorder.start();
+        int refreshed = presenceService.refreshHeartbeats(List.of());
+        List<String> statements = StatementRecorder.stop();
+
+        assertThat(refreshed).isZero();
+        assertThat(StatementRecorder.writesOn(statements, "user_presence")).isEmpty();
+    }
+
+    @Test
     @DisplayName("스윕이 로비에 있던 행도 오프라인으로 내린다")
     void sweepMarksStaleLobbyRowsOffline() throws Exception {
         // 스윕 조건이 status IN (...) 목록이라 PresenceStatus 에 값을 더하면 그 목록에도
@@ -334,6 +428,11 @@ class PresenceApiTest extends IntegrationTest {
                   JOIN users u ON u.users_seq = p.user_seq
                  WHERE u.public_id = ?
                 """, userId);
+    }
+
+    private Integer seqOf(String userId) {
+        return jdbcTemplate.queryForObject("SELECT users_seq FROM users WHERE public_id = ?",
+                Integer.class, userId);
     }
 
     /** 시각이 초 단위라 같은 초에 두 번 부르면 값이 같습니다. 과거로 밀어 구분합니다. */
