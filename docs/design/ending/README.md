@@ -69,6 +69,13 @@
   - 구도 검증(카메라 투영 계산): 12명 모두 화면 안. 철창은 화면 세로 0.28~0.83 구간, 체포자 머리 0.58·발 0.30, 탈출자 앞줄 발 0.08~0.15. 뒷줄을 z 3.4에 두면 발이 화면 아래 가장자리에 걸려 3.0으로 당김.
 - URP는 에디터 모드 `Camera.Render()`로 라이트가 반영되지 않아 미리보기 렌더는 불가. 스크린샷은 씬 조립 후 씬 뷰로 찍는다.
 
+## 4. 조명 1차 — 전체 밝기 (729 시작, 2026-09-07)
+
+- 요청: 실내가 어둡고 전등 아래만 밝음 → 전체적으로 밝게. 실내라 태양광은 출구·창으로만 들어오므로 **환경광 + 천장 냉백색 조명**으로 해결.
+- 조립 씬 `Assets/_Game/Content/Scenes/EndingBuild.unity` 생성(데모 씬은 에셋 팩 파일이라 건드리지 않음): 환경광 Flat #9EA8B8(0.62/0.66/0.72, 데모의 약 1.5배), 안개 없음, 카메라는 앵커 위치·FOV 40.4·Post Processing 켬.
+- 프리팹 `EndingLights` 그룹 추가(Mixed): 컨셉의 형광등 자리에 천장 스팟 3개(복도 앞 z 6.5 · 복도 중간 z 3.0 · 유치장 안 z -1.5, 150°, 냉백색 #DBEBFF, 3.0~3.5) + 출구로 들어오는 태양광 Directional(1.2, 약한 온색, 소프트 그림자).
+- 에셋 자체 조명(펜던트 온색 스팟 등 6개)은 유지. 다음: 베이크 대상 결정과 라이트맵 베이크, 톤 조정(너무 평평하면 환경광 0.5 수준으로 내리고 스팟 대비 확보).
+
 ## 참고 파일
 - 결과 흐름: `Assets/_Game/Bootstrap/ResultLifetimeScope.cs`, `NetworkResultLobbyReturnController.cs`, `Assets/_Game/Content/Scenes/Result.unity`
 - 리플레이 아바타 재생: `Assets/_Game/Bootstrap/HighlightReplayPlayer.cs`
