@@ -26,6 +26,19 @@ spring:
 server:
   port: 8080
   shutdown: graceful
+  # 알림 WebSocket(883)과 접속 상태(890) 이후 클라이언트마다 연결 하나를 상시 붙들고
+  # 있습니다. 아래 두 값은 Tomcat 기본값과 같지만, 기본값이 얼마인지 모르는 채로 두지
+  # 않으려고 적어 둡니다. 연결은 NIO 라 스레드와 1:1 이 아닙니다 — 유휴 WebSocket 은
+  # 스레드를 쓰지 않고, 스레드는 프레임이 실제로 올 때만 잡힙니다.
+  #
+  # max-connections 는 동시 접속자 상한입니다. 넘으면 accept-count 만큼 OS 큐에서
+  # 기다리다 거절됩니다. nginx 쪽 worker_connections 도 같은 사람 수를 받아야 하므로
+  # 둘 중 작은 값이 실제 한도입니다. deploy/verify.sh 가 서버의 값을 찍어 줍니다.
+  tomcat:
+    max-connections: 8192
+    accept-count: 100
+    threads:
+      max: 200
   servlet:
     session:
       cookie:
