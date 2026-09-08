@@ -6,6 +6,7 @@ using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Players;
 using Game.Core.Ports;
+using Game.Core.Settings;
 using Game.Core.Voice;
 using Game.Network;
 using Game.Network.Lobby;
@@ -51,13 +52,54 @@ namespace Game.Bootstrap
             // there before anybody picks another.
             var regionStore = new PlayerPrefsServerRegionStore();
 
+            // Built here for the same reason: the settings screen reads this
+            // machine's preferences, and a test container must not pick up
+            // whichever language the developer last applied.
+            var generalSettingsStore = new PlayerPrefsGeneralSettingsStore();
+
+            // Likewise for the graphics settings, whose applier is the one
+            // object in the game that speaks to the renderer.
+            var graphicsSettingsStore = new PlayerPrefsGraphicsSettingsStore();
+            var graphicsSettingsApplier = new UnityGraphicsSettingsApplier();
+            var interfaceSettingsStore = new PlayerPrefsInterfaceSettingsStore();
+            var soundSettingsStore = new PlayerPrefsSoundSettingsStore();
+            var soundSettingsApplier = new UnitySoundSettingsApplier();
+            var microphones = new UnityMicrophoneDevices();
+            var controlSettingsStore = new PlayerPrefsControlSettingsStore();
+            var notificationSettingsStore = new PlayerPrefsNotificationSettingsStore();
+
             RegisterServices(
                 builder,
                 _networkPrefabs,
                 _networkScenes,
                 null,
-                new ServerRegionSystem(regionStore, _networkRegion));
+                new ServerRegionSystem(regionStore, _networkRegion),
+                new GeneralSettingsSystem(generalSettingsStore),
+                new GraphicsSettingsSystem(graphicsSettingsStore, graphicsSettingsApplier),
+                new InterfaceSettingsSystem(interfaceSettingsStore),
+                new SoundSettingsSystem(soundSettingsStore, soundSettingsApplier, microphones),
+                new ControlSettingsSystem(controlSettingsStore),
+                new NotificationSettingsSystem(notificationSettingsStore));
             builder.RegisterInstance<IServerRegionStore>(regionStore);
+            builder.RegisterInstance<IGeneralSettingsStore>(generalSettingsStore);
+            builder.RegisterInstance<IGraphicsSettingsStore>(graphicsSettingsStore);
+            builder.RegisterInstance<IGraphicsSettingsApplier>(graphicsSettingsApplier);
+            builder.RegisterInstance<IInterfaceSettingsStore>(interfaceSettingsStore);
+            builder.RegisterInstance<ISoundSettingsStore>(soundSettingsStore);
+            builder.RegisterInstance<ISoundSettingsApplier>(soundSettingsApplier);
+            builder.RegisterInstance<IMicrophoneDevices>(microphones);
+            builder.RegisterInstance<IControlSettingsStore>(controlSettingsStore);
+            builder.RegisterInstance<INotificationSettingsStore>(notificationSettingsStore);
+
+            // Listens to the whole keyboard and mouse while a key is being
+            // put on an action, so only the application has one.
+            builder.Register<IKeyCapture, UnityKeyCapture>(Lifetime.Singleton);
+            builder.RegisterEntryPoint<SoundSettingsStartup>();
+
+            // Makes a saved choice real. Registered here rather than in
+            // RegisterServices because only the application has a window to
+            // resize; a test container must not touch one.
+            builder.RegisterEntryPoint<GraphicsSettingsStartup>();
 
             // Built here rather than in RegisterServices: the device identifier
             // is this machine's saved credential, and a test container must not
@@ -181,7 +223,13 @@ namespace Game.Bootstrap
             NetworkPrefabs networkPrefabs = null,
             NetworkScenes networkScenes = null,
             PlayerProfile profile = null,
-            ServerRegionSystem regions = null)
+            ServerRegionSystem regions = null,
+            GeneralSettingsSystem generalSettings = null,
+            GraphicsSettingsSystem graphicsSettings = null,
+            InterfaceSettingsSystem interfaceSettings = null,
+            SoundSettingsSystem soundSettings = null,
+            ControlSettingsSystem controlSettings = null,
+            NotificationSettingsSystem notificationSettings = null)
         {
             builder.Register<AppFlowSystem>(Lifetime.Singleton);
             builder.Register<HomeMenuSystem>(Lifetime.Singleton);
@@ -193,6 +241,34 @@ namespace Game.Bootstrap
             // one backed by this machine's preferences.
             builder.RegisterInstance(
                 regions ?? new ServerRegionSystem(new InMemoryServerRegionStore()));
+
+            // Likewise: one for every container, forgetting with the process
+            // unless the application hands in one backed by preferences.
+            builder.RegisterInstance(
+                generalSettings ?? new GeneralSettingsSystem(new InMemoryGeneralSettingsStore()));
+
+            // Forgetting with the process, and changing nothing about the
+            // picture, unless the application hands in one backed by
+            // preferences and wired to the renderer.
+            builder.RegisterInstance(
+                graphicsSettings ?? new GraphicsSettingsSystem(new InMemoryGraphicsSettingsStore()));
+
+            builder.RegisterInstance(
+                interfaceSettings ?? new InterfaceSettingsSystem(new InMemoryInterfaceSettingsStore()));
+
+            builder.RegisterInstance(
+                soundSettings ?? new SoundSettingsSystem(new InMemorySoundSettingsStore()));
+
+            builder.RegisterInstance(
+                controlSettings ?? new ControlSettingsSystem(new InMemoryControlSettingsStore()));
+
+            builder.RegisterInstance(
+                notificationSettings
+                    ?? new NotificationSettingsSystem(new InMemoryNotificationSettingsStore()));
+
+            // Tests nothing yet: what a microphone test does has not been
+            // decided. The screen's button is wired to this either way.
+            builder.Register<IMicrophoneTest, NullMicrophoneTest>(Lifetime.Singleton);
 
             // One instance for the whole application. The home screen edits this
             // one and the network reads this one, so a rename is visible in both

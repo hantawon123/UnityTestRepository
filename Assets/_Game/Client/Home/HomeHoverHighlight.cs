@@ -27,27 +27,41 @@ namespace Game.Client.Home
         private Color normalColor;
         private Color hoverColor;
 
+        /// <summary>
+        /// Whether the pointer is on this. Remembered so that being given new
+        /// colours mid-hover paints the state the pointer is actually in.
+        /// </summary>
+        /// <remarks>
+        /// Without it, a control rebound while hovered goes flat until the
+        /// pointer leaves and comes back — which is what a key plate does the
+        /// moment it stops waiting for a press, with the pointer still on it.
+        /// </remarks>
+        private bool hovered;
+
         public void Bind(Image fillImage, Image strokeImage, Color normal, Color hover)
         {
             fill = fillImage;
             stroke = strokeImage;
             normalColor = normal;
             hoverColor = hover;
-            Apply(false);
+            Apply(hovered);
         }
 
         public void OnPointerEnter(PointerEventData eventData)
         {
+            hovered = true;
             Apply(true);
         }
 
         public void OnPointerExit(PointerEventData eventData)
         {
+            hovered = false;
             Apply(false);
         }
 
         private void OnDisable()
         {
+            hovered = false;
             Apply(false);
         }
 
