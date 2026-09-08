@@ -63,6 +63,37 @@ namespace Game.Tests.EditMode
         // 에디트 모드 테스트로는 검증할 수 없다(에디트 모드에서는 OnDestroy가 호출되지 않음).
 
         [Test]
+        public void StoredSourceMesh_IsUsedInsteadOfFilterMesh()
+        {
+            // 정적 배칭된 소품은 플레이 중 MeshFilter가 결합 메시를 가리키므로,
+            // 에디터에서 저장한 원본 메시가 복사본에 쓰여야 한다.
+            propObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            var storedMesh = sphere.GetComponent<MeshFilter>().sharedMesh;
+            Object.DestroyImmediate(sphere);
+
+            boardObject = new GameObject("LobbyPlanBoard");
+            var outline = boardObject.AddComponent<InteractableFocusOutline>();
+            using (var serialized = new SerializedObject(outline))
+            {
+                var sources = serialized.FindProperty("sourceRenderers");
+                sources.arraySize = 1;
+                sources.GetArrayElementAtIndex(0).objectReferenceValue =
+                    propObject.GetComponent<MeshRenderer>();
+                var meshes = serialized.FindProperty("sourceMeshes");
+                meshes.arraySize = 1;
+                meshes.GetArrayElementAtIndex(0).objectReferenceValue = storedMesh;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            outline.SetVisible(true);
+
+            var generated = FindGeneratedOutline(propObject.transform);
+            Assert.That(generated, Is.Not.Null);
+            Assert.That(generated.GetComponent<MeshFilter>().sharedMesh, Is.EqualTo(storedMesh));
+        }
+
+        [Test]
         public void WithoutOutline_BindStillWorks()
         {
             boardObject = new GameObject("LobbyPlanBoard");

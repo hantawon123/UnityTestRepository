@@ -104,6 +104,17 @@ namespace Game.Editor
                     property.GetArrayElementAtIndex(index).objectReferenceValue = sources[index];
                 }
 
+                // 소품은 정적 배칭 대상이라 플레이 중에는 MeshFilter가 결합 메시를 가리킨다.
+                // 실루엣이 원본 형태를 유지하도록 지금(에디트 모드)의 원본 메시를 함께 저장한다.
+                var meshes = serialized.FindProperty("sourceMeshes");
+                meshes.arraySize = sources.Length;
+                for (var index = 0; index < sources.Length; index++)
+                {
+                    var filter = sources[index].GetComponent<MeshFilter>();
+                    meshes.GetArrayElementAtIndex(index).objectReferenceValue =
+                        filter != null ? filter.sharedMesh : null;
+                }
+
                 serialized.ApplyModifiedPropertiesWithoutUndo();
             }
 

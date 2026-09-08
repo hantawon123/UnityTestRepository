@@ -23,6 +23,11 @@ namespace Game.Client.Interactions
         [SerializeField]
         private Renderer[] sourceRenderers;
 
+        [Tooltip("sourceRenderers와 같은 순서의 원본 메시. 정적 배칭된 소품은 런타임에 " +
+                 "MeshFilter가 결합 메시를 가리키므로, 에디터에서 저장한 원본을 대신 쓴다.")]
+        [SerializeField]
+        private Mesh[] sourceMeshes;
+
         private readonly List<Renderer> outlineRenderers = new();
         private Material outlineMaterial;
         private bool built;
@@ -46,7 +51,12 @@ namespace Game.Client.Interactions
             IsVisible = visible;
             for (var index = 0; index < outlineRenderers.Count; index++)
             {
-                outlineRenderers[index].enabled = visible;
+                // 외부 소품에 붙인 복사본은 씬 언로드 때 이 컴포넌트보다 먼저 사라질 수 있다.
+                var renderer = outlineRenderers[index];
+                if (renderer != null)
+                {
+                    renderer.enabled = visible;
+                }
             }
         }
 
@@ -90,7 +100,7 @@ namespace Game.Client.Interactions
                 switch (source)
                 {
                     case MeshRenderer meshRenderer:
-                        CreateMeshOutline(meshRenderer);
+                        CreateMeshOutline(meshRenderer, StoredMesh(index));
                         break;
                     case SkinnedMeshRenderer skinnedRenderer:
                         CreateSkinnedOutline(skinnedRenderer);
@@ -99,18 +109,32 @@ namespace Game.Client.Interactions
             }
         }
 
-        private void CreateMeshOutline(MeshRenderer source)
+        /// <summary>지정 소품용으로 저장된 원본 메시. 자식 렌더러 모드나 미저장이면 null.</summary>
+        private Mesh StoredMesh(int index)
+        {
+            return SourceCount > 0 && sourceMeshes != null && index < sourceMeshes.Length
+                ? sourceMeshes[index]
+                : null;
+        }
+
+        /// <remarks>
+        /// 정적 배칭이 켜진 소품은 플레이 중 <c>MeshFilter.sharedMesh</c>가 씬 전체를 합친
+        /// "Combined Mesh"가 되어, 그대로 복사하면 엉뚱한 곳에 다른 물건의 실루엣이 그려진다.
+        /// 저장된 원본 메시가 있으면 그것을 우선한다.
+        /// </remarks>
+        private void CreateMeshOutline(MeshRenderer source, Mesh storedMesh)
         {
             var sourceFilter = source.GetComponent<MeshFilter>();
-            if (sourceFilter == null || sourceFilter.sharedMesh == null)
+            var mesh = storedMesh != null ? storedMesh : sourceFilter != null ? sourceFilter.sharedMesh : null;
+            if (mesh == null)
             {
                 return;
             }
 
             var child = CreateOutlineChild(source.transform);
-            child.AddComponent<MeshFilter>().sharedMesh = sourceFilter.sharedMesh;
+            child.AddComponent<MeshFilter>().sharedMesh = mesh;
             var renderer = child.AddComponent<MeshRenderer>();
-            Configure(renderer, source.sharedMaterials.Length);
+            Configure(renderer, mesh.subMeshCount);
         }
 
         private void CreateSkinnedOutline(SkinnedMeshRenderer source)
