@@ -1,6 +1,7 @@
 package com.ssafy.d205.domain.friend.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,7 @@ import com.ssafy.d205.domain.friend.entity.Friendship;
 import com.ssafy.d205.domain.friend.entity.FriendshipStatus;
 import com.ssafy.d205.domain.friend.repository.FriendRequestRow;
 import com.ssafy.d205.domain.friend.repository.FriendshipRepository;
+import com.ssafy.d205.domain.notification.event.UserNotificationEvent;
 import com.ssafy.d205.domain.presence.entity.PresenceTimeout;
 import com.ssafy.d205.domain.user.entity.User;
 import com.ssafy.d205.domain.user.repository.UserRepository;
@@ -47,6 +49,13 @@ public class FriendshipService {
     private final TimeProvider timeProvider;
 
     /**
+     * 상대에게 줄 알림. 여기서 WebSocket 을 직접 부르지 않고 이벤트로 넘기는 이유는 커밋 뒤에
+     * 보내야 하기 때문입니다. 커밋 전에 보내면 상대가 알림을 받고 목록을 다시 읽었을 때 행이
+     * 아직 없습니다. NotificationPublisher 가 AFTER_COMMIT 으로 받습니다.
+     */
+    private final ApplicationEventPublisher events;
+
+    /**
      * 친구 요청을 보냅니다.
      *
      * <p>상대가 이미 나에게 요청을 보내둔 상태면 <b>그 자리에서 친구가 됩니다.</b>
@@ -75,10 +84,13 @@ public class FriendshipService {
                 throw new FriendRequestAlreadySentException();
             }
             friendship.accept(timeProvider.now());
+            // 상대가 먼저 보낸 요청을 내가 자동 수락한 것이므로 요청자는 상대입니다.
+            events.publishEvent(UserNotificationEvent.friendRequestAccepted(target, me));
             return new SendFriendRequestResponse(FriendshipStatus.ACCEPTED);
         }
 
         friendshipRepository.save(Friendship.request(me.getSeq(), target.getSeq(), timeProvider.now()));
+        events.publishEvent(UserNotificationEvent.friendRequestReceived(target, me));
         return new SendFriendRequestResponse(FriendshipStatus.PENDING);
     }
 
@@ -98,6 +110,7 @@ public class FriendshipService {
             throw new FriendRequestNotFoundException();
         }
         friendship.accept(timeProvider.now());
+        events.publishEvent(UserNotificationEvent.friendRequestAccepted(other, me));
     }
 
     /**
@@ -113,6 +126,9 @@ public class FriendshipService {
         User other = target(targetUserId);
 
         friendshipRepository.delete(pending(me, other));
+        // 거절인지 취소인지는 알리지 않습니다. 화면이 할 일은 같고, 거절을 알려주면 거절한
+        // 사람이 드러납니다.
+        events.publishEvent(UserNotificationEvent.friendRequestRemoved(other, me));
     }
 
     /**
@@ -136,6 +152,9 @@ public class FriendshipService {
 
         friendshipRepository.delete(friendship);
         friendshipRepository.deleteInvitesBetween(me.getSeq(), other.getSeq());
+        // 상대 화면에 내 초대가 토스트로 남아 있을 수 있습니다. 눌러도 NOT_FOUND 지만, 지워진
+        // 것을 알려 화면이 먼저 치우게 합니다.
+        events.publishEvent(UserNotificationEvent.roomInviteRemoved(other, me));
     }
 
     /**

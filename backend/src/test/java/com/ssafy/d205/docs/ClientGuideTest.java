@@ -24,6 +24,7 @@ import com.ssafy.d205.domain.report.entity.ReportReason;
 import com.ssafy.d205.domain.presence.entity.PresenceTimeout;
 import com.ssafy.d205.domain.invite.entity.InviteExpiry;
 import com.ssafy.d205.domain.invite.entity.RoomCodePolicy;
+import com.ssafy.d205.domain.notification.event.NotificationType;
 import com.ssafy.d205.global.common.Timestamps;
 
 /**
@@ -69,6 +70,17 @@ class ClientGuideTest {
 
         assertThat(guide())
                 .as("PresenceStatus 에 값을 추가했으면 문서에도 넣으세요.")
+                .contains(names);
+    }
+
+    @Test
+    @DisplayName("알림 종류가 전부 문서화되어 있다")
+    void everyNotificationTypeIsDocumented() throws IOException {
+        List<String> names = Arrays.stream(NotificationType.values()).map(Enum::name).toList();
+
+        assertThat(guide())
+                .as("NotificationType 에 값을 추가했으면 11절의 표에도 넣으세요. 클라이언트는 type 으로 "
+                        + "분기하므로 표에 없는 값은 무시됩니다.")
                 .contains(names);
     }
 
