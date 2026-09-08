@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using Game.Backend;
 using Game.Bootstrap;
 using Game.Client.Home;
 using Game.Core.Backend;
@@ -156,7 +157,7 @@ namespace Game.Architecture.Tests
                     new ServerRegionSystem(new ForgetfulRegionStore()));
                 presenter.Start();
 
-                bridge = new HomeFriendBridge(View, Commands, signIn);
+                bridge = new HomeFriendBridge(View, Commands, signIn, new SilentNotificationStream());
                 bridge.Start();
             }
 
