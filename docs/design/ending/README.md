@@ -127,6 +127,13 @@
 - **카메라 뒷벽**: 탈출자가 카메라 뒤로 걸어가 사라지지 않게 카메라 1 m 뒤(z 7.6~7.9)에 폭 8 m·높이 5 m 보이지 않는 BoxCollider `StageBounds/COLLIDER_Camera_Backstop` 추가. 레이캐스트 검증: 뒷줄에서 카메라 쪽 5.5 m 지점에서 막힘.
 - Result 씬 무대 재배치(`Game/Ending/1`)로 반영, EndingBuild 카메라도 동일. 주의: 프리팹을 저장한 같은 프레임에 재배치하면 옛 프리팹이 들어가므로 `AssetDatabase.ImportAsset(ForceUpdate)` 후 실행해야 함(메뉴 재실행 시에도 참고).
 
+## 9. 소지 물건 처리 (2026-09-08)
+
+- 관찰: 마지막에 물건을 들고 있던 플레이어가 무대에도 그 물건을 든 채 텔레포트된다(홀드 포인트에 붙어 함께 이동).
+- **결정: 승자만 유지.** 승자가 훔친 물건을 든 채 철창 앞에 선 모습은 컨셉 이미지(주머니를 든 탈출자)와 같은 승리의 증거. 패자가 들고 있던 물건은 무대에서 보이지 않게 한다.
+  - 실제 내려놓기는 권한자의 매치 규칙(`MatchSessionCoordinator.TryDropHeldObject`)이 결과 단계에서 거절하므로, **각 클라이언트가 패자의 소지 물건 렌더러만 숨기고**(`forceRenderingOff`) 결과가 끝나면 되돌린다. 하이라이트·로비 전환에서 물건 상태는 초기화된다.
+- 결과 화면 동안 물건 조작 잠금: F키·던지기는 `PlayerInteractor.IsInputLocked`, 배치 모드(우클릭)는 새로 추가한 `ItemPlacementController.IsInputLocked`로 막는다. 종료 시 해제.
+
 ## 참고 파일
 - 결과 흐름: `Assets/_Game/Bootstrap/ResultLifetimeScope.cs`, `NetworkResultLobbyReturnController.cs`, `Assets/_Game/Content/Scenes/Result.unity`
 - 리플레이 아바타 재생: `Assets/_Game/Bootstrap/HighlightReplayPlayer.cs`
