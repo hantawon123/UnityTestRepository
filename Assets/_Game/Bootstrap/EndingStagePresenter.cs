@@ -2,45 +2,48 @@ using System;
 using System.Collections.Generic;
 using Game.Client.Interactions;
 using Game.Client.Match;
-using Game.Client.Players;
 using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Network.Players;
+using Game.Network.Session;
 using UnityEngine;
 using VContainer.Unity;
 
 namespace Game.Bootstrap
 {
     /// <summary>
-    /// 결과 화면 동안 유치장 무대에 플레이어를 세운다. 탈출한 사람은 철창 앞에서 철창을 보고,
-    /// 체포된 사람은 철창 안에서 카메라를 본다.
+    /// 결과 화면 동안 플레이어를 유치장 무대로 옮긴다. 탈출한 사람은 철창 앞에서 철창을 보고,
+    /// 체포된 사람은 철창 안에서 카메라를 본다. 실제 아바타를 옮기므로 철창·벽 콜라이더가
+    /// 그대로 가두고, 걸어 다니는 모습이 고정 카메라에 보인다.
     /// </summary>
     /// <remarks>
-    /// The real avatars stay where the match left them; what stands on the
-    /// stage is a <see cref="ReplayVisual"/> copy of each one, the same trick
-    /// the highlight replay uses. Copies carry the player's own look without
-    /// touching networked transforms, and disposing them brings the originals
-    /// back for the replay that follows.
+    /// Only the authority moves anyone: it teleports each avatar through the
+    /// same path the hiding phase uses, and Fusion carries the new positions to
+    /// every peer. Clients just switch to the stage camera and drop the text
+    /// screen's opaque backdrop. Movement stays free on purpose, so being locked
+    /// in is something the loser can feel; only item interaction is blocked.
     /// </remarks>
     public sealed class EndingStagePresenter : IStartable, ITickable, IDisposable
     {
         private readonly NetworkResultLobbyReturnController result;
+        private readonly NetworkRunnerService network;
         private readonly RoomBrowserSystem room;
         private readonly EndingStage stage;
         private readonly IResultView view;
-        private readonly List<ReplayVisual> visuals = new();
-        private bool built;
+        private readonly HashSet<int> teleported = new();
         private bool backdropHidden;
-        private PlayerMovement lockedMovement;
+        private bool staged;
         private PlayerInteractor lockedInteractor;
 
         public EndingStagePresenter(
             NetworkResultLobbyReturnController result,
+            NetworkRunnerService network,
             RoomBrowserSystem room,
             EndingStage stage,
             IResultView view)
         {
             this.result = result ?? throw new ArgumentNullException(nameof(result));
+            this.network = network ?? throw new ArgumentNullException(nameof(network));
             this.room = room ?? throw new ArgumentNullException(nameof(room));
             this.stage = stage ?? throw new ArgumentNullException(nameof(stage));
             this.view = view ?? throw new ArgumentNullException(nameof(view));
@@ -59,64 +62,31 @@ namespace Game.Bootstrap
             view.SetBackdropVisible(false);
             backdropHidden = true;
             stage.ShowCamera();
-            LockLocalInput();
-            TryBuild();
+            LockLocalInteraction();
+            TryStage();
         }
 
         public void Tick()
         {
-            // The result normally arrives before this scene loads, but a late
-            // client can see the scene first. Keep trying until the line-up is known.
-            if (!built) TryBuild();
-            // The local avatar can replicate in after Start; keep it held still
-            // while the stage is up, the same lock the lobby menu uses.
-            if (lockedMovement == null) LockLocalInput();
+            if (!stage.IsWired) return;
+            // Avatars and the result can arrive after Start; keep trying until
+            // everyone the authority knows about has been placed.
+            if (!staged) TryStage();
+            if (lockedInteractor == null) LockLocalInteraction();
         }
 
         public void Dispose()
         {
-            foreach (var visual in visuals) visual.Dispose();
-            visuals.Clear();
             stage.HideCamera();
             if (backdropHidden) view.SetBackdropVisible(true);
-            UnlockLocalInput();
+            UnlockLocalInteraction();
         }
 
-        /// <remarks>
-        /// The camera is fixed on the stage, so walking the hidden avatar around
-        /// the match map only moves the copy's source out from under it. Locking
-        /// here is client-side; the authority stops judging inputs on its own.
-        /// </remarks>
-        private void LockLocalInput()
+        private void TryStage()
         {
-            foreach (var avatar in UnityEngine.Object.FindObjectsByType<PlayerAvatar>(
-                         FindObjectsInactive.Exclude, FindObjectsSortMode.None))
-            {
-                if (!avatar.IsOwner) continue;
-                lockedMovement = avatar.GetComponent<PlayerMovement>();
-                lockedInteractor = avatar.GetComponent<PlayerInteractor>();
-                if (lockedMovement != null) lockedMovement.IsMovementLocked = true;
-                if (lockedInteractor != null) lockedInteractor.IsInputLocked = true;
-                return;
-            }
-        }
-
-        private void UnlockLocalInput()
-        {
-            if (lockedMovement != null) lockedMovement.IsMovementLocked = false;
-            if (lockedInteractor != null) lockedInteractor.IsInputLocked = false;
-            lockedMovement = null;
-            lockedInteractor = null;
-        }
-
-        private void TryBuild()
-        {
-            if (!stage.IsWired || !result.HasMatchResult) return;
+            if (!network.IsServer || !result.HasMatchResult) return;
             var participants = room.MatchParticipants.CurrentValue;
             if (participants == null || participants.Count == 0) return;
-
-            var avatars = FindAvatars();
-            if (avatars.Count == 0) return;
 
             var placements = EndingStageLayout.Assign(
                 participants,
@@ -126,21 +96,19 @@ namespace Game.Bootstrap
 
             foreach (var placement in placements)
             {
-                if (!avatars.TryGetValue(placement.PlayerId, out var avatar)) continue;
+                if (teleported.Contains(placement.PlayerIndex)) continue;
                 var slot = stage.Slot(placement.Escaped, placement.Slot);
                 if (slot == null) continue;
-
-                var visual = new ReplayVisual(avatar.transform, stage.VisualsRoot);
-                visual.Target.SetPositionAndRotation(slot.position, slot.rotation);
-                if (visual.Animator != null) visual.Animator.speed = 1f;
-                visual.SetPlaying(true);
-                visuals.Add(visual);
+                if (network.TryTeleportPlayer(placement.PlayerIndex, new Pose(slot.position, slot.rotation)))
+                {
+                    teleported.Add(placement.PlayerIndex);
+                }
             }
 
-            built = visuals.Count > 0;
-            if (built)
+            staged = teleported.Count >= placements.Count;
+            if (staged)
             {
-                Debug.Log($"[Ending] Staged {visuals.Count} of {participants.Count} players " +
+                Debug.Log($"[Ending] Staged {teleported.Count} of {participants.Count} players " +
                           $"(escaped {CountEscaped(placements)}).");
             }
         }
@@ -152,16 +120,27 @@ namespace Game.Bootstrap
             return count;
         }
 
-        private static Dictionary<string, PlayerAvatar> FindAvatars()
+        /// <remarks>
+        /// Picking things up or aiming at objects makes no sense on the stage,
+        /// and a stray F would grab the match's items from a distance. Walking
+        /// is left alone so the cell actually holds the player.
+        /// </remarks>
+        private void LockLocalInteraction()
         {
-            var map = new Dictionary<string, PlayerAvatar>(StringComparer.Ordinal);
             foreach (var avatar in UnityEngine.Object.FindObjectsByType<PlayerAvatar>(
                          FindObjectsInactive.Exclude, FindObjectsSortMode.None))
             {
-                var id = avatar.PlayerId;
-                if (!string.IsNullOrEmpty(id)) map.TryAdd(id, avatar);
+                if (!avatar.IsOwner) continue;
+                lockedInteractor = avatar.GetComponent<PlayerInteractor>();
+                if (lockedInteractor != null) lockedInteractor.IsInputLocked = true;
+                return;
             }
-            return map;
+        }
+
+        private void UnlockLocalInteraction()
+        {
+            if (lockedInteractor != null) lockedInteractor.IsInputLocked = false;
+            lockedInteractor = null;
         }
     }
 }
