@@ -2,56 +2,62 @@ using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core.Backend;
+using Game.Core.Flow;
 using Game.Core.Ports;
-using Game.Network.Session;
+using Game.Core.Presence;
 using UnityEngine;
 using VContainer.Unity;
 
 namespace Game.Bootstrap
 {
     /// <summary>
-    /// Tells the backend this player is here, and which room they are in.
+    /// Tells the backend which room this player is in, when that changes.
     /// </summary>
     /// <remarks>
-    /// The backend does no realtime communication, so a player who stops
-    /// reporting simply looks offline to their friends. This is the only thing
-    /// that keeps them looking online.
+    /// There used to be a report every thirty seconds, because a report was the
+    /// only way the server knew this player was still here. The realtime
+    /// notification link now says that by existing — up means online, its last
+    /// connection dropping means offline — so the timer is gone. What is left to
+    /// say is the room: entering one, leaving it, and the lobby becoming a match,
+    /// which the room code alone cannot show because lobby and match are one
+    /// Photon room.
     /// <para>
-    /// Two cadences in one loop. Every 30 seconds so that missing two reports
-    /// still fits inside the server's 90 second timeout, and immediately
-    /// whenever the room changes, because a periodic report alone would leave a
-    /// player looking like they are in the lobby for up to 30 seconds after they
-    /// entered a match.
+    /// Still a loop, checking once a second, because nothing raises an event when
+    /// a room session begins or ends. A check that finds nothing new sends
+    /// nothing, so the loop costs a comparison a second and no traffic. The
+    /// rules for what counts as new live in <see cref="PresenceReportPlanner"/>,
+    /// where they are tested without this loop.
     /// </para>
     /// </remarks>
     public sealed class PresenceHeartbeat : IAsyncStartable, IDisposable
     {
-        /// <summary>Matches what the client guide asks of every client.</summary>
-        private static readonly TimeSpan Interval = TimeSpan.FromSeconds(30);
-
         /// <summary>
-        /// How often the room is checked for a change. Short enough that
-        /// entering a match shows up as in-game almost at once, and cheap
-        /// because a check that finds nothing new sends nothing.
+        /// How often the room is checked. Short enough that entering a match shows
+        /// up as in-game almost at once, and cheap because a check that finds
+        /// nothing new sends nothing.
         /// </summary>
         private static readonly TimeSpan Poll = TimeSpan.FromSeconds(1);
 
         private readonly IPresenceGateway presence;
         private readonly BackendSignIn signIn;
-        private readonly NetworkRunnerService network;
+        private readonly IRoomSessionProbe room;
+        private readonly AppFlowSystem flow;
+        private readonly INotificationStream link;
+        private readonly PresenceReportPlanner planner = new PresenceReportPlanner();
         private readonly CancellationTokenSource lifetime = new CancellationTokenSource();
-
-        private string reportedSessionId;
-        private bool hasReported;
 
         public PresenceHeartbeat(
             IPresenceGateway presence,
             BackendSignIn signIn,
-            NetworkRunnerService network)
+            IRoomSessionProbe room,
+            AppFlowSystem flow,
+            INotificationStream link)
         {
             this.presence = presence ?? throw new ArgumentNullException(nameof(presence));
             this.signIn = signIn ?? throw new ArgumentNullException(nameof(signIn));
-            this.network = network ?? throw new ArgumentNullException(nameof(network));
+            this.room = room ?? throw new ArgumentNullException(nameof(room));
+            this.flow = flow ?? throw new ArgumentNullException(nameof(flow));
+            this.link = link ?? throw new ArgumentNullException(nameof(link));
         }
 
         public async UniTask StartAsync(CancellationToken cancellation)
@@ -59,53 +65,46 @@ namespace Game.Bootstrap
             if (!await signIn.Ready)
             {
                 // No account, so there is nobody to report as. Reporting anyway
-                // would fail every 30 seconds for the rest of the session.
+                // would fail on every change for the rest of the session.
                 return;
             }
 
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellation, lifetime.Token);
 
-            var sinceLastReport = TimeSpan.Zero;
-
             while (!linked.Token.IsCancellationRequested)
             {
-                var current = CurrentSessionId();
-                var roomChanged = hasReported
-                    && !string.Equals(current, reportedSessionId, StringComparison.Ordinal);
+                var current = PresenceReportPlanner.Current(room.HasRoomSession, room.RoomCode, flow.CurrentState);
+                var connected = link.State.CurrentValue == NotificationLinkState.Connected;
 
-                if (!hasReported || roomChanged || sinceLastReport >= Interval)
+                if (planner.ShouldReport(current, connected))
                 {
                     await ReportAsync(current, linked.Token);
-                    sinceLastReport = TimeSpan.Zero;
                 }
 
-                if (await UniTask.Delay(Poll, cancellationToken: linked.Token)
-                        .SuppressCancellationThrow())
+                if (await UniTask.Delay(Poll, cancellationToken: linked.Token).SuppressCancellationThrow())
                 {
                     return;
                 }
-
-                sinceLastReport += Poll;
             }
         }
 
         /// <summary>
         /// Reports this player as gone on the way out, so friends do not watch a
-        /// ghost until the timeout expires.
+        /// ghost for the moment before the socket's closure says the same.
         /// </summary>
         /// <remarks>
         /// Started but not waited for. A quit does not give the application a
         /// reliable window to finish a request in, and holding the quit open for
         /// one would trade a certain delay for an uncertain saving. When it does
-        /// not land — here, or in a crash, which cannot send anything at all —
-        /// the server's 90 second timeout is what covers it.
+        /// not land, the dropped notification socket takes this player offline
+        /// anyway; this only makes it sooner.
         /// </remarks>
         public void Dispose()
         {
             lifetime.Cancel();
 
-            if (hasReported)
+            if (planner.HasReported)
             {
                 presence.GoOfflineAsync(CancellationToken.None).Forget();
             }
@@ -113,24 +112,13 @@ namespace Game.Bootstrap
             lifetime.Dispose();
         }
 
-        /// <remarks>
-        /// The room's Photon session name, which is what identifies a room to
-        /// anyone else. Null while not in one, which the server reads as being
-        /// online rather than in a game.
-        /// </remarks>
-        private string CurrentSessionId()
+        private async UniTask ReportAsync(PresenceReport report, CancellationToken cancellation)
         {
-            return network.HasRoomSession ? network.RoomCode : null;
-        }
-
-        private async UniTask ReportAsync(string sessionId, CancellationToken cancellation)
-        {
-            var result = await presence.ReportAsync(sessionId, cancellation);
+            var result = await presence.ReportAsync(report.SessionId, report.Kind, cancellation);
 
             if (result.Ok)
             {
-                reportedSessionId = sessionId;
-                hasReported = true;
+                planner.Reported(report);
                 return;
             }
 
@@ -139,10 +127,11 @@ namespace Game.Bootstrap
                 return;
             }
 
-            // Logged at info, not warning. A player on a bad network misses
-            // these routinely and recovers on the next one; the loop keeps
-            // going, and the only cost of a miss is looking offline for a while.
-            Debug.Log($"[Presence] Heartbeat did not land: {result.Failure}.");
+            // Logged at info, not warning. A player on a bad network misses these
+            // and recovers on the next check, which asks for the same report
+            // again until it lands. The only cost is friends seeing the previous
+            // room for a while.
+            Debug.Log($"[Presence] Report {report} did not land: {result.Failure}.");
         }
     }
 }

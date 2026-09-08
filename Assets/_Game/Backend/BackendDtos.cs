@@ -177,6 +177,32 @@ namespace Game.Backend
     internal sealed class UpdatePresenceRequestDto
     {
         public string sessionId;
+
+        /// <summary>LOBBY or MATCH. The server reads a missing value as MATCH.</summary>
+        public string sessionKind;
+    }
+
+    /// <summary>
+    /// The room report as a frame on the notification socket. Same two fields as
+    /// the REST body, plus the type that tells the server what the frame is.
+    /// </summary>
+    [Serializable]
+    internal sealed class PresenceFrameDto
+    {
+        public string type;
+        public string sessionId;
+        public string sessionKind;
+    }
+
+    /// <summary>
+    /// The out-of-room report as a frame. Only the type, for the same reason the
+    /// REST body is <see cref="EmptyBodyDto"/>: a sessionId field that is present
+    /// but empty would be read as a room.
+    /// </summary>
+    [Serializable]
+    internal sealed class PresenceOutOfRoomFrameDto
+    {
+        public string type;
     }
 
     /// <summary>

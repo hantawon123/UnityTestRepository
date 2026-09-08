@@ -206,6 +206,7 @@ namespace Game.Backend
             switch (presence)
             {
                 case "ONLINE": return FriendPresence.Online;
+                case "IN_LOBBY": return FriendPresence.InLobby;
                 case "IN_GAME": return FriendPresence.InGame;
                 default: return FriendPresence.Offline;
             }

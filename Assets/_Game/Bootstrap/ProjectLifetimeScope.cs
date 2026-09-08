@@ -183,16 +183,17 @@ namespace Game.Bootstrap
             var session = new BackendSession(DeviceIdentity.Current());
             var client = new BackendClient(new UnityWebRequestTransport(), endpoint, session);
 
+            // First, because the presence gateway sends over it when it is up.
+            var frames = RegisterNotifications(builder, endpoint, session);
+
             // The client itself is not registered. Nothing above this line has a
             // reason to hold it, and a container that hands it out is one where
             // a presenter can send its own request and skip the ports entirely.
             builder.RegisterInstance<IAccountGateway>(new AccountGateway(client));
             builder.RegisterInstance<IFriendGateway>(new FriendGateway(client));
-            builder.RegisterInstance<IPresenceGateway>(new PresenceGateway(client));
+            builder.RegisterInstance<IPresenceGateway>(new PresenceGateway(client, frames));
             builder.RegisterInstance<IInviteGateway>(new InviteGateway(client));
             builder.RegisterInstance<IReportGateway>(new ReportGateway(client));
-
-            RegisterNotifications(builder, endpoint, session);
 
             // Registered beside the gateways rather than in RegisterServices,
             // because it needs one. A test container that builds only the
@@ -228,7 +229,12 @@ namespace Game.Bootstrap
         /// never sees Unity packages — building the rest of the assembly.
         /// </para>
         /// </remarks>
-        private static void RegisterNotifications(
+        /// <returns>
+        /// The sender the presence gateway puts its frames through. Returned
+        /// rather than resolved so the gateway, which is built by hand above, can
+        /// be handed the same instance the container holds.
+        /// </returns>
+        private static INotificationFrameSender RegisterNotifications(
             IContainerBuilder builder, BackendEndpoint endpoint, BackendSession session)
         {
 #if NATIVEWEBSOCKET_PRESENT
@@ -242,6 +248,7 @@ namespace Game.Bootstrap
                 .AsSelf();
 
             builder.RegisterEntryPoint<NotificationLink>();
+            return stream;
 #else
             Debug.LogWarning(
                 "[Notifications] NativeWebSocket is not in this build. Realtime notifications are off; "
@@ -250,6 +257,7 @@ namespace Game.Bootstrap
             builder.RegisterInstance(silent)
                 .As<INotificationStream>()
                 .As<INotificationFrameSender>();
+            return silent;
 #endif
         }
 
@@ -363,6 +371,7 @@ namespace Game.Bootstrap
                         c.Resolve<ServerRegionSystem>()),
                     Lifetime.Singleton)
                 .AsSelf()
+                .As<IRoomSessionProbe>()
                 .As<INetworkMatchRuntimeSource>()
                 .As<INetworkMatchAuthority>()
                 .As<INetworkMatchEvents>()
