@@ -99,7 +99,8 @@ namespace Game.Bootstrap
             builder.RegisterInstance(matchScene.NetworkConfiguration);
             builder.Register<MatchRuntimeFactory>(Lifetime.Scoped);
             builder.RegisterEntryPoint<NetworkMatchRuntimeCoordinator>();
-            builder.RegisterEntryPoint<NetworkInteractionSceneBridge>();
+            builder.RegisterEntryPoint<NetworkInteractionSceneBridge>()
+                .WithParameter(false).WithParameter(gameObject.scene);
             builder.RegisterEntryPoint<NetworkHighlightPlaybackController>().AsSelf();
             builder.RegisterEntryPoint<InGamePlayerNameplatePresenter>();
 
@@ -114,7 +115,7 @@ namespace Game.Bootstrap
                 : matchHudView.GetComponentInParent<Canvas>();
             var chatView = MatchChatView.Create(chatCanvas == null ? null : chatCanvas.transform);
             var chatBubbleView = MatchChatBubbleView.Create(transform);
-            builder.RegisterComponent(chatView).As<IMatchChatView>();
+            builder.RegisterComponent(chatView).As<IChatView>();
             builder.RegisterComponent(chatBubbleView).As<IMatchChatBubbleView>();
             builder.Register(
                     c => CreateChatLog(
@@ -123,7 +124,7 @@ namespace Game.Bootstrap
                     Lifetime.Scoped)
                 .As<ILobbyChatLog>();
             builder.RegisterEntryPoint<MatchChatPresenter>();
-            builder.RegisterEntryPoint<InGameChatBubbleBinder>();
+            builder.RegisterEntryPoint<ChatBubbleBinder>();
 
             // The rig on the runner keeps carrying voice through the match on
             // its own. What the match lacks is a way to speak to it, so the
@@ -235,34 +236,4 @@ namespace Game.Bootstrap
         }
     }
 
-    internal sealed class InGameChatBubbleBinder : ITickable, IDisposable
-    {
-        private readonly NetworkRunnerService network;
-        private readonly IMatchChatBubbleView bubbles;
-
-        public InGameChatBubbleBinder(
-            NetworkRunnerService network,
-            IMatchChatBubbleView bubbles)
-        {
-            this.network = network ?? throw new ArgumentNullException(nameof(network));
-            this.bubbles = bubbles ?? throw new ArgumentNullException(nameof(bubbles));
-        }
-
-        public void Tick()
-        {
-            var avatars = network.PlayerAvatars;
-            for (var index = 0; index < avatars.Count; index++)
-            {
-                var avatar = avatars[index];
-                if (avatar == null || !avatar.isActiveAndEnabled || string.IsNullOrEmpty(avatar.PlayerId))
-                {
-                    continue;
-                }
-
-                bubbles.BindPlayer(avatar.PlayerId, avatar.transform);
-            }
-        }
-
-        public void Dispose() => bubbles.Clear();
-    }
 }

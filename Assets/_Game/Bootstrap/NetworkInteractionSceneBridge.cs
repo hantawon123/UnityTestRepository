@@ -26,6 +26,9 @@ namespace Game.Bootstrap
     {
         private readonly NetworkRunnerService network;
         private readonly RoomBrowserSystem room;
+        private readonly bool lobbyMode;
+        private readonly UnityEngine.SceneManagement.Scene scene;
+        private bool lobbyReady;
         private readonly Dictionary<string, CarryableItem> items =
             new(StringComparer.Ordinal);
         private readonly Dictionary<int, PlayerInteractor> interactors = new();
@@ -51,10 +54,14 @@ namespace Game.Bootstrap
 
         public NetworkInteractionSceneBridge(
             NetworkRunnerService network,
-            RoomBrowserSystem room)
+            RoomBrowserSystem room,
+            bool lobbyMode,
+            UnityEngine.SceneManagement.Scene scene)
         {
             this.network = network ?? throw new ArgumentNullException(nameof(network));
             this.room = room ?? throw new ArgumentNullException(nameof(room));
+            this.lobbyMode = lobbyMode;
+            this.scene = scene;
         }
 
         public void Start()
@@ -79,6 +86,29 @@ namespace Game.Bootstrap
         {
             if (!network.IsRuntimeReady || network.IsBrowsingLobby)
             {
+                return;
+            }
+
+            if (lobbyMode)
+            {
+                if (!network.IsWaitingForMatch) return;
+                if (!lobbyReady)
+                {
+                    RefreshItems();
+                    if (network.IsServer)
+                    {
+                        var initial = new List<Game.Server.Items.WorldObjectState>(items.Count);
+                        foreach (var item in items.Values)
+                            initial.Add(new Game.Server.Items.WorldObjectState(item.ObjectId,
+                                new Pose(item.transform.position, item.transform.rotation)));
+                        if (!network.ConfigureLobbyObjects(initial)) return;
+                    }
+                    lobbyReady = true;
+                    network.PublishInteractionState();
+                }
+                RefreshPlayers();
+                ApplyObjectStates();
+                ConfirmSettledObjects();
                 return;
             }
 
@@ -119,6 +149,7 @@ namespace Game.Bootstrap
                          FindObjectsInactive.Include,
                          FindObjectsSortMode.None))
             {
+                if (item.gameObject.scene != scene) continue;
                 if (!items.TryAdd(item.ObjectId, item))
                 {
                     Debug.LogError(
@@ -133,7 +164,7 @@ namespace Game.Bootstrap
             interactors.Clear();
             combatants.Clear();
             var participants = room.MatchParticipants.CurrentValue;
-            if (participants.Count == 0)
+            if (!lobbyMode && participants.Count == 0)
             {
                 return;
             }
@@ -142,20 +173,20 @@ namespace Game.Bootstrap
             for (var avatarIndex = 0; avatarIndex < avatars.Count; avatarIndex++)
             {
                 var avatar = avatars[avatarIndex];
-                if (avatar == null || !avatar.isActiveAndEnabled)
+                if (avatar == null || !avatar.isActiveAndEnabled || avatar.Object == null || !avatar.Object.IsValid)
                 {
                     continue;
                 }
 
                 var playerId = PlayerRegistry.IdOf(avatar.Owner);
-                var playerIndex = IndexOf(participants, playerId);
+                var playerIndex = lobbyMode ? avatar.Seat : IndexOf(participants, playerId);
                 if (playerIndex < 0)
                 {
                     continue;
                 }
 
                 var motor = avatar.GetComponent<NetworkPlayerMotor>();
-                if (avatar.IsOwner && motor != null && motor.IsScenePlacementReady)
+                if (!lobbyMode && avatar.IsOwner && motor != null && motor.IsScenePlacementReady)
                 {
                     BindLocalCamera(avatar.transform);
                 }
@@ -189,7 +220,7 @@ namespace Game.Bootstrap
                 }
 
                 var combatant = avatar.GetComponent<PlayerCombatant>();
-                if (combatant != null)
+                if (!lobbyMode && combatant != null)
                 {
                     combatant.ConfigureNetworkPlayer(playerIndex, acceptsLocalInput);
                     combatants[playerIndex] = combatant;
@@ -414,6 +445,7 @@ namespace Game.Bootstrap
 
         private void OnItemAssignmentReceived(string itemId)
         {
+            if (lobbyMode) return;
             assignedItemId = string.IsNullOrWhiteSpace(itemId) ? null : itemId.Trim();
             SetHighlightedAssignment(
                 assignedItemId != null && items.TryGetValue(assignedItemId, out var item)

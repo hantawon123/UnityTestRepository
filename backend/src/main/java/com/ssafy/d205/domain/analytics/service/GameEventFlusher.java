@@ -69,9 +69,23 @@ public class GameEventFlusher {
         this.failed = meterRegistry.counter("analytics.events.failed");
     }
 
+    /**
+     * 큐가 빌 때까지, 단 한 주기에 flushMaxBatchesPerTick 번까지 배치를 연달아 넣습니다.
+     *
+     * <p>처음에는 한 주기에 한 배치만 넣었습니다. 그러면 처리량 상한이 flushBatchSize / 주기,
+     * 즉 초당 5,000행으로 고정됩니다. 부하 테스트(863)에서 정확히 그 지점에서 큐가 넘쳐 이벤트를
+     * 버렸는데 MySQL 은 CPU 13%로 놀고 있었습니다. 상한이 자원이 아니라 이 루프 구조였던 것입니다.
+     *
+     * <p>상한을 두는 이유는 폭주 시 이 스레드가 영원히 flush 만 하지 않게 하려는 것입니다. 배치가
+     * 가득 차지 않고 돌아오면(= 큐가 비었으면) 바로 멈추므로 평소에는 한 번만 돕니다.
+     */
     @Scheduled(fixedDelayString = "${analytics.flush-interval-ms:1000}")
     public void flush() {
-        flushOnce();
+        for (int i = 0; i < properties.flushMaxBatchesPerTick(); i++) {
+            if (flushOnce() < properties.flushBatchSize()) {
+                return;
+            }
+        }
     }
 
     /**

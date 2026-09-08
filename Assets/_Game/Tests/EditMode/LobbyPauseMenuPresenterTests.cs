@@ -105,7 +105,7 @@ namespace Game.Tests.EditMode
             public Fixture()
             {
                 Presenter = new LobbyPauseMenuPresenter(
-                    Menu, new KeyGuideView(), Settings, Session, new LobbyExitPresenter());
+                    Menu, Settings, Session, new LobbyExitPresenter());
             }
 
             public void Dispose()
@@ -123,12 +123,10 @@ namespace Game.Tests.EditMode
             public event Action ResumeClicked;
             public event Action SettingsClicked { add { } remove { } }
             public event Action PlaySettingsClicked;
-            public event Action KeyGuideClicked { add { } remove { } }
             public bool IsOpen { get; private set; }
             public void SetVisible(bool visible) { IsOpen = visible; VisibleCalls.Add(visible); }
             public void SetStartVisible(bool visible) { }
             public void SetPlaySettingsVisible(bool visible) { }
-            public void ShowLeaveConfirmation(Action confirmed) => confirmed();
             public void ClickPlaySettings() => PlaySettingsClicked?.Invoke();
             public void ClickResume() => ResumeClicked?.Invoke();
         }
@@ -149,15 +147,6 @@ namespace Game.Tests.EditMode
                 new("방", "CODE", false, null, 6, 3, "playground");
             public void RequestClose() => CloseRequested?.Invoke();
             public void RequestOpen() { OpenRequests++; OpenRequested?.Invoke(); }
-        }
-
-        private sealed class KeyGuideView : IKeyGuideView
-        {
-            public event Action OpenRequested { add { } remove { } }
-            public event Action CloseRequested { add { } remove { } }
-            public void SetVisible(bool visible) { }
-            public void SetEntries(IReadOnlyList<ControlKeyBinding> bindings) { }
-            public void RequestClose() { }
         }
 
         private sealed class HostSession : ILobbyHostSession, IDisposable

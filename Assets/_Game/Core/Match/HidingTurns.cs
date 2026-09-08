@@ -33,14 +33,15 @@ namespace Game.Core.Match
             double turnDurationSeconds)
         {
             if (phase != MatchPhase.Hiding ||
+                phaseEndsAt == 0d ||
                 playerCount <= 0 ||
                 turnDurationSeconds <= 0d)
             {
                 return NoTurn;
             }
 
-            var elapsedSeconds = Math.Max(
-                0d, now - StartedAt(phaseEndsAt, playerCount, turnDurationSeconds));
+            var elapsedSeconds = now - StartedAt(phaseEndsAt, playerCount, turnDurationSeconds);
+            if (elapsedSeconds < 0d) return NoTurn;
 
             return Math.Min(
                 (int)(elapsedSeconds / turnDurationSeconds),
@@ -62,6 +63,9 @@ namespace Game.Core.Match
 
             if (turnIndex == NoTurn)
             {
+                if (phase == MatchPhase.Hiding && playerCount > 0 && turnDurationSeconds > 0d &&
+                    (phaseEndsAt == 0d || now < StartedAt(phaseEndsAt, playerCount, turnDurationSeconds)))
+                    return turnDurationSeconds;
                 return 0d;
             }
 

@@ -29,9 +29,6 @@ namespace Game.Bootstrap
         private LobbyHudView hudView;
 
         [SerializeField]
-        private KeyGuideView keyGuideView;
-
-        [SerializeField]
         private LobbyPauseMenuView pauseMenuView;
 
         [SerializeField]
@@ -47,10 +44,10 @@ namespace Game.Bootstrap
         private HostTransferConfirmView transferConfirmView;
 
         [SerializeField]
-        private LobbyChatView chatView;
+        private MatchChatView chatView;
 
         [SerializeField]
-        private LobbyChatBubbleView chatBubbleView;
+        private MatchChatBubbleView chatBubbleView;
 
         [SerializeField]
         private VoiceView voiceView;
@@ -107,17 +104,6 @@ namespace Game.Bootstrap
                 throw new InvalidOperationException("LobbyHudView must be assigned.");
             }
 
-            if (keyGuideView == null)
-            {
-                keyGuideView = hudView.GetComponent<KeyGuideView>();
-            }
-
-            if (keyGuideView == null)
-            {
-                throw new InvalidOperationException(
-                    "KeyGuideView must be assigned. Lobby 씬에서 Game > Lobby > Build HUD Layout 을 실행하세요.");
-            }
-
             if (pauseMenuView == null)
             {
                 pauseMenuView = hudView.GetComponent<LobbyPauseMenuView>();
@@ -155,23 +141,20 @@ namespace Game.Bootstrap
             builder.Register<UnityHomeApplicationHost>(Lifetime.Scoped).As<IHomeApplicationHost>();
             builder.RegisterComponent(hudView);
             builder.RegisterEntryPoint<LobbyStartCountdown>();
-            builder.RegisterComponent(keyGuideView).As<IKeyGuideView>();
             builder.RegisterComponent(pauseMenuView).As<ILobbyPauseMenuView>();
             builder.RegisterComponent(playerListView).As<ILobbyPlayerListView>();
             builder.RegisterComponent(playSettingsView).As<IPlaySettingsView>();
             builder.RegisterComponent(kickConfirmView).As<IKickConfirmView>();
             builder.RegisterComponent(transferConfirmView).As<IHostTransferConfirmView>();
-            builder.RegisterComponent(chatView).As<ILobbyChatView>();
-            builder.RegisterComponent(chatBubbleView)
-                .AsSelf()
-                .As<ILobbyChatBubbleView>();
+            chatView.SetKeepChromeVisible(true);
+            builder.RegisterComponent(chatView).As<IChatView>();
+            builder.RegisterComponent(chatBubbleView).As<IMatchChatBubbleView>();
             builder.RegisterComponent(voiceView).As<IVoiceView>();
             builder.RegisterInstance(inputActions);
 
             // An entry point because it mirrors the per-session rig every frame,
             // and a plain registration would never be ticked.
             builder.RegisterEntryPoint<NetworkVoiceControl>().As<IVoiceControl>();
-            builder.RegisterInstance<IReadOnlyList<ControlKeyBinding>>(ControlKeyGuide.Bindings);
             builder.Register<NetworkLobbyParticipantList>(Lifetime.Scoped)
                 .As<ILobbyParticipantList>();
 
@@ -189,7 +172,6 @@ namespace Game.Bootstrap
                         c.Resolve<PlayerProfile>()),
                     Lifetime.Scoped)
                 .As<ILobbyChatLog>();
-            builder.RegisterEntryPoint<KeyGuidePresenter>();
             builder.RegisterEntryPoint<LobbyPlayerListPresenter>();
             builder.RegisterEntryPoint<LobbyPauseMenuPresenter>();
             builder.RegisterEntryPoint<PlaySettingsPresenter>();
@@ -199,7 +181,8 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<LobbyPlanBoardPresenter>();
             builder.RegisterEntryPoint<VoicePresenter>();
             builder.RegisterEntryPoint<LobbyChatPresenter>();
-            builder.RegisterEntryPoint<LobbyChatBubbleBinder>();
+            builder.RegisterEntryPoint<ChatBubbleBinder>();
+            builder.RegisterEntryPoint<InGamePlayerNameplatePresenter>();
             // Scene-owned: leaving the lobby also removes its entry cover.
             // Do not reuse the project-wide highlight/result transition's state.
             var entryCover = new GameObject("Lobby Entry Transition").AddComponent<HighlightTransitionView>();
@@ -208,6 +191,8 @@ namespace Game.Bootstrap
             builder.RegisterComponent(entryCover).As<IHighlightTransitionView>();
             builder.RegisterEntryPoint<LobbyPlayerCameraBinder>();
             builder.RegisterEntryPoint<LobbyPlayerAnimationBinder>();
+            builder.RegisterEntryPoint<NetworkInteractionSceneBridge>()
+                .WithParameter(true).WithParameter(gameObject.scene);
             // Voluntary requests reach the project-owned session/exit flow through the bridge.
             builder.Register<LobbyExitPresenter>(Lifetime.Scoped);
             builder.RegisterEntryPoint<NetworkLobbyExitBridge>();
@@ -421,6 +406,7 @@ namespace Game.Bootstrap
         private PlayerCameraController boundRig;
         private int readyFrame = -1;
         private bool entryComplete;
+        private float fadeInElapsed;
         private double startedAt;
 
         public LobbyPlayerCameraBinder(NetworkRunnerService network, IHighlightTransitionView entryCover)
@@ -444,28 +430,41 @@ namespace Game.Bootstrap
             }
 
             TryBind();
-            if (entryComplete) return;
             var motor = boundAvatar != null ? boundAvatar.GetComponent<NetworkPlayerMotor>() : null;
             var ready = network.IsRuntimeReady && boundAvatar != null && boundAvatar.PlayerId != null &&
                         boundAvatar.IsOwner && motor != null && motor.IsScenePlacementReady &&
                         boundRig != null && boundRig.isActiveAndEnabled &&
                         boundRig.FollowTarget == boundAvatar.transform;
-            UpdateEntryTransition(!network.HasRoomSession || ready, Time.frameCount);
+            UpdateEntryTransition(!network.HasRoomSession || ready, Time.frameCount, Time.unscaledDeltaTime);
+            CoverForMatchStart();
         }
 
-        internal void UpdateEntryTransition(bool ready, int frame)
+        internal void UpdateEntryTransition(bool ready, int frame, float deltaSeconds = 0f)
         {
             if (entryComplete) return;
             if (!ready)
             {
                 readyFrame = -1;
+                fadeInElapsed = 0f;
                 entryCover.SetOpacity(1f);
                 return;
             }
             if (readyFrame < 0) readyFrame = frame;
             // KCC Render, camera LateUpdate and Cinemachine must see the placed
             // target before revealing it. Lost readiness restarts this wait.
-            if (frame - readyFrame < 2) return;
+            if (frame - readyFrame < 2)
+            {
+                entryCover.SetOpacity(1f);
+                return;
+            }
+
+            fadeInElapsed += Mathf.Max(0f, deltaSeconds);
+            entryCover.SetOpacity(LobbySceneFade.FadeInOpacity(fadeInElapsed));
+            if (!LobbySceneFade.IsComplete(fadeInElapsed))
+            {
+                return;
+            }
+
             entryComplete = true;
             entryCover.SetOpacity(0f);
             var covers = UnityEngine.Object.FindObjectsByType<HighlightTransitionView>(
@@ -480,7 +479,30 @@ namespace Game.Bootstrap
                 $"coversCleared={covers.Length}.");
         }
 
-        public void Dispose() => entryCover.SetOpacity(0f);
+        private void CoverForMatchStart()
+        {
+            if (!entryComplete)
+            {
+                return;
+            }
+
+            var remaining = network.StartCountdownRemaining;
+            if (remaining <= 0d || remaining > LobbySceneFade.DurationSeconds)
+            {
+                return;
+            }
+
+            entryCover.SetOpacity(
+                LobbySceneFade.FadeOutOpacity(LobbySceneFade.DurationSeconds - (float)remaining));
+        }
+
+        public void Dispose()
+        {
+            if (!entryComplete)
+            {
+                entryCover.SetOpacity(0f);
+            }
+        }
 
         private bool IsWaitingForLocalHighlight() =>
             network.IsHighlightInProgress && !network.IsLocalHighlightComplete;
@@ -518,76 +540,6 @@ namespace Game.Bootstrap
                 boundRig = cameraRig;
                 return;
             }
-        }
-    }
-
-    internal sealed class LobbyChatBubbleBinder : IStartable, IDisposable
-    {
-        private readonly RoomBrowserSystem room;
-        private readonly LobbyChatBubbleView bubbles;
-        private IDisposable subscription;
-
-        public LobbyChatBubbleBinder(
-            RoomBrowserSystem room,
-            LobbyChatBubbleView bubbles)
-        {
-            this.room = room ?? throw new ArgumentNullException(nameof(room));
-            this.bubbles = bubbles ?? throw new ArgumentNullException(nameof(bubbles));
-        }
-
-        public void Start()
-        {
-            subscription = room.Participants.Subscribe(_ => Rebind());
-        }
-
-        public void Dispose()
-        {
-            subscription?.Dispose();
-        }
-
-        private void Rebind()
-        {
-            bubbles.ClearBindings();
-
-            var avatars = UnityEngine.Object.FindObjectsByType<PlayerAvatar>(
-                FindObjectsInactive.Exclude,
-                FindObjectsSortMode.None);
-
-            var seated = room.Participants.CurrentValue;
-
-            for (var i = 0; i < avatars.Length; i++)
-            {
-                var avatar = avatars[i];
-                // Scene searches also return avatars before spawn and during teardown.
-                var playerId = avatar.PlayerId;
-                if (string.IsNullOrEmpty(playerId)) continue;
-                var head = avatar.transform.Find("Visual") ?? avatar.transform;
-                bubbles.BindPlayer(playerId, head, NicknameOf(seated, playerId));
-            }
-        }
-
-        /// <summary>
-        /// Empty rather than the id when the name has not replicated yet: a
-        /// nameplate showing a raw id reads as a bug, so the plate stays hidden
-        /// until the next rebind brings a real name.
-        /// </summary>
-        private static string NicknameOf(
-            IReadOnlyList<RoomParticipant> seated, string playerId)
-        {
-            if (string.IsNullOrEmpty(playerId))
-            {
-                return string.Empty;
-            }
-
-            for (var index = 0; index < seated.Count; index++)
-            {
-                if (string.Equals(seated[index].PlayerId, playerId, StringComparison.Ordinal))
-                {
-                    return seated[index].Nickname;
-                }
-            }
-
-            return string.Empty;
         }
     }
 

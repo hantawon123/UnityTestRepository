@@ -5,7 +5,8 @@ using UnityEngine;
 namespace Game.Client.Lobby
 {
     /// <summary>
-    /// 로비 벽의 작전 계획판. 조준하고 F키를 누르면 방 설정 화면이 열린다.
+    /// 로비 서벽의 작업대(공구판 + 책상)를 하나로 묶은 작전 계획판.
+    /// 조준하고 F키를 누르면 방 설정 화면이 열린다.
     /// 방장은 편집, 나머지는 읽기 전용으로 보는 것은 설정 화면 쪽 규칙이며,
     /// 이 컴포넌트는 안내 문구만 방장 여부에 따라 바꾼다.
     /// </summary>
@@ -14,6 +15,12 @@ namespace Game.Client.Lobby
     /// knows the host session and how to open the screen binds in at start.
     /// Until then the board is inert, so a scene without the lobby scope
     /// shows no prompt for it.
+    /// <para>
+    /// 상호작용이 가능한 동안(바인딩된 동안)에는 <see cref="outline"/>으로
+    /// 작업대 전체에 실루엣을 늘 켜 두고, <see cref="label"/>(공중의 "ROOM SETTING ▼")도
+    /// 함께 띄운다. 집을 수 있는 소품은 조준했을 때만 실루엣이 켜지지만, 이 판은
+    /// 방에 하나뿐인 설정 입구라 처음 들어온 플레이어도 무엇이 눌리는지 바로 알아야 한다.
+    /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(Collider))]
@@ -25,6 +32,14 @@ namespace Game.Client.Lobby
         [SerializeField]
         private string guestPrompt = "작전 계획 보기";
 
+        [Tooltip("바인딩된 동안 켜 두는 작업대 실루엣. 없으면 실루엣 없이 동작한다.")]
+        [SerializeField]
+        private InteractableFocusOutline outline;
+
+        [Tooltip("바인딩된 동안 켜 두는 공중 안내 라벨(ROOM SETTING ▼). 없으면 라벨 없이 동작한다.")]
+        [SerializeField]
+        private GameObject label;
+
         private Func<bool> isLocalHost;
         private Action onInteract;
 
@@ -33,16 +48,24 @@ namespace Game.Client.Lobby
         public string InteractionPrompt =>
             isLocalHost != null && isLocalHost() ? hostPrompt : guestPrompt;
 
+        /// <summary>실루엣이 현재 켜져 있는지. 실루엣 컴포넌트가 없으면 false.</summary>
+        public bool IsOutlineVisible => outline != null && outline.IsVisible;
+
+        /// <summary>안내 라벨이 현재 켜져 있는지. 라벨이 없으면 false.</summary>
+        public bool IsLabelVisible => label != null && label.activeSelf;
+
         public void Bind(Func<bool> localHostQuery, Action interact)
         {
             isLocalHost = localHostQuery ?? throw new ArgumentNullException(nameof(localHostQuery));
             onInteract = interact ?? throw new ArgumentNullException(nameof(interact));
+            SetHighlightVisible(true);
         }
 
         public void Unbind()
         {
             isLocalHost = null;
             onInteract = null;
+            SetHighlightVisible(false);
         }
 
         /// <remarks>
@@ -62,6 +85,36 @@ namespace Game.Client.Lobby
             }
 
             onInteract.Invoke();
+        }
+
+        /// <remarks>
+        /// 로비 씬은 백그라운드로 미리 로드된 뒤 Fusion이 넘겨받는데, 그 사이에 씬
+        /// 오브젝트가 한 번 꺼지고 다시 켜진다. 바인딩은 그 전에 끝나 있어 OnDisable이
+        /// 숨긴 실루엣·라벨을 다시 켜 줄 곳이 여기밖에 없다(실제 입장 흐름에서
+        /// bound=true인데 둘 다 꺼져 있던 문제).
+        /// </remarks>
+        private void OnEnable()
+        {
+            SetHighlightVisible(IsBound);
+        }
+
+        private void OnDisable()
+        {
+            SetHighlightVisible(false);
+        }
+
+        /// <summary>실루엣과 공중 라벨을 함께 켜고 끈다. 둘 다 없어도 된다.</summary>
+        private void SetHighlightVisible(bool visible)
+        {
+            if (outline != null)
+            {
+                outline.SetVisible(visible);
+            }
+
+            if (label != null)
+            {
+                label.SetActive(visible);
+            }
         }
     }
 }

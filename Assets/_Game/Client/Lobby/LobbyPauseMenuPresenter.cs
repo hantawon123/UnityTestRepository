@@ -25,17 +25,16 @@ namespace Game.Client.Lobby
     /// so nothing owned the state afterwards.
     /// </para>
     /// <para>
-    /// The menu also leads to the play settings and key guide screens. Those
-    /// are wider than this panel and sit at the same centre, so the menu steps
-    /// aside while one is up rather than showing its edges around it. The
-    /// cursor and the movement lock stay as they are through that: the player
-    /// is still in the menu, just on a different page of it.
+    /// The menu also leads to the play settings screen. That screen is wider
+    /// than this panel and sits at the same centre, so the menu steps aside
+    /// while it is up rather than showing its edges around it. The cursor and
+    /// the movement lock stay as they are through that: the player is still in
+    /// the menu, just on a different page of it.
     /// </para>
     /// </remarks>
     public sealed class LobbyPauseMenuPresenter : IStartable, ITickable, IDisposable, IPlaySettingsOpener
     {
         private readonly ILobbyPauseMenuView view;
-        private readonly IKeyGuideView keyGuide;
         private readonly IPlaySettingsView playSettings;
         private readonly ILobbyHostSession hostSession;
         private readonly LobbyExitPresenter exit;
@@ -62,13 +61,11 @@ namespace Game.Client.Lobby
 
         public LobbyPauseMenuPresenter(
             ILobbyPauseMenuView view,
-            IKeyGuideView keyGuide,
             IPlaySettingsView playSettings,
             ILobbyHostSession hostSession,
             LobbyExitPresenter exit)
         {
             this.view = view ?? throw new ArgumentNullException(nameof(view));
-            this.keyGuide = keyGuide ?? throw new ArgumentNullException(nameof(keyGuide));
             this.playSettings = playSettings
                 ?? throw new ArgumentNullException(nameof(playSettings));
             this.hostSession = hostSession
@@ -82,12 +79,10 @@ namespace Game.Client.Lobby
             view.LeaveClicked += OnLeaveClicked;
             view.ResumeClicked += Close;
             view.PlaySettingsClicked += OnPlaySettingsClicked;
-            view.KeyGuideClicked += OnKeyGuideClicked;
 
-            // Both screens are opened by their own presenters, which listen to
-            // the same buttons. Coming back is what is left over, and it is the
+            // Play settings is opened by its own presenter, which listens to
+            // the same button. Coming back is what is left over, and it is the
             // menu's to do.
-            keyGuide.CloseRequested += OnScreenClosed;
             playSettings.CloseRequested += OnScreenClosed;
 
             // Starting and changing the room are the host's to ask for, so
@@ -103,8 +98,6 @@ namespace Game.Client.Lobby
             view.LeaveClicked -= OnLeaveClicked;
             view.ResumeClicked -= Close;
             view.PlaySettingsClicked -= OnPlaySettingsClicked;
-            view.KeyGuideClicked -= OnKeyGuideClicked;
-            keyGuide.CloseRequested -= OnScreenClosed;
             playSettings.CloseRequested -= OnScreenClosed;
             hostSubscription?.Dispose();
 
@@ -215,8 +208,6 @@ namespace Game.Client.Lobby
         /// </remarks>
         private void OnPlaySettingsClicked() => StepAsideFor(playSettings.RequestClose);
 
-        private void OnKeyGuideClicked() => StepAsideFor(keyGuide.RequestClose);
-
         private void StepAsideFor(Action close)
         {
             closeOpenScreen = close;
@@ -262,11 +253,7 @@ namespace Game.Client.Lobby
         /// browser this leads to is a screen made of buttons, and arriving there
         /// with a captured cursor leaves nothing on it clickable.
         /// </remarks>
-        private void OnLeaveClicked()
-        {
-            if (hostSession.IsLocalHost.CurrentValue) view.ShowLeaveConfirmation(Leave);
-            else Leave();
-        }
+        private void OnLeaveClicked() => Leave();
 
         private void Leave()
         {

@@ -16,6 +16,7 @@ namespace Game.Network.Players
     public sealed class NetworkPlayerMotor : NetworkBehaviour
     {
         private KCC kcc;
+        private Game.Network.Match.MatchStarter matchStarter;
         private PlayerKCCMovementProcessor movementProcessor;
         private IPlayerInputIntentSource inputSource;
         private bool hasPendingTeleport;
@@ -188,6 +189,9 @@ namespace Game.Network.Players
             var sprintRequested = Posture == PlayerPosture.Standing &&
                                   direction.sqrMagnitude > 0f &&
                                   input.IsPressed(NetworkPlayerButton.Sprint);
+            if (matchStarter == null) matchStarter = Runner.GetComponent<Game.Network.Match.MatchStarter>();
+            var unlimitedSprint = matchStarter != null && !matchStarter.HasStartedMatch &&
+                matchStarter.CurrentPhase == Game.Core.Match.MatchPhase.Waiting;
             if (Object.HasStateAuthority)
             {
                 var stamina = PlayerStaminaRules.Step(
@@ -195,7 +199,7 @@ namespace Game.Network.Players
                     IsSprintExhausted,
                     sprintRequested,
                     Runner.DeltaTime,
-                    settings);
+                    settings, unlimitedSprint);
                 CurrentStamina = stamina.Value;
                 IsSprintExhausted = stamina.IsExhausted;
             }
@@ -203,7 +207,7 @@ namespace Game.Network.Players
             DesiredMoveSpeed = MoveSpeedForPosture(
                 settings,
                 Posture,
-                sprintRequested && !IsSprintExhausted && CurrentStamina > 0f,
+                sprintRequested && (unlimitedSprint || !IsSprintExhausted && CurrentStamina > 0f),
                 SprintMultiplier);
             kcc.SetInputDirection(direction);
 

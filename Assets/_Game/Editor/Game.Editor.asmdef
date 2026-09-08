@@ -6,7 +6,10 @@
         "Game.Client",
         "Unity.InputSystem",
         "Unity.TextMeshPro",
-        "VContainer"
+        "VContainer",
+        "Game.Core",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Core.Runtime"
     ],
     "includePlatforms": [
         "Editor"

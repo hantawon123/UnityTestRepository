@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
+import com.ssafy.d205.domain.presence.entity.SessionKind;
 import com.ssafy.d205.domain.presence.entity.UserPresence;
 import com.ssafy.d205.domain.presence.repository.UserPresenceRepository;
 import com.ssafy.d205.domain.user.entity.User;
@@ -28,17 +29,20 @@ public class PresenceService {
      * 부릅니다. 주기만 쓰면 방에 들어간 직후 최대 30초간 ONLINE 으로 보입니다. Fusion 의
      * OnPlayerJoined 와 OnDisconnectedFromServer 에서 부르면 그 지연이 없어집니다.
      * 주기 호출은 크래시 감지 전용입니다.
+     *
+     * <p>로비에서 경기로 넘어가는 것도 그 순간에 한 번 불러야 합니다. 룸이 바뀌지 않아
+     * sessionId 는 그대로이고 sessionKind 만 달라집니다.
      */
     @Transactional
-    public void report(String callerUserId, String sessionId) {
+    public void report(String callerUserId, String sessionId, SessionKind sessionKind) {
         User caller = caller(callerUserId);
 
         String now = timeProvider.now();
         Optional<UserPresence> existing = userPresenceRepository.findById(caller.getSeq());
         if (existing.isPresent()) {
-            existing.get().report(sessionId, now);
+            existing.get().report(sessionId, sessionKind, now);
         } else {
-            userPresenceRepository.save(UserPresence.of(caller.getSeq(), sessionId, now));
+            userPresenceRepository.save(UserPresence.of(caller.getSeq(), sessionId, sessionKind, now));
         }
     }
 

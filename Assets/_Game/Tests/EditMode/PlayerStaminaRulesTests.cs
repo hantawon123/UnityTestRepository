@@ -18,6 +18,19 @@ namespace Game.Tests.EditMode
             staminaRecoveryPerSecond: 10f);
 
         [Test]
+        public void LobbySprint_RemainsFullAndResumesDrainWhenMatchStarts()
+        {
+            var stamina = PlayerStaminaRules.Step(0f, true, true, 1f, Settings, unlimited: true);
+            for (var second = 0; second < 600; second++)
+                stamina = PlayerStaminaRules.Step(stamina.Value, stamina.IsExhausted, true, 1f, Settings, unlimited: true);
+
+            Assert.That(stamina.Value, Is.EqualTo(Settings.MaxStamina));
+            Assert.That(stamina.CanSprint, Is.True);
+            var inGame = PlayerStaminaRules.Step(stamina.Value, stamina.IsExhausted, true, 1f, Settings);
+            Assert.That(inGame.Value, Is.EqualTo(80f));
+        }
+
+        [Test]
         public void Sprint_DrainsToZeroAndLocksSprintUntilFullRecovery()
         {
             var depleted = PlayerStaminaRules.Step(10f, false, true, 1f, Settings);

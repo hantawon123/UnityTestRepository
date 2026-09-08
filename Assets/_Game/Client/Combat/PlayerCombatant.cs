@@ -41,6 +41,7 @@ namespace Game.Client.Combat
         private InputActionMap playerMap;
         private InputAction attackAction;
         private PlayerInteractor interactor;
+        private ItemPlacementController placement;
         private PlayerMovement movement;
         private Renderer[] visualRenderers;
         private MaterialPropertyBlock propertyBlock;
@@ -83,6 +84,7 @@ namespace Game.Client.Combat
             }
 
             interactor = GetComponent<PlayerInteractor>();
+            placement = GetComponent<ItemPlacementController>();
             movement = GetComponent<PlayerMovement>();
             propertyBlock = new MaterialPropertyBlock();
 
@@ -150,10 +152,12 @@ namespace Game.Client.Combat
             UpdateTint();
 
             // 기절 상태를 이동·상호작용 컴포넌트의 입력 잠금으로 전파한다.
+            // 메뉴 잠금(IsMovementLocked)을 덮어쓰지 않는다. 덮으면 Esc 메뉴
+            // 클릭이 펀치로 나간다.
             var stunned = IsStunned;
             if (movement != null)
             {
-                movement.IsMovementLocked = stunned;
+                movement.IsCombatLocked = stunned;
             }
 
             if (interactor != null)
@@ -161,7 +165,8 @@ namespace Game.Client.Combat
                 interactor.IsInputLocked = stunned;
             }
 
-            if (!isAttacker || stunned || Cursor.lockState != CursorLockMode.Locked ||
+            if (!isAttacker || stunned || PlayerMovement.ShouldIgnoreAttackInput() ||
+                (placement != null && placement.BlocksAttack) ||
                 (movement != null && movement.Posture == PlayerPosture.Prone))
             {
                 hasPendingHit = false;

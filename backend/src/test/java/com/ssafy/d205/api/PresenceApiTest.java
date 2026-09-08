@@ -52,8 +52,11 @@ class PresenceApiTest extends IntegrationTest {
     }
 
     @Test
-    @DisplayName("sessionId를 보내면 IN_GAME이 되고 그 값이 저장된다")
-    void sessionIdMakesInGame() throws Exception {
+    @DisplayName("sessionKind 없이 sessionId만 보내면 IN_GAME이 되고 그 값이 저장된다")
+    void sessionIdWithoutKindMakesInGame() throws Exception {
+        // sessionKind 가 생기기 전의 클라이언트가 보내는 모양입니다. 그때 룸 안은 곧
+        // IN_GAME 이었으므로 없는 값을 MATCH 로 읽습니다. LOBBY 로 읽으면 이미 배포된
+        // 클라이언트에서 경기 중인 사용자가 전부 로비로 보입니다.
         String me = createUser();
 
         heartbeat(me, "ROOM42");
@@ -145,6 +148,107 @@ class PresenceApiTest extends IntegrationTest {
     }
 
     @Test
+    @DisplayName("sessionKind가 LOBBY면 IN_LOBBY가 된다")
+    void lobbyKindMakesInLobby() throws Exception {
+        String me = createUser();
+
+        heartbeat(me, "ROOM42", "LOBBY");
+
+        Map<String, Object> row = presenceOf(me);
+        assertThat(row.get("status")).isEqualTo("IN_LOBBY");
+        assertThat(row.get("session_id")).isEqualTo("ROOM42");
+    }
+
+    @Test
+    @DisplayName("sessionKind가 MATCH면 IN_GAME이 된다")
+    void matchKindMakesInGame() throws Exception {
+        String me = createUser();
+
+        heartbeat(me, "ROOM42", "MATCH");
+
+        assertThat(presenceOf(me).get("status")).isEqualTo("IN_GAME");
+    }
+
+    @Test
+    @DisplayName("로비에서 경기로 넘어가면 sessionId가 같아도 updated_at이 갱신된다")
+    void lobbyToMatchUpdatesUpdatedAt() throws Exception {
+        // 로비와 경기는 같은 Photon 룸이라 sessionId 가 바뀌지 않습니다. 방을 옮긴 것과
+        // 달리 sessionKind 만 달라지고, 그것도 상태 변화이므로 시점을 남겨야 합니다.
+        String me = createUser();
+        heartbeat(me, "ROOM42", "LOBBY");
+        makeUpdatedAtOld(me);
+        Map<String, Object> before = presenceOf(me);
+
+        heartbeat(me, "ROOM42", "MATCH");
+
+        Map<String, Object> after = presenceOf(me);
+        assertThat(after.get("status")).isEqualTo("IN_GAME");
+        assertThat(after.get("session_id")).isEqualTo("ROOM42");
+        assertThat(after.get("updated_at")).isNotEqualTo(before.get("updated_at"));
+    }
+
+    @Test
+    @DisplayName("sessionId 없이 sessionKind만 보내면 ONLINE이다")
+    void kindWithoutSessionIdIsOnline() throws Exception {
+        // 룸 밖인데 로비라고 주장하는 요청입니다. 400 으로 되돌릴 수도 있지만 상태는 이미
+        // ONLINE 하나로 정해져 있어 되돌려서 나아지는 것이 없습니다.
+        String me = createUser();
+
+        perform(me, "{\"sessionKind\":\"LOBBY\"}");
+
+        Map<String, Object> row = presenceOf(me);
+        assertThat(row.get("status")).isEqualTo("ONLINE");
+        assertThat(row.get("session_id")).isNull();
+    }
+
+    @Test
+    @DisplayName("모르는 sessionKind는 400")
+    void unknownSessionKindIsBadRequest() throws Exception {
+        String me = createUser();
+
+        mvc.perform(put("/api/v1/presence")
+                        .header(USER_ID_HEADER, me)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sessionId\":\"ROOM42\",\"sessionKind\":\"HIGHLIGHT\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    @DisplayName("빈 문자열 sessionKind는 400")
+    void emptySessionKindIsBadRequest() throws Exception {
+        // 클라이언트가 실수로 보낼 수 있는 모양이라 확인해 둡니다. Unity 의 JsonUtility 는
+        // null 문자열을 "" 로 씁니다. sessionKind 를 채우지 않은 DTO 를 그대로 보내면 이
+        // 요청이 되고, 조용히 MATCH 로 처리되는 것보다 거절하는 편이 낫습니다 -- 클라이언트가
+        // 그 필드를 보내려 했다는 뜻이니까요.
+        String me = createUser();
+
+        mvc.perform(put("/api/v1/presence")
+                        .header(USER_ID_HEADER, me)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sessionId\":\"ROOM42\",\"sessionKind\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    @DisplayName("스윕이 로비에 있던 행도 오프라인으로 내린다")
+    void sweepMarksStaleLobbyRowsOffline() throws Exception {
+        // 스윕 조건이 status IN (...) 목록이라 PresenceStatus 에 값을 더하면 그 목록에도
+        // 넣어야 합니다. 빠뜨리면 이 사람은 하트비트가 끊겨도 영원히 스윕되지 않고,
+        // 조회는 PresenceTimeout 이 계산해 맞게 나오므로 눈에 띄지도 않습니다.
+        String stale = createUser();
+        heartbeat(stale, "ROOM42", "LOBBY");
+        makeHeartbeatStale(stale);
+
+        presenceSweeper.sweep();
+
+        Map<String, Object> row = presenceOf(stale);
+        assertThat(row.get("status")).isEqualTo("OFFLINE");
+        assertThat(row.get("session_id")).isNull();
+    }
+
+    @Test
     @DisplayName("스윕이 하트비트가 끊긴 행을 실제로 오프라인으로 내린다")
     void sweepMarksStaleRowsOffline() throws Exception {
         String stale = createUser();
@@ -206,8 +310,16 @@ class PresenceApiTest extends IntegrationTest {
         return objectMapper.readTree(body).get("userId").asText();
     }
 
+    /** sessionKind 를 빼고 보냅니다. 서버는 없는 값을 MATCH 로 읽습니다. */
     private void heartbeat(String userId, String sessionId) throws Exception {
-        String body = sessionId == null ? "{}" : "{\"sessionId\":\"" + sessionId + "\"}";
+        perform(userId, sessionId == null ? "{}" : "{\"sessionId\":\"" + sessionId + "\"}");
+    }
+
+    private void heartbeat(String userId, String sessionId, String sessionKind) throws Exception {
+        perform(userId, "{\"sessionId\":\"" + sessionId + "\",\"sessionKind\":\"" + sessionKind + "\"}");
+    }
+
+    private void perform(String userId, String body) throws Exception {
         mvc.perform(put("/api/v1/presence")
                         .header(USER_ID_HEADER, userId)
                         .contentType(MediaType.APPLICATION_JSON)

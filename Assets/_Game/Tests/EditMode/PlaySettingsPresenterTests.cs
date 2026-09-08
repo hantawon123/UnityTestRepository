@@ -287,12 +287,10 @@ namespace Game.Tests.EditMode
             public event Action ResumeClicked { add { } remove { } }
             public event Action SettingsClicked { add { } remove { } }
             public event Action PlaySettingsClicked;
-            public event Action KeyGuideClicked { add { } remove { } }
             public bool IsOpen => true;
             public void SetVisible(bool value) { }
             public void SetStartVisible(bool value) { }
             public void SetPlaySettingsVisible(bool value) { }
-            public void ShowLeaveConfirmation(Action confirmed) { }
             public void OpenSettings() => PlaySettingsClicked?.Invoke();
         }
     }

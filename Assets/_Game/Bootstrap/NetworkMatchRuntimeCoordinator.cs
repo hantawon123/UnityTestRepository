@@ -187,6 +187,7 @@ namespace Game.Bootstrap
             }
 
             runtime.Tick();
+            composition.Session.TryStartPhaseIntro(network.ServerTime);
             SynchronizePlayers();
             PublishSnapshotIfChanged();
         }
@@ -250,6 +251,7 @@ namespace Game.Bootstrap
                     }
                 }
 
+                if (migration == null) created.Session.EnablePhaseIntros(waitForReady: true);
                 if (!network.BindMatchSession(
                         created.Session,
                         configuration.ShredderEjectionPose) ||
@@ -479,9 +481,21 @@ namespace Game.Bootstrap
                 // 숨기기 대기자도 로비처럼 밖에서 이동하고 공격 모션을
                 // 사용할 수 있다. 실제 기절 판정은 MatchSessionCoordinator가
                 // 찾기 페이즈에만 적용한다.
-                var enabled = phase == MatchPhase.Hiding ||
+                // 결과 화면(유치장 무대)이 떠 있는 동안은 걸어 다닐 수 있어야
+                // 체포된 쪽이 갇혔다는 걸 느낀다. 무대 씬이 내려가고 하이라이트
+                // 재생으로 넘어가면 다시 꺼진다.
+                var stageOpen = phase == MatchPhase.Highlight &&
+                                network is INetworkResultNavigation navigation &&
+                                navigation.IsResultSceneLoaded;
+                var isEndCountdown = phase == MatchPhase.Highlight &&
+                                     session.TryGetResult(out var matchResult) &&
+                                     now < matchResult.EndedAt +
+                                     MatchSessionCoordinator.HighlightPostRollSeconds;
+                var enabled = !session.IsPhaseIntro(now) && (phase == MatchPhase.Hiding ||
                                (phase == MatchPhase.Searching &&
-                                !session.IsPlayerStunned(playerIndex, now));
+                                !session.IsPlayerStunned(playerIndex, now)) ||
+                               isEndCountdown ||
+                               stageOpen);
                 if (hasSynchronizedPlayers &&
                     synchronizedControls[playerIndex] == enabled)
                 {

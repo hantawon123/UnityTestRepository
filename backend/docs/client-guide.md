@@ -223,6 +223,7 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 | `NICKNAME_TAKEN` | 409 | 닉네임이 이미 쓰임 | 다른 이름을 받습니다 |
 | `ALREADY_FRIENDS` | 409 | 이미 친구 | 목록을 다시 불러옵니다 |
 | `REQUEST_ALREADY_SENT` | 409 | 이미 보낸 요청 | 목록을 다시 불러옵니다 |
+| `TARGET_IN_GAME` | 409 | 초대할 친구가 로비나 경기 중 | "게임 중인 친구입니다". 홈으로 나오면 다시 부를 수 있습니다 |
 | `CONFLICT` | 409 | 동시 요청이 겹침 | 다시 시도하면 대개 됩니다 |
 | `RATE_LIMITED` | 429 | 한 IP 가 플레이 로그를 분당 허용량 넘게 보냄 | 그 배치를 스풀에 두고 다음 flush 에 다시 보냅니다 |
 | `NICKNAME_GENERATION_FAILED` | 500 | 서버가 임시 닉네임을 못 만듦 | 서버 문제입니다. 재시도 |
@@ -235,19 +236,33 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 
 ## 6. 접속 상태
 
-친구 목록의 `presence` 는 `OFFLINE` / `ONLINE` / `IN_GAME` 셋 중 하나입니다.
+친구 목록의 `presence` 는 `OFFLINE` / `ONLINE` / `IN_LOBBY` / `IN_GAME` 넷 중 하나입니다.
 
-서버는 **실시간 통신을 하지 않습니다.** Photon Fusion 이 실시간을 담당하고, 서버는
-클라이언트가 보내는 하트비트로만 상태를 압니다. 그래서 하트비트를 안 보내면 친구 목록에서
-계속 오프라인으로 보입니다.
+| 값 | 뜻 |
+| --- | --- |
+| `OFFLINE` | 게임을 켜지 않았거나 하트비트가 90초 넘게 끊겼습니다 |
+| `ONLINE` | 게임은 켰지만 Photon 룸 밖입니다. 홈이나 게임 찾기 화면 |
+| `IN_LOBBY` | 룸에 들어가 사람을 기다리는 중 |
+| `IN_GAME` | 경기 중 |
+
+`IN_LOBBY` 와 `IN_GAME` 을 나눈 것은 **화면 표시를 위한 것입니다.** 초대는 둘 다
+막힙니다(7절) — 로비에 있는 사람도 토스트를 보지 못하는 것은 같습니다.
+
+게임 안의 실시간(위치·동작)은 Photon Fusion 이 담당하고, 서버는 클라이언트가 보내는
+하트비트로만 접속 상태를 압니다. 그래서 하트비트를 안 보내면 친구 목록에서 계속
+오프라인으로 보입니다. 친구 요청·초대 알림은 별도의 WebSocket 채널로 밀어줍니다(11절).
 
 ### 규칙
 
 - 하트비트는 **30초마다** 보냅니다.
 - 서버는 마지막 하트비트가 **90초** 넘으면 오프라인으로 봅니다. 30초 주기면 두 번
   놓쳐도 버팁니다.
-- `sessionId` 를 함께 보내면 `IN_GAME`, 안 보내면 `ONLINE` 입니다. 상태를 직접 지정하는
-  값은 없습니다 — 방에 있으면 게임 중입니다.
+- `sessionId` 를 안 보내면 `ONLINE` 입니다. 보내면 룸 안이고, 로비인지 경기인지는
+  `sessionKind` 가 정합니다 — `LOBBY` 면 `IN_LOBBY`, `MATCH` 면 `IN_GAME`.
+- **`sessionKind` 를 생략하면 `MATCH` 로 봅니다.** 이 필드가 생기기 전의 클라이언트가
+  지금과 똑같이 동작하도록 한 것입니다. 로비를 로비로 보이게 하려면 반드시 보내세요.
+- `sessionId` 가 없으면 `sessionKind` 는 무시합니다. 룸 밖이면 상태는 `ONLINE` 하나입니다.
+- 상태를 직접 지정하는 값은 없습니다. 잘못된 조합을 아예 표현할 수 없게 한 것입니다.
 - 게임을 끄기 전에 **`DELETE /api/v1/presence`** 를 부릅니다. 그러면 즉시 오프라인이 되고,
   친구들이 90초 동안 유령을 보지 않습니다.
 
@@ -259,14 +274,21 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 | Fusion 이벤트 | 보낼 것 |
 | --- | --- |
 | `OnConnectedToServer` | `sessionId` 없이 → `ONLINE` |
-| `OnPlayerJoined` (내가 방에 들어감) | 그 방의 `sessionId` → `IN_GAME` |
+| `OnPlayerJoined` (내가 방에 들어감) | 그 방의 `sessionId` + `sessionKind: "LOBBY"` → `IN_LOBBY` |
+| 경기 시작 (로비 씬 → 경기 씬) | **같은** `sessionId` + `sessionKind: "MATCH"` → `IN_GAME` |
+| 경기 종료로 로비로 돌아옴 | 같은 `sessionId` + `sessionKind: "LOBBY"` → `IN_LOBBY` |
 | 방을 나감 / `OnDisconnectedFromServer` | `sessionId` 없이 → `ONLINE` |
 | 앱 종료 (`OnApplicationQuit`) | `DELETE /api/v1/presence` |
 
 `sessionId` 는 방을 식별하는 문자열이면 됩니다(Fusion 의 세션 이름 등). 64자 이내이고,
-넘으면 `INVALID_REQUEST` 입니다.
+넘으면 `INVALID_REQUEST` 입니다. `sessionKind` 가 `LOBBY` 도 `MATCH` 도 아니면 역시
+`INVALID_REQUEST` 입니다.
 
-방을 옮기면 같은 `IN_GAME` 이지만 `sessionId` 가 달라집니다. 그냥 새 값으로 보내면 됩니다.
+**경기 시작은 `sessionId` 가 바뀌지 않습니다.** 로비와 경기는 같은 Photon 룸이고 그 룸이
+씬을 갈아타는 것뿐이라, 서버가 알아챌 방법은 `sessionKind` 하나입니다. 이 전환 시점에
+보내지 않으면 경기 중인 내내 `IN_LOBBY` 로 보입니다.
+
+방을 옮기면 `sessionId` 가 달라집니다. 그냥 새 값으로 보내면 됩니다.
 
 ### 크래시하면
 
@@ -313,9 +335,22 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 
 ### 받는 방법
 
-서버는 실시간 통신을 하지 않으므로 **초대를 밀어주지 못합니다.** 로비에 있는 동안
-`GET /api/v1/invites` 를 주기적으로 부르세요. 접속 상태 하트비트와 같은 주기(30초)면
-충분합니다. 목록은 최신 초대가 위입니다.
+초대가 저장되면 상대의 알림 채널로 `ROOM_INVITE_RECEIVED` 가 즉시 나갑니다(11절). 화면은
+그 프레임의 `roomCode` 로 토스트를 띄우면 되고, 목록이 필요하면 `GET /api/v1/invites` 를
+읽습니다. 목록은 최신 초대가 위입니다. 폴링은 필요 없습니다.
+
+알림 채널이 끊겨 있던 사이에 온 초대는 채널이 다시 붙을 때(`HELLO_ACK`) 목록을 한 번
+읽어 메꿉니다. 3분이 지난 것은 이미 빠져 있습니다.
+
+### 게임 중인 친구는 부를 수 없습니다
+
+상대의 접속 상태가 `IN_GAME` 이면 `409 TARGET_IN_GAME` 입니다. 로비와 경기 중은 서버가
+구분하지 않고 둘 다 막습니다. 초대 토스트는 홈에서만 뜨기 때문에 지금 보내도 상대가 볼 수
+없고, 3분 뒤 조용히 사라질 뿐입니다. 친구 목록의 `presence` 로 미리 버튼을 비활성화하고,
+그래도 이 응답이 오면 "게임 중인 친구입니다" 로 안내하세요.
+
+판정은 친구 목록과 같습니다. 하트비트가 90초 넘게 끊긴 상대는 `OFFLINE` 으로 보고 초대를
+받아 줍니다.
 
 ### 같은 사람을 다시 부르면
 
@@ -452,3 +487,65 @@ ACCOUNT_NOT_FOUND` 입니다 — 남의 계정이 존재하는지 알 수 없게
 
 **그 사람이 낸 신고**는 남고 신고자만 비워집니다. 신고는 신고당한 사람에 대한 기록이지
 신고자에 대한 기록이 아니라서, 목격자가 떠났다고 제3자에 대한 진술을 없애지 않습니다.
+
+---
+
+## 11. 실시간 알림
+
+친구 요청과 방 초대는 저장되는 순간 상대에게 **WebSocket 으로 밀어줍니다.** 폴링은 필요
+없습니다. 주소는 `wss://j15d205.p.ssafy.io/ws/notifications` 이고, 로컬은
+`ws://localhost:8080/ws/notifications` 입니다. HTTP 의 `https` 를 `wss` 로 바꾸면 됩니다.
+
+### 붙는 순서
+
+1. 연결을 연다.
+2. 첫 프레임으로 자기를 밝힌다. 헤더가 아니라 프레임인 이유는 브라우저 WebSocket 이 헤더를
+   붙일 수 없기 때문이고, 신뢰 수준은 `X-User-Id` 와 같습니다.
+   ```json
+   { "type": "HELLO", "userId": "..." }
+   ```
+3. 서버가 `{ "type": "HELLO_ACK" }` 를 돌려준다. **이때가 "연결됨"입니다.** 이 시점에 친구
+   목록, 받은 요청, 받은 초대를 한 번 전체 조회해서 끊겨 있던 사이 놓친 것을 메꿉니다.
+   연결이 열린 시점을 쓰면 서버가 아직 나를 모르는 사이에 온 알림을 놓칩니다.
+
+연결 뒤 5초 안에 HELLO 가 없으면 서버가 끊습니다(close 1008, 사유 `HELLO_TIMEOUT`). 모르는
+`userId` 도 같은 코드로 끊습니다(`UNKNOWN_USER`). 두 번째 HELLO 는 무시합니다.
+
+### 프레임
+
+서버가 보내는 프레임은 전부 같은 모양입니다.
+
+```json
+{ "type": "ROOM_INVITE_RECEIVED", "sentAt": "20260908123000",
+  "from": { "userId": "...", "nickname": "..." }, "roomCode": "7K2M9P" }
+```
+
+| `type` | 언제 | 받으면 할 일 |
+| --- | --- | --- |
+| `FRIEND_REQUEST_RECEIVED` | 누가 나에게 친구 요청을 보냄 | 홈이면 토스트. 받은 요청 목록을 다시 읽습니다 |
+| `FRIEND_REQUEST_ACCEPTED` | 내가 보낸 요청을 상대가 수락 | 친구 목록과 보낸 요청 목록을 다시 읽습니다 |
+| `FRIEND_REQUEST_REMOVED` | 상대가 거절했거나 취소함. 어느 쪽인지는 알려주지 않습니다 | 받은·보낸 요청 목록을 다시 읽습니다 |
+| `FRIEND_REMOVED` | 상대가 친구를 끊음. 둘 사이의 방 초대도 함께 지워집니다 | 친구 목록과 받은 초대 목록을 다시 읽습니다 |
+| `ROOM_INVITE_RECEIVED` | 친구가 나를 방으로 부름. 같은 방으로 다시 부른 갱신도 포함 | 홈이면 토스트. `roomCode` 로 입장합니다 |
+
+`roomCode` 는 방 초대에만 있고 나머지는 `null` 입니다. `sentAt` 은 다른 API 와 같은
+`yyyyMMddHHmmss` UTC 입니다. **모르는 `type` 은 무시하세요.** 서버가 종류를 더해도 옛
+클라이언트가 깨지지 않아야 합니다.
+
+**알림은 신호이고 목록의 진실은 REST 입니다.** 프레임 하나를 놓쳐도 다음 프레임이나
+재연결 때 목록을 읽으면 같은 곳에 도착합니다. 그래서 서버는 붙어 있지 않은 사람에게 갈
+알림을 보관하지 않고 버립니다.
+
+### 끊김과 재연결
+
+- 서버가 30초마다 ping 을 보냅니다. 브라우저와 .NET 은 pong 을 자동으로 돌려주므로 할 일이
+  없습니다.
+- 끊기면 1초부터 시작해 두 배씩 늘리며 최대 30초 간격으로 다시 붙으세요. 지터를 섞어야
+  서버가 재시작할 때 전부가 같은 순간에 몰리지 않습니다.
+- 다시 붙으면 HELLO 부터 다시 합니다. `HELLO_ACK` 를 받으면 위의 전체 조회를 또 합니다.
+
+### 어디서 띄우나
+
+토스트는 **홈과 게임 찾기 화면에서만** 띄웁니다. 로비와 경기 중에는 채널은 그대로 두되
+목록만 갱신하고 토스트는 내지 않습니다. 게임 중인 사람은 초대를 받을 수 없으므로(7절)
+로비에서 초대 프레임이 오는 일은 없고, 친구 요청은 홈으로 돌아왔을 때 배지로 봅니다.

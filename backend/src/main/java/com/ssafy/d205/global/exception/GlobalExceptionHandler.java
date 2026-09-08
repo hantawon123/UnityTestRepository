@@ -142,6 +142,16 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("NOT_FRIENDS", "친구가 아닙니다."));
     }
 
+    /**
+     * 초대할 상대가 로비나 경기 중입니다. 초대 토스트는 홈에서만 뜨므로 지금 보내도 상대가
+     * 볼 수 없고 3분 뒤 조용히 만료됩니다. 보낸 사람에게 그 사실을 바로 알립니다.
+     */
+    @ExceptionHandler(TargetInGameException.class)
+    public ResponseEntity<ErrorResponse> handleTargetInGame(TargetInGameException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse("TARGET_IN_GAME", "게임 중인 친구에게는 초대를 보낼 수 없습니다."));
+    }
+
     @ExceptionHandler(NicknameTakenException.class)
     public ResponseEntity<ErrorResponse> handleNicknameTaken(NicknameTakenException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT)

@@ -28,6 +28,7 @@ namespace Game.Bootstrap
 
         private MatchStateSnapshot snapshot;
         private bool hasSnapshot;
+        private bool introReadySent;
         private double noticeEndsAt;
         private double gameEndNoticeEndsAt = -1d;
         private Transform shredder;
@@ -134,7 +135,9 @@ namespace Game.Bootstrap
                     now,
                     room.MatchParticipants.CurrentValue.Count,
                     HidingTurnDurationSeconds)
-                : Math.Max(0d, snapshot.PhaseEndsAt - now));
+                : snapshot.Phase == MatchPhase.Searching
+                    ? snapshot.PhaseEndsAt == 0d ? SearchingDurationSeconds : Math.Min(SearchingDurationSeconds, Math.Max(0d, snapshot.PhaseEndsAt - now))
+                    : Math.Max(0d, snapshot.PhaseEndsAt - now));
 
             // Whose turn it is moves with time, not with any event: the phase
             // stays Hiding while the turn travels down the line-up.
@@ -156,6 +159,9 @@ namespace Game.Bootstrap
 
             UpdateHidingIntro(now);
             UpdateSearchingIntro(now);
+            if (!introReadySent && snapshot.PhaseEndsAt == 0d &&
+                view.IsPhaseIntroPresented(snapshot.Phase) && events is INetworkPhaseIntroReady ready)
+                introReadySent = ready.TryConfirmPhaseIntroReady(snapshot.Phase);
             UpdateHidingTurnStart(now);
             UpdateShredderMarker();
             UpdateVitals();
@@ -193,6 +199,7 @@ namespace Game.Bootstrap
                 HideSearchingIntro();
             }
 
+            if (!hasSnapshot || snapshot.Phase != received.Phase) introReadySent = false;
             snapshot = received;
             hasSnapshot = true;
             var extrasVisible = received.Phase != MatchPhase.Hiding;
@@ -348,6 +355,8 @@ namespace Game.Bootstrap
         private void UpdateHidingIntro(double now)
         {
             TryShowHidingIntro();
+            if (hidingIntroVisible) hidingIntroEndsAt = snapshot.PhaseEndsAt == 0d ? double.PositiveInfinity :
+                snapshot.PhaseEndsAt - HidingTurnDurationSeconds * room.MatchParticipants.CurrentValue.Count;
             if (hidingIntroVisible && now >= hidingIntroEndsAt)
             {
                 HideHidingIntro();
@@ -372,7 +381,7 @@ namespace Game.Bootstrap
             }
 
             var startedAt = snapshot.PhaseEndsAt - (HidingTurnDurationSeconds * playerCount);
-            var endsAt = startedAt + HidingIntroView.VisibleSeconds;
+            var endsAt = snapshot.PhaseEndsAt == 0d ? double.PositiveInfinity : startedAt;
             if (clock.ServerTime >= endsAt)
             {
                 return;
@@ -398,6 +407,8 @@ namespace Game.Bootstrap
         private void UpdateSearchingIntro(double now)
         {
             TryShowSearchingIntro();
+            if (searchingIntroVisible) searchingIntroEndsAt = snapshot.PhaseEndsAt == 0d ? double.PositiveInfinity :
+                snapshot.PhaseEndsAt - SearchingDurationSeconds;
             if (searchingIntroVisible && now >= searchingIntroEndsAt)
             {
                 HideSearchingIntro();
@@ -416,7 +427,7 @@ namespace Game.Bootstrap
             }
 
             var startedAt = snapshot.PhaseEndsAt - SearchingDurationSeconds;
-            var endsAt = startedAt + SearchingIntroView.VisibleSeconds;
+            var endsAt = snapshot.PhaseEndsAt == 0d ? double.PositiveInfinity : startedAt;
             if (clock.ServerTime >= endsAt)
             {
                 return;
@@ -537,9 +548,7 @@ namespace Game.Bootstrap
             var turnStartedAt = isLocalTurn
                 ? phaseStartedAt + (turnIndex * HidingTurnDurationSeconds)
                 : 0d;
-            var overlayStartsAt = Math.Max(
-                turnStartedAt,
-                phaseStartedAt + HidingIntroView.VisibleSeconds);
+            var overlayStartsAt = turnStartedAt;
             var showStartOverlay = isLocalTurn &&
                                    now >= overlayStartsAt &&
                                    now < overlayStartsAt + HidingTurnStartView.VisibleSeconds;

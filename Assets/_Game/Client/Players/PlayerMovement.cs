@@ -55,12 +55,18 @@ namespace Game.Client.Players
         private InputAction proneAction;
         private InputAction attackAction;
         private PlayerInteractor interactor;
+        private ItemPlacementController placement;
         private Transform cameraTransform;
         private float verticalVelocity;
         private Vector3 externalVelocity;
 
-        /// <summary>기절 등 외부에서 이동 입력을 잠글 때 사용한다.</summary>
+        /// <summary>Esc 메뉴처럼 이동을 잠시 막을 때 사용한다.</summary>
         public bool IsMovementLocked { get; set; }
+
+        /// <summary>기절이 이동을 막을 때 사용한다. 메뉴 잠금과 같은 플래그를 쓰지 않는다.</summary>
+        public bool IsCombatLocked { get; set; }
+
+        private bool IsLocomotionLocked => IsMovementLocked || IsCombatLocked;
 
         /// <summary>수평 이동 속력(m/s). 애니메이션 등 표현 계층이 읽는다.</summary>
         public float PlanarSpeed
@@ -86,6 +92,21 @@ namespace Game.Client.Players
             externalVelocity += impulse;
         }
 
+        /// <summary>
+        /// 고정 카메라 무대(엔딩 유치장)용 조작 기준. 지정되면 WASD는 이 기준의 앞·오른쪽으로
+        /// 움직이고, 몸은 카메라가 아니라 이동 방향을 향한다. 멈추면 지금 방향을 유지한다.
+        /// </summary>
+        /// <remarks>
+        /// The normal rule (body faces the camera yaw) assumes the camera sits
+        /// behind the player. On a stage the camera is fixed in front of the
+        /// room, so that rule would turn everyone's back to the audience.
+        /// </remarks>
+        private Transform stageReference;
+
+        public void SetStageControl(Transform reference) => stageReference = reference;
+
+        public void ClearStageControl() => stageReference = null;
+
         public PlayerInputIntent CaptureInputIntent()
         {
             if (playerMap == null)
@@ -93,9 +114,9 @@ namespace Game.Client.Players
                 return default;
             }
 
-            if (IsMovementLocked || IsTextInputFocused())
+            if (IsLocomotionLocked || IsTextInputFocused())
             {
-                var heldYaw = TryEnsureCamera()
+                var heldYaw = stageReference == null && TryEnsureCamera()
                     ? cameraTransform.eulerAngles.y
                     : transform.eulerAngles.y;
                 return new PlayerInputIntent(
@@ -134,10 +155,27 @@ namespace Game.Client.Players
             }
 
             // 소지 중인 좌클릭은 던지기/배치 입력이므로 네트워크 공격으로 보내지 않는다.
+            // Esc 메뉴 버튼을 누르는 좌클릭도 펀치로 나가지 않게 한다.
             if ((interactor == null || interactor.CarriedItem == null) &&
-                attackAction.IsPressed())
+                attackAction.IsPressed() &&
+                !ShouldIgnoreAttackInput() &&
+                (placement == null || !placement.BlocksAttack))
             {
                 buttons |= PlayerInputButtons.Attack;
+            }
+
+            if (stageReference != null)
+            {
+                // 화면 기준 방향을 월드 방향으로 바꾼 뒤 "그 방향으로 전진"으로 다시 표현한다.
+                // 모터는 lookYaw 방향으로 몸을 돌리고 그 앞으로 걷게 되므로 결과가 같다.
+                var world = ToReferenceRelativeDirection(stageReference, move);
+                if (world.sqrMagnitude > 0.0001f)
+                {
+                    var yaw = Mathf.Atan2(world.x, world.z) * Mathf.Rad2Deg;
+                    return new PlayerInputIntent(0f, Mathf.Min(1f, world.magnitude), yaw, buttons);
+                }
+
+                return new PlayerInputIntent(0f, 0f, transform.eulerAngles.y, buttons);
             }
 
             var lookYaw = TryEnsureCamera()
@@ -172,6 +210,7 @@ namespace Game.Client.Players
             proneAction = playerMap.FindAction("Prone", throwIfNotFound: true);
             attackAction = playerMap.FindAction("Attack", throwIfNotFound: true);
             interactor = GetComponent<PlayerInteractor>();
+            placement = GetComponent<ItemPlacementController>();
 
             if (visualRoot == null)
             {
@@ -190,7 +229,7 @@ namespace Game.Client.Players
 
         private void Update()
         {
-            var inputLocked = IsMovementLocked || IsTextInputFocused();
+            var inputLocked = IsLocomotionLocked || IsTextInputFocused();
             var input = inputLocked ? Vector2.zero : moveAction.ReadValue<Vector2>();
             var direction = ToCameraRelativeDirection(input);
 
@@ -219,13 +258,27 @@ namespace Game.Client.Players
             controller.Move(velocity * Time.deltaTime);
 
             // 몸은 항상 카메라가 보는 방향(좌우)을 향한다. 조준 기반 게임의 표준 방식.
-            var lookForward = GetCameraFlatForward();
+            // 무대 모드에서는 이동 방향을 향하고, 멈추면 지금 방향을 유지한다.
+            var lookForward = stageReference != null ? direction : GetCameraFlatForward();
             if (!inputLocked && lookForward.sqrMagnitude > 0.0001f)
             {
                 var targetRotation = Quaternion.LookRotation(lookForward);
                 transform.rotation = Quaternion.RotateTowards(
                     transform.rotation, targetRotation, movementConfig.RotationSpeedDegrees * Time.deltaTime);
             }
+        }
+
+        /// <summary>
+        /// 커서가 풀려 있거나 UI 위를 누른 좌클릭은 펀치가 아니다.
+        /// </summary>
+        public static bool ShouldIgnoreAttackInput()
+        {
+            if (Cursor.lockState != CursorLockMode.Locked)
+            {
+                return true;
+            }
+
+            return EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
         }
 
         /// <summary>
@@ -408,16 +461,26 @@ namespace Game.Client.Players
 
         private Vector3 ToCameraRelativeDirection(Vector2 input)
         {
+            if (stageReference != null)
+            {
+                return ToReferenceRelativeDirection(stageReference, input);
+            }
+
             if (!TryEnsureCamera())
             {
                 return new Vector3(input.x, 0f, input.y);
             }
 
-            var forward = cameraTransform.forward;
+            return ToReferenceRelativeDirection(cameraTransform, input);
+        }
+
+        private static Vector3 ToReferenceRelativeDirection(Transform reference, Vector2 input)
+        {
+            var forward = reference.forward;
             forward.y = 0f;
             forward.Normalize();
 
-            var right = cameraTransform.right;
+            var right = reference.right;
             right.y = 0f;
             right.Normalize();
 

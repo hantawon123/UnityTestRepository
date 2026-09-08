@@ -38,6 +38,9 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	// 친구 요청·방 초대 알림을 클라이언트에 밀어주는 WebSocket 채널. STOMP 는 쓰지 않고
+	// spring-websocket 의 핸들러만 씁니다(global/config/WebSocketConfig).
+	implementation 'org.springframework.boot:spring-boot-starter-websocket'
 	implementation 'org.flywaydb:flyway-mysql'
 	// API 명세를 코드에서 생성합니다. 손으로 유지하는 엔드포인트 목록을 두지 않기
 	// 위한 것입니다. 2.x는 Spring Boot 3용이고 3.x가 Boot 4용입니다.

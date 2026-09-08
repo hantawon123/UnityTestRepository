@@ -4,6 +4,7 @@ namespace Game.Client.Match
 {
     public interface IHighlightTransitionView
     {
+        float Opacity { get; }
         void SetOpacity(float opacity);
     }
 
@@ -11,6 +12,7 @@ namespace Game.Client.Match
     public sealed class HighlightTransitionView : MonoBehaviour, IHighlightTransitionView
     {
         private float opacity;
+        public float Opacity => opacity;
         public void SetOpacity(float value) => opacity = Mathf.Clamp01(value);
 
         private void OnGUI()

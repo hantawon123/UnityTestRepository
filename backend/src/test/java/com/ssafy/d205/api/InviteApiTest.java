@@ -310,6 +310,73 @@ class InviteApiTest extends IntegrationTest {
                 .andExpect(jsonPath("$.invites").isEmpty());
     }
 
+    @Test
+    @DisplayName("경기 중인 친구는 부를 수 없다")
+    void friendsInAGameCannotBeInvited() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+        heartbeat(guest, "3XQ4TZ", "MATCH");
+
+        // 초대 토스트는 홈과 게임 찾기에서만 뜹니다. 지금 보내면 상대는 못 보고 3분 뒤
+        // 조용히 사라질 뿐이라, 보낸 사람에게 바로 알리는 편이 낫습니다.
+        mvc.perform(post("/api/v1/invites")
+                        .header(USER_ID_HEADER, host)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(guest, ROOM)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TARGET_IN_GAME"));
+        assertThat(inviteRows(guest)).isZero();
+    }
+
+    @Test
+    @DisplayName("로비에 있는 친구도 부를 수 없다")
+    void friendsInALobbyCannotBeInvitedEither() throws Exception {
+        // 친구 목록은 로비와 경기 중을 나눠 보여주지만 초대는 둘 다 막습니다. 나눈 것은
+        // 표시를 위한 것이고, 로비에 있는 사람도 토스트를 보지 못하는 것은 같습니다.
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+        heartbeat(guest, "3XQ4TZ", "LOBBY");
+
+        mvc.perform(post("/api/v1/invites")
+                        .header(USER_ID_HEADER, host)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(guest, ROOM)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TARGET_IN_GAME"));
+        assertThat(inviteRows(guest)).isZero();
+    }
+
+    @Test
+    @DisplayName("방을 나와 홈으로 돌아온 친구는 다시 부를 수 있다")
+    void leavingTheGameMakesAFriendInvitableAgain() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+        heartbeat(guest, "3XQ4TZ");
+
+        heartbeat(guest, null);
+
+        invite(host, guest, ROOM);
+        assertThat(inviteRows(guest)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("하트비트가 끊긴 지 오래된 상대는 게임 중으로 보지 않는다")
+    void aStaleHeartbeatDoesNotBlockInvites() throws Exception {
+        String host = createUser();
+        String guest = createUser();
+        befriend(host, guest);
+        heartbeat(guest, "3XQ4TZ");
+
+        // 크래시로 죽은 클라이언트의 status 는 스윕 전까지 IN_GAME 으로 남습니다. 저장된 값만
+        // 보면 그 사람을 영영 부를 수 없게 되므로, 친구 목록과 같이 하트비트로 판정합니다.
+        makeHeartbeatStale(guest);
+
+        invite(host, guest, ROOM);
+    }
+
     private String body(String userId, String roomCode) {
         return "{\"userId\":\"" + userId + "\",\"roomCode\":\"" + roomCode + "\"}";
     }
@@ -376,6 +443,30 @@ class InviteApiTest extends IntegrationTest {
                   JOIN users u ON u.users_seq = i.invitee_seq
                  WHERE u.public_id = ?
                 """, String.class, inviteeUserId);
+    }
+
+    private void heartbeat(String userId, String sessionId, String sessionKind) throws Exception {
+        mvc.perform(put("/api/v1/presence")
+                        .header(USER_ID_HEADER, userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sessionId\":\"" + sessionId + "\",\"sessionKind\":\"" + sessionKind + "\"}"))
+                .andExpect(status().isNoContent());
+    }
+
+    private void heartbeat(String userId, String sessionId) throws Exception {
+        String body = sessionId == null ? "{}" : "{\"sessionId\":\"" + sessionId + "\"}";
+        mvc.perform(put("/api/v1/presence")
+                        .header(USER_ID_HEADER, userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isNoContent());
+    }
+
+    /** 타임아웃(90초)보다 오래된 하트비트로 바꿔 크래시 상황을 만듭니다. */
+    private void makeHeartbeatStale(String userId) {
+        jdbcTemplate.update("UPDATE user_presence p JOIN users u ON u.users_seq = p.user_seq"
+                + " SET p.heartbeat_at = ? WHERE u.public_id = ?",
+                Timestamps.format(Instant.now().minusSeconds(200)), userId);
     }
 
     private void unfriend(String caller, String other) throws Exception {

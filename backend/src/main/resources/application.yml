@@ -77,6 +77,10 @@ analytics:
   queue-capacity: 100000
   flush-interval-ms: 1000
   flush-batch-size: 5000
+  # 한 주기에 배치를 최대 몇 번 연달아 넣는가. 1 이면 처리량 상한이 초당 5,000행이고, 부하 테스트에서
+  # 그 지점에서 큐가 넘쳤습니다(DB 는 놀고 있었음). 20 이면 상한이 초당 10만 행이라 DB 가 먼저 한계를 냅니다.
+  # 큐가 비면 바로 멈추므로 평소에는 한 번만 돕니다.
+  flush-max-batches-per-tick: 20
   batch-max-size: 200
   # IP 하나의 분당 요청 상한. 클라이언트 하나는 10초마다 한 번(분당 6)이지만, 플레이테스트는
   # 한 교실에서 하므로 수십 명이 NAT 뒤의 공용 IP 하나로 보입니다. 60 으로 두면 열 명만 넘어도
@@ -94,3 +98,17 @@ analytics:
 admin:
   username: ${ADMIN_USERNAME:}
   password: ${ADMIN_PASSWORD:}
+
+# 실시간 알림 채널(/ws/notifications). NotificationProperties 에 기본값이 있어 여기 적은 값은
+# 그 기본값을 눈에 보이게 옮겨 둔 것입니다.
+#
+# allowed-origins 는 브라우저(WebGL)에만 걸립니다. Unity 스탠드얼론은 Origin 헤더를 보내지
+# 않아 검사 대상이 아닙니다. 로컬 WebGL 빌드는 임의 포트로 뜨므로 패턴으로 덮습니다.
+# ping 주기는 nginx 의 proxy_read_timeout(90초)보다 짧아야 합니다. 그렇지 않으면 조용한
+# 연결을 nginx 가 먼저 끊습니다.
+notifications:
+  allowed-origins:
+    - https://j15d205.p.ssafy.io
+    - "http://localhost:[*]"
+  hello-timeout-ms: 5000
+  ping-interval-ms: 30000

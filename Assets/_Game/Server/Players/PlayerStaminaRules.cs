@@ -23,7 +23,8 @@ namespace Game.Server.Players
             bool isExhausted,
             bool isSprinting,
             float deltaTime,
-            PlayerMovementSettings settings)
+            PlayerMovementSettings settings,
+            bool unlimited = false)
         {
             if (!float.IsFinite(current) || current < 0f || current > settings.MaxStamina)
             {
@@ -35,6 +36,7 @@ namespace Game.Server.Players
                 throw new ArgumentOutOfRangeException(nameof(deltaTime));
             }
 
+            if (unlimited) return new PlayerStaminaState(settings.MaxStamina, false);
             isExhausted |= current <= 0f;
             if (isExhausted)
             {

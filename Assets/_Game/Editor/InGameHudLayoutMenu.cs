@@ -1,5 +1,6 @@
 using System.IO;
 using Game.Bootstrap;
+using Game.Client;
 using Game.Client.Home;
 using Game.Client.Match;
 using Game.Client.Voice;
@@ -208,6 +209,7 @@ namespace Game.Editor
             serialized.FindProperty("shredderMarker").objectReferenceValue = marker;
             serialized.FindProperty("rootCanvas").objectReferenceValue = canvas;
             serialized.ApplyModifiedPropertiesWithoutUndo();
+            KeySettingGuideView.Ensure(hud.transform);
 
             noticeRoot.gameObject.SetActive(false);
             marker.gameObject.SetActive(false);
