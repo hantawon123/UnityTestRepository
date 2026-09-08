@@ -607,60 +607,121 @@ namespace Game.Client.Lobby
         {
             ConfigureVerticalGroup(parent, TextAnchor.UpperCenter, PlaySettingsStyle.Layout.MapColumnSpacing);
 
-            var titleRow = CreateLayoutRow(parent, PlaySettingsStyle.Layout.SectionTitleHeight);
-            titleRow.name = "SectionTitles";
-            CreateCenteredText(
-                CreateHalf(titleRow, "MapTitle", 0f, 0.5f),
+            var titleRow = CreateSplitRow(parent, "SectionTitles", PlaySettingsStyle.Layout.SectionTitleHeight);
+            CreateCenteredLabel(
+                CreateSplitCell(titleRow, "MapTitle"),
                 "맵 선택",
-                PlaySettingsStyle.FontSize.Body,
-                PlaySettingsStyle.Palette.Text);
-            CreateCenteredText(
-                CreateHalf(titleRow, "CategoryTitle", 0.5f, 1f),
+                PlaySettingsStyle.FontSize.Body);
+            CreateCenteredLabel(
+                CreateSplitCell(titleRow, "CategoryTitle"),
                 "카테고리 선택",
-                PlaySettingsStyle.FontSize.Body,
-                PlaySettingsStyle.Palette.Text);
+                PlaySettingsStyle.FontSize.Body);
 
-            var pickerHeight = PlaySettingsStyle.Layout.MapPreviewSize.y;
-            var pickerRow = CreateLayoutRow(parent, pickerHeight);
-            pickerRow.name = "Pickers";
+            var selectionHeight = PlaySettingsStyle.Layout.SelectionRowHeight;
+            var pickerRow = CreateSplitRow(parent, "Pickers", selectionHeight);
 
-            var mapPicker = CreateHorizontalPickerRow(CreateHalf(pickerRow, "MapSelect", 0f, 0.5f), pickerHeight);
+            var mapPicker = CreateHorizontalPickerRow(CreateSplitCell(pickerRow, "MapSelect"), selectionHeight);
             Stretch(mapPicker);
             mapPrevButton = CreateLayoutArrowButton(mapPicker, isLeft: true);
-            mapPreviewImage = CreateMapPreviewImage(mapPicker);
+            CreateMapStack(mapPicker);
             mapNextButton = CreateLayoutArrowButton(mapPicker, isLeft: false);
 
             var categoryPicker = CreateHorizontalPickerRow(
-                CreateHalf(pickerRow, "CategorySelect", 0.5f, 1f),
-                pickerHeight);
+                CreateSplitCell(pickerRow, "CategorySelect"),
+                selectionHeight);
             Stretch(categoryPicker);
             categoryPrevButton = CreateLayoutArrowButton(categoryPicker, isLeft: true);
             categoryPrevButton.gameObject.name = "CategoryPrev";
             categoryText = CreatePickerValueText(
                 categoryPicker,
                 PlaySettingsCategoryCatalog.Default.Label,
-                pickerHeight);
+                selectionHeight);
             categoryNextButton = CreateLayoutArrowButton(categoryPicker, isLeft: false);
             categoryNextButton.gameObject.name = "CategoryNext";
-
-            var nameRow = CreateLayoutRow(parent, PlaySettingsStyle.FontSize.MapName + 8f);
-            nameRow.name = "MapNameRow";
-            mapNameText = CreateCenteredText(
-                CreateHalf(nameRow, "MapName", 0f, 0.5f),
-                string.Empty,
-                PlaySettingsStyle.FontSize.MapName,
-                PlaySettingsStyle.Palette.Text);
         }
 
-        private static RectTransform CreateHalf(RectTransform parent, string name, float minX, float maxX)
+        private RectTransform CreateSplitRow(RectTransform parent, string name, float height)
+        {
+            var row = CreateLayoutRow(parent, height);
+            row.name = name;
+            var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = true;
+            layout.spacing = 0f;
+            return row;
+        }
+
+        private static RectTransform CreateSplitCell(RectTransform parent, string name)
         {
             var rect = CreateRect(name, parent);
-            rect.anchorMin = new Vector2(minX, 0f);
-            rect.anchorMax = new Vector2(maxX, 1f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
+            var element = rect.gameObject.AddComponent<LayoutElement>();
+            element.flexibleWidth = 1f;
+            element.minWidth = 0f;
+            element.preferredWidth = 0f;
             return rect;
+        }
+
+        private void CreateMapStack(RectTransform parent)
+        {
+            var previewSize = PlaySettingsStyle.Layout.MapPreviewSize;
+            var nameHeight = PlaySettingsStyle.Layout.MapNameHeight;
+            var spacing = PlaySettingsStyle.Layout.MapNameSpacing;
+            var stackHeight = previewSize.y + spacing + nameHeight;
+
+            var stack = CreateRect("MapStack", parent);
+            var element = stack.gameObject.AddComponent<LayoutElement>();
+            element.preferredWidth = previewSize.x;
+            element.minWidth = previewSize.x;
+            element.preferredHeight = stackHeight;
+            element.minHeight = stackHeight;
+
+            var layout = stack.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.UpperCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+            layout.spacing = spacing;
+
+            mapPreviewImage = CreateMapPreviewImage(stack);
+            mapNameText = CreateMapNameText(stack, previewSize.x, nameHeight);
+        }
+
+        private static Text CreateMapNameText(RectTransform parent, float width, float height)
+        {
+            var row = CreateRect("MapName", parent);
+            var element = row.gameObject.AddComponent<LayoutElement>();
+            element.preferredWidth = width;
+            element.minWidth = width;
+            element.preferredHeight = height;
+            element.minHeight = height;
+
+            var label = row.gameObject.AddComponent<Text>();
+            label.text = string.Empty;
+            label.font = BodyFont();
+            label.fontSize = PlaySettingsStyle.FontSize.MapName;
+            label.color = PlaySettingsStyle.Palette.Text;
+            label.alignment = TextAnchor.UpperCenter;
+            label.raycastTarget = false;
+            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            label.verticalOverflow = VerticalWrapMode.Overflow;
+            return label;
+        }
+
+        private static Text CreateCenteredLabel(RectTransform parent, string text, int fontSize)
+        {
+            var label = parent.gameObject.AddComponent<Text>();
+            label.text = text;
+            label.font = BodyFont();
+            label.fontSize = fontSize;
+            label.color = PlaySettingsStyle.Palette.Text;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.raycastTarget = false;
+            ApplySingleLine(label);
+            return label;
         }
 
         private static void ConfigureVerticalGroup(RectTransform rect, TextAnchor alignment, float spacing)
@@ -706,20 +767,6 @@ namespace Game.Client.Lobby
             label.font = BodyFont();
             label.fontSize = PlaySettingsStyle.FontSize.Body;
             label.color = PlaySettingsStyle.Palette.Text;
-            label.alignment = TextAnchor.MiddleCenter;
-            label.raycastTarget = false;
-            ApplySingleLine(label);
-            return label;
-        }
-
-        private static Text CreateCenteredText(RectTransform parent, string text, int fontSize, Color color)
-        {
-            Stretch(parent);
-            var label = parent.gameObject.AddComponent<Text>();
-            label.text = text;
-            label.font = BodyFont();
-            label.fontSize = fontSize;
-            label.color = color;
             label.alignment = TextAnchor.MiddleCenter;
             label.raycastTarget = false;
             ApplySingleLine(label);

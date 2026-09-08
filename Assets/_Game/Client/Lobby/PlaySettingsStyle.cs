@@ -18,11 +18,12 @@ namespace Game.Client.Lobby
         public const float SidePadding = 40f;
         public const float RowHeight = 88f;
         public const float RowSpacing = 8f;
-        public const float MapSectionHeight = 228f;
+        public static float MapSectionHeight =>
+            Layout.SectionTitleHeight + Layout.MapColumnSpacing + Layout.SelectionRowHeight;
         public const float ApplyPaddingHorizontal = 80f;
         public const float ApplyPaddingVertical = 11f;
         public const int ApplyButtonRadius = 32;
-        public const int LayoutVersion = 21;
+        public const int LayoutVersion = 22;
 
         public const string RegularFontResource = "Fonts/Paperlogy-4Regular";
         public const string MediumFontResource = "Fonts/Paperlogy-5Medium";
@@ -80,8 +81,13 @@ namespace Game.Client.Lobby
             public const float ControlSpacing = 24f;
             public const float PickerSpacing = 16f;
             public const float MapColumnSpacing = 8f;
+            public const float MapNameSpacing = 8f;
+            public const float MapNameHeight = 52f;
             public const float SectionTitleHeight = 36f;
             public const float CategoryValueMinWidth = 200f;
+
+            public static float SelectionRowHeight =>
+                MapPreviewSize.y + MapNameSpacing + MapNameHeight;
         }
 
         public static class MapSlotPalette
