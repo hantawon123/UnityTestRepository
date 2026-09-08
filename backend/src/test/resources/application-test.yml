@@ -46,3 +46,8 @@ analytics:
     url: ${test.analytics.url}
     username: ${test.analytics.username}
     password: ${test.analytics.password}
+
+# HELLO 마감을 짧게 둡니다. 마감을 시험하는 테스트가 기본값 5초를 기다리면 스위트가 느려집니다.
+# 정상 경로 테스트는 연결 직후 HELLO 를 보내므로 1초 안에 넉넉히 들어옵니다.
+notifications:
+  hello-timeout-ms: 1000
