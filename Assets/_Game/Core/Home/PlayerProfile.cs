@@ -42,6 +42,34 @@ namespace Game.Core.Home
         public string Nickname { get; private set; }
 
         /// <summary>
+        /// The account this player signed in as, or empty before sign-in and
+        /// when sign-in failed.
+        /// </summary>
+        /// <remarks>
+        /// Not saved with the profile. The account is asked for on every launch,
+        /// which is also what keeps this right after the account is deleted or
+        /// recreated elsewhere. It rides beside the nickname because it travels
+        /// the same road into a room: in the connection token, then onto the
+        /// character every peer sees, so the host can say whose actions it is
+        /// reporting. Identification, not authentication — the device id never
+        /// goes this way.
+        /// </remarks>
+        public string UserId { get; private set; } = string.Empty;
+
+        /// <summary>Mirrors the account the server issued. Empty forgets it.</summary>
+        public void AdoptUserId(string userId)
+        {
+            var next = string.IsNullOrWhiteSpace(userId) ? string.Empty : userId.Trim();
+            if (string.Equals(UserId, next, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            UserId = next;
+            Changed?.Invoke(this);
+        }
+
+        /// <summary>
         /// Whether this player has settled on a name. False means the server's
         /// temporary one is still in use and the one change is still available.
         /// </summary>

@@ -33,7 +33,7 @@ namespace Game.Network.Session
             Debug.Log($"[Network] Player joined: {player}.");
             // Snapshot seats must be restored before a join can allocate a new one.
             if (_hostMigrationInProgress) return;
-            _spawner?.Spawn(runner, player, NicknameOf(runner, player));
+            _spawner?.Spawn(runner, player, NicknameOf(runner, player), UserIdOf(runner, player));
             ReportPlayerCount();
         }
 
@@ -391,7 +391,8 @@ namespace Game.Network.Session
                     },
                     ConnectionToken = SessionConnectionTokenCodec.Encode(
                         _expectedPassword,
-                        _profile?.Nickname),
+                        _profile?.Nickname,
+                        _profile?.UserId),
                     SceneManager = sceneManager,
                     Scene = migrationScene,
                 });

@@ -330,6 +330,32 @@ namespace Game.Network.Session
         }
 
         /// <summary>
+        /// The backend account a player presented on joining, or empty. Read the
+        /// same way as the nickname: from the profile for the local player, whose
+        /// token this peer never receives, and from the connection token for
+        /// everyone else.
+        /// </summary>
+        /// <remarks>
+        /// Not sanitised the way a nickname is. It is never shown, and a value
+        /// that is not a plain account id is simply not one the backend will
+        /// recognise — the host sends it as presented and the server answers.
+        /// </remarks>
+        private string UserIdOf(NetworkRunner runner, PlayerRef player)
+        {
+            if (player == runner.LocalPlayer)
+            {
+                return _profile?.UserId ?? string.Empty;
+            }
+
+            SessionConnectionTokenCodec.Decode(
+                runner.GetPlayerConnectionToken(player),
+                out _,
+                out _,
+                out var presented);
+            return presented ?? string.Empty;
+        }
+
+        /// <summary>
         /// Makes a name presented by another peer safe to show.
         /// </summary>
         /// <remarks>
@@ -759,7 +785,8 @@ namespace Game.Network.Session
                     SanitiseNickname(_profile?.Nickname)),
                 ConnectionToken = SessionConnectionTokenCodec.Encode(
                     request.Password,
-                    _profile?.Nickname),
+                    _profile?.Nickname,
+                    _profile?.UserId),
                 EnableClientSessionCreation = request.AllowCreate,
                 SceneManager = sceneManager,
                 Scene = CaptureCurrentScene(),

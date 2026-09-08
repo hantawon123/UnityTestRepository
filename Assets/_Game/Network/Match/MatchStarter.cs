@@ -60,6 +60,13 @@ namespace Game.Network.Match
         private bool _returningToLobby;
         private bool _lastPublishedStarted;
         private string[] _countdownParticipants;
+
+        /// <summary>
+        /// Backend accounts for <see cref="_countdownParticipants"/>, index for
+        /// index. Captured together so the line-up confirmed at the end of the
+        /// countdown is the one that was shown when it began.
+        /// </summary>
+        private string[] _countdownUserIds;
         public bool IsStartPending => HasValidState && _state.StartCountdownEndsAt > 0d;
         public double StartCountdownEndsAt => HasValidState ? _state.StartCountdownEndsAt : 0d;
 
@@ -148,12 +155,15 @@ namespace Game.Network.Match
 
             var participants = MatchParticipant.FromRoomParticipants(_room);
             var participantIds = new string[participants.Length];
+            var participantUserIds = new string[participants.Length];
             for (var index = 0; index < participants.Length; index++)
             {
                 participantIds[index] = participants[index].PlayerId;
+                participantUserIds[index] = participants[index].UserId ?? string.Empty;
             }
 
             _countdownParticipants = participantIds;
+            _countdownUserIds = participantUserIds;
             state.StartCountdownEndsAt = runner.SimulationTime + 10d;
         }
 
@@ -171,13 +181,16 @@ namespace Game.Network.Match
             {
                 _state.StartCountdownEndsAt = 0d;
                 _countdownParticipants = null;
+                _countdownUserIds = null;
                 return;
             }
             if (runner.SimulationTime < _state.StartCountdownEndsAt) return;
             var participantIds = _countdownParticipants;
+            var participantUserIds = _countdownUserIds;
             _countdownParticipants = null;
+            _countdownUserIds = null;
             _state.StartCountdownEndsAt = 0d;
-            _state.Confirm(participantIds);
+            _state.Confirm(participantIds, participantUserIds);
             Debug.Log($"[Match] Started with {participantIds.Length} players.");
 
             // After the line-up is frozen, not before: the map replaces this
@@ -212,7 +225,10 @@ namespace Game.Network.Match
                     // The position in the replicated array is the playerIndex.
                     // Seat numbers are not used here: they are reused as people
                     // come and go and can leave gaps.
-                    _playing.Add(new MatchParticipant(state.Participants.Get(index).ToString(), index));
+                    _playing.Add(new MatchParticipant(
+                        state.Participants.Get(index).ToString(),
+                        index,
+                        state.ParticipantUserIds.Get(index).ToString()));
                 }
             }
 

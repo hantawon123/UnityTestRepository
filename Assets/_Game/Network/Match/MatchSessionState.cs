@@ -168,6 +168,24 @@ namespace Game.Network.Match
         [Networked, Capacity(MaxParticipants)]
         public NetworkArray<NetworkString<_16>> Participants => default;
 
+        /// <summary>
+        /// The backend account behind each entry of <see cref="Participants"/>,
+        /// at the same index. Empty for a player who did not sign in.
+        /// </summary>
+        /// <remarks>
+        /// Beside the line-up rather than looked up from the avatars, because a
+        /// participant who leaves takes their avatar with them and the match
+        /// still has to say whose actions those were. Replicated state, so a
+        /// late joiner and the next host read it without being told.
+        /// <para>
+        /// 64 because the server's public id is a 36-character UUID and Fusion's
+        /// fixed sizes are powers of two. Six of these add 1.5 KB to a state
+        /// object that lives on a 64 KB heap page.
+        /// </para>
+        /// </remarks>
+        [Networked, Capacity(MaxParticipants)]
+        public NetworkArray<NetworkString<_64>> ParticipantUserIds => default;
+
         [Networked, Capacity(MaxParticipants)]
         public NetworkArray<NetworkBool> ParticipantActive => default;
 
@@ -295,14 +313,28 @@ namespace Game.Network.Match
         /// Writes the confirmed line-up. Authority only; everyone else receives
         /// it through replication.
         /// </summary>
-        public void Confirm(string[] participantIds)
+        /// <param name="participantUserIds">
+        /// One per participant, at the same index, or null to record none.
+        /// A length that disagrees with <paramref name="participantIds"/> is
+        /// refused loudly: the two arrays are read side by side, and a silent
+        /// shift would credit one player's actions to another.
+        /// </param>
+        public void Confirm(string[] participantIds, string[] participantUserIds = null)
         {
+            if (participantUserIds != null && participantUserIds.Length != participantIds.Length)
+            {
+                throw new ArgumentException(
+                    "Participant user ids must line up with participant ids.",
+                    nameof(participantUserIds));
+            }
+
             ClearObjectStates();
             var count = Mathf.Min(participantIds.Length, MaxParticipants);
 
             for (var index = 0; index < count; index++)
             {
                 Participants.Set(index, participantIds[index]);
+                ParticipantUserIds.Set(index, participantUserIds?[index] ?? string.Empty);
                 ParticipantActive.Set(index, true);
             }
 
@@ -321,6 +353,7 @@ namespace Game.Network.Match
             for (var index = 0; index < ParticipantCount; index++)
             {
                 Participants.Set(index, default);
+                ParticipantUserIds.Set(index, default);
                 ParticipantActive.Set(index, false);
                 StunEndsAt.Set(index, 0d);
                 RemainingDestructionUses.Set(index, 0);
