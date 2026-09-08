@@ -11,7 +11,8 @@ fetch('./current.json', {cache: 'no-store'})
   .then(response => {if (!response.ok) throw new Error(); return response.json();})
   .then(({revision}) => {
     if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error();
-    location.replace('./releases/' + revision + '/');
+    const diagnostics = new URLSearchParams(location.search).get('perf') === '1' ? '?perf=1' : '';
+    location.replace('./releases/' + revision + '/' + diagnostics);
   })
   .catch(() => {document.getElementById('status').textContent = '게임을 준비하고 있습니다. 잠시 후 새로고침해 주세요.';});
 </script>

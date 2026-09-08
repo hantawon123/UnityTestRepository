@@ -28,7 +28,7 @@ namespace Game.Client.Match
     }
 
     /// <summary>한 줄 입력과 최근 메시지만 표시하는 인게임 채팅 View.</summary>
-    public sealed class MatchChatView : MonoBehaviour, IChatView
+    public sealed class MatchChatView : MonoBehaviour, IChatView, ICancelHandler
     {
         public const int VisibleMessageCount = 4;
         public const float NameFontSize = 14f;
@@ -301,6 +301,11 @@ namespace Game.Client.Match
 
         private void Update()
         {
+            if (activated && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            {
+                Deactivate();
+                return;
+            }
             if (!WasEnterPressedThisFrame())
             {
                 return;
@@ -445,6 +450,12 @@ namespace Game.Client.Match
         public void Deactivate()
         {
             SetActivated(false);
+        }
+
+        public void OnCancel(BaseEventData eventData)
+        {
+            Deactivate();
+            eventData.Use();
         }
 
         private IEnumerator FocusInputNextFrame()

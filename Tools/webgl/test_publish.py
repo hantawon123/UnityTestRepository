@@ -8,7 +8,7 @@ with tempfile.TemporaryDirectory() as directory:
     root = Path(directory) / 'site'
     build = Path(directory) / 'build'
     (build / 'Build').mkdir(parents=True)
-    (build / 'index.html').write_text('<html><head></head><body>game</body></html>')
+    (build / 'index.html').write_text('<html><head></head><body><script>unityInstance.SetFullscreen(1);</script></body></html>')
     for suffix in ('.wasm.gz', '.data.gz', '.framework.js.gz', '.loader.js'):
         (build / 'Build' / ('test' + suffix)).write_bytes(b'fixture')
     first, second = 'a' * 40, 'b' * 40
@@ -62,4 +62,6 @@ with tempfile.TemporaryDirectory() as directory:
     assert json.loads(pointer.read_text()) == {'revision': second, 'sequence': 2}
     assert 'release-info.js' in (root / 'releases' / first / 'index.html').read_text()
     assert 'width:min(960px,100vw)' in (root / 'releases' / first / 'index.html').read_text()
+    assert '.requestFullscreen()' in (root / 'releases' / first / 'index.html').read_text()
+    assert 'unityInstance.SetFullscreen(1)' not in (root / 'releases' / first / 'index.html').read_text()
 print('Publication, ordering, rollback and failed-deployment checks passed')

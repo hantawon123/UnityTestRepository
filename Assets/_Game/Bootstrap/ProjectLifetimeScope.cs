@@ -120,6 +120,13 @@ namespace Game.Bootstrap
             inputObject.SetActive(true);
             builder.RegisterComponent(eventSystem);
 
+#if UNITY_WEBGL && !UNITY_EDITOR
+            var webText = new GameObject("Web Text Input").AddComponent<Game.Client.Common.WebTextInput>();
+            webText.transform.SetParent(transform, false);
+            builder.RegisterComponent(webText);
+            builder.RegisterComponent(webText.gameObject.AddComponent<Game.Client.Common.WebFrameCapture>());
+#endif
+
             builder.Register<UnityHomeApplicationHost>(Lifetime.Singleton).As<IHomeApplicationHost>();
             builder.RegisterEntryPoint<FrontendSceneCoordinator>().AsSelf();
             builder.RegisterEntryPoint<NetworkRoomDisconnectController>();
