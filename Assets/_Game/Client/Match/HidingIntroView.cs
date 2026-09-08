@@ -18,7 +18,7 @@ namespace Game.Client.Match
     [DisallowMultipleComponent]
     public sealed class HidingIntroView : MonoBehaviour, IHidingIntroView
     {
-        public const float VisibleSeconds = 3f;
+        public const float VisibleSeconds = Game.Core.Match.MatchIntroTiming.VisibleSeconds;
         public const float MessageFontSize = 55f;
         public const float HintFontSize = 55f;
         public const string HintText =

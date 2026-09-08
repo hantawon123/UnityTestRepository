@@ -250,6 +250,7 @@ namespace Game.Bootstrap
                     }
                 }
 
+                if (migration == null) created.Session.EnablePhaseIntros();
                 if (!network.BindMatchSession(
                         created.Session,
                         configuration.ShredderEjectionPose) ||
@@ -483,10 +484,10 @@ namespace Game.Bootstrap
                                      session.TryGetResult(out var matchResult) &&
                                      now < matchResult.EndedAt +
                                      MatchSessionCoordinator.HighlightPostRollSeconds;
-                var enabled = phase == MatchPhase.Hiding ||
+                var enabled = !session.IsPhaseIntro(now) && (phase == MatchPhase.Hiding ||
                                (phase == MatchPhase.Searching &&
                                 !session.IsPlayerStunned(playerIndex, now)) ||
-                               isEndCountdown;
+                               isEndCountdown);
                 if (hasSynchronizedPlayers &&
                     synchronizedControls[playerIndex] == enabled)
                 {

@@ -14,6 +14,22 @@ namespace Game.Server.Match
         private readonly float hidingTurnDurationSeconds;
         private readonly float searchingDurationSeconds;
         private double? highlightPresentationDuration;
+        private bool phaseIntrosEnabled;
+        public double PhaseIntroDurationSeconds => phaseIntrosEnabled ? MatchIntroTiming.VisibleSeconds : 0d;
+
+        public void EnablePhaseIntros()
+        {
+            if (state.CurrentPhase.CurrentValue != MatchPhase.Waiting)
+                throw new InvalidOperationException("Enable phase intros before starting the match.");
+            phaseIntrosEnabled = true;
+        }
+
+        public bool IsPhaseIntro(double now) => phaseIntrosEnabled &&
+            (state.CurrentPhase.CurrentValue == MatchPhase.Hiding ||
+             state.CurrentPhase.CurrentValue == MatchPhase.Searching) &&
+            now < state.PhaseEndsAt.CurrentValue -
+                (state.CurrentPhase.CurrentValue == MatchPhase.Hiding
+                    ? HidingDurationSeconds : SearchingDurationSeconds);
 
         public void SetHighlightPresentationDuration(double duration)
         {
@@ -81,7 +97,13 @@ namespace Game.Server.Match
         public double GetRemainingSeconds(double now)
         {
             ValidateTime(now);
-            return Math.Max(0d, state.PhaseEndsAt.CurrentValue - now);
+            var remaining = Math.Max(0d, state.PhaseEndsAt.CurrentValue - now);
+            return state.CurrentPhase.CurrentValue switch
+            {
+                MatchPhase.Hiding => Math.Min(HidingDurationSeconds, remaining),
+                MatchPhase.Searching => Math.Min(SearchingDurationSeconds, remaining),
+                _ => remaining
+            };
         }
 
         public bool IsFinalPeriod(double now)
@@ -181,6 +203,8 @@ namespace Game.Server.Match
                     MatchRulesSO.MaxHighlightCount * HighlightPresentationTiming.OverheadSeconds);
             var actualDuration = phase == MatchPhase.Highlight && highlightPresentationDuration.HasValue
                 ? highlightPresentationDuration.Value : duration;
+            if (phaseIntrosEnabled && (phase == MatchPhase.Hiding || phase == MatchPhase.Searching))
+                actualDuration += MatchIntroTiming.VisibleSeconds;
             state.EnterPhase(phase, actualDuration > 0d ? startedAt + actualDuration : 0d);
         }
 

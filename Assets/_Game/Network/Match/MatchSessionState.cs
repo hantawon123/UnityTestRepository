@@ -297,6 +297,7 @@ namespace Game.Network.Match
         /// </summary>
         public void Confirm(string[] participantIds)
         {
+            ClearObjectStates();
             var count = Mathf.Min(participantIds.Length, MaxParticipants);
 
             for (var index = 0; index < count; index++)
@@ -350,6 +351,22 @@ namespace Game.Network.Match
             WinnerCount = 0;
             IsStarted = false;
             return true;
+        }
+
+        private void ClearObjectStates()
+        {
+            for (var i = 0; i < ObjectStateCount; i++) ObjectStates.Set(i, default);
+            ObjectStateCount = 0;
+            ObjectStateRevision++;
+        }
+
+        public bool TryResetLobbyObjects(IReadOnlyList<WorldObjectState> objects)
+        {
+            if (Object == null || !Object.HasStateAuthority || IsStarted ||
+                objects == null || objects.Count > MaxReplicatedObjects) return false;
+            foreach (var item in objects) if (!IsValidObjectId(item.ObjectId)) return false;
+            ClearObjectStates();
+            return TryResetWorldObjects(objects);
         }
 
         public bool TrySetParticipantInactive(int playerIndex)
