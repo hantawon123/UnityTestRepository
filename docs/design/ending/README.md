@@ -115,6 +115,8 @@
   - 결과 화면 동안 로컬 플레이어가 자기 캐릭터를 움직일 수 있었음(카메라는 무대 고정이라 복제본은 그대로지만 원본이 맵을 돌아다님). 로비 Esc 메뉴와 같은 잠금(`PlayerMovement.IsMovementLocked`, `PlayerInteractor.IsInputLocked`)을 무대 표시 동안 걸고 종료 시 해제.
 - 세 번째 테스트(실제 텔레포트 방식): 호스트 로그 `[PlayerTeleport] … target=(-2.50, -300.00, -0.80) success=True`로 철창 안 자리 이동 확인. 그러나 **움직일 수 없음** → 권한자의 조작 정책(`NetworkMatchRuntimeCoordinator.SynchronizePlayers`)이 숨기기·탐색 단계에서만 조작을 켜고 결과·하이라이트 단계(`MatchPhase.Highlight`)에서는 끄기 때문.
   - 수정: 하이라이트 단계라도 **결과 씬이 떠 있는 동안**(`INetworkResultNavigation.IsResultSceneLoaded`)은 조작을 켠다. 결과 씬이 내려가 리플레이로 넘어가면 자동으로 다시 꺼짐. 테스트의 가짜 권한자는 해당 인터페이스가 없어 기존 동작 유지.
+- 네 번째 테스트: 움직이긴 하나 **WASD 기준이 이상함**. 원인은 이동이 각자의 플레이어 카메라 리그(무대에서는 보이지 않음) 기준이고, 몸이 그 카메라 방향을 향하는 기본 규칙 때문. 요구: W = 화면 안쪽(카메라에서 멀어짐), S = 카메라 쪽, A/D = 화면 좌우, 처음 방향은 체포자 카메라 쪽·탈출자 등지기.
+  - 수정: `PlayerMovement.SetStageControl(Transform)` — 지정되면 이동은 그 참조(무대 카메라)의 앞·오른쪽 기준으로 계산하고, 입력 의도를 "이동 방향으로 전진 + 그 방향의 yaw"로 바꿔 보낸다. 모터는 lookYaw로 몸을 돌리므로 **몸이 이동 방향을 향하고**, 멈추면 현재 방향을 유지(텔레포트로 준 초기 방향 그대로). `EndingStagePresenter`가 로컬 아바타에 지정·해제.
 
 ## 참고 파일
 - 결과 흐름: `Assets/_Game/Bootstrap/ResultLifetimeScope.cs`, `NetworkResultLobbyReturnController.cs`, `Assets/_Game/Content/Scenes/Result.unity`
