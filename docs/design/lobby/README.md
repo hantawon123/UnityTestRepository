@@ -16,7 +16,7 @@
 - `basement-plan-board-v1.png` — 서벽 공구판을 작전 계획판으로 쓰는 방 설정 상호작용 확인 화면
 - `basement-lighting-bake-v2.png` — 조명 2차(포인트 라이트 베이크 전환·태양광 냉색·포스트프로세스) 재베이크 결과. 동북 스폰 구역에서 작업대 방향
 - `basement-plan-board-v2-outline.png` — 공구판+책상을 하나로 묶은 작전 계획판에 흰색 5 px 실루엣을 켠 모습(플레이 모드)
-- `basement-plan-board-v3-label.png` — 실루엣 위에 공중 라벨 "ROOM SETTING ▼"을 더한 최종 안(플레이 모드, 임시 카메라라 실제보다 약간 회색)
+- `basement-plan-board-v3-label.png` — 실루엣 위에 공중 라벨 "ROOM SETTING ▼"을 더한 최종 안. 실제 방 생성→로비 입장 흐름의 스폰 지점에서 본 화면
 - `posters/` — WANTED 포스터 원본 이미지 4종(1024×1536). 데칼 아틀라스 합성에 사용
 
 ## 제작 경과
@@ -100,6 +100,7 @@
   - **표시 방식 비교 (2026-09-08)**: 플레이 모드에서 런타임 값만 바꿔 A 검정 테두리 5 px / B 반투명 흰 막(URP Unlit Transparent, α 0.28) / C 검정 4 px + 약한 막(α 0.18) / D 공중 라벨을 비교. **결정: D + 흰 5 px 실루엣 유지.** 검정 테두리는 만화풍 외곽선처럼 보여 다른 소품과 톤이 어긋나고, 막은 원목·공구판 질감을 죽였다.
   - **공중 라벨 (2026-09-08, 619)**: `LobbyPlanBoard/Label` 자식에 3D TextMeshPro 두 개("ROOM SETTING" 2.1, "▼" 2.2, 폰트 Paperlogy-7Bold). 작업대 윗면 +0.55 m(y 2.54, 선반 위 Fragile 상자 2.24보다 위), 책상 중심 x/z. `LobbyPlanBoardLabel`이 매 프레임 `Camera.main`을 향해 수평 회전하고 화살표를 ±4 cm/1.2 Hz로 흔든다. 켜고 끄기는 `LobbyPlanBoardInteractable.label`이 실루엣과 함께 Bind/Unbind에 맞춰 처리(씬에는 꺼진 채 저장). 재질은 전용 에셋 `MAT_PlanBoardLabel.mat`(폰트 재질 복제 + Face HDR 1.8·Dilate 0.12·검정 외곽선 0.22) — 순백 1.0은 포스트프로세스 톤매핑에 눌려 회색빛으로 보였고, HDR 밝기로 블룸이 살짝 얹히며 또렷해짐. 런타임 재질 인스턴스를 씬에 남기면 참조가 깨지므로 에셋으로 만든 것. 테스트: `Bind_ShowsLabel_UnbindHidesIt`.
   - 라벨 문구는 방장/비방장 공통 "ROOM SETTING"(비방장은 읽기 전용). 한글 전환·방장별 문구는 필요 시 메뉴 상수만 바꾸면 됨.
+  - **실제 입장 흐름에서 안 보이던 문제 (2026-09-08)**: Lobby 씬만 단독 재생하면 정상이었지만, Home→방 생성→로비 입장에서는 `bound=true`인데 실루엣·라벨이 꺼져 있었다. 로비 씬은 `NetworkRunnerService`가 백그라운드 프리로드(activation gate) 후 Fusion에 넘기는데, 그 사이 씬 오브젝트가 한 번 비활성/재활성되어 `OnDisable`이 숨긴 뒤 다시 켜 주는 곳이 없었다. `LobbyPlanBoardInteractable.OnEnable`에서 바인딩 상태에 맞춰 다시 표시하도록 수정. 검증은 에디터 플레이 모드에서 `IRoomBrowser.CreateAsync` + `NetworkRunnerService.EnterLobbyScene()`을 코드로 호출해 실제 흐름을 재현(MCP execute_code). **교훈: 로비 기능은 씬 단독 재생이 아니라 방 생성 흐름으로 검증해야 한다.**
 - **테스트 중 관찰**: 동료 클라이언트가 옛 로비(창고) 씬을 갖고 있으면 그 플레이어가 지하실 벽을 통과해 밖에 서 있는 것처럼 보인다. 충돌은 각자 로컬 씬으로 계산하므로 같은 브랜치/머지 상태를 맞춰야 한다. 별개로 서벽 모듈 콜라이더는 높이 2.5 m까지만 있어 사물함 위 점프로 넘을 수 있으나, 벽에 붙인 경계 콜라이더가 밖으로 나가는 것은 막는다(필요 시 벽 상단 콜라이더 추가).
 
 ### 10. 조명 2차와 정리 (2026-09-07, 614·609)

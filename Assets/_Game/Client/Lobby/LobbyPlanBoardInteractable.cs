@@ -87,6 +87,17 @@ namespace Game.Client.Lobby
             onInteract.Invoke();
         }
 
+        /// <remarks>
+        /// 로비 씬은 백그라운드로 미리 로드된 뒤 Fusion이 넘겨받는데, 그 사이에 씬
+        /// 오브젝트가 한 번 꺼지고 다시 켜진다. 바인딩은 그 전에 끝나 있어 OnDisable이
+        /// 숨긴 실루엣·라벨을 다시 켜 줄 곳이 여기밖에 없다(실제 입장 흐름에서
+        /// bound=true인데 둘 다 꺼져 있던 문제).
+        /// </remarks>
+        private void OnEnable()
+        {
+            SetHighlightVisible(IsBound);
+        }
+
         private void OnDisable()
         {
             SetHighlightVisible(false);
