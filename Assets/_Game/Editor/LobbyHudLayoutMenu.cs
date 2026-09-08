@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Game.Bootstrap;
 using Game.Client;
 using Game.Client.Lobby;
+using Game.Client.Rooms;
 using Game.Client.Match;
 using Game.Client.Voice;
 using UnityEditor;
@@ -190,11 +191,8 @@ namespace Game.Editor
                 SetLabel(panel, string.Empty);
             }
 
-            Place(panel, Anchor.Center, Vector2.zero, new Vector2(760f, 580f));
-            EnsurePlaySettingsChildren(panel);
+            Place(panel, Anchor.Center, Vector2.zero, PlaySettingsStyle.ModalSize);
 
-            // Keep the view on LobbyHud (always active). Hiding the panel must not
-            // disable the component or it will wipe HUD button listeners.
             var staleOnPanel = panel.GetComponent<PlaySettingsView>();
             if (staleOnPanel != null)
             {
@@ -207,47 +205,15 @@ namespace Game.Editor
                 view = Undo.AddComponent<PlaySettingsView>(root.gameObject);
             }
 
-            var mapScroll = panel.Find("MapScroll")?.GetComponent<ScrollRect>();
-            var mapContent = panel.Find("MapScroll/Viewport/MapContent") as RectTransform;
+            EnsurePlaySettingsChildren(panel);
+            var back = EnsureBackButton(root);
+            Place(back, Anchor.TopLeft, RoomBrowserStyle.Layout.BackButtonPosition, RoomBrowserStyle.Layout.BackButtonSize);
 
             var so = new SerializedObject(view);
             so.FindProperty("openButton").objectReferenceValue =
                 openButtonSlot.GetComponent<Button>();
-            so.FindProperty("closeButton").objectReferenceValue =
-                panel.Find("CloseButton")?.GetComponent<Button>();
-            so.FindProperty("copyRoomCodeButton").objectReferenceValue =
-                panel.Find("CopyRoomCodeButton")?.GetComponent<Button>();
-            so.FindProperty("inviteButton").objectReferenceValue =
-                panel.Find("InviteButton")?.GetComponent<Button>();
-            so.FindProperty("copyPasswordButton").objectReferenceValue =
-                panel.Find("CopyPasswordButton")?.GetComponent<Button>();
+            so.FindProperty("closeButton").objectReferenceValue = back.GetComponent<Button>();
             so.FindProperty("panel").objectReferenceValue = panel.gameObject;
-            so.FindProperty("titleText").objectReferenceValue =
-                panel.Find("TitleText")?.GetComponent<Text>();
-            so.FindProperty("roomCodeText").objectReferenceValue =
-                panel.Find("RoomCodeText")?.GetComponent<Text>();
-            so.FindProperty("passwordMaskedText").objectReferenceValue =
-                panel.Find("PasswordMaskedText")?.GetComponent<Text>();
-            so.FindProperty("maxPlayersText").objectReferenceValue =
-                panel.Find("MaxPlayersText")?.GetComponent<Text>();
-            so.FindProperty("maxPlayersMinusButton").objectReferenceValue =
-                panel.Find("MaxPlayersMinus")?.GetComponent<Button>();
-            so.FindProperty("maxPlayersPlusButton").objectReferenceValue =
-                panel.Find("MaxPlayersPlus")?.GetComponent<Button>();
-            so.FindProperty("destructionLimitText").objectReferenceValue =
-                panel.Find("DestructionText")?.GetComponent<Text>();
-            so.FindProperty("destructionMinusButton").objectReferenceValue =
-                panel.Find("DestructionMinus")?.GetComponent<Button>();
-            so.FindProperty("destructionPlusButton").objectReferenceValue =
-                panel.Find("DestructionPlus")?.GetComponent<Button>();
-            so.FindProperty("mapNameText").objectReferenceValue =
-                panel.Find("MapNameText")?.GetComponent<Text>();
-            so.FindProperty("mapPrevButton").objectReferenceValue =
-                panel.Find("MapPrevButton")?.GetComponent<Button>();
-            so.FindProperty("mapNextButton").objectReferenceValue =
-                panel.Find("MapNextButton")?.GetComponent<Button>();
-            so.FindProperty("mapScroll").objectReferenceValue = mapScroll;
-            so.FindProperty("mapContent").objectReferenceValue = mapContent;
 
             so.ApplyModifiedPropertiesWithoutUndo();
             panel.gameObject.SetActive(false);
@@ -256,65 +222,32 @@ namespace Game.Editor
 
         private static void EnsurePlaySettingsChildren(RectTransform panel)
         {
-            DisableIfExists(panel, "TitleInput");
-            DisableIfExists(panel, "PasswordToggle");
-            DisableIfExists(panel, "PasswordInput");
-            DisableIfExists(panel, "MapIdInput");
-            DisableIfExists(panel, "ApplyButton");
-            DisableIfExists(panel, "CopyButton");
-            for (var i = 0; i < 8; i++)
+            for (var i = panel.childCount - 1; i >= 0; i--)
             {
-                DisableIfExists(panel, $"MapSlot{i}");
+                DisableIfExists(panel, panel.GetChild(i).name);
+            }
+        }
+
+        private static RectTransform EnsureBackButton(RectTransform parent)
+        {
+            DisableIfExists(parent, "CloseButton");
+
+            var slot = parent.Find("BackButton") as RectTransform;
+            if (slot == null)
+            {
+                slot = GetOrCreateSlot(parent, "BackButton", Color.clear);
             }
 
-            HideSlotLabel(panel);
+            EnsureButton(slot.gameObject);
+            EnsureLabel(slot.gameObject);
+            SetLabel(slot, "← 이전", Mathf.RoundToInt(RoomBrowserStyle.FontSize.Back));
+            var label = slot.Find("Label")?.GetComponent<Text>();
+            if (label != null)
+            {
+                label.alignment = TextAnchor.MiddleLeft;
+            }
 
-            // Left-edge aligned columns (MiddleLeft), panel width 760.
-            const float labelLeft = 40f;
-            const float valueLeft = 200f;
-            const float actionLeft = 460f;
-            const float action2Left = 580f;
-            const float labelWidth = 150f;
-
-            EnsureFormLabel(panel, "TitleLabel", "방제목", labelLeft, 220f, labelWidth);
-            EnsureFormValue(panel, "TitleText", "초보방", valueLeft, 220f, 240f);
-
-            EnsureFormLabel(panel, "RoomCodeLabel", "방코드", labelLeft, 155f, labelWidth);
-            EnsureFormValue(panel, "RoomCodeText", "K7M2QF", valueLeft, 155f, 140f);
-            EnsureTextButtonLeft(panel, "CopyRoomCodeButton", "복사", actionLeft, 155f, new Vector2(96f, 36f));
-            EnsureTextButtonLeft(panel, "InviteButton", "초대", action2Left, 155f, new Vector2(96f, 36f));
-
-            EnsureFormLabel(panel, "PasswordLabel", "비밀번호", labelLeft, 90f, labelWidth);
-            EnsureFormValue(panel, "PasswordMaskedText", "****", valueLeft, 90f, 140f);
-            EnsureTextButtonLeft(panel, "CopyPasswordButton", "복사", actionLeft, 90f, new Vector2(96f, 36f));
-
-            EnsureFormLabel(panel, "MaxPlayersLabel", "인원", labelLeft, 25f, labelWidth);
-            EnsureStepButtonLeft(panel, "MaxPlayersMinus", isPlus: false, valueLeft, 25f);
-            EnsureFormValue(panel, "MaxPlayersText", "6", valueLeft + 52f, 25f, 48f, TextAnchor.MiddleCenter);
-            EnsureStepButtonLeft(panel, "MaxPlayersPlus", isPlus: true, valueLeft + 112f, 25f);
-
-            EnsureFormLabel(panel, "DestructionLabel", "파괴 가능 횟수", labelLeft, -40f, labelWidth);
-            EnsureStepButtonLeft(panel, "DestructionMinus", isPlus: false, valueLeft, -40f);
-            EnsureFormValue(panel, "DestructionText", "5", valueLeft + 52f, -40f, 48f, TextAnchor.MiddleCenter);
-            EnsureStepButtonLeft(panel, "DestructionPlus", isPlus: true, valueLeft + 112f, -40f);
-
-            EnsureFormLabel(panel, "MapLabel", "맵", labelLeft, -105f, labelWidth);
-            EnsureFormValue(panel, "MapNameText", "시장 골목", valueLeft, -105f, 320f);
-
-            const float mapSide = 40f;
-            const float mapMargin = 40f;
-            EnsureTextButtonLeft(panel, "MapPrevButton", "<", mapMargin, -210f, new Vector2(mapSide, 96f));
-            EnsureTextButtonLeft(
-                panel,
-                "MapNextButton",
-                ">",
-                760f - mapMargin - mapSide,
-                -210f,
-                new Vector2(mapSide, 96f));
-            EnsureMapScroll(panel, mapMargin + mapSide + 12f, 760f - ((mapMargin + mapSide + 12f) * 2f));
-
-            var close = EnsureTextButton(panel, "CloseButton", "×", new Vector2(0f, 0f), new Vector2(40f, 40f));
-            Place(close, Anchor.TopRight, new Vector2(-10f, -10f), new Vector2(40f, 40f));
+            return slot;
         }
 
         private static void EnsureMapScroll(RectTransform panel, float left, float width)

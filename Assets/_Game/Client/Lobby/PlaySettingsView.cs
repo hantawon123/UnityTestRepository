@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Character;
 using Game.Client.Home;
+using Game.Client.Rooms;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
 using UnityEngine;
@@ -38,11 +40,8 @@ namespace Game.Client.Lobby
         void RequestOpen();
     }
 
-    public sealed class PlaySettingsView : MonoBehaviour, IPlaySettingsView
+    public sealed partial class PlaySettingsView : MonoBehaviour, IPlaySettingsView
     {
-        private const float MapSlotSize = 90f;
-        private const float MapSlotSpacing = 12f;
-
         [SerializeField]
         private Button openButton;
 
@@ -50,64 +49,23 @@ namespace Game.Client.Lobby
         private Button closeButton;
 
         [SerializeField]
-        private Button copyRoomCodeButton;
-
-        [SerializeField]
-        private Button inviteButton;
-
-        [SerializeField]
-        private Button copyPasswordButton;
-
-        [SerializeField]
         private GameObject panel;
 
-        [SerializeField]
+        private Button copyRoomCodeButton;
         private Text titleText;
         private InputField titleInput;
-        private Button saveTitleButton;
         private string savedTitle = string.Empty;
-
-        [SerializeField]
         private Text roomCodeText;
-
-        [SerializeField]
-        private Text passwordMaskedText;
-
-        [SerializeField]
         private Text maxPlayersText;
-
-        [SerializeField]
         private Button maxPlayersMinusButton;
-
-        [SerializeField]
         private Button maxPlayersPlusButton;
-
-        [SerializeField]
         private Text destructionLimitText;
-
-        [SerializeField]
         private Button destructionMinusButton;
-
-        [SerializeField]
         private Button destructionPlusButton;
 
-        [SerializeField]
-        private Text mapNameText;
+        private GameObject overlayRoot;
 
-        [SerializeField]
-        private Button mapPrevButton;
-
-        [SerializeField]
-        private Button mapNextButton;
-
-        [SerializeField]
-        private ScrollRect mapScroll;
-
-        [SerializeField]
-        private RectTransform mapContent;
-
-        private static readonly float[] SprintOptions = { 0.5f, 1f, 1.5f, 2f, 3f };
-        private readonly List<Text> ruleValues = new();
+        private static readonly float[] SprintOptions = { 0.5f, 1f, 1.5f, 2f, 3f };        private readonly List<Text> ruleValues = new();
         private readonly List<Button> ruleMinus = new();
         private readonly List<Button> rulePlus = new();
 
@@ -121,8 +79,6 @@ namespace Game.Client.Lobby
         private bool editable;
         private MatchRuleSettings matchRules = MatchRuleSettings.Default;
         private IReadOnlyList<LobbyMapOption> maps = LobbyMapCatalog.Maps;
-        private readonly List<Image> mapSlotImages = new();
-        private readonly List<Button> mapSlotButtons = new();
         private readonly Dictionary<Button, UnityEngine.Events.UnityAction> boundActions = new();
 
         public event Action OpenRequested;
@@ -134,24 +90,22 @@ namespace Game.Client.Lobby
 
         private void OnEnable()
         {
-            EnsureRuleControls();
+            EnsureOverlay();
+            EnsureLayout();
             BindRuleControls();
-            EnsureTitleInput();
             if (titleInput != null) titleInput.onValueChanged.AddListener(OnTitleChanged);
-            Bind(saveTitleButton, () => SaveTitleRequested?.Invoke());
-            HomeUiFonts.ApplyLegacy(panel != null ? panel.transform : transform);
             Bind(openButton, () => OpenRequested?.Invoke());
             Bind(closeButton, RequestClose);
             Bind(copyRoomCodeButton, () => CopyRoomCodeRequested?.Invoke());
-            Bind(inviteButton, () => InviteRequested?.Invoke());
-            Bind(copyPasswordButton, () => CopyPasswordRequested?.Invoke());
+            Bind(applyButton, RequestClose);
             Bind(maxPlayersMinusButton, () => SetMaxPlayers(maxPlayers - 1));
             Bind(maxPlayersPlusButton, () => SetMaxPlayers(maxPlayers + 1));
             Bind(destructionMinusButton, () => SetDestructionLimit(destructionLimit - 1));
             Bind(destructionPlusButton, () => SetDestructionLimit(destructionLimit + 1));
-            Bind(mapPrevButton, () => ScrollMaps(-1));
-            Bind(mapNextButton, () => ScrollMaps(1));
-            BindMapSlots();
+            Bind(mapPrevButton, () => StepMapSelection(-1));
+            Bind(mapNextButton, () => StepMapSelection(1));
+            Bind(categoryPrevButton, () => SelectCategory(-1));
+            Bind(categoryNextButton, () => SelectCategory(1));
         }
 
         private void OnDisable()
@@ -159,12 +113,10 @@ namespace Game.Client.Lobby
             if (titleInput != null) titleInput.onValueChanged.RemoveListener(OnTitleChanged);
             foreach (var button in ruleMinus) Unbind(button);
             foreach (var button in rulePlus) Unbind(button);
-            Unbind(saveTitleButton);
+            Unbind(applyButton);
             Unbind(openButton);
             Unbind(closeButton);
             Unbind(copyRoomCodeButton);
-            Unbind(inviteButton);
-            Unbind(copyPasswordButton);
             Unbind(maxPlayersMinusButton);
             Unbind(maxPlayersPlusButton);
             Unbind(destructionMinusButton);
@@ -172,13 +124,49 @@ namespace Game.Client.Lobby
             Unbind(mapPrevButton);
             Unbind(mapNextButton);
             UnbindMapSlots();
+            Unbind(categoryPrevButton);
+            Unbind(categoryNextButton);
         }
 
         public void SetVisible(bool visible)
         {
+            EnsureOverlay();
+            EnsureLayout();
+            if (overlayRoot != null)
+            {
+                overlayRoot.SetActive(visible);
+            }
+
             if (panel != null)
             {
                 panel.SetActive(visible);
+            }
+
+            SetBackButtonVisible(visible);
+
+            if (visible)
+            {
+                RebuildSettingsScrollLayout();
+                EnsureMapUiReady();
+
+                RefreshCounters();
+                RefreshCategory();
+                RefreshMapSelection(scrollIntoView: false);
+                RefreshTitleCounter();
+                RefreshRoomCode();
+            }
+        }
+
+        private void RefreshRoomCode()
+        {
+            if (roomCodeText == null && settingsContent != null)
+            {
+                CacheRoomCodeRefs(settingsContent);
+            }
+
+            if (roomCodeText != null)
+            {
+                roomCodeText.text = roomCode;
             }
         }
 
@@ -193,22 +181,37 @@ namespace Game.Client.Lobby
         {
             editable = value;
             if (titleInput != null) titleInput.interactable = value;
-            RefreshTitleSave();
-            RefreshCounters();
             foreach (var button in mapSlotButtons)
-                if (button != null) button.interactable = editable;
+            {
+                if (button != null)
+                {
+                    button.interactable = value;
+                }
+            }
+
+            RefreshCounters();
+            RefreshCategory();
+            RefreshMapSelection(scrollIntoView: false);
         }
 
         public void SetDraft(PlaySettingsDraft draft)
         {
+            EnsureLayout();
             title = draft.Title;
             savedTitle = title;
             if (titleInput != null) titleInput.SetTextWithoutNotify(title);
-            RefreshTitleSave();
+            RefreshTitleCounter();
             roomCode = draft.RoomCode;
             passwordEnabled = draft.PasswordEnabled;
             password = draft.Password ?? string.Empty;
             matchRules = draft.MatchRules;
+            selectedCategoryIndex = PlaySettingsCategoryCatalog.IndexOf(matchRules.CategoryId);
+            if (selectedCategoryIndex < 0)
+            {
+                selectedCategoryIndex = PlaySettingsCategoryCatalog.DefaultIndex;
+                NormalizeCategoryRules();
+            }
+
             maxPlayers = Mathf.Clamp(
                 draft.MaxPlayers,
                 RoomSettings.MinPlayerCount,
@@ -227,15 +230,12 @@ namespace Game.Client.Lobby
                 titleText.text = title;
             }
 
-            if (roomCodeText != null)
-            {
-                roomCodeText.text = roomCode;
-            }
+            RefreshRoomCode();
 
-            EnsureMapSlotsBuilt();
+            EnsureMapUiReady();
             SetEditable(editable);
-            RefreshPasswordMask();
             RefreshCounters();
+            RefreshCategory();
             RefreshMapSelection(scrollIntoView: true);
         }
 
@@ -257,245 +257,68 @@ namespace Game.Client.Lobby
         {
             if (!editable) return;
             title = value;
-            RefreshTitleSave();
+            RefreshTitleCounter();
         }
 
-        private void RefreshTitleSave()
+        private void RefreshTitleCounter()
         {
-            if (saveTitleButton != null)
-                saveTitleButton.interactable = editable && RoomSettings.IsValidTitle(title) &&
-                    !string.Equals(title.Trim(), savedTitle, StringComparison.Ordinal);
+            if (titleCounterText != null)
+            {
+                titleCounterText.text = $"{title.Length}/{RoomSettings.MaxTitleLength}";
+            }
         }
 
-        private void EnsureTitleInput()
+        private void SelectCategory(int direction)
         {
-            if (titleInput != null || titleText == null) return;
-            var original = titleText.rectTransform;
-            var inputRect = new GameObject("Room title input", typeof(RectTransform), typeof(Image))
-                .GetComponent<RectTransform>();
-            inputRect.SetParent(original.parent, false);
-            inputRect.anchorMin = original.anchorMin; inputRect.anchorMax = original.anchorMax;
-            inputRect.offsetMin = original.offsetMin;
-            inputRect.offsetMax = original.offsetMax - new Vector2(90, 0);
-            inputRect.GetComponent<Image>().color = HomeStyle.Palette.InputFill;
-            var inputText = Instantiate(titleText, inputRect);
-            inputText.name = "Text";
-            inputText.rectTransform.anchorMin = Vector2.zero;
-            inputText.rectTransform.anchorMax = Vector2.one;
-            inputText.rectTransform.offsetMin = new Vector2(8, 0);
-            inputText.rectTransform.offsetMax = new Vector2(-8, 0);
-            titleInput = inputRect.gameObject.AddComponent<InputField>();
-            titleInput.textComponent = inputText;
-            titleInput.targetGraphic = inputRect.GetComponent<Image>();
-            titleInput.characterLimit = RoomSettings.MaxTitleLength;
-            titleInput.SetTextWithoutNotify(title);
-            titleInput.interactable = editable;
-            var saveRect = new GameObject("Save room title", typeof(RectTransform), typeof(Image), typeof(Button))
-                .GetComponent<RectTransform>();
-            saveRect.SetParent(original.parent, false);
-            saveRect.anchorMin = new Vector2(original.anchorMax.x, original.anchorMin.y);
-            saveRect.anchorMax = original.anchorMax;
-            saveRect.offsetMin = new Vector2(original.offsetMax.x - 80, original.offsetMin.y);
-            saveRect.offsetMax = original.offsetMax;
-            saveRect.GetComponent<Image>().color = HomeStyle.Palette.InputFill;
-            saveTitleButton = saveRect.GetComponent<Button>();
-            var label = Instantiate(titleText, saveRect);
-            label.rectTransform.anchorMin = Vector2.zero; label.rectTransform.anchorMax = Vector2.one;
-            label.rectTransform.offsetMin = label.rectTransform.offsetMax = Vector2.zero;
-            label.text = "저장";
-            label.alignment = TextAnchor.MiddleCenter;
-            label.raycastTarget = false;
-            titleText.gameObject.SetActive(false);
-            RefreshTitleSave();
-        }
-
-        private void ScrollMaps(int direction)
-        {
-            if (mapScroll == null || mapContent == null)
+            var options = PlaySettingsCategoryCatalog.All;
+            if (!editable || options.Count <= 1)
             {
                 return;
             }
 
-            var step = (MapSlotSize + MapSlotSpacing) / Mathf.Max(1f, mapContent.rect.width);
-            mapScroll.horizontalNormalizedPosition = Mathf.Clamp01(
-                mapScroll.horizontalNormalizedPosition + (direction * step));
+            selectedCategoryIndex = (selectedCategoryIndex + direction + options.Count) % options.Count;
+            NormalizeCategoryRules();
+            RefreshCategory();
         }
 
-        private void SelectMap(int index)
+        private void NormalizeCategoryRules()
         {
-            if (!editable || index < 0 || index >= maps.Count)
+            var categoryId = PlaySettingsCategoryCatalog.GetOption(selectedCategoryIndex).Id;
+            if (MatchRuleSettings.TryCreate(
+                    matchRules.HidingDurationSeconds,
+                    matchRules.SearchingDurationMinutes,
+                    matchRules.SprintMultiplier,
+                    matchRules.StunHitCount,
+                    categoryId,
+                    out var updated,
+                    out _))
             {
-                return;
-            }
-
-            selectedMapIndex = index;
-            RefreshMapSelection(scrollIntoView: true);
-        }
-
-        private void RefreshMapSelection(bool scrollIntoView)
-        {
-            if (maps.Count == 0)
-            {
-                return;
-            }
-
-            selectedMapIndex = Mathf.Clamp(selectedMapIndex, 0, maps.Count - 1);
-            var selected = maps[selectedMapIndex];
-
-            if (mapNameText != null)
-            {
-                mapNameText.text = selected.DisplayName;
-            }
-
-            for (var i = 0; i < mapSlotImages.Count; i++)
-            {
-                var image = mapSlotImages[i];
-                if (image == null)
-                {
-                    continue;
-                }
-
-                var selectedSlot = i == selectedMapIndex;
-                image.color = selectedSlot
-                    ? new Color(0.92f, 0.92f, 0.95f, 1f)
-                    : new Color(0.45f, 0.45f, 0.5f, 1f);
-
-                var outline = image.transform.Find("Selection");
-                if (outline != null)
-                {
-                    outline.gameObject.SetActive(selectedSlot);
-                }
-            }
-
-            if (scrollIntoView)
-            {
-                ScrollSelectedIntoView();
+                matchRules = updated;
             }
         }
 
-        private void ScrollSelectedIntoView()
+        private void RefreshCategory()
         {
-            if (mapScroll == null || mapContent == null || maps.Count <= 1)
+            if (categoryText == null && settingsContent != null)
             {
-                return;
+                CacheMapAreaRefs(settingsContent);
             }
 
-            var viewport = mapScroll.viewport != null
-                ? mapScroll.viewport.rect.width
-                : mapScroll.GetComponent<RectTransform>().rect.width;
-            var contentWidth = mapContent.rect.width;
-            if (contentWidth <= viewport)
+            if (categoryText != null)
             {
-                mapScroll.horizontalNormalizedPosition = 0f;
-                return;
+                categoryText.text = PlaySettingsCategoryCatalog.GetOption(selectedCategoryIndex).Label;
             }
 
-            var slotCenter = selectedMapIndex * (MapSlotSize + MapSlotSpacing) + (MapSlotSize * 0.5f);
-            var target = (slotCenter - (viewport * 0.5f)) / (contentWidth - viewport);
-            mapScroll.horizontalNormalizedPosition = Mathf.Clamp01(target);
-        }
-
-        private void EnsureMapSlotsBuilt()
-        {
-            if (mapContent == null)
+            var hasMultipleOptions = PlaySettingsCategoryCatalog.All.Count > 1;
+            if (categoryPrevButton != null)
             {
-                return;
+                categoryPrevButton.interactable = editable && hasMultipleOptions;
             }
 
-            if (mapSlotButtons.Count == maps.Count && mapSlotImages.Count == maps.Count)
+            if (categoryNextButton != null)
             {
-                return;
+                categoryNextButton.interactable = editable && hasMultipleOptions;
             }
-
-            UnbindMapSlots();
-            for (var i = mapContent.childCount - 1; i >= 0; i--)
-            {
-                var child = mapContent.GetChild(i);
-                if (Application.isPlaying)
-                {
-                    Destroy(child.gameObject);
-                }
-                else
-                {
-                    DestroyImmediate(child.gameObject);
-                }
-            }
-
-            mapSlotImages.Clear();
-            mapSlotButtons.Clear();
-
-            var width = (maps.Count * MapSlotSize) + (Mathf.Max(0, maps.Count - 1) * MapSlotSpacing);
-            mapContent.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
-            mapContent.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, MapSlotSize);
-
-            for (var i = 0; i < maps.Count; i++)
-            {
-                var slot = CreateMapSlot(mapContent, i);
-                mapSlotImages.Add(slot.GetComponent<Image>());
-                mapSlotButtons.Add(slot.GetComponent<Button>());
-            }
-
-            BindMapSlots();
-        }
-
-        private static RectTransform CreateMapSlot(RectTransform parent, int index)
-        {
-            var go = new GameObject($"MapSlot{index}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
-            go.transform.SetParent(parent, false);
-            var rect = go.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0f, 0.5f);
-            rect.anchorMax = new Vector2(0f, 0.5f);
-            rect.pivot = new Vector2(0f, 0.5f);
-            rect.sizeDelta = new Vector2(MapSlotSize, MapSlotSize);
-            rect.anchoredPosition = new Vector2(index * (MapSlotSize + MapSlotSpacing), 0f);
-            go.GetComponent<Image>().color = new Color(0.45f, 0.45f, 0.5f, 1f);
-
-            var selectionGo = new GameObject("Selection", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            selectionGo.transform.SetParent(go.transform, false);
-            var selectionRect = selectionGo.GetComponent<RectTransform>();
-            selectionRect.anchorMin = Vector2.zero;
-            selectionRect.anchorMax = Vector2.one;
-            selectionRect.offsetMin = new Vector2(-4f, -4f);
-            selectionRect.offsetMax = new Vector2(4f, 4f);
-            selectionRect.SetAsFirstSibling();
-            var selectionImage = selectionGo.GetComponent<Image>();
-            selectionImage.color = new Color(0.95f, 0.95f, 1f, 1f);
-            selectionImage.raycastTarget = false;
-            selectionGo.SetActive(false);
-            return rect;
-        }
-
-        private void BindMapSlots()
-        {
-            for (var i = 0; i < mapSlotButtons.Count; i++)
-            {
-                var index = i;
-                Bind(mapSlotButtons[i], () => SelectMap(index));
-            }
-        }
-
-        private void UnbindMapSlots()
-        {
-            for (var i = 0; i < mapSlotButtons.Count; i++)
-            {
-                Unbind(mapSlotButtons[i]);
-            }
-        }
-
-        private void RefreshPasswordMask()
-        {
-            if (passwordMaskedText == null)
-            {
-                return;
-            }
-
-            if (!passwordEnabled || string.IsNullOrEmpty(password))
-            {
-                passwordMaskedText.text = "없음";
-                return;
-            }
-
-            passwordMaskedText.text = new string('*', Mathf.Clamp(password.Length, 4, 12));
         }
 
         private void SetMaxPlayers(int value)
@@ -521,50 +344,6 @@ namespace Game.Client.Lobby
                         PlaySettingsDraft.MinDestructionLimit,
                         PlaySettingsDraft.MaxDestructionLimit);
             RefreshCounters();
-        }
-
-        private void EnsureRuleControls()
-        {
-            if (ruleValues.Count != 0 || panel == null || maxPlayersText == null ||
-                maxPlayersMinusButton == null || maxPlayersPlusButton == null) return;
-            var panelRect = (RectTransform)panel.transform;
-            panelRect.sizeDelta += new Vector2(0, 220);
-            foreach (RectTransform child in panelRect)
-                if (child.anchorMin.y == 0.5f && child.anchorMax.y == 0.5f)
-                    child.anchoredPosition += new Vector2(0, 110);
-            var names = new[] { "숨기기 시간", "찾기 시간", "달리기 속도", "HP" };
-            for (var i = 0; i < names.Length; i++)
-            {
-                var y = -195 - i * 45;
-                var label = Instantiate(maxPlayersText, panelRect);
-                label.name = "RuleLabel" + i;
-                label.text = names[i];
-                label.alignment = TextAnchor.MiddleLeft;
-                PlaceRuleControl(label.rectTransform, 40, y, 190);
-                var value = Instantiate(maxPlayersText, panelRect);
-                value.name = "RuleValue" + i;
-                PlaceRuleControl(value.rectTransform, 275, y, 110);
-                ruleValues.Add(value);
-                var minus = Instantiate(maxPlayersMinusButton, panelRect);
-                minus.name = "RuleMinus" + i;
-                minus.onClick = new Button.ButtonClickedEvent();
-                PlaceRuleControl((RectTransform)minus.transform, 220, y, 40);
-                ruleMinus.Add(minus);
-                var plus = Instantiate(maxPlayersPlusButton, panelRect);
-                plus.name = "RulePlus" + i;
-                plus.onClick = new Button.ButtonClickedEvent();
-                PlaceRuleControl((RectTransform)plus.transform, 400, y, 40);
-                rulePlus.Add(plus);
-            }
-            RefreshRuleControls();
-        }
-
-        private static void PlaceRuleControl(RectTransform rect, float x, float y, float width)
-        {
-            rect.anchorMin = rect.anchorMax = new Vector2(0, 0.5f);
-            rect.pivot = new Vector2(0, 0.5f);
-            rect.anchoredPosition = new Vector2(x, y);
-            rect.sizeDelta = new Vector2(width, 36);
         }
 
         private void BindRuleControls()
@@ -609,7 +388,13 @@ namespace Game.Client.Lobby
                 0, MatchRuleSettings.MinStunHitCount };
             var max = new[] { MatchRuleSettings.MaxHidingDurationSeconds, MatchRuleSettings.MaxSearchingDurationMinutes,
                 SprintOptions.Length - 1, MatchRuleSettings.MaxStunHitCount };
-            var labels = new[] { values[0] + "초", values[1] + "분", matchRules.SprintMultiplier + "배", values[3].ToString() };
+            var labels = new[]
+            {
+                values[0] + "초",
+                values[1] + "분",
+                matchRules.SprintMultiplier + "배",
+                values[3] + "회"
+            };
             for (var i = 0; i < ruleValues.Count; i++)
             {
                 ruleValues[i].text = labels[i];
@@ -623,7 +408,7 @@ namespace Game.Client.Lobby
             RefreshRuleControls();
             if (maxPlayersText != null)
             {
-                maxPlayersText.text = maxPlayers.ToString();
+                maxPlayersText.text = maxPlayers + "명";
             }
 
             if (destructionLimitText != null)
@@ -631,7 +416,7 @@ namespace Game.Client.Lobby
                 destructionLimitText.text = destructionLimit ==
                                             PlaySettingsDraft.UnlimitedDestructionLimit
                     ? "무한"
-                    : destructionLimit.ToString();
+                    : destructionLimit + "회";
             }
 
             if (maxPlayersMinusButton != null)
@@ -682,6 +467,187 @@ namespace Game.Client.Lobby
                 button.onClick.RemoveListener(action);
                 boundActions.Remove(button);
             }
+        }
+
+        private void EnsureOverlay()
+        {
+            if (panel == null)
+            {
+                return;
+            }
+
+            var panelTransform = (RectTransform)panel.transform;
+            if (TryAdoptOverlay(panelTransform))
+            {
+                var dedupeRoot = panelTransform.parent != null
+                    ? panelTransform.parent.parent as RectTransform
+                    : null;
+                RemoveDuplicateOverlays(dedupeRoot, overlayRoot);
+                return;
+            }
+
+            if (overlayRoot != null)
+            {
+                return;
+            }
+
+            var hudRoot = panelTransform.parent as RectTransform;
+            if (hudRoot == null)
+            {
+                return;
+            }
+
+            var existing = hudRoot.Find("PlaySettingsOverlay") as RectTransform;
+            if (existing != null)
+            {
+                overlayRoot = existing.gameObject;
+                RemoveLegacyBackdrop(existing);
+                panelTransform.SetParent(existing, false);
+                RemoveDuplicateOverlays(hudRoot, overlayRoot);
+                StyleBackButton(hudRoot, existing);
+                overlayRoot.SetActive(panel.activeSelf);
+                SetBackButtonVisible(overlayRoot.activeSelf);
+                return;
+            }
+
+            RemoveDuplicateOverlays(hudRoot, null);
+
+            overlayRoot = new GameObject("PlaySettingsOverlay", typeof(RectTransform));
+            var overlayRect = (RectTransform)overlayRoot.transform;
+            overlayRect.SetParent(hudRoot, false);
+            overlayRect.SetSiblingIndex(panelTransform.GetSiblingIndex());
+            StretchRect(overlayRect);
+
+            var dimGo = new GameObject("Dim", typeof(RectTransform), typeof(Image));
+            dimGo.transform.SetParent(overlayRect, false);
+            StretchRect(dimGo.GetComponent<RectTransform>());
+            dimGo.GetComponent<Image>().color = CharacterClosetStyle.Palette.Dim;
+
+            panelTransform.SetParent(overlayRect, false);
+            StyleBackButton(hudRoot, overlayRect);
+
+            overlayRoot.SetActive(panel.activeSelf);
+            SetBackButtonVisible(overlayRoot.activeSelf);
+        }
+
+        private bool TryAdoptOverlay(RectTransform panelTransform)
+        {
+            var parent = panelTransform.parent as RectTransform;
+            if (parent != null && parent.name == "PlaySettingsOverlay")
+            {
+                overlayRoot = parent.gameObject;
+                RemoveLegacyBackdrop(parent);
+                return true;
+            }
+
+            return false;
+        }
+
+        private static void RemoveLegacyBackdrop(RectTransform overlayRect)
+        {
+            var legacy = overlayRect.Find("Backdrop");
+            if (legacy == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                UnityEngine.Object.Destroy(legacy.gameObject);
+            }
+            else
+            {
+                UnityEngine.Object.DestroyImmediate(legacy.gameObject);
+            }
+        }
+
+        private static void RemoveDuplicateOverlays(RectTransform hudRoot, GameObject keep)
+        {
+            if (hudRoot == null)
+            {
+                return;
+            }
+
+            for (var i = hudRoot.childCount - 1; i >= 0; i--)
+            {
+                var child = hudRoot.GetChild(i);
+                if (child.name != "PlaySettingsOverlay" || child.gameObject == keep)
+                {
+                    continue;
+                }
+
+                if (Application.isPlaying)
+                {
+                    UnityEngine.Object.Destroy(child.gameObject);
+                }
+                else
+                {
+                    UnityEngine.Object.DestroyImmediate(child.gameObject);
+                }
+            }
+        }
+
+        private void StyleBackButton(RectTransform hudRoot, RectTransform overlay)
+        {
+            if (closeButton == null || hudRoot == null)
+            {
+                return;
+            }
+
+            var rect = closeButton.GetComponent<RectTransform>();
+            rect.SetParent(hudRoot, false);
+            rect.SetSiblingIndex(overlay.GetSiblingIndex() + 1);
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = RoomBrowserStyle.Layout.BackButtonPosition;
+            rect.sizeDelta = RoomBrowserStyle.Layout.BackButtonSize;
+
+            var image = closeButton.GetComponent<Image>();
+            if (image != null)
+            {
+                image.color = Color.clear;
+            }
+
+            var label = closeButton.GetComponentInChildren<Text>();
+            if (label != null)
+            {
+                label.text = "← 이전";
+                label.fontSize = Mathf.RoundToInt(RoomBrowserStyle.FontSize.Back);
+                label.alignment = TextAnchor.MiddleLeft;
+                label.color = Color.white;
+                label.raycastTarget = false;
+                var labelRect = label.rectTransform;
+                labelRect.anchorMin = Vector2.zero;
+                labelRect.anchorMax = Vector2.one;
+                labelRect.offsetMin = Vector2.zero;
+                labelRect.offsetMax = Vector2.zero;
+            }
+
+            closeButton.gameObject.name = "BackButton";
+        }
+
+        private void SetBackButtonVisible(bool visible)
+        {
+            if (closeButton == null)
+            {
+                return;
+            }
+
+            closeButton.gameObject.SetActive(visible);
+            if (visible)
+            {
+                closeButton.transform.SetAsLastSibling();
+            }
+        }
+
+        private static void StretchRect(RectTransform rect)
+        {
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            rect.pivot = new Vector2(0.5f, 0.5f);
         }
     }
 }
