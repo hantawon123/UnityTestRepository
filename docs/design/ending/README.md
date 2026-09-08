@@ -113,6 +113,8 @@
 - 두 번째 테스트: 무대·아바타·문구 정상 표시. 피드백 두 가지 반영.
   - 노출 시간 5초 → **8초** (`NetworkResultLobbyReturnController.ResultDisplaySeconds`). 하이라이트 3클립은 그대로.
   - 결과 화면 동안 로컬 플레이어가 자기 캐릭터를 움직일 수 있었음(카메라는 무대 고정이라 복제본은 그대로지만 원본이 맵을 돌아다님). 로비 Esc 메뉴와 같은 잠금(`PlayerMovement.IsMovementLocked`, `PlayerInteractor.IsInputLocked`)을 무대 표시 동안 걸고 종료 시 해제.
+- 세 번째 테스트(실제 텔레포트 방식): 호스트 로그 `[PlayerTeleport] … target=(-2.50, -300.00, -0.80) success=True`로 철창 안 자리 이동 확인. 그러나 **움직일 수 없음** → 권한자의 조작 정책(`NetworkMatchRuntimeCoordinator.SynchronizePlayers`)이 숨기기·탐색 단계에서만 조작을 켜고 결과·하이라이트 단계(`MatchPhase.Highlight`)에서는 끄기 때문.
+  - 수정: 하이라이트 단계라도 **결과 씬이 떠 있는 동안**(`INetworkResultNavigation.IsResultSceneLoaded`)은 조작을 켠다. 결과 씬이 내려가 리플레이로 넘어가면 자동으로 다시 꺼짐. 테스트의 가짜 권한자는 해당 인터페이스가 없어 기존 동작 유지.
 
 ## 참고 파일
 - 결과 흐름: `Assets/_Game/Bootstrap/ResultLifetimeScope.cs`, `NetworkResultLobbyReturnController.cs`, `Assets/_Game/Content/Scenes/Result.unity`
