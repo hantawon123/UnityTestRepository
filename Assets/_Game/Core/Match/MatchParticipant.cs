@@ -7,7 +7,12 @@ namespace Game.Core.Match
 {
     public readonly struct MatchParticipant
     {
-        public MatchParticipant(string playerId, int playerIndex)
+        /// <param name="userId">
+        /// The backend account, or null or empty when the player did not sign
+        /// in. Kept optional so the many places that only reason about seats and
+        /// indices need not invent one.
+        /// </param>
+        public MatchParticipant(string playerId, int playerIndex, string userId = null)
         {
             if (string.IsNullOrWhiteSpace(playerId))
             {
@@ -21,6 +26,7 @@ namespace Game.Core.Match
 
             PlayerId = playerId.Trim();
             PlayerIndex = playerIndex;
+            UserId = string.IsNullOrWhiteSpace(userId) ? null : userId.Trim();
         }
 
         public string PlayerId { get; }
@@ -29,6 +35,22 @@ namespace Game.Core.Match
         /// Stable zero-based index used by match arrays and network state.
         /// </summary>
         public int PlayerIndex { get; }
+
+        /// <summary>
+        /// The backend account behind this participant, or null when there is
+        /// none — a player who never signed in.
+        /// </summary>
+        /// <remarks>
+        /// Null rather than empty, unlike <c>RoomParticipant.UserId</c>, because
+        /// this is the value the host puts on the wire to the backend, and the
+        /// backend reads a missing account as null. Deciding that here means no
+        /// publisher has to remember to translate.
+        /// <para>
+        /// <see cref="PlayerId"/> stays the key for seats and authority. This is
+        /// the key for anything that follows a person past the end of the room.
+        /// </para>
+        /// </remarks>
+        public string UserId { get; }
 
         public static MatchParticipant[] FromRoomParticipants(
             IReadOnlyList<RoomParticipant> roomParticipants)
@@ -71,7 +93,8 @@ namespace Game.Core.Match
             {
                 matchParticipants[playerIndex] = new MatchParticipant(
                     ordered[playerIndex].PlayerId,
-                    playerIndex);
+                    playerIndex,
+                    ordered[playerIndex].UserId);
             }
 
             return matchParticipants;

@@ -107,6 +107,11 @@ namespace Game.Bootstrap
         /// </remarks>
         private void AdoptServerNickname(AccountSnapshot account)
         {
+            // The account id rides with the nickname into every room this
+            // player joins, so the host can say whose actions it reports. Set
+            // here, once, from the same answer that settles the name.
+            profile.AdoptUserId(account.UserId);
+
             // Mirrored first, and whether the name itself changed or not: a
             // player who renamed on another machine comes back with the same
             // name and a chance that is already spent.

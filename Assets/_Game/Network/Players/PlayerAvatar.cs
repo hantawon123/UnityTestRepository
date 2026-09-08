@@ -51,6 +51,32 @@ namespace Game.Network.Players
         public NetworkString<_32> Nickname { get; set; }
 
         /// <summary>
+        /// The backend account the owner signed in as. Empty when they did not.
+        /// </summary>
+        /// <remarks>
+        /// Replicated the same way as <see cref="Nickname"/>, for the same
+        /// reason: only the authority saw the value its owner presented when
+        /// joining, and every peer needs it — the host to say whose actions it
+        /// reports to the play log, anyone to reach that person's account after
+        /// the room is gone. A connection token is read once by one peer; a
+        /// networked value is there for a late joiner and for the next host.
+        /// <para>
+        /// Identification, not authentication. Anyone who knows an account id
+        /// can already act as it against the REST API, so carrying it here adds
+        /// nothing to what a peer could learn. The device id — the credential —
+        /// never travels this way. Not shown on screen either: the client guide
+        /// forbids exposing another player's account id.
+        /// </para>
+        /// <para>
+        /// The server's public id is a 36-character UUID. Fusion's fixed sizes
+        /// are powers of two, so 64 is the smallest that holds it whole; a value
+        /// longer than the marker would arrive silently truncated.
+        /// </para>
+        /// </remarks>
+        [Networked]
+        public NetworkString<_64> UserId { get; set; }
+
+        /// <summary>
         /// Whether the owner holds authority over the room. Replicated rather
         /// than derived: a peer can tell whether it is itself the host, but not
         /// which of the others is.

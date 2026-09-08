@@ -118,7 +118,12 @@ namespace Game.Network.Players
                     $"[Spawn] MatchSession state needs {bytes} bytes; Fusion heap page is {pageBytes} bytes.");
         }
 
-        public void Spawn(NetworkRunner runner, PlayerRef player, string nickname = null)
+        /// <param name="userId">
+        /// The backend account the player presented, or null or empty for one
+        /// who did not sign in. Written onto the character with the nickname so
+        /// every peer can say whose it is beyond this room.
+        /// </param>
+        public void Spawn(NetworkRunner runner, PlayerRef player, string nickname = null, string userId = null)
         {
             if (runner == null || !runner.IsServer)
             {
@@ -157,7 +162,7 @@ namespace Game.Network.Players
                 pose.position,
                 pose.rotation,
                 player,
-                (_, spawned) => Describe(spawned, seat, isHost, nickname));
+                (_, spawned) => Describe(spawned, seat, isHost, nickname, userId));
 
             if (avatar == null)
             {
@@ -352,7 +357,7 @@ namespace Game.Network.Players
         }
 
         private static void Describe(
-            NetworkObject spawned, int seat, bool isHost, string nickname)
+            NetworkObject spawned, int seat, bool isHost, string nickname, string userId)
         {
             var avatar = spawned.GetComponent<PlayerAvatar>();
 
@@ -367,6 +372,7 @@ namespace Game.Network.Players
             avatar.Seat = seat;
             avatar.IsHost = isHost;
             avatar.Nickname = nickname ?? string.Empty;
+            avatar.UserId = userId ?? string.Empty;
         }
 
         private Pose PoseFor(int seat)
