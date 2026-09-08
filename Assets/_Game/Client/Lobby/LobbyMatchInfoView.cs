@@ -14,7 +14,7 @@ namespace Game.Client.Lobby
         public const string RootName = "MatchInfo";
         public const string CategoryCaption = "카테고리";
         public const float MarginTop = 60f;
-        public const float MarginRight = 60f;
+        public const float MarginRight = 44f;
         public const float Width = 320f;
         public const float FontSize = 18f;
         public const float Padding = 16f;
