@@ -28,13 +28,22 @@ namespace Game.Client.Interactions
         [SerializeField]
         private Mesh[] sourceMeshes;
 
+        [Tooltip("실루엣 색. 집는 소품은 기본 주황, 상시 표시하는 설치물은 다른 색으로 구분한다.")]
+        [SerializeField]
+        private Color outlineColor = FocusColor;
+
+        [Tooltip("실루엣 두께(화면 픽셀).")]
+        [SerializeField]
+        [Min(0.5f)]
+        private float pixelWidth = FocusPixels;
+
         private readonly List<Renderer> outlineRenderers = new();
         private Material outlineMaterial;
         private bool built;
 
-        public Color Color => FocusColor;
+        public Color Color => outlineColor;
 
-        public float PixelWidth => FocusPixels;
+        public float PixelWidth => pixelWidth;
 
         public bool IsVisible { get; private set; }
 
@@ -82,9 +91,9 @@ namespace Game.Client.Interactions
                 name = $"{name} Focus Outline (Runtime)",
                 hideFlags = HideFlags.DontSave,
             };
-            outlineMaterial.SetColor("_OutlineColor", FocusColor);
+            outlineMaterial.SetColor("_OutlineColor", outlineColor);
             outlineMaterial.SetFloat("_OutlineWidth", 0.001f);
-            outlineMaterial.SetFloat("_OutlinePixels", FocusPixels);
+            outlineMaterial.SetFloat("_OutlinePixels", pixelWidth);
 
             var sources = SourceCount > 0
                 ? sourceRenderers

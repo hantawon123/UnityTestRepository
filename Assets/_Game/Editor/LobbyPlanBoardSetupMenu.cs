@@ -32,6 +32,10 @@ namespace Game.Editor
         // 공구판·걸린 공구·책상 위 고정 공구의 콜라이더가 모두 이 안에 들어가 광선이 판을 먼저 맞는다.
         private const float WallOuterX = -3.10f;
 
+        // 상시 표시라 조준 시에만 켜지는 소품(주황 2 px)과 구분되게 흰색·굵게.
+        private static readonly Color OutlineColor = Color.white;
+        private const float OutlinePixels = 5f;
+
         // 책상 아래(플라스틱통·종이상자)와 선반 위(Fragile 상자)에는 집을 수 있는 소품이 있다.
         // 콜라이더가 그것들을 가리면 집을 수 없으므로 상판 표면부터 선반 밑면까지만 덮는다.
         // (선반 윗면 -2 cm까지 덮었을 때는 눈높이에서 위로 올려 보는 광선이 앞면에 먼저 걸려
@@ -115,6 +119,8 @@ namespace Game.Editor
                         filter != null ? filter.sharedMesh : null;
                 }
 
+                serialized.FindProperty("outlineColor").colorValue = OutlineColor;
+                serialized.FindProperty("pixelWidth").floatValue = OutlinePixels;
                 serialized.ApplyModifiedPropertiesWithoutUndo();
             }
 
