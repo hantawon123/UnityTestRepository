@@ -9,6 +9,11 @@ namespace Game.Client.Match
     {
         void SetText(string value);
         void SetOutcome(string headline, string subtitle);
+
+        /// <summary>
+        /// 문구 뒤의 불투명 배경 판. 유치장 무대처럼 3D 장면을 뒤에 보여줄 때는 끈다.
+        /// </summary>
+        void SetBackdropVisible(bool visible);
     }
 
     public sealed class ResultView : MonoBehaviour, IResultView
@@ -31,6 +36,7 @@ namespace Game.Client.Match
                 label.font = font;
                 headline.font = HomeUiFonts.ApplyBlack() ?? font;
                 subtitle.font = font;
+                backdrop = label.transform.parent.Find("Result Background")?.GetComponent<Image>();
                 ApplyOutcomePlacement();
                 return;
             }
@@ -53,6 +59,7 @@ namespace Game.Client.Match
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
             EnsureBackground(canvasObject.transform);
+            backdrop = canvasObject.transform.Find("Result Background")?.GetComponent<Image>();
 
             label = canvasObject.transform.Find("Result Text")?.GetComponent<TMP_Text>();
             if (label == null)
@@ -168,6 +175,13 @@ namespace Game.Client.Match
                     new Vector2(0f, -240f),
                     new Vector2(1400f, 240f));
             }
+        }
+
+        private Image backdrop;
+
+        public void SetBackdropVisible(bool visible)
+        {
+            if (backdrop != null) backdrop.enabled = visible;
         }
 
         private static void EnsureBackground(Transform parent)

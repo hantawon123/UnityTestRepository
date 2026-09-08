@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Interactions;
 using Game.Client.Match;
 using Game.Client.Players;
 using Game.Core.Lobby;
@@ -26,17 +27,23 @@ namespace Game.Bootstrap
         private readonly NetworkResultLobbyReturnController result;
         private readonly RoomBrowserSystem room;
         private readonly EndingStage stage;
+        private readonly IResultView view;
         private readonly List<ReplayVisual> visuals = new();
         private bool built;
+        private bool backdropHidden;
+        private PlayerMovement lockedMovement;
+        private PlayerInteractor lockedInteractor;
 
         public EndingStagePresenter(
             NetworkResultLobbyReturnController result,
             RoomBrowserSystem room,
-            EndingStage stage)
+            EndingStage stage,
+            IResultView view)
         {
             this.result = result ?? throw new ArgumentNullException(nameof(result));
             this.room = room ?? throw new ArgumentNullException(nameof(room));
             this.stage = stage ?? throw new ArgumentNullException(nameof(stage));
+            this.view = view ?? throw new ArgumentNullException(nameof(view));
         }
 
         public void Start()
@@ -47,7 +54,12 @@ namespace Game.Bootstrap
                 return;
             }
 
+            // The text screen was built to sit over the match with an opaque
+            // backdrop. With a stage behind it, the backdrop would hide the stage.
+            view.SetBackdropVisible(false);
+            backdropHidden = true;
             stage.ShowCamera();
+            LockLocalInput();
             TryBuild();
         }
 
@@ -56,6 +68,9 @@ namespace Game.Bootstrap
             // The result normally arrives before this scene loads, but a late
             // client can see the scene first. Keep trying until the line-up is known.
             if (!built) TryBuild();
+            // The local avatar can replicate in after Start; keep it held still
+            // while the stage is up, the same lock the lobby menu uses.
+            if (lockedMovement == null) LockLocalInput();
         }
 
         public void Dispose()
@@ -63,6 +78,35 @@ namespace Game.Bootstrap
             foreach (var visual in visuals) visual.Dispose();
             visuals.Clear();
             stage.HideCamera();
+            if (backdropHidden) view.SetBackdropVisible(true);
+            UnlockLocalInput();
+        }
+
+        /// <remarks>
+        /// The camera is fixed on the stage, so walking the hidden avatar around
+        /// the match map only moves the copy's source out from under it. Locking
+        /// here is client-side; the authority stops judging inputs on its own.
+        /// </remarks>
+        private void LockLocalInput()
+        {
+            foreach (var avatar in UnityEngine.Object.FindObjectsByType<PlayerAvatar>(
+                         FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                if (!avatar.IsOwner) continue;
+                lockedMovement = avatar.GetComponent<PlayerMovement>();
+                lockedInteractor = avatar.GetComponent<PlayerInteractor>();
+                if (lockedMovement != null) lockedMovement.IsMovementLocked = true;
+                if (lockedInteractor != null) lockedInteractor.IsInputLocked = true;
+                return;
+            }
+        }
+
+        private void UnlockLocalInput()
+        {
+            if (lockedMovement != null) lockedMovement.IsMovementLocked = false;
+            if (lockedInteractor != null) lockedInteractor.IsInputLocked = false;
+            lockedMovement = null;
+            lockedInteractor = null;
         }
 
         private void TryBuild()

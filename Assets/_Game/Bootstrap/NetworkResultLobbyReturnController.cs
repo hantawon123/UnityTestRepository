@@ -14,7 +14,8 @@ namespace Game.Bootstrap
     // Project-scoped: the authority owns the single post-highlight lobby return.
     public sealed class NetworkResultLobbyReturnController : IStartable, ITickable, IDisposable
     {
-        internal const double ResultDisplaySeconds = 5d;
+        // 유치장 무대(3D 연출)가 들어오면서 5초는 짧아 8초로 늘림 (2026-09-08).
+        internal const double ResultDisplaySeconds = 8d;
         private readonly INetworkMatchEvents events;
         private readonly INetworkResultNavigation navigation;
         private readonly RoomBrowserSystem room;
