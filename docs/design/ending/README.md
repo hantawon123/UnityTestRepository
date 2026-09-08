@@ -4,6 +4,7 @@
 컨셉 이미지: [game-ending-concept.png](../concept/game-ending-concept.png) — **한 장면**에 탈출 성공자는 철창 앞 복도에서 환호하고, 체포된 사람은 철창 안에 서 있다.
 
 - 브랜치: `feature/client/ending-map`
+- 이미지: `ending-stage-preview-v1.png` — 조립 씬에서 스폰 12자리에 미리보기 아바타를 세운 카메라 구도
 - Jira: 724(에픽) · 725 컨셉 기획·에셋 · 726 임포트·URP · 727 모듈 조립 · 728 소품 · 729 조명 · 730 상호작용 소품 · 731 씬 통합·스폰 · 732 문서화 · 733 콜리전·플레이테스트
 
 ## 1. 컨셉 기획 (725, 2026-09-07 초안)
@@ -89,6 +90,18 @@
   - `COLLIDER_Ceiling` 신규: y 4.74~5.04, 유치장 뒷벽부터 복도 끝까지 전체 천장(점프 안전망)
 - 검증(물리 레이캐스트, 유치장 중앙 (0,1,-1.5)에서): 뒷벽 -3.45, 좌우 벽 ±3.42, 철창 -0.12, 천장 4.74 모두 정확히 맞음. 철창 위 y 4.0에서도 철창 콜라이더에 막힘.
 - 복도 측벽·출구 차단 콜라이더는 원본 그대로(변경 없음).
+
+## 6. 아바타 세우기 — Result 씬 통합 (731, 2026-09-08)
+
+- **방식**: 하이라이트 리플레이가 쓰는 `ReplayVisual`로 각 플레이어의 **실제 아바타 렌더러·애니메이터를 복제**해 무대 자리에 세운다. 외형(탈·색)이 그대로 따라오고 네트워크 트랜스폼은 건드리지 않는다. 결과 화면이 끝나면 복제본을 지워 원본이 다시 보이므로 뒤따르는 리플레이에 영향 없음.
+- **Result 씬**: 에디터 메뉴 `Game/Ending/1. Place Ending Stage In Result Scene`이 `EndingStage` 루트(y -300, 인게임 맵과 겹치지 않게)에 환경 프리팹 + `EndingCamera`(depth 5, 인게임 카메라 0 위에 덮음, FOV 40.4, PP·SMAA) + `Visuals` 컨테이너를 놓고 `ResultLifetimeScope.endingStage`에 연결한다. 기존 결과 문구 캔버스(ScreenSpaceOverlay, sortingOrder 100)는 그 위에 그대로 얹힌다.
+- **코드**
+  - `EndingStageLayout`(Core): 참가자 + 승자 명단 → (탈출 여부, 자리 번호). 플레이어 번호 순, 자리 부족 시 마지막 자리 재사용. 단위 테스트 `EndingStageLayoutTests`.
+  - `EndingStage`(Client): 카메라·앵커·스폰 루트·복제본 컨테이너 참조, `ShowCamera/HideCamera/Slot`.
+  - `EndingStagePresenter`(Bootstrap): 결과 도착 여부(`NetworkResultLobbyReturnController.HasMatchResult`, `LastWinnerPlayerIndices` 추가)와 참가자 명단으로 배치, `PlayerAvatar`를 PlayerId로 찾아 복제. 결과가 늦게 오는 클라이언트를 위해 Tick에서 재시도.
+  - `ResultLifetimeScope`: 카메라·조명 끄기에서 무대 하위는 예외. 무대가 없으면 기존 텍스트 전용 흐름 그대로.
+- **미리보기**: `Game/Ending/2. Preview Avatars In Active Scene`이 조립 씬 스폰 12자리에 `PlayerCharacter` 복제본을 세운다(저장하지 말고 3번으로 정리). 결과 `ending-stage-preview-v1.png`: 탈출자 6은 철창을 보고(등이 카메라), 체포자 6은 철창 안에서 카메라를 본다. 실제로는 합쳐서 최대 6명.
+- **남은 것**: 실제 매치 종료로 E2E 확인(콘솔 `[Ending] Staged N of M players`), Celebrate/Dejected 애니메이션(현재 Idle), 노출 시간 5초 조정, 조명 베이크.
 
 ## 참고 파일
 - 결과 흐름: `Assets/_Game/Bootstrap/ResultLifetimeScope.cs`, `NetworkResultLobbyReturnController.cs`, `Assets/_Game/Content/Scenes/Result.unity`
