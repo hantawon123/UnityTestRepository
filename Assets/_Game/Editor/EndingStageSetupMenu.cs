@@ -26,6 +26,8 @@ namespace Game.Editor
         // 인게임 맵과 겹치지 않게 무대를 아래로 내려 둔다. 카메라는 무대를 따라간다.
         private static readonly Vector3 StageOffset = new(0f, -300f, 0f);
         private const float StageCameraDepth = 5f;
+        // 2026-09-08 C안: 앵커 (0, 1.75, 6.6) / 피치 4° / 화각 40. 캐릭터가 화면 높이의 32~45%.
+        private const float StageCameraFov = 40f;
 
         [MenuItem(MenuRoot + "1. Place Ending Stage In Result Scene")]
         public static void PlaceStageInResultScene()
@@ -48,7 +50,7 @@ namespace Game.Editor
             var camGo = new GameObject("EndingCamera");
             camGo.transform.SetParent(stageGo.transform, false);
             var cam = camGo.AddComponent<Camera>();
-            cam.fieldOfView = 40.426f;
+            cam.fieldOfView = StageCameraFov;
             cam.nearClipPlane = 0.1f;
             cam.farClipPlane = 200f;
             cam.depth = StageCameraDepth;
