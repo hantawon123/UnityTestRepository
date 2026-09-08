@@ -44,9 +44,8 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void LobbyBubbles_RebindSkipsUnspawnedAvatars()
+        public void ChatBubbles_SkipAvatarsWithoutPlayerId()
         {
-            using var room = new RoomBrowserSystem();
             var first = new GameObject("unspawned-first");
             var second = new GameObject("unspawned-second");
             var viewObject = new GameObject("bubbles");
@@ -55,15 +54,16 @@ namespace Game.Architecture.Tests
             {
                 first.AddComponent<PlayerAvatar>();
                 second.AddComponent<PlayerAvatar>();
-                var view = viewObject.AddComponent<Game.Client.Lobby.LobbyChatBubbleView>();
+                var view = viewObject.AddComponent<Game.Client.Match.MatchChatBubbleView>();
+                var network = new NetworkRunnerService(null, null, null, null, null, null);
                 var type = typeof(Game.Bootstrap.LobbyLifetimeScope).Assembly
-                    .GetType("Game.Bootstrap.LobbyChatBubbleBinder", true);
-                binder = (IDisposable)Activator.CreateInstance(type, room, view);
-                var rebind = type.GetMethod("Rebind",
-                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                    .GetType("Game.Bootstrap.ChatBubbleBinder", true);
+                binder = (IDisposable)Activator.CreateInstance(type, network, view);
+                var tick = type.GetMethod("Tick");
 
-                Assert.DoesNotThrow(() => rebind.Invoke(binder, null));
-                Assert.That(viewObject.transform.childCount, Is.Zero);
+                Assert.DoesNotThrow(() => tick.Invoke(binder, null));
+                Assert.That(first.transform.childCount, Is.Zero);
+                Assert.That(second.transform.childCount, Is.Zero);
             }
             finally
             {
@@ -332,8 +332,12 @@ namespace Game.Architecture.Tests
             binder.UpdateEntryTransition(true, 104);
             Assert.That(view.Opacity, Is.EqualTo(1f), "Losing readiness restarts the render wait.");
             binder.UpdateEntryTransition(true, 106);
+            Assert.That(view.Opacity, Is.EqualTo(1f), "Reveal fades in after the camera wait.");
+            binder.UpdateEntryTransition(true, 107, Game.Client.Lobby.LobbySceneFade.DurationSeconds * 0.5f);
+            Assert.That(view.Opacity, Is.EqualTo(0.5f).Within(0.001f));
+            binder.UpdateEntryTransition(true, 108, Game.Client.Lobby.LobbySceneFade.DurationSeconds);
             Assert.That(view.Opacity, Is.Zero);
-            binder.UpdateEntryTransition(false, 107);
+            binder.UpdateEntryTransition(false, 109);
             Assert.That(view.Opacity, Is.Zero, "A completed entry does not cover later gameplay or migration.");
 
             var nextVisit = new Game.Bootstrap.LobbyPlayerCameraBinder(

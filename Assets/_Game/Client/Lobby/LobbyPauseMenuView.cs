@@ -12,14 +12,12 @@ namespace Game.Client.Lobby
         event Action ResumeClicked;
         event Action SettingsClicked;
         event Action PlaySettingsClicked;
-        event Action KeyGuideClicked;
 
         bool IsOpen { get; }
 
         void SetVisible(bool visible);
         void SetStartVisible(bool visible);
         void SetPlaySettingsVisible(bool visible);
-        void ShowLeaveConfirmation(Action confirmed);
     }
 
     /// <summary>
@@ -27,15 +25,14 @@ namespace Game.Client.Lobby
     /// the rest of the visit keeps the cursor captured for looking around.
     /// </summary>
     /// <remarks>
-    /// Lives on the HUD canvas rather than on the panel it shows, the way
-    /// <see cref="KeyGuideView"/> does. A view that sits on its own hidden panel
-    /// only wires its buttons the first time the panel is switched on, which is
-    /// one more thing to get wrong for no gain.
+    /// Lives on the HUD canvas rather than on the panel it shows. A view that
+    /// sits on its own hidden panel only wires its buttons the first time the
+    /// panel is switched on, which is one more thing to get wrong for no gain.
     /// <para>
-    /// Play settings, key guide and settings used to be corner buttons on the
-    /// always-on HUD. A captured cursor reports from the centre of the screen
-    /// and could not reach them, so they are entries here now, for the same
-    /// reason start and leave already were.
+    /// Play settings and settings used to be corner buttons on the always-on
+    /// HUD. A captured cursor reports from the centre of the screen and could
+    /// not reach them, so they are entries here now, for the same reason start
+    /// and leave already were. The on-screen key guide is not an Esc entry.
     /// </para>
     /// </remarks>
     public sealed class LobbyPauseMenuView : MonoBehaviour, ILobbyPauseMenuView
@@ -58,40 +55,11 @@ namespace Game.Client.Lobby
         [SerializeField]
         private Button playSettingsButton;
 
-        [SerializeField]
-        private Button keyGuideButton;
-
         public event Action StartClicked;
         public event Action LeaveClicked;
         public event Action ResumeClicked;
         public event Action SettingsClicked;
         public event Action PlaySettingsClicked;
-        public event Action KeyGuideClicked;
-
-        private LobbyConfirmView leaveConfirmation;
-        private Action pendingLeave;
-
-        public void ShowLeaveConfirmation(Action confirmed)
-        {
-            if (leaveConfirmation == null)
-            {
-                leaveConfirmation = LobbyConfirmView.Create(transform);
-                leaveConfirmation.Confirmed += () =>
-                {
-                    var action = pendingLeave;
-                    pendingLeave = null;
-                    leaveConfirmation.Hide();
-                    action?.Invoke();
-                };
-                leaveConfirmation.Cancelled += () =>
-                {
-                    pendingLeave = null;
-                    leaveConfirmation.Hide();
-                };
-            }
-            pendingLeave = confirmed;
-            leaveConfirmation.Show("정말 나가시겠습니까?\n(방장 이탈시 방이 사라집니다)");
-        }
 
         public bool IsOpen => panel != null && panel.activeSelf;
 
@@ -118,7 +86,6 @@ namespace Game.Client.Lobby
             BindOptional(settingsButton, HandleSettingsClicked, "SettingsButton");
             BindOptional(
                 playSettingsButton, HandlePlaySettingsClicked, "PlaySettingsButton");
-            BindOptional(keyGuideButton, HandleKeyGuideClicked, "KeyGuideButton");
         }
 
         private void OnDisable()
@@ -147,20 +114,10 @@ namespace Game.Client.Lobby
             {
                 playSettingsButton.onClick.RemoveListener(HandlePlaySettingsClicked);
             }
-
-            if (keyGuideButton != null)
-            {
-                keyGuideButton.onClick.RemoveListener(HandleKeyGuideClicked);
-            }
         }
 
         public void SetVisible(bool visible)
         {
-            if (!visible)
-            {
-                pendingLeave = null;
-                if (leaveConfirmation != null) leaveConfirmation.Hide();
-            }
             if (panel != null)
             {
                 panel.SetActive(visible);
@@ -217,7 +174,5 @@ namespace Game.Client.Lobby
         private void HandleSettingsClicked() => SettingsClicked?.Invoke();
 
         private void HandlePlaySettingsClicked() => PlaySettingsClicked?.Invoke();
-
-        private void HandleKeyGuideClicked() => KeyGuideClicked?.Invoke();
     }
 }

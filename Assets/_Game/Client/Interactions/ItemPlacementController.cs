@@ -34,6 +34,13 @@ namespace Game.Client.Interactions
 
         public bool IsPlacing { get; private set; }
 
+        /// <summary>
+        /// 배치 확정 좌클릭이 손을 비운 뒤 같은 입력으로 펀치가 나가지 않게 한다.
+        /// </summary>
+        public bool BlocksAttack => IsPlacing || suppressAttackUntilRelease;
+
+        private bool suppressAttackUntilRelease;
+
         private PlayerInteractor interactor;
         private InputActionMap playerMap;
         private InputAction placementModeAction;
@@ -52,6 +59,8 @@ namespace Game.Client.Interactions
         private Vector3 placementCenterOffset;
         private Vector3 placementHalfExtents;
         private InteractionPromptView promptView;
+        private Sprite placeIcon;
+        private bool? lastGhostValid;
 
         private void Awake()
         {
@@ -92,6 +101,12 @@ namespace Game.Client.Interactions
 
         private void Update()
         {
+            if (suppressAttackUntilRelease &&
+                (confirmAction == null || !confirmAction.IsPressed()))
+            {
+                suppressAttackUntilRelease = false;
+            }
+
             if (Cursor.lockState != CursorLockMode.Locked)
             {
                 ExitPlacementMode();
@@ -126,6 +141,7 @@ namespace Game.Client.Interactions
 
             if (confirmAction.WasPressedThisFrame() && isCurrentPoseValid)
             {
+                suppressAttackUntilRelease = true;
                 ConfirmPlacement();
             }
         }
@@ -148,6 +164,11 @@ namespace Game.Client.Interactions
             }
 
             IsPlacing = false;
+            if (confirmAction != null && confirmAction.IsPressed())
+            {
+                suppressAttackUntilRelease = true;
+            }
+
             if (interactor != null)
             {
                 interactor.IsThrowSuppressed = false;
@@ -160,6 +181,7 @@ namespace Game.Client.Interactions
                 ghostRenderers = null;
             }
 
+            lastGhostValid = null;
             promptView?.Hide();
         }
 
@@ -251,7 +273,12 @@ namespace Game.Client.Interactions
 
             // 보정 한도까지 올려도 겹치면 그때만 배치 불가(빨간색).
             isCurrentPoseValid = !IsOverlapping() && HasSupport();
-            ApplyGhostMaterial(isCurrentPoseValid ? ghostValidMaterial : ghostInvalidMaterial);
+            if (lastGhostValid != isCurrentPoseValid)
+            {
+                ApplyGhostMaterial(isCurrentPoseValid ? ghostValidMaterial : ghostInvalidMaterial);
+                lastGhostValid = isCurrentPoseValid;
+            }
+
             RefreshPlacementPrompt();
         }
 
@@ -391,11 +418,17 @@ namespace Game.Client.Interactions
                 return;
             }
 
+            if (promptView != null && promptView.IsVisible)
+            {
+                return;
+            }
+
+            placeIcon ??= InteractionPromptView.LoadLeftClickIcon();
             PromptView.Show(
                 string.Empty,
                 PlaceActionLabel,
                 ghost.transform,
-                InteractionPromptView.LoadLeftClickIcon());
+                placeIcon);
         }
 
         private InteractionPromptView PromptView =>

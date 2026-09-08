@@ -36,7 +36,6 @@ namespace Game.Tests.EditMode
             "startButton",
             "playSettingsButton",
             "settingsButton",
-            "keyGuideButton",
             "leaveButton",
             "resumeButton",
         };
@@ -86,6 +85,11 @@ namespace Game.Tests.EditMode
                         $"LobbyPauseMenuView.{field} points outside the pause " +
                         "panel.");
                 }
+
+                Assert.That(
+                    panel.transform.Find("KeyGuideButton"),
+                    Is.Null,
+                    "Esc menu should not keep a key-guide entry. The on-screen guide replaced it.");
             });
         }
 
@@ -102,8 +106,6 @@ namespace Game.Tests.EditMode
             {
                 var panel = FindPausePanel(scene);
 
-                AssertOpensFromPauseMenu(
-                    SingleComponent<KeyGuideView>(scene), panel);
                 AssertOpensFromPauseMenu(
                     SingleComponent<PlaySettingsView>(scene), panel);
             });

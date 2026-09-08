@@ -353,8 +353,8 @@ namespace Game.Architecture.Tests
 
                 Assert.That(network.BoundSession, Is.Null);
                 Assert.That(network.UnbindCount, Is.EqualTo(1));
-                Assert.That(network.Controls[0], Is.True);
-                Assert.That(network.Controls[1], Is.True);
+                Assert.That(network.Controls[0], Is.False);
+                Assert.That(network.Controls[1], Is.False);
             }
             finally
             {

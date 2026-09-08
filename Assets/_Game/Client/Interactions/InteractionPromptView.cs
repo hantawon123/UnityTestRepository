@@ -17,6 +17,7 @@ namespace Game.Client.Interactions
 
         private const int SortingOrder = 220;
         private const float WorldLift = 0.08f;
+        private const float FollowSmoothTime = 0.05f;
 
         private Canvas canvas;
         private RectTransform root;
@@ -27,6 +28,14 @@ namespace Game.Client.Interactions
         private TMP_Text actionLabel;
         private Transform follow;
         private Camera followCamera;
+        private string shownKey;
+        private string shownAction;
+        private Sprite shownIcon;
+        private Vector3 followLocalAnchor;
+        private bool hasFollowLocalAnchor;
+        private Vector3 dampedScreen;
+        private Vector3 screenVelocity;
+        private bool hasDampedScreen;
 
         public Image KeyBox => keyBox;
 
@@ -54,9 +63,24 @@ namespace Game.Client.Interactions
         public void Show(string key, string action, Transform target, Sprite icon = null)
         {
             EnsureBuilt();
-            follow = target;
-            ApplyKeyContent(key, icon);
-            actionLabel.text = action ?? string.Empty;
+            var nextAction = action ?? string.Empty;
+            if (follow != target)
+            {
+                follow = target;
+                hasFollowLocalAnchor = false;
+                hasDampedScreen = false;
+                screenVelocity = Vector3.zero;
+            }
+
+            if (shownKey != key || shownAction != nextAction || shownIcon != icon)
+            {
+                ApplyKeyContent(key, icon);
+                actionLabel.text = nextAction;
+                shownKey = key;
+                shownAction = nextAction;
+                shownIcon = icon;
+            }
+
             root.gameObject.SetActive(true);
             RefreshPosition();
         }
@@ -67,6 +91,12 @@ namespace Game.Client.Interactions
         public void Hide()
         {
             follow = null;
+            shownKey = null;
+            shownAction = null;
+            shownIcon = null;
+            hasFollowLocalAnchor = false;
+            hasDampedScreen = false;
+            screenVelocity = Vector3.zero;
             if (root != null)
             {
                 root.gameObject.SetActive(false);
@@ -94,7 +124,7 @@ namespace Game.Client.Interactions
             canvas = GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = SortingOrder;
-            canvas.pixelPerfect = true;
+            canvas.pixelPerfect = false;
 
             var raycaster = GetComponent<GraphicRaycaster>();
             if (raycaster != null)
@@ -211,7 +241,7 @@ namespace Game.Client.Interactions
                 return;
             }
 
-            var world = ResolveAnchor(follow);
+            var world = ResolveFollowWorld();
             var screen = followCamera.WorldToScreenPoint(world);
             if (screen.z <= 0f)
             {
@@ -224,7 +254,35 @@ namespace Game.Client.Interactions
                 root.gameObject.SetActive(true);
             }
 
-            root.position = screen;
+            if (!hasDampedScreen)
+            {
+                dampedScreen = screen;
+                screenVelocity = Vector3.zero;
+                hasDampedScreen = true;
+            }
+            else
+            {
+                dampedScreen = Vector3.SmoothDamp(
+                    dampedScreen,
+                    screen,
+                    ref screenVelocity,
+                    FollowSmoothTime,
+                    Mathf.Infinity,
+                    Time.unscaledDeltaTime);
+            }
+
+            root.position = dampedScreen;
+        }
+
+        private Vector3 ResolveFollowWorld()
+        {
+            if (!hasFollowLocalAnchor)
+            {
+                followLocalAnchor = follow.InverseTransformPoint(ResolveAnchor(follow));
+                hasFollowLocalAnchor = true;
+            }
+
+            return follow.TransformPoint(followLocalAnchor);
         }
 
         private static Vector3 ResolveAnchor(Transform target)

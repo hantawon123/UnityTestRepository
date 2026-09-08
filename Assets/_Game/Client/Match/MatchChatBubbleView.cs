@@ -40,7 +40,9 @@ namespace Game.Client.Match
         {
             var root = new GameObject("Match Chat Bubbles");
             root.transform.SetParent(parent, false);
-            return root.AddComponent<MatchChatBubbleView>();
+            var view = root.AddComponent<MatchChatBubbleView>();
+            view.EnsureFont();
+            return view;
         }
 
         public void BindPlayer(string playerId, Transform playerRoot)
@@ -92,7 +94,12 @@ namespace Game.Client.Match
 
         private void Awake()
         {
-            font = HomeUiFonts.ApplyRegular();
+            EnsureFont();
+        }
+
+        private void EnsureFont()
+        {
+            font ??= HomeUiFonts.ApplyRegular();
         }
 
         private void LateUpdate()
@@ -158,6 +165,7 @@ namespace Game.Client.Match
             textRect.offsetMin = new Vector2(9f, 5f);
             textRect.offsetMax = new Vector2(-9f, -5f);
             var text = textObject.GetComponent<TextMeshProUGUI>();
+            EnsureFont();
             text.font = font;
             text.fontSize = FontSize;
             text.color = Color.white;

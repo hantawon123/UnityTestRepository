@@ -102,6 +102,9 @@ namespace Game.Client.Match
         private HidingWaitHudView hidingWaitHudView;
 
         [SerializeField]
+        private KeySettingGuideView keySettingGuideView;
+
+        [SerializeField]
         private MatchVitalsHudView vitalsHudView;
 
         [SerializeField]
@@ -146,12 +149,14 @@ namespace Game.Client.Match
             EnsureDestructionUsesText();
             ApplyHighlightFonts();
             HideVoiceButton();
+            RefreshKeyGuide(MatchPhase.Waiting);
         }
 
         public void SetPhase(MatchPhase phase, string hidingPlayerName)
         {
             SetHighlightOnly(phase == MatchPhase.Highlight);
             phaseView?.SetPhase(phase, hidingPlayerName);
+            RefreshKeyGuide(phase);
         }
 
         private void SetHighlightOnly(bool value)
@@ -175,7 +180,8 @@ namespace Game.Client.Match
                     (hidingTurnStartView != null && graphic.transform.IsChildOf(hidingTurnStartView.transform)) ||
                     (hidingActiveHudView != null && graphic.transform.IsChildOf(hidingActiveHudView.transform)) ||
                     (hidingWaitHudView != null && graphic.transform.IsChildOf(hidingWaitHudView.transform)) ||
-                    (vitalsHudView != null && graphic.transform.IsChildOf(vitalsHudView.transform)))
+                    (vitalsHudView != null && graphic.transform.IsChildOf(vitalsHudView.transform)) ||
+                    (keySettingGuideView != null && graphic.transform.IsChildOf(keySettingGuideView.transform)))
                     continue;
                 hiddenGraphics[graphic] = graphic.enabled;
                 graphic.enabled = false;
@@ -559,6 +565,30 @@ namespace Game.Client.Match
             if (destroyedItemsHudView == null)
             {
                 destroyedItemsHudView = DestroyedItemsHudView.Create(transform);
+            }
+        }
+
+        private void RefreshKeyGuide(MatchPhase phase)
+        {
+            EnsureKeySettingGuide();
+            keySettingGuideView?.SetVisible(ShowsKeySettingGuide(phase));
+        }
+
+        private static bool ShowsKeySettingGuide(MatchPhase phase)
+        {
+            return phase == MatchPhase.Hiding || phase == MatchPhase.Searching;
+        }
+
+        private void EnsureKeySettingGuide()
+        {
+            if (keySettingGuideView == null)
+            {
+                keySettingGuideView = GetComponentInChildren<KeySettingGuideView>(true);
+            }
+
+            if (keySettingGuideView == null)
+            {
+                keySettingGuideView = KeySettingGuideView.Ensure(transform);
             }
         }
 
