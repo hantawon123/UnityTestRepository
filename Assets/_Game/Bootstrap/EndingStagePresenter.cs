@@ -35,7 +35,10 @@ namespace Game.Bootstrap
         private bool backdropHidden;
         private bool staged;
         private PlayerInteractor lockedInteractor;
+        private ItemPlacementController lockedPlacement;
         private PlayerMovement stagedMovement;
+        private readonly HashSet<int> itemHiddenFor = new();
+        private readonly List<Renderer> hiddenItemRenderers = new();
 
         public EndingStagePresenter(
             NetworkResultLobbyReturnController result,
@@ -75,6 +78,7 @@ namespace Game.Bootstrap
             // everyone the authority knows about has been placed.
             if (!staged) TryStage();
             if (lockedInteractor == null) LockLocalInteraction();
+            HideArrestedItems();
         }
 
         public void Dispose()
@@ -82,6 +86,71 @@ namespace Game.Bootstrap
             stage.HideCamera();
             if (backdropHidden) view.SetBackdropVisible(true);
             UnlockLocalInteraction();
+            foreach (var renderer in hiddenItemRenderers)
+                if (renderer != null) renderer.forceRenderingOff = false;
+            hiddenItemRenderers.Clear();
+            itemHiddenFor.Clear();
+        }
+
+        /// <remarks>
+        /// 승자는 훔친 물건을 든 채 서 있는 것이 승리의 증거이므로 그대로 둔다.
+        /// 패자가 마지막에 들고 있던 물건은 무대에서 보이지 않게 한다. 실제로 내려놓는
+        /// 처리는 권한자의 매치 규칙이 결과 단계에서 거절하므로, 각 클라이언트가
+        /// 렌더러만 숨기고 결과가 끝나면 되돌린다(하이라이트·로비 전환에서 물건 상태는 초기화된다).
+        /// </remarks>
+        private void HideArrestedItems()
+        {
+            if (!result.HasMatchResult) return;
+            var participants = room.MatchParticipants.CurrentValue;
+            if (participants == null || participants.Count == 0) return;
+            if (itemHiddenFor.Count >= participants.Count) return;
+
+            var placements = EndingStageLayout.Assign(
+                participants,
+                result.LastWinnerPlayerIndices,
+                stage.EscapeSlotCount,
+                stage.ArrestSlotCount);
+
+            Dictionary<string, PlayerAvatar> avatars = null;
+            foreach (var placement in placements)
+            {
+                if (itemHiddenFor.Contains(placement.PlayerIndex)) continue;
+                if (placement.Escaped)
+                {
+                    itemHiddenFor.Add(placement.PlayerIndex);
+                    continue;
+                }
+
+                avatars ??= FindAvatars();
+                if (!avatars.TryGetValue(placement.PlayerId, out var avatar)) continue;
+                var interactor = avatar.GetComponent<PlayerInteractor>();
+                var item = interactor != null ? interactor.CarriedItem : null;
+                if (item == null)
+                {
+                    // 아직 들고 있는 물건이 동기화되지 않았을 수 있으니 다음 틱에 다시 본다.
+                    // 결과가 확정된 뒤에는 새로 집을 수 없으므로 잠시만 기다리면 된다.
+                    continue;
+                }
+
+                foreach (var renderer in item.GetComponentsInChildren<Renderer>(true))
+                {
+                    renderer.forceRenderingOff = true;
+                    hiddenItemRenderers.Add(renderer);
+                }
+                itemHiddenFor.Add(placement.PlayerIndex);
+            }
+        }
+
+        private static Dictionary<string, PlayerAvatar> FindAvatars()
+        {
+            var map = new Dictionary<string, PlayerAvatar>(StringComparer.Ordinal);
+            foreach (var avatar in UnityEngine.Object.FindObjectsByType<PlayerAvatar>(
+                         FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                var id = avatar.PlayerId;
+                if (!string.IsNullOrEmpty(id)) map.TryAdd(id, avatar);
+            }
+            return map;
         }
 
         private void TryStage()
@@ -135,6 +204,9 @@ namespace Game.Bootstrap
                 if (!avatar.IsOwner) continue;
                 lockedInteractor = avatar.GetComponent<PlayerInteractor>();
                 if (lockedInteractor != null) lockedInteractor.IsInputLocked = true;
+                // 던지기는 상호작용 잠금에 포함된다. 배치 모드(우클릭)는 별도 컨트롤러라 따로 막는다.
+                lockedPlacement = avatar.GetComponent<ItemPlacementController>();
+                if (lockedPlacement != null) lockedPlacement.IsInputLocked = true;
 
                 // WASD는 고정 무대 카메라 기준(W = 화면 안쪽), 몸은 이동 방향을 향한다.
                 stagedMovement = avatar.GetComponent<PlayerMovement>();
@@ -150,6 +222,8 @@ namespace Game.Bootstrap
         {
             if (lockedInteractor != null) lockedInteractor.IsInputLocked = false;
             lockedInteractor = null;
+            if (lockedPlacement != null) lockedPlacement.IsInputLocked = false;
+            lockedPlacement = null;
             if (stagedMovement != null) stagedMovement.ClearStageControl();
             stagedMovement = null;
         }

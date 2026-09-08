@@ -34,6 +34,9 @@ namespace Game.Client.Interactions
 
         public bool IsPlacing { get; private set; }
 
+        /// <summary>결과 화면 등 외부에서 배치 모드 진입을 막을 때 사용한다. 켜지면 진행 중인 배치도 끝낸다.</summary>
+        public bool IsInputLocked { get; set; }
+
         private PlayerInteractor interactor;
         private InputActionMap playerMap;
         private InputAction placementModeAction;
@@ -92,7 +95,7 @@ namespace Game.Client.Interactions
 
         private void Update()
         {
-            if (Cursor.lockState != CursorLockMode.Locked)
+            if (Cursor.lockState != CursorLockMode.Locked || IsInputLocked)
             {
                 ExitPlacementMode();
                 return;
