@@ -5,6 +5,12 @@ using UnityEngine.Rendering;
 namespace Game.Client.Interactions
 {
     /// <summary>조준 중인 집을 수 있는 물건에 주황 2px 실루엣을 그린다.</summary>
+    /// <remarks>
+    /// 기본으로는 자기 자식 렌더러에 실루엣을 씌운다. 씬에 이미 놓인 환경 소품
+    /// (여러 개를 하나의 상호작용 대상으로 묶는 경우)에도 같은 실루엣을 쓰려면
+    /// <see cref="sourceRenderers"/>에 그 렌더러들을 직접 지정한다. 지정된 것이
+    /// 하나라도 있으면 자식 검색은 하지 않는다.
+    /// </remarks>
     [DisallowMultipleComponent]
     public sealed class InteractableFocusOutline : MonoBehaviour
     {
@@ -12,6 +18,10 @@ namespace Game.Client.Interactions
         public const float FocusPixels = 2f;
 
         private const string ShaderResourceName = "AssignedItemOutline";
+
+        [Tooltip("실루엣을 씌울 렌더러. 비어 있으면 이 오브젝트의 자식 렌더러를 쓴다.")]
+        [SerializeField]
+        private Renderer[] sourceRenderers;
 
         private readonly List<Renderer> outlineRenderers = new();
         private Material outlineMaterial;
@@ -22,6 +32,9 @@ namespace Game.Client.Interactions
         public float PixelWidth => FocusPixels;
 
         public bool IsVisible { get; private set; }
+
+        /// <summary>실루엣 대상으로 지정된 렌더러 수. 0이면 자식 렌더러를 쓴다.</summary>
+        public int SourceCount => sourceRenderers?.Length ?? 0;
 
         public void SetVisible(bool visible)
         {
@@ -63,11 +76,13 @@ namespace Game.Client.Interactions
             outlineMaterial.SetFloat("_OutlineWidth", 0.001f);
             outlineMaterial.SetFloat("_OutlinePixels", FocusPixels);
 
-            var sources = GetComponentsInChildren<Renderer>(includeInactive: true);
+            var sources = SourceCount > 0
+                ? sourceRenderers
+                : GetComponentsInChildren<Renderer>(includeInactive: true);
             for (var index = 0; index < sources.Length; index++)
             {
                 var source = sources[index];
-                if (ItemOutlineRenderers.IsGenerated(source))
+                if (source == null || ItemOutlineRenderers.IsGenerated(source))
                 {
                     continue;
                 }
@@ -115,6 +130,10 @@ namespace Game.Client.Interactions
             Configure(renderer, source.sharedMaterials.Length);
         }
 
+        /// <remarks>
+        /// 원본 렌더러의 자식으로 붙인다. 원본이 정적(static)이어도 새 자식은
+        /// 정적 플래그를 받지 않으므로 라이트맵·배칭에 섞이지 않는다.
+        /// </remarks>
         private GameObject CreateOutlineChild(Transform parent)
         {
             var child = new GameObject("[Interactable Focus Outline]")
@@ -146,18 +165,36 @@ namespace Game.Client.Interactions
 
         private void OnDestroy()
         {
-            if (outlineMaterial == null)
+            // 외부 렌더러에 붙인 실루엣은 이 컴포넌트가 사라져도 남으므로 함께 치운다.
+            // 자기 자식에 붙인 것은 오브젝트와 함께 사라진다.
+            for (var index = 0; index < outlineRenderers.Count; index++)
             {
-                return;
+                var renderer = outlineRenderers[index];
+                if (renderer == null || renderer.transform.IsChildOf(transform))
+                {
+                    continue;
+                }
+
+                DestroyObject(renderer.gameObject);
             }
 
+            outlineRenderers.Clear();
+
+            if (outlineMaterial != null)
+            {
+                DestroyObject(outlineMaterial);
+            }
+        }
+
+        private static void DestroyObject(Object target)
+        {
             if (Application.isPlaying)
             {
-                Destroy(outlineMaterial);
+                Destroy(target);
             }
             else
             {
-                DestroyImmediate(outlineMaterial);
+                DestroyImmediate(target);
             }
         }
     }
