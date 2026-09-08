@@ -82,6 +82,18 @@ class FriendListApiTest extends IntegrationTest {
     }
 
     @Test
+    @DisplayName("로비에 있는 친구는 IN_LOBBY")
+    void friendInALobbyIsInLobby() throws Exception {
+        String me = createUser();
+        String other = createUser();
+        befriend(me, other);
+        heartbeat(other, "ROOM01", "LOBBY");
+
+        mvc.perform(get("/api/v1/friends").header(USER_ID_HEADER, me))
+                .andExpect(jsonPath("$.friends[0].presence").value("IN_LOBBY"));
+    }
+
+    @Test
     @DisplayName("sessionId를 보낸 친구는 IN_GAME")
     void friendInSessionIsInGame() throws Exception {
         String me = createUser();
@@ -191,6 +203,14 @@ class FriendListApiTest extends IntegrationTest {
     private void befriend(String a, String b) throws Exception {
         sendRequest(a, b);
         mvc.perform(post("/api/v1/friend-requests/{userId}/accept", a).header(USER_ID_HEADER, b))
+                .andExpect(status().isNoContent());
+    }
+
+    private void heartbeat(String userId, String sessionId, String sessionKind) throws Exception {
+        mvc.perform(put("/api/v1/presence")
+                        .header(USER_ID_HEADER, userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sessionId\":\"" + sessionId + "\",\"sessionKind\":\"" + sessionKind + "\"}"))
                 .andExpect(status().isNoContent());
     }
 
