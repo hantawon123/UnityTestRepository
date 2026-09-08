@@ -64,6 +64,18 @@ namespace Game.Core.Backend
         /// <summary>Not friends with that user. The list is stale.</summary>
         NotFriends,
 
+        /// <summary>
+        /// The friend is in a room — lobby or match — and the server refused
+        /// the room invitation. The toast only shows at home, so they would not
+        /// have seen it anyway.
+        /// </summary>
+        /// <remarks>
+        /// Presentation should prevent this by reading the friend's presence
+        /// first; this is the answer for the moment between that read and the
+        /// click, when the friend has just entered a room.
+        /// </remarks>
+        TargetInGame,
+
         /// <summary>Someone else already uses that nickname.</summary>
         NicknameTaken,
 
