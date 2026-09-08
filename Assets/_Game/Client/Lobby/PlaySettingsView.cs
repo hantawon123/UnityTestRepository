@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Client.Rooms;
@@ -54,9 +55,14 @@ namespace Game.Client.Lobby
         private GameObject panel;
 
         private Button copyRoomCodeButton;
+        private Button roomCodeHitButton;
+        private Image copyIconImage;
+        private Text copyFeedbackText;
+        private GameObject copyFeedbackRoot;
+        private Coroutine copyFeedbackRoutine;
+        private bool copyCooldownActive;
         private Text titleText;
         private InputField titleInput;
-        private string savedTitle = string.Empty;
         private Text roomCodeText;
         private Text maxPlayersText;
         private Button maxPlayersMinusButton;
@@ -83,7 +89,7 @@ namespace Game.Client.Lobby
         private int selectedMapIndex;
         private bool editable;
         private MatchRuleSettings matchRules = MatchRuleSettings.Default;
-        private IReadOnlyList<PlaySettingsMapOption> maps = PlaySettingsMapCatalog.All;
+        private IReadOnlyList<PlaySettingsMapOption> mapOptions = PlaySettingsMapCatalog.All;
         private readonly Dictionary<Button, UnityEngine.Events.UnityAction> boundActions = new();
         private int openedOnFrame = int.MinValue;
 
@@ -104,7 +110,8 @@ namespace Game.Client.Lobby
             Bind(openButton, () => OpenRequested?.Invoke());
             Bind(closeButton, RequestClose);
             Bind(gameStartButton, RequestStart);
-            Bind(copyRoomCodeButton, () => CopyRoomCodeRequested?.Invoke());
+            Bind(copyRoomCodeButton, RequestCopyRoomCode);
+            Bind(roomCodeHitButton, RequestCopyRoomCode);
             Bind(applyButton, RequestClose);
             Bind(maxPlayersMinusButton, () => SetMaxPlayers(maxPlayers - 1));
             Bind(maxPlayersPlusButton, () => SetMaxPlayers(maxPlayers + 1));
@@ -126,6 +133,7 @@ namespace Game.Client.Lobby
             Unbind(closeButton);
             Unbind(gameStartButton);
             Unbind(copyRoomCodeButton);
+            Unbind(roomCodeHitButton);
             Unbind(maxPlayersMinusButton);
             Unbind(maxPlayersPlusButton);
             Unbind(destructionMinusButton);
@@ -135,6 +143,7 @@ namespace Game.Client.Lobby
             UnbindMapSlots();
             Unbind(categoryPrevButton);
             Unbind(categoryNextButton);
+            StopCopyFeedback(resetVisuals: true);
         }
 
         private void Update()
@@ -185,6 +194,10 @@ namespace Game.Client.Lobby
                 RefreshTitleCounter();
                 RefreshRoomCode();
             }
+            else
+            {
+                StopCopyFeedback(resetVisuals: true);
+            }
         }
 
         private void RefreshRoomCode()
@@ -212,6 +225,89 @@ namespace Game.Client.Lobby
             if (!editable || RoomSettings.IsValidTitle(ReadDraft().Title)) StartRequested?.Invoke();
         }
 
+        private void RequestCopyRoomCode()
+        {
+            if (copyCooldownActive || string.IsNullOrWhiteSpace(roomCode))
+            {
+                return;
+            }
+
+            CopyRoomCodeRequested?.Invoke();
+            StartCopyFeedback();
+        }
+
+        private void StartCopyFeedback()
+        {
+            StopCopyFeedback(resetVisuals: false);
+            copyCooldownActive = true;
+            SetCopyControlsInteractable(false);
+            if (copyFeedbackRoot != null)
+            {
+                copyFeedbackRoot.SetActive(true);
+            }
+
+            if (copyIconImage != null)
+            {
+                copyIconImage.sprite = LoadCopyCheckIcon() ?? LoadCopyIcon();
+            }
+
+            if (isActiveAndEnabled)
+            {
+                copyFeedbackRoutine = StartCoroutine(CopyFeedbackRoutine());
+            }
+            else
+            {
+                StopCopyFeedback(resetVisuals: true);
+            }
+        }
+
+        private IEnumerator CopyFeedbackRoutine()
+        {
+            yield return new WaitForSecondsRealtime(PlaySettingsStyle.Layout.CopyFeedbackDuration);
+            copyFeedbackRoutine = null;
+            StopCopyFeedback(resetVisuals: true);
+        }
+
+        private void StopCopyFeedback(bool resetVisuals)
+        {
+            if (copyFeedbackRoutine != null)
+            {
+                StopCoroutine(copyFeedbackRoutine);
+                copyFeedbackRoutine = null;
+            }
+
+            copyCooldownActive = false;
+            if (!resetVisuals)
+            {
+                return;
+            }
+
+            if (copyFeedbackRoot != null)
+            {
+                copyFeedbackRoot.SetActive(false);
+            }
+
+            if (copyIconImage != null)
+            {
+                copyIconImage.sprite = LoadCopyIcon();
+            }
+
+            SetCopyControlsInteractable(true);
+        }
+
+        private void SetCopyControlsInteractable(bool interactable)
+        {
+            if (copyRoomCodeButton != null)
+            {
+                copyRoomCodeButton.interactable = interactable;
+            }
+
+            if (roomCodeHitButton != null)
+            {
+                roomCodeHitButton.interactable = interactable;
+            }
+        }
+
         public void SetEditable(bool value)
         {
             editable = value;
@@ -233,7 +329,6 @@ namespace Game.Client.Lobby
         {
             EnsureLayout();
             title = draft.Title;
-            savedTitle = title;
             if (titleInput != null) titleInput.SetTextWithoutNotify(title);
             RefreshTitleCounter();
             roomCode = draft.RoomCode;
@@ -280,7 +375,7 @@ namespace Game.Client.Lobby
 
         public PlaySettingsDraft ReadDraft()
         {
-            var map = maps[Mathf.Clamp(selectedMapIndex, 0, maps.Count - 1)];
+            var map = mapOptions[Mathf.Clamp(selectedMapIndex, 0, mapOptions.Count - 1)];
             return new PlaySettingsDraft(
                 title,
                 roomCode,
@@ -544,15 +639,15 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            var existing = hudRoot.Find("PlaySettingsOverlay") as RectTransform;
-            if (existing != null)
+            var existingOverlay = hudRoot.Find("PlaySettingsOverlay") as RectTransform;
+            if (existingOverlay != null)
             {
-                overlayRoot = existing.gameObject;
-                EnsureOverlayScrim(existing);
-                panelTransform.SetParent(existing, false);
+                overlayRoot = existingOverlay.gameObject;
+                EnsureOverlayScrim(existingOverlay);
+                panelTransform.SetParent(existingOverlay, false);
                 RemoveDuplicateOverlays(hudRoot, overlayRoot);
-                StyleBackButton(existing);
-                EnsureGameStartLabel(hudRoot, existing);
+                StyleBackButton(existingOverlay);
+                EnsureGameStartLabel(hudRoot, existingOverlay);
                 overlayRoot.SetActive(panel.activeSelf);
                 SetBackButtonVisible(overlayRoot.activeSelf);
                 SetGameStartLabelVisible(overlayRoot.activeSelf);
@@ -760,10 +855,10 @@ namespace Game.Client.Lobby
 
             if (gameStartLabel == null)
             {
-                var existing = overlay.Find("GameStartLabel") ?? hudRoot?.Find("GameStartLabel");
-                if (existing != null)
+                var existingStartLabel = overlay.Find("GameStartLabel") ?? hudRoot?.Find("GameStartLabel");
+                if (existingStartLabel != null)
                 {
-                    gameStartLabel = existing.GetComponent<TextMeshProUGUI>();
+                    gameStartLabel = existingStartLabel.GetComponent<TextMeshProUGUI>();
                 }
 
                 if (gameStartLabel == null)

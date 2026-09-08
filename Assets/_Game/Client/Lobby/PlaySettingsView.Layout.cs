@@ -74,6 +74,12 @@ namespace Game.Client.Lobby
                 {
                     roomCodeText = text;
                 }
+
+                var hitButton = valueTransform.GetComponent<Button>();
+                if (hitButton != null)
+                {
+                    roomCodeHitButton = hitButton;
+                }
             }
 
             var copyTransform = FindDeepChild(content, "CopyRoomCodeButton");
@@ -83,6 +89,28 @@ namespace Game.Client.Lobby
                 if (button != null)
                 {
                     copyRoomCodeButton = button;
+                }
+
+                var iconTransform = copyTransform.Find("Icon");
+                if (iconTransform != null)
+                {
+                    var icon = iconTransform.GetComponent<Image>();
+                    if (icon != null)
+                    {
+                        copyIconImage = icon;
+                    }
+                }
+            }
+
+            var feedbackTransform = FindDeepChild(content, "CopiedFeedback");
+            if (feedbackTransform != null)
+            {
+                copyFeedbackRoot = feedbackTransform.gameObject;
+                var text = feedbackTransform.GetComponent<Text>()
+                    ?? feedbackTransform.GetComponentInChildren<Text>();
+                if (text != null)
+                {
+                    copyFeedbackText = text;
                 }
             }
         }
@@ -405,6 +433,24 @@ namespace Game.Client.Lobby
             spacerElement.flexibleWidth = 1f;
             spacerElement.minWidth = 0f;
 
+            var feedbackRect = CreateRect("CopiedFeedback", group);
+            var feedbackElement = feedbackRect.gameObject.AddComponent<LayoutElement>();
+            feedbackElement.preferredWidth = PlaySettingsStyle.Layout.CopiedFeedbackWidth;
+            feedbackElement.preferredHeight = PlaySettingsStyle.RowHeight;
+            feedbackElement.minWidth = PlaySettingsStyle.Layout.CopiedFeedbackWidth;
+            copyFeedbackText = CreateBodyText(
+                feedbackRect,
+                "복사되었습니다!",
+                Vector2.zero,
+                Vector2.one,
+                Vector2.zero,
+                Vector2.zero);
+            copyFeedbackText.alignment = TextAnchor.MiddleRight;
+            copyFeedbackText.color = PlaySettingsStyle.Palette.ApplyFill;
+            ApplySingleLine(copyFeedbackText);
+            copyFeedbackRoot = feedbackRect.gameObject;
+            feedbackRect.gameObject.SetActive(false);
+
             var valueRect = CreateRect("RoomCodeValue", group);
             var valueElement = valueRect.gameObject.AddComponent<LayoutElement>();
             valueElement.preferredWidth = PlaySettingsStyle.Layout.RoomCodeValueWidth;
@@ -413,7 +459,13 @@ namespace Game.Client.Lobby
             roomCodeText = CreateBodyText(valueRect, string.Empty, Vector2.zero, Vector2.one,
                 Vector2.zero, Vector2.zero);
             roomCodeText.alignment = TextAnchor.MiddleRight;
+            roomCodeText.raycastTarget = false;
             ApplySingleLine(roomCodeText);
+
+            var valueHit = valueRect.gameObject.AddComponent<Image>();
+            valueHit.color = Color.clear;
+            roomCodeHitButton = valueRect.gameObject.AddComponent<Button>();
+            roomCodeHitButton.targetGraphic = valueHit;
 
             var copySize = PlaySettingsStyle.Layout.CopyIconSize;
             var copyRect = CreateRect("CopyRoomCodeButton", group);
@@ -438,6 +490,7 @@ namespace Game.Client.Lobby
             icon.color = Color.white;
             icon.preserveAspect = true;
             icon.raycastTarget = false;
+            copyIconImage = icon;
         }
 
         private void BuildCounterRow(
@@ -678,38 +731,12 @@ namespace Game.Client.Lobby
             return image;
         }
 
-        private void BuildMapSlotScroll(RectTransform parent)
-        {
-            var scrollArea = CreateRect("MapScroll", parent);
-            scrollArea.anchorMin = new Vector2(0f, 0f);
-            scrollArea.anchorMax = new Vector2(1f, 0f);
-            scrollArea.pivot = new Vector2(0.5f, 0f);
-            scrollArea.offsetMin = new Vector2(0f, 8f);
-            scrollArea.offsetMax = new Vector2(0f, 8f + PlaySettingsStyle.Layout.MapSlotSize);
-
-            mapScroll = scrollArea.gameObject.AddComponent<ScrollRect>();
-            mapScroll.horizontal = true;
-            mapScroll.vertical = false;
-            mapScroll.movementType = ScrollRect.MovementType.Clamped;
-            mapScroll.scrollSensitivity = 30f;
-
-            var viewport = CreateRect("Viewport", scrollArea);
-            Stretch(viewport);
-            viewport.gameObject.AddComponent<RectMask2D>();
-
-            mapContent = CreateRect("MapContent", viewport);
-            mapContent.anchorMin = new Vector2(0f, 0.5f);
-            mapContent.anchorMax = new Vector2(0f, 0.5f);
-            mapContent.pivot = new Vector2(0f, 0.5f);
-            mapContent.anchoredPosition = Vector2.zero;
-            mapContent.sizeDelta = new Vector2(400f, PlaySettingsStyle.Layout.MapSlotSize);
-
-            mapScroll.viewport = viewport;
-            mapScroll.content = mapContent;
-        }
-
         private Button CreateApplyButton(RectTransform footer)
         {
+            var paddingX = PlaySettingsStyle.ApplyPaddingHorizontal;
+            var paddingY = PlaySettingsStyle.ApplyPaddingVertical;
+            var fontSize = PlaySettingsStyle.FontSize.Apply;
+
             var rect = CreateRect("ApplyButton", footer);
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
@@ -719,38 +746,25 @@ namespace Game.Client.Lobby
             fill.type = Image.Type.Sliced;
             fill.color = PlaySettingsStyle.Palette.ApplyFill;
 
-            var layout = rect.gameObject.AddComponent<HorizontalLayoutGroup>();
-            layout.padding = new RectOffset(
-                Mathf.RoundToInt(PlaySettingsStyle.ApplyPaddingHorizontal),
-                Mathf.RoundToInt(PlaySettingsStyle.ApplyPaddingHorizontal),
-                Mathf.RoundToInt(PlaySettingsStyle.ApplyPaddingVertical),
-                Mathf.RoundToInt(PlaySettingsStyle.ApplyPaddingVertical));
-            layout.childAlignment = TextAnchor.MiddleCenter;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = false;
-
-            var fitter = rect.gameObject.AddComponent<ContentSizeFitter>();
-            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = fill;
 
             var labelRect = CreateRect("Text", rect);
-            var labelElement = labelRect.gameObject.AddComponent<LayoutElement>();
-            labelElement.preferredHeight = PlaySettingsStyle.FontSize.Apply;
-            labelElement.minHeight = PlaySettingsStyle.FontSize.Apply;
+            Stretch(labelRect);
+            labelRect.offsetMin = new Vector2(paddingX, paddingY);
+            labelRect.offsetMax = new Vector2(-paddingX, -paddingY);
 
             var label = labelRect.gameObject.AddComponent<Text>();
             label.text = "적용하기";
             label.font = MediumFont();
-            label.fontSize = PlaySettingsStyle.FontSize.Apply;
+            label.fontSize = fontSize;
             label.color = PlaySettingsStyle.Palette.Text;
             label.alignment = TextAnchor.MiddleCenter;
             label.raycastTarget = false;
             ApplySingleLine(label);
+
+            var textWidth = Mathf.Max(label.preferredWidth, 1f);
+            rect.sizeDelta = new Vector2(textWidth + (paddingX * 2f), fontSize + (paddingY * 2f));
             return button;
         }
 
@@ -823,6 +837,7 @@ namespace Game.Client.Lobby
         private static Font extraBoldFont;
         private static Font mediumFont;
         private static Sprite copyIcon;
+        private static Sprite copyCheckIcon;
         private static Sprite arrowLeftIcon;
         private static Sprite arrowRightIcon;
 
@@ -894,6 +909,17 @@ namespace Game.Client.Lobby
             copyIcon = Sprite.Create(texture, new Rect(0f, 0f, 24f, 24f), new Vector2(0.5f, 0.5f), 100f);
             copyIcon.hideFlags = HideFlags.HideAndDontSave;
             return copyIcon;
+        }
+
+        private static Sprite LoadCopyCheckIcon()
+        {
+            if (copyCheckIcon != null)
+            {
+                return copyCheckIcon;
+            }
+
+            copyCheckIcon = Resources.Load<Sprite>(PlaySettingsStyle.CopyCheckIconResource);
+            return copyCheckIcon;
         }
 
         private static Sprite LoadArrowLeftIcon() =>

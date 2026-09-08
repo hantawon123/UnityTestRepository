@@ -124,12 +124,12 @@ namespace Game.Client.Lobby
 
         private static PlaySettingsMapOption[] CreateOptions()
         {
-            var maps = MapCatalog.MapIds;
-            var options = new PlaySettingsMapOption[maps.Count + 1];
+            var playableMaps = MapCatalog.MapIds;
+            var options = new PlaySettingsMapOption[playableMaps.Count + 1];
             options[0] = new PlaySettingsMapOption(string.Empty, "랜덤");
-            for (var i = 0; i < maps.Count; i++)
+            for (var i = 0; i < playableMaps.Count; i++)
             {
-                options[i + 1] = new PlaySettingsMapOption(maps[i], maps[i]);
+                options[i + 1] = new PlaySettingsMapOption(playableMaps[i], playableMaps[i]);
             }
 
             return options;

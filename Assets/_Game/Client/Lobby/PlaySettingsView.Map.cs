@@ -42,30 +42,17 @@ namespace Game.Client.Lobby
 
         private void StepMapSelection(int direction)
         {
-            if (!editable || maps.Count <= 1)
+            if (!editable || mapOptions.Count <= 1)
             {
                 return;
             }
 
-            SelectMap((selectedMapIndex + direction + maps.Count) % maps.Count);
-        }
-
-        private void ScrollMaps(int direction)
-        {
-            if (mapScroll == null || mapContent == null)
-            {
-                return;
-            }
-
-            var step = (PlaySettingsStyle.Layout.MapSlotSize + PlaySettingsStyle.Layout.MapSlotSpacing) /
-                       Mathf.Max(1f, mapContent.rect.width);
-            mapScroll.horizontalNormalizedPosition = Mathf.Clamp01(
-                mapScroll.horizontalNormalizedPosition + (direction * step));
+            SelectMap((selectedMapIndex + direction + mapOptions.Count) % mapOptions.Count);
         }
 
         private void SelectMap(int index)
         {
-            if (!editable || index < 0 || index >= maps.Count)
+            if (!editable || index < 0 || index >= mapOptions.Count)
             {
                 return;
             }
@@ -76,13 +63,13 @@ namespace Game.Client.Lobby
 
         private void RefreshMapSelection(bool scrollIntoView)
         {
-            if (maps.Count == 0)
+            if (mapOptions.Count == 0)
             {
                 return;
             }
 
-            selectedMapIndex = Mathf.Clamp(selectedMapIndex, 0, maps.Count - 1);
-            var selected = maps[selectedMapIndex];
+            selectedMapIndex = Mathf.Clamp(selectedMapIndex, 0, mapOptions.Count - 1);
+            var selected = mapOptions[selectedMapIndex];
 
             if (mapNameText == null && settingsContent != null)
             {
@@ -121,12 +108,12 @@ namespace Game.Client.Lobby
 
             if (mapPrevButton != null)
             {
-                mapPrevButton.interactable = editable && maps.Count > 1;
+                mapPrevButton.interactable = editable && mapOptions.Count > 1;
             }
 
             if (mapNextButton != null)
             {
-                mapNextButton.interactable = editable && maps.Count > 1;
+                mapNextButton.interactable = editable && mapOptions.Count > 1;
             }
 
             if (scrollIntoView)
@@ -137,7 +124,7 @@ namespace Game.Client.Lobby
 
         private void ScrollSelectedIntoView()
         {
-            if (mapScroll == null || mapContent == null || maps.Count <= 1)
+            if (mapScroll == null || mapContent == null || mapOptions.Count <= 1)
             {
                 return;
             }
@@ -166,7 +153,7 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            if (mapSlotButtons.Count == maps.Count && mapSlotImages.Count == maps.Count)
+            if (mapSlotButtons.Count == mapOptions.Count && mapSlotImages.Count == mapOptions.Count)
             {
                 return;
             }
@@ -190,11 +177,11 @@ namespace Game.Client.Lobby
 
             var slotSize = PlaySettingsStyle.Layout.MapSlotSize;
             var slotSpacing = PlaySettingsStyle.Layout.MapSlotSpacing;
-            var width = (maps.Count * slotSize) + (Mathf.Max(0, maps.Count - 1) * slotSpacing);
+            var width = (mapOptions.Count * slotSize) + (Mathf.Max(0, mapOptions.Count - 1) * slotSpacing);
             mapContent.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
             mapContent.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, slotSize);
 
-            for (var i = 0; i < maps.Count; i++)
+            for (var i = 0; i < mapOptions.Count; i++)
             {
                 var slot = CreateMapSlot(mapContent, i);
                 mapSlotImages.Add(slot.GetComponent<Image>());

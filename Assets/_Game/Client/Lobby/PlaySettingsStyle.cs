@@ -22,27 +22,26 @@ namespace Game.Client.Lobby
         public const float ApplyPaddingHorizontal = 80f;
         public const float ApplyPaddingVertical = 11f;
         public const int ApplyButtonRadius = 32;
-        public const int LayoutVersion = 16;
+        public const int LayoutVersion = 18;
 
         public const string RegularFontResource = "Fonts/Paperlogy-4Regular";
         public const string MediumFontResource = "Fonts/Paperlogy-5Medium";
         public const string HeaderFontResource = "Fonts/Paperlogy-9Black";
         public const string GameStartFontResource = "Fonts/Paperlogy-8ExtraBold";
         public const string CopyIconResource = "UI/ic_copy";
+        public const string CopyCheckIconResource = "UI/ic_copy_check";
         public const string ArrowLeftIconResource = "UI/Icon_Left";
         public const string ArrowRightIconResource = "UI/Icon_Right";
 
         public static class Palette
         {
             public static readonly Color PanelFill = FromHex(0x0B1018, 0.8f);
-            public static readonly Color ScrollBackground = FromHex(0x0B1018, 1f);
             public static readonly Color Border = Color.white;
             public static readonly Color Text = Color.white;
             public static readonly Color MapPreview = FromHex(0x8E8E8E, 0.8f);
             public static readonly Color Underline = FromHex(0xF5F3F1, 0.5f);
             public static readonly Color ApplyFill = FromHex(0xFF7032);
             public static readonly Color Divider = FromHex(0xF5F3F1, 0.16f);
-            public static readonly Color Arrow = Color.white;
         }
 
         public static class FontSize
@@ -66,12 +65,13 @@ namespace Game.Client.Lobby
 
         public static class Layout
         {
-            public const float RowRadius = 44f;
             public static readonly Vector2 MapPreviewSize = new Vector2(200f, 150f);
             public const float MapSlotSize = 90f;
             public const float MapSlotSpacing = 12f;
             public const float ArrowSize = 24f;
             public const float CopyIconSize = 32f;
+            public const float CopyFeedbackDuration = 5f;
+            public const float CopiedFeedbackWidth = 220f;
             public const float LabelAreaRatio = 0.42f;
             public const float RoomCodeValueWidth = 160f;
             public const float RoomCodeControlSpacing = 8f;
