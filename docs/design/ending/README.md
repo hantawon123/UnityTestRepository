@@ -78,6 +78,18 @@
 - 프리팹 `EndingLights` 그룹 추가(Mixed): 컨셉의 형광등 자리에 천장 스팟 3개(복도 앞 z 6.5 · 복도 중간 z 3.0 · 유치장 안 z -1.5, 150°, 냉백색 #DBEBFF, 3.0~3.5) + 출구로 들어오는 태양광 Directional(1.2, 약한 온색, 소프트 그림자).
 - 에셋 자체 조명(펜던트 온색 스팟 등 6개)은 유지. 다음: 베이크 대상 결정과 라이트맵 베이크, 톤 조정(너무 평평하면 환경광 0.5 수준으로 내리고 스팟 대비 확보).
 
+## 5. 콜라이더 갱신 (733, 2026-09-08)
+
+- 사용자가 조립 씬에서 바꾼 유치장(뒷벽 z -3.45로 확장, 측벽·천장·바닥·파이프 연장, 표지판·방패 5개 제거, 자물쇠·창문 이동, 조명 값)은 씬 인스턴스 오버라이드였음 → `PrefabUtility.ApplyPrefabInstance`로 **프리팹에 반영**. 이제 `EndingHoldingEnvironment.prefab`이 기준이고 Result 씬에서도 같은 지오메트리가 나온다.
+- 콜라이더를 렌더러 실측값에 맞춰 재설정(프리팹 안 중첩 오버라이드):
+  - `COLLIDER_Cell_Rear` z -4.17~-3.45(안쪽 면 = 벽 페인트 면), 높이 4.92
+  - `COLLIDER_Cell_Side_±1` z -4.17~0.15, 안쪽 면 x ±3.42
+  - `COLLIDER_Cell_Floor` z -4.17~0
+  - `COLLIDER_Locked_Cell_Front`(철창) 폭 ±3.95, **높이 0~4.84(천장까지)** → 철창을 뛰어넘을 틈 없음
+  - `COLLIDER_Ceiling` 신규: y 4.74~5.04, 유치장 뒷벽부터 복도 끝까지 전체 천장(점프 안전망)
+- 검증(물리 레이캐스트, 유치장 중앙 (0,1,-1.5)에서): 뒷벽 -3.45, 좌우 벽 ±3.42, 철창 -0.12, 천장 4.74 모두 정확히 맞음. 철창 위 y 4.0에서도 철창 콜라이더에 막힘.
+- 복도 측벽·출구 차단 콜라이더는 원본 그대로(변경 없음).
+
 ## 참고 파일
 - 결과 흐름: `Assets/_Game/Bootstrap/ResultLifetimeScope.cs`, `NetworkResultLobbyReturnController.cs`, `Assets/_Game/Content/Scenes/Result.unity`
 - 리플레이 아바타 재생: `Assets/_Game/Bootstrap/HighlightReplayPlayer.cs`
