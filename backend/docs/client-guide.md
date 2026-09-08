@@ -223,6 +223,7 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 | `NICKNAME_TAKEN` | 409 | 닉네임이 이미 쓰임 | 다른 이름을 받습니다 |
 | `ALREADY_FRIENDS` | 409 | 이미 친구 | 목록을 다시 불러옵니다 |
 | `REQUEST_ALREADY_SENT` | 409 | 이미 보낸 요청 | 목록을 다시 불러옵니다 |
+| `TARGET_IN_GAME` | 409 | 초대할 친구가 로비나 경기 중 | "게임 중인 친구입니다". 홈으로 나오면 다시 부를 수 있습니다 |
 | `CONFLICT` | 409 | 동시 요청이 겹침 | 다시 시도하면 대개 됩니다 |
 | `RATE_LIMITED` | 429 | 한 IP 가 플레이 로그를 분당 허용량 넘게 보냄 | 그 배치를 스풀에 두고 다음 flush 에 다시 보냅니다 |
 | `NICKNAME_GENERATION_FAILED` | 500 | 서버가 임시 닉네임을 못 만듦 | 서버 문제입니다. 재시도 |
@@ -316,6 +317,16 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 서버는 실시간 통신을 하지 않으므로 **초대를 밀어주지 못합니다.** 로비에 있는 동안
 `GET /api/v1/invites` 를 주기적으로 부르세요. 접속 상태 하트비트와 같은 주기(30초)면
 충분합니다. 목록은 최신 초대가 위입니다.
+
+### 게임 중인 친구는 부를 수 없습니다
+
+상대의 접속 상태가 `IN_GAME` 이면 `409 TARGET_IN_GAME` 입니다. 로비와 경기 중은 서버가
+구분하지 않고 둘 다 막습니다. 초대 토스트는 홈에서만 뜨기 때문에 지금 보내도 상대가 볼 수
+없고, 3분 뒤 조용히 사라질 뿐입니다. 친구 목록의 `presence` 로 미리 버튼을 비활성화하고,
+그래도 이 응답이 오면 "게임 중인 친구입니다" 로 안내하세요.
+
+판정은 친구 목록과 같습니다. 하트비트가 90초 넘게 끊긴 상대는 `OFFLINE` 으로 보고 초대를
+받아 줍니다.
 
 ### 같은 사람을 다시 부르면
 
