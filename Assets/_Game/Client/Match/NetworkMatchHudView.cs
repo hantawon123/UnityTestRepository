@@ -29,6 +29,7 @@ namespace Game.Client.Match
         void HideHidingIntro();
         void ShowSearchingIntro(string itemDisplayName, string itemId);
         void HideSearchingIntro();
+        bool IsPhaseIntroPresented(MatchPhase phase);
         void ShowHidingTurnStart(double remainingSeconds, string bannerText = null);
         void HideHidingTurnStart();
         void SetHidingTurnStartSeconds(double remainingSeconds);
@@ -356,6 +357,13 @@ namespace Game.Client.Match
         {
             searchingIntroView?.Hide();
         }
+
+        public bool IsPhaseIntroPresented(MatchPhase phase) => phase switch
+        {
+            MatchPhase.Hiding => hidingIntroView != null && hidingIntroView.IsPresented,
+            MatchPhase.Searching => searchingIntroView != null && searchingIntroView.IsPresented,
+            _ => false
+        };
 
         public void ShowHidingTurnStart(double remainingSeconds, string bannerText = null)
         {

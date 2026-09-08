@@ -59,6 +59,53 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void BothIntros_WaitForEveryActivePlayerAndExcludeDisconnectedPlayers()
+        {
+            session.EnablePhaseIntros(waitForReady: true);
+            session.Start(10d);
+            var now = 1000d;
+            foreach (var phase in new[] { MatchPhase.Hiding, MatchPhase.Searching })
+            {
+                Assert.That(session.CurrentPhase, Is.EqualTo(phase));
+                Assert.That(session.IsWaitingForIntroReady, Is.True);
+                var fullTime = session.GetRemainingSeconds(now);
+                session.AdvanceTime(now, lastKnownPositions);
+                Assert.That(session.CurrentPhase, Is.EqualTo(phase));
+                Assert.That(session.CaptureStateSnapshot().PhaseEndsAt, Is.Zero);
+                Assert.That(session.TryGetResult(out _), Is.False);
+                Assert.That(session.TryHoldObject(0, "shelf", now), Is.False);
+                Assert.That(session.ConfirmPhaseIntroReady(-1, phase), Is.False);
+                Assert.That(session.ConfirmPhaseIntroReady(0, MatchPhase.Result), Is.False);
+                Assert.That(session.TryStartPhaseIntro(now), Is.False);
+                for (var i = 0; i < session.Players.Players.Count - 1; i++)
+                {
+                    Assert.That(session.ConfirmPhaseIntroReady(i, phase), Is.True);
+                    Assert.That(session.ConfirmPhaseIntroReady(i, phase), Is.False);
+                }
+                Assert.That(session.TryStartPhaseIntro(now), Is.False, "Last player has not rendered the intro.");
+                now += 40d;
+                session.AdvanceTime(now, lastKnownPositions);
+                Assert.That(session.GetRemainingSeconds(now), Is.EqualTo(fullTime));
+                var last = session.Players.Players.Count - 1;
+                if (phase == MatchPhase.Searching)
+                    Assert.That(session.TryHandlePlayerLeft(last, Pose.identity, now), Is.True);
+                else
+                    Assert.That(session.ConfirmPhaseIntroReady(last, phase), Is.True);
+                Assert.That(session.TryStartPhaseIntro(now), Is.True);
+                Assert.That(session.TryStartPhaseIntro(now + 1d), Is.False, "Duplicate readiness must not extend the countdown.");
+                Assert.That(session.IsPhaseIntro(now + 2.9d), Is.True);
+                Assert.That(session.GetRemainingSeconds(now + 2.9d), Is.EqualTo(fullTime));
+                Assert.That(session.IsPhaseIntro(now + 3d), Is.False);
+                Assert.That(session.GetRemainingSeconds(now + 4d), Is.EqualTo(fullTime - 1d));
+                if (phase == MatchPhase.Hiding)
+                {
+                    now = session.CaptureStateSnapshot().PhaseEndsAt;
+                    session.AdvanceTime(now, lastKnownPositions);
+                }
+            }
+        }
+
+        [Test]
         public void CompleteHiding_RejectsMissingPlacementOtherTurnAndRepeatedRequest()
         {
             session.Start(10d);

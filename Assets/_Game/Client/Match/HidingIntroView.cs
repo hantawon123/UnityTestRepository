@@ -44,6 +44,8 @@ namespace Game.Client.Match
 
         private HidingIntroItemPreview preview;
         private bool shown;
+        private int shownAtFrame;
+        public bool IsPresented => shown && isActiveAndEnabled && Time.frameCount > shownAtFrame + 1;
 
         [SerializeField]
         [Tooltip("Preview the briefing in the editor. Match start wiring keeps this off.")]
@@ -95,6 +97,7 @@ namespace Game.Client.Match
         public void Show(string itemDisplayName, string itemId = null)
         {
             shown = true;
+            shownAtFrame = Time.frameCount;
             if (!gameObject.activeSelf)
             {
                 gameObject.SetActive(true);

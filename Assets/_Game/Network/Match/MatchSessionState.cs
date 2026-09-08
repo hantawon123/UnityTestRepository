@@ -731,6 +731,12 @@ namespace Game.Network.Match
         }
 
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        public void RPC_ConfirmPhaseIntroReady(MatchPhase phase, RpcInfo info = default)
+        {
+            StarterOf(Runner)?.ConfirmPhaseIntroReady(info.Source, phase);
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
         public void RPC_RequestShredder(RpcInfo info = default)
         {
             StarterOf(Runner)?.TryUseShredder(info.Source);

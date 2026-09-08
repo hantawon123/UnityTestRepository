@@ -43,6 +43,7 @@ namespace Game.Network.Session
         INetworkMatchAuthority,
         INetworkMatchEvents,
         INetworkHighlightReady,
+        INetworkPhaseIntroReady,
         INetworkResultNavigation,
         ILobbyChatTransport,
         IMatchChatTransport,
@@ -77,6 +78,9 @@ namespace Game.Network.Session
         public bool IsHighlightInProgress =>
             _matchStarter != null && _matchStarter.CurrentPhase == MatchPhase.Highlight;
         public bool IsLocalHighlightComplete => _localHighlightComplete;
+
+        public bool TryConfirmPhaseIntroReady(MatchPhase phase) =>
+            _matchStarter != null && _matchStarter.RequestPhaseIntroReady(phase);
 
         public bool IsWaitingForMatch => IsRuntimeReady && _matchStarter != null &&
             !_matchStarter.HasStartedMatch && _matchStarter.CurrentPhase == MatchPhase.Waiting;

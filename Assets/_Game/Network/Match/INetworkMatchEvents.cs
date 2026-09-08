@@ -8,6 +8,11 @@ using UnityEngine;
 
 namespace Game.Network.Match
 {
+    public interface INetworkPhaseIntroReady
+    {
+        bool TryConfirmPhaseIntroReady(MatchPhase phase);
+    }
+
     public interface INetworkResultNavigation
     {
         bool IsServer { get; }

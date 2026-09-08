@@ -187,6 +187,7 @@ namespace Game.Bootstrap
             }
 
             runtime.Tick();
+            composition.Session.TryStartPhaseIntro(network.ServerTime);
             SynchronizePlayers();
             PublishSnapshotIfChanged();
         }
@@ -250,7 +251,7 @@ namespace Game.Bootstrap
                     }
                 }
 
-                if (migration == null) created.Session.EnablePhaseIntros();
+                if (migration == null) created.Session.EnablePhaseIntros(waitForReady: true);
                 if (!network.BindMatchSession(
                         created.Session,
                         configuration.ShredderEjectionPose) ||

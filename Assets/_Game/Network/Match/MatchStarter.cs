@@ -510,6 +510,18 @@ namespace Game.Network.Match
             return true;
         }
 
+        public bool RequestPhaseIntroReady(MatchPhase phase)
+        {
+            if (!HasValidState || !_state.IsStarted || _state.Phase != phase || _state.PhaseEndsAt != 0d ||
+                (phase != MatchPhase.Hiding && phase != MatchPhase.Searching)) return false;
+            _state.RPC_ConfirmPhaseIntroReady(phase);
+            return true;
+        }
+
+        internal bool ConfirmPhaseIntroReady(PlayerRef source, MatchPhase phase) =>
+            HasValidState && _state.Object.HasStateAuthority && TryGetPlayerIndex(source, out var index) &&
+            _session.ConfirmPhaseIntroReady(index, phase);
+
         public bool RequestReleaseHeldObject(Pose pose)
         {
             if (_state == null)
