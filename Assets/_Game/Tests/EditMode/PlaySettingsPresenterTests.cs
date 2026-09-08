@@ -169,26 +169,28 @@ namespace Game.Tests.EditMode
         public void RealView_ReadOnlyBlocksChanges_AndPreservesUnexposedRules()
         {
             var root = new GameObject("Settings view test");
+            var panel = new GameObject("PlaySettingsPanel", typeof(RectTransform));
+            panel.transform.SetParent(root.transform, false);
             root.SetActive(false);
             try
             {
                 var view = root.AddComponent<PlaySettingsView>();
-                var plus = new GameObject("Plus", typeof(RectTransform), typeof(Button));
-                plus.transform.SetParent(root.transform);
-                var button = plus.GetComponent<Button>();
                 var serialized = new SerializedObject(view);
-                serialized.FindProperty("maxPlayersPlusButton").objectReferenceValue = button;
+                serialized.FindProperty("panel").objectReferenceValue = panel;
                 serialized.ApplyModifiedPropertiesWithoutUndo();
                 root.SetActive(true);
-                // EditMode does not run lifecycle methods on this non-ExecuteAlways view.
                 typeof(PlaySettingsView).GetMethod("OnEnable",
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                     .Invoke(view, null);
+                var plusField = typeof(PlaySettingsView).GetField(
+                    "maxPlayersPlusButton",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                var button = (Button)plusField.GetValue(view);
                 MatchRuleSettings.TryCreate(60, 10, 1.5f, 5, "food", out var rules, out _);
                 view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, "playground", rules));
                 view.SetEditable(false);
                 Assert.That(button.interactable, Is.False);
-                button.onClick.Invoke(); // Even an invoked callback cannot mutate a read-only draft.
+                button.onClick.Invoke();
                 Assert.That(view.ReadDraft().MaxPlayers, Is.EqualTo(4));
                 view.SetEditable(true);
                 Assert.That(button.interactable, Is.True);
@@ -203,10 +205,19 @@ namespace Game.Tests.EditMode
         public void RealView_RuleEditingEnforcesBoundsAndAuthority_AndKeepsCategory()
         {
             var root = new GameObject("Rule editing test");
+            var panel = new GameObject("PlaySettingsPanel", typeof(RectTransform));
+            panel.transform.SetParent(root.transform, false);
             root.SetActive(false);
             try
             {
                 var view = root.AddComponent<PlaySettingsView>();
+                var serialized = new SerializedObject(view);
+                serialized.FindProperty("panel").objectReferenceValue = panel;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                root.SetActive(true);
+                typeof(PlaySettingsView).GetMethod("OnEnable",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, null);
                 MatchRuleSettings.TryCreate(10, 1, 0.5f, 1, "fruit", out var rules, out _);
                 view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "playground", rules));
                 var change = typeof(PlaySettingsView).GetMethod("ChangeRule",
