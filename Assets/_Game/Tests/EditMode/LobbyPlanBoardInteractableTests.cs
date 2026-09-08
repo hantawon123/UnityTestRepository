@@ -94,6 +94,32 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Bind_ShowsLabel_UnbindHidesIt()
+        {
+            boardObject = new GameObject("LobbyPlanBoard");
+            boardObject.AddComponent<BoxCollider>();
+            var label = new GameObject("Label");
+            label.transform.SetParent(boardObject.transform, false);
+            label.SetActive(false);
+            var board = boardObject.AddComponent<LobbyPlanBoardInteractable>();
+            using (var serialized = new SerializedObject(board))
+            {
+                serialized.FindProperty("label").objectReferenceValue = label;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            Assert.That(board.IsLabelVisible, Is.False);
+
+            board.Bind(() => true, () => { });
+            Assert.That(board.IsLabelVisible, Is.True);
+            Assert.That(label.activeSelf, Is.True);
+
+            board.Unbind();
+            Assert.That(board.IsLabelVisible, Is.False);
+            Assert.That(label.activeSelf, Is.False);
+        }
+
+        [Test]
         public void WithoutOutline_BindStillWorks()
         {
             boardObject = new GameObject("LobbyPlanBoard");

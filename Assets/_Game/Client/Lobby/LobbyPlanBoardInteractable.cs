@@ -17,9 +17,9 @@ namespace Game.Client.Lobby
     /// shows no prompt for it.
     /// <para>
     /// 상호작용이 가능한 동안(바인딩된 동안)에는 <see cref="outline"/>으로
-    /// 작업대 전체에 실루엣을 늘 켜 둔다. 집을 수 있는 소품은 조준했을 때만
-    /// 실루엣이 켜지지만, 이 판은 방에 하나뿐인 설정 입구라 처음 들어온
-    /// 플레이어도 무엇이 눌리는지 바로 알아야 한다.
+    /// 작업대 전체에 실루엣을 늘 켜 두고, <see cref="label"/>(공중의 "ROOM SETTING ▼")도
+    /// 함께 띄운다. 집을 수 있는 소품은 조준했을 때만 실루엣이 켜지지만, 이 판은
+    /// 방에 하나뿐인 설정 입구라 처음 들어온 플레이어도 무엇이 눌리는지 바로 알아야 한다.
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
@@ -36,6 +36,10 @@ namespace Game.Client.Lobby
         [SerializeField]
         private InteractableFocusOutline outline;
 
+        [Tooltip("바인딩된 동안 켜 두는 공중 안내 라벨(ROOM SETTING ▼). 없으면 라벨 없이 동작한다.")]
+        [SerializeField]
+        private GameObject label;
+
         private Func<bool> isLocalHost;
         private Action onInteract;
 
@@ -47,18 +51,21 @@ namespace Game.Client.Lobby
         /// <summary>실루엣이 현재 켜져 있는지. 실루엣 컴포넌트가 없으면 false.</summary>
         public bool IsOutlineVisible => outline != null && outline.IsVisible;
 
+        /// <summary>안내 라벨이 현재 켜져 있는지. 라벨이 없으면 false.</summary>
+        public bool IsLabelVisible => label != null && label.activeSelf;
+
         public void Bind(Func<bool> localHostQuery, Action interact)
         {
             isLocalHost = localHostQuery ?? throw new ArgumentNullException(nameof(localHostQuery));
             onInteract = interact ?? throw new ArgumentNullException(nameof(interact));
-            SetOutlineVisible(true);
+            SetHighlightVisible(true);
         }
 
         public void Unbind()
         {
             isLocalHost = null;
             onInteract = null;
-            SetOutlineVisible(false);
+            SetHighlightVisible(false);
         }
 
         /// <remarks>
@@ -82,17 +89,21 @@ namespace Game.Client.Lobby
 
         private void OnDisable()
         {
-            SetOutlineVisible(false);
+            SetHighlightVisible(false);
         }
 
-        private void SetOutlineVisible(bool visible)
+        /// <summary>실루엣과 공중 라벨을 함께 켜고 끈다. 둘 다 없어도 된다.</summary>
+        private void SetHighlightVisible(bool visible)
         {
-            if (outline == null)
+            if (outline != null)
             {
-                return;
+                outline.SetVisible(visible);
             }
 
-            outline.SetVisible(visible);
+            if (label != null)
+            {
+                label.SetActive(visible);
+            }
         }
     }
 }

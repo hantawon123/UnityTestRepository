@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Game.Client.Interactions;
 using Game.Client.Lobby;
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -35,6 +36,23 @@ namespace Game.Editor
         // 상시 표시라 조준 시에만 켜지는 소품(주황 2 px)과 구분되게 흰색·굵게.
         private static readonly Color OutlineColor = Color.white;
         private const float OutlinePixels = 5f;
+
+        // 공중 라벨: 작업대 위 공간에 "ROOM SETTING"과 아래 화살표. 선반 위 상자(y 2.24)보다 위.
+        private const string LabelObjectName = "Label";
+        private const string LabelText = "ROOM SETTING";
+        private const string ArrowText = "▼";
+        private const float LabelHeightAboveTop = 0.55f;
+        private const float LabelFontSize = 2.1f;
+        private const float ArrowFontSize = 2.2f;
+        private const float ArrowOffsetY = -0.3f;
+        private const string LabelFontPath = "Assets/_Game/Content/Fonts/Paperlogy-7Bold SDF.asset";
+        private const string LabelMaterialPath = "Assets/_Game/Content/Materials/MAT_PlanBoardLabel.mat";
+
+        // 순백(1.0)은 포스트프로세스 톤매핑에 눌려 회색빛으로 보여 HDR 밝기를 준다. 블룸이 살짝 얹힌다.
+        private static readonly Color LabelFaceColor = new(1.8f, 1.8f, 1.8f, 1f);
+        private const float LabelFaceDilate = 0.12f;
+        private const float LabelOutlineWidth = 0.22f;
+        private static readonly Color LabelOutlineColor = new(0.05f, 0.05f, 0.05f, 1f);
 
         // 책상 아래(플라스틱통·종이상자)와 선반 위(Fragile 상자)에는 집을 수 있는 소품이 있다.
         // 콜라이더가 그것들을 가리면 집을 수 없으므로 상판 표면부터 선반 밑면까지만 덮는다.
@@ -124,12 +142,23 @@ namespace Game.Editor
                 serialized.ApplyModifiedPropertiesWithoutUndo();
             }
 
+            var labelTop = Mathf.Max(boardBounds.max.y, deskBounds.max.y) + LabelHeightAboveTop;
+            var labelPosition = new Vector3(
+                (Mathf.Min(boardBounds.min.x, deskBounds.min.x) + Mathf.Max(boardBounds.max.x, deskBounds.max.x)) * 0.5f,
+                labelTop,
+                (Mathf.Min(boardBounds.min.z, deskBounds.min.z) + Mathf.Max(boardBounds.max.z, deskBounds.max.z)) * 0.5f);
+            var label = CreateLabel(planBoard.transform, labelPosition);
+
             var interactable = planBoard.AddComponent<LobbyPlanBoardInteractable>();
             using (var serialized = new SerializedObject(interactable))
             {
                 serialized.FindProperty("outline").objectReferenceValue = outline;
+                serialized.FindProperty("label").objectReferenceValue = label;
                 serialized.ApplyModifiedPropertiesWithoutUndo();
             }
+
+            // 바인딩 전에는 꺼져 있다가 프레젠터가 켠다. 씬에서도 꺼진 채로 저장.
+            label.SetActive(false);
 
             Selection.activeGameObject = planBoard;
             EditorSceneManager.MarkSceneDirty(scene);
@@ -138,6 +167,68 @@ namespace Game.Editor
             Debug.Log($"[Lobby] Plan board placed over {BoardSourceName} + {DeskSourceName}: " +
                       $"x[{min.x:F2},{max.x:F2}] y[{min.y:F2},{max.y:F2}] z[{min.z:F2},{max.z:F2}], " +
                       $"outline sources {sources.Length}. 씬 저장됨.");
+        }
+
+        /// <summary>
+        /// 작업대 위 공중 라벨. 제목과 화살표는 3D TextMeshPro, 재질은 전용 에셋
+        /// (<see cref="LabelMaterialPath"/>)을 쓴다. 폰트 재질을 런타임 인스턴스로 바꾸면
+        /// 씬에 에셋이 아닌 재질 참조가 남아 깨지므로 에셋으로 만든다.
+        /// </summary>
+        private static GameObject CreateLabel(Transform parent, Vector3 worldPosition)
+        {
+            var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(LabelFontPath) ?? TMP_Settings.defaultFontAsset;
+            var material = EnsureLabelMaterial(font);
+
+            var root = new GameObject(LabelObjectName);
+            root.transform.SetParent(parent, worldPositionStays: false);
+            root.transform.position = worldPosition;
+            var labelComponent = root.AddComponent<LobbyPlanBoardLabel>();
+
+            CreateText(root.transform, "Title", LabelText, LabelFontSize, Vector3.zero, new Vector2(4f, 0.5f), font, material);
+            var arrow = CreateText(root.transform, "Arrow", ArrowText, ArrowFontSize,
+                new Vector3(0f, ArrowOffsetY, 0f), new Vector2(1f, 0.4f), font, material);
+
+            using (var serialized = new SerializedObject(labelComponent))
+            {
+                serialized.FindProperty("arrow").objectReferenceValue = arrow.transform;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            return root;
+        }
+
+        private static TextMeshPro CreateText(Transform parent, string name, string text, float fontSize,
+            Vector3 localPosition, Vector2 size, TMP_FontAsset font, Material material)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, worldPositionStays: false);
+            go.transform.localPosition = localPosition;
+            var tmp = go.AddComponent<TextMeshPro>();
+            tmp.font = font;
+            tmp.fontSharedMaterial = material;
+            tmp.text = text;
+            tmp.fontSize = fontSize;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.color = Color.white;
+            tmp.rectTransform.sizeDelta = size;
+            return tmp;
+        }
+
+        private static Material EnsureLabelMaterial(TMP_FontAsset font)
+        {
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(LabelMaterialPath);
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            var material = new Material(font.material) { name = "MAT_PlanBoardLabel" };
+            material.SetColor("_FaceColor", LabelFaceColor);
+            material.SetFloat("_FaceDilate", LabelFaceDilate);
+            material.SetFloat("_OutlineWidth", LabelOutlineWidth);
+            material.SetColor("_OutlineColor", LabelOutlineColor);
+            AssetDatabase.CreateAsset(material, LabelMaterialPath);
+            return material;
         }
 
         private static Transform FindProp(GameObject root, string name)
