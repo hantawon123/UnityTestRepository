@@ -282,18 +282,33 @@ namespace Game.Client.Cameras
             escapeReleasesCursor = releasesCursor;
         }
 
+        private bool bodyVisibleOverride;
+
+        /// <summary>
+        /// 1인칭이어도 내 몸을 그리게 강제한다. 다른 카메라(엔딩 무대 고정 카메라)가 나를
+        /// 비추는 동안 쓰고, 끝나면 false로 되돌린다.
+        /// </summary>
+        public void SetBodyVisibleOverride(bool force)
+        {
+            if (bodyVisibleOverride == force) return;
+            bodyVisibleOverride = force;
+            ApplyView();
+        }
+
         private void ApplyView()
         {
             thirdPersonCamera.Priority = isFirstPerson ? InactivePriority : ActivePriority;
             firstPersonCamera.Priority = isFirstPerson ? ActivePriority : InactivePriority;
 
             // 1인칭에서는 내 몸이 화면을 가리지 않게 숨긴다. 그림자는 남겨 존재감을 유지한다.
+            // 무대 카메라가 나를 비출 때는 오버라이드로 몸을 그린다.
+            var hideBody = isFirstPerson && !bodyVisibleOverride;
             if (bodyRenderers != null)
             {
                 foreach (var bodyRenderer in bodyRenderers)
                 {
                     if (bodyRenderer == null) continue;
-                    bodyRenderer.shadowCastingMode = isFirstPerson
+                    bodyRenderer.shadowCastingMode = hideBody
                         ? UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly
                         : UnityEngine.Rendering.ShadowCastingMode.On;
                 }

@@ -92,6 +92,21 @@ namespace Game.Client.Players
             externalVelocity += impulse;
         }
 
+        /// <summary>
+        /// 고정 카메라 무대(엔딩 유치장)용 조작 기준. 지정되면 WASD는 이 기준의 앞·오른쪽으로
+        /// 움직이고, 몸은 카메라가 아니라 이동 방향을 향한다. 멈추면 지금 방향을 유지한다.
+        /// </summary>
+        /// <remarks>
+        /// The normal rule (body faces the camera yaw) assumes the camera sits
+        /// behind the player. On a stage the camera is fixed in front of the
+        /// room, so that rule would turn everyone's back to the audience.
+        /// </remarks>
+        private Transform stageReference;
+
+        public void SetStageControl(Transform reference) => stageReference = reference;
+
+        public void ClearStageControl() => stageReference = null;
+
         public PlayerInputIntent CaptureInputIntent()
         {
             if (playerMap == null)
@@ -101,7 +116,7 @@ namespace Game.Client.Players
 
             if (IsLocomotionLocked || IsTextInputFocused())
             {
-                var heldYaw = TryEnsureCamera()
+                var heldYaw = stageReference == null && TryEnsureCamera()
                     ? cameraTransform.eulerAngles.y
                     : transform.eulerAngles.y;
                 return new PlayerInputIntent(
@@ -147,6 +162,20 @@ namespace Game.Client.Players
                 (placement == null || !placement.BlocksAttack))
             {
                 buttons |= PlayerInputButtons.Attack;
+            }
+
+            if (stageReference != null)
+            {
+                // 화면 기준 방향을 월드 방향으로 바꾼 뒤 "그 방향으로 전진"으로 다시 표현한다.
+                // 모터는 lookYaw 방향으로 몸을 돌리고 그 앞으로 걷게 되므로 결과가 같다.
+                var world = ToReferenceRelativeDirection(stageReference, move);
+                if (world.sqrMagnitude > 0.0001f)
+                {
+                    var yaw = Mathf.Atan2(world.x, world.z) * Mathf.Rad2Deg;
+                    return new PlayerInputIntent(0f, Mathf.Min(1f, world.magnitude), yaw, buttons);
+                }
+
+                return new PlayerInputIntent(0f, 0f, transform.eulerAngles.y, buttons);
             }
 
             var lookYaw = TryEnsureCamera()
@@ -229,7 +258,8 @@ namespace Game.Client.Players
             controller.Move(velocity * Time.deltaTime);
 
             // 몸은 항상 카메라가 보는 방향(좌우)을 향한다. 조준 기반 게임의 표준 방식.
-            var lookForward = GetCameraFlatForward();
+            // 무대 모드에서는 이동 방향을 향하고, 멈추면 지금 방향을 유지한다.
+            var lookForward = stageReference != null ? direction : GetCameraFlatForward();
             if (!inputLocked && lookForward.sqrMagnitude > 0.0001f)
             {
                 var targetRotation = Quaternion.LookRotation(lookForward);
@@ -431,16 +461,26 @@ namespace Game.Client.Players
 
         private Vector3 ToCameraRelativeDirection(Vector2 input)
         {
+            if (stageReference != null)
+            {
+                return ToReferenceRelativeDirection(stageReference, input);
+            }
+
             if (!TryEnsureCamera())
             {
                 return new Vector3(input.x, 0f, input.y);
             }
 
-            var forward = cameraTransform.forward;
+            return ToReferenceRelativeDirection(cameraTransform, input);
+        }
+
+        private static Vector3 ToReferenceRelativeDirection(Transform reference, Vector2 input)
+        {
+            var forward = reference.forward;
             forward.y = 0f;
             forward.Normalize();
 
-            var right = cameraTransform.right;
+            var right = reference.right;
             right.y = 0f;
             right.Normalize();
 
