@@ -1013,7 +1013,7 @@ namespace Game.Network.Session
                 (destructionLimit != PlaySettingsDraft.UnlimitedDestructionLimit &&
                  (destructionLimit < PlaySettingsDraft.MinDestructionLimit ||
                   destructionLimit > PlaySettingsDraft.MaxDestructionLimit)) ||
-                !MapCatalog.Contains(mapId) ||
+                !MapCatalog.IsLobbyChoice(mapId) ||
                 !validMatchRules ||
                 (!normalizedMatchRules.UsesRandomCategory &&
                  ItemCatalog.DefinitionsInCategory(normalizedMatchRules.CategoryId).Count == 0))

@@ -143,11 +143,7 @@ namespace Game.Bootstrap
                     System.Math.Max(
                         PlaySettingsDraft.MinDestructionLimit,
                         draft.DestructionLimit));
-            var mapId = MapCatalog.Contains(draft.MapId)
-                ? draft.MapId.Trim()
-                : string.IsNullOrWhiteSpace(draft.MapId)
-                    ? MapCatalog.PickRandom()
-                    : settings.CurrentValue.MapId;
+            var mapId = MapCatalog.NormalizeLobbyMapId(draft.MapId, settings.CurrentValue.MapId);
             var applied = new PlaySettingsDraft(
                 draft.Title,
                 draft.RoomCode,

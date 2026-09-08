@@ -73,7 +73,7 @@ namespace Game.Client.Lobby
             Label = label ?? string.Empty;
         }
 
-        /// <summary>Empty id selects a random playable map at apply/start time.</summary>
+        /// <summary>Empty id keeps a random playable map until match start.</summary>
         public string Id { get; }
 
         public string Label { get; }

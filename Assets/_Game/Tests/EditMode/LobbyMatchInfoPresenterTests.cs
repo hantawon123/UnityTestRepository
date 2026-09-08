@@ -32,7 +32,7 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void SettingsChange_UpdatesTheCard()
+        public void SettingsChange_WritesRandomAndPlaygroundLabels()
         {
             using var session = new HostSession();
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
@@ -41,6 +41,24 @@ namespace Game.Tests.EditMode
                 var hud = canvas.AddComponent<LobbyHudView>();
                 using var presenter = new LobbyMatchInfoPresenter(session, hud);
                 presenter.Start();
+
+                Assert.That(
+                    MatchRuleSettings.TryCreate(30, 5, 1f, 3, "fruit", out var fruit, out _),
+                    Is.True);
+                session.ReplaceSettings(new PlaySettingsDraft(
+                    "방",
+                    "CODE",
+                    false,
+                    null,
+                    6,
+                    3,
+                    "playground",
+                    fruit));
+
+                var info = canvas.transform.Find(LobbyMatchInfoView.RootName)
+                    .GetComponent<LobbyMatchInfoView>();
+                Assert.That(info.CategoryLabel, Is.EqualTo(PlaySettingsCategoryCatalog.Default.Label));
+                Assert.That(info.MapLabel, Is.EqualTo("playground"));
 
                 session.ReplaceSettings(new PlaySettingsDraft(
                     "방",
@@ -51,26 +69,8 @@ namespace Game.Tests.EditMode
                     3,
                     string.Empty,
                     MatchRuleSettings.Default));
-
-                var info = canvas.transform.Find(LobbyMatchInfoView.RootName)
-                    .GetComponent<LobbyMatchInfoView>();
                 Assert.That(info.CategoryLabel, Is.EqualTo("랜덤"));
                 Assert.That(info.MapLabel, Is.EqualTo("랜덤"));
-
-                Assert.That(
-                    MatchRuleSettings.TryCreate(30, 5, 1f, 3, "missing", out var unknown, out _),
-                    Is.True);
-                session.ReplaceSettings(new PlaySettingsDraft(
-                    "방",
-                    "CODE",
-                    false,
-                    null,
-                    6,
-                    3,
-                    "unknown-map",
-                    unknown));
-                Assert.That(info.CategoryLabel, Is.EqualTo(PlaySettingsCategoryCatalog.Default.Label));
-                Assert.That(info.MapLabel, Is.EqualTo(PlaySettingsMapCatalog.Default.Label));
             }
             finally
             {
