@@ -53,6 +53,13 @@
 2. 애니메이션 제작 주체(블렌더 캐릭터 담당 vs Mixamo 리타겟).
 3. 씬 구성: Result.unity 확장(추천) vs 별도 Ending.unity.
 
+## 2. 에셋 임포트·URP 확인 (726, 2026-09-07)
+
+- 변환 작업 **불필요**: 머티리얼 35개 전부 URP Lit/Unlit, 텍스처 없이 플랫 컬러(`MapData.json`의 색·roughness·metallic 값), 이미시브 없음. FBX 스케일 1, Read/Write 꺼짐(콜라이더는 별도 BoxCollider라 문제 없음).
+- 프리팹 안 `Lighting` 그룹에 실시간 스팟 6개: 창문 필(0.55, 온색), 펜던트 3개(2.8~3.4, 온색), 복도 바운스(1.4, 냉색, 그림자 없음), 출구 백광(7.6, 흰색). 전부 Realtime이라 베이크 전 상태. 데모 씬 환경광은 Flat #6B6E70, 스카이박스 기본, 안개 없음.
+- 데모 카메라: (0, 1.85, 7.6) / (4.5, 180, 0) / FOV 40.4, Post Processing 켜짐, 배경 단색. 컨셉 구도와 같은 정면 샷.
+- 컨셉(차가운 형광 톤)과 데모(온색 펜던트)의 차이는 729 조명에서 색온도·영역광 추가로 맞춘다.
+
 ## 참고 파일
 - 결과 흐름: `Assets/_Game/Bootstrap/ResultLifetimeScope.cs`, `NetworkResultLobbyReturnController.cs`, `Assets/_Game/Content/Scenes/Result.unity`
 - 리플레이 아바타 재생: `Assets/_Game/Bootstrap/HighlightReplayPlayer.cs`
