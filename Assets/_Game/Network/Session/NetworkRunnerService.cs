@@ -639,6 +639,7 @@ namespace Game.Network.Session
 
         public int DestructionLimit => _destructionLimit;
         public MatchRuleSettings MatchRules => _matchRules;
+        public string AnalyticsMapId => _configuredMapId;
 
         /// <summary>
         /// Connects to the matchmaking lobby so the room list starts arriving
