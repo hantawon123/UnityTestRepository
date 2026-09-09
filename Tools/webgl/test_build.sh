@@ -39,6 +39,7 @@ bash "$script" >/dev/null
 test -f Library/WebGLCiCache/bee/retained
 grep -q BEE_CACHE_DIRECTORY=/cache/bee calls.log
 grep -q NUGET_PACKAGES=/cache/nuget calls.log
+grep -Fq -- "--tmpfs /home/unity/.config/unity3d:uid=$(id -u),gid=$(id -g),mode=700" calls.log
 grep -q $'build\t' Logs/webgl-timings.tsv
 test -f Builds/WebGL/version.txt
 : > calls.log
