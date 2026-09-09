@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Core.Home;
 using Game.Core.Lobby;
 using R3;
 using VContainer.Unity;
@@ -10,6 +11,7 @@ namespace Game.Client.Lobby
     {
         private readonly ILobbyParticipantList participantList;
         private readonly ILobbyHostSession hostSession;
+        private readonly FriendListSystem friends;
         private readonly ILobbyPlayerListView view;
         private readonly ILobbyPlayerCountView countView;
         private readonly ILobbyConfirmView kickConfirmView;
@@ -22,6 +24,7 @@ namespace Game.Client.Lobby
         public LobbyPlayerListPresenter(
             ILobbyParticipantList participantList,
             ILobbyHostSession hostSession,
+            FriendListSystem friends,
             ILobbyPlayerListView view,
             ILobbyPlayerCountView countView,
             IKickConfirmView kickConfirmView,
@@ -30,6 +33,7 @@ namespace Game.Client.Lobby
             this.participantList = participantList
                 ?? throw new ArgumentNullException(nameof(participantList));
             this.hostSession = hostSession ?? throw new ArgumentNullException(nameof(hostSession));
+            this.friends = friends ?? throw new ArgumentNullException(nameof(friends));
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.countView = countView ?? throw new ArgumentNullException(nameof(countView));
             this.kickConfirmView = kickConfirmView
@@ -49,6 +53,8 @@ namespace Game.Client.Lobby
             kickConfirmView.Cancelled += CancelPending;
             transferConfirmView.Confirmed += ConfirmPending;
             transferConfirmView.Cancelled += CancelPending;
+            friends.FriendsChanged += BindFriends;
+            BindFriends();
 
             refreshSubscription = Observable.CombineLatest(
                     participantList.Participants,
@@ -75,7 +81,18 @@ namespace Game.Client.Lobby
             kickConfirmView.Cancelled -= CancelPending;
             transferConfirmView.Confirmed -= ConfirmPending;
             transferConfirmView.Cancelled -= CancelPending;
+            friends.FriendsChanged -= BindFriends;
             refreshSubscription?.Dispose();
+        }
+
+        private void BindFriends()
+        {
+            var online = friends.OnlineFriends;
+            var offline = friends.OfflineFriends;
+            var combined = new List<FriendSummary>(online.Count + offline.Count);
+            combined.AddRange(online);
+            combined.AddRange(offline);
+            view.SetFriends(combined);
         }
 
         private void OnKickClicked(string playerId, string displayName)

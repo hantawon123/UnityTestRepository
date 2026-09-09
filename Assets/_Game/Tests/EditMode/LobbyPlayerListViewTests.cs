@@ -1,5 +1,6 @@
 using Game.Client.Home;
 using Game.Client.Lobby;
+using Game.Core.Home;
 using Game.Core.Lobby;
 using NUnit.Framework;
 using TMPro;
@@ -148,16 +149,26 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void EnsureLayout_FriendRowsAlwaysShowThePlusButton()
+        public void SetFriends_ShowsNicknamesAndPlusButtons()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
             try
             {
                 var view = canvas.AddComponent<LobbyPlayerListView>();
-                view.EnsureLayout();
+                view.SetFriends(new[]
+                {
+                    new FriendSummary("f-1", "초대할까말까할까말까", FriendPresence.Online),
+                    new FriendSummary("f-2", "오프라인친구", FriendPresence.Offline),
+                });
 
                 var friends = canvas.transform.Find("Columns/Friends/Scroll/RowRoot");
-                Assert.That(friends.childCount, Is.GreaterThan(0));
+                Assert.That(friends.childCount, Is.EqualTo(2));
+                Assert.That(
+                    friends.Find("Friend_f-1/Name").GetComponent<TMP_Text>().text,
+                    Is.EqualTo("초대할까말까할까말까"));
+                Assert.That(
+                    friends.Find("Friend_f-2/Name").GetComponent<TMP_Text>().text,
+                    Is.EqualTo("오프라인친구"));
                 for (var index = 0; index < friends.childCount; index++)
                 {
                     var add = friends.GetChild(index).Find("Add") as RectTransform;

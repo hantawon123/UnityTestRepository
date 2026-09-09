@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Core.Home;
 using Game.Core.Lobby;
 
 namespace Game.Client.Lobby
@@ -13,5 +14,7 @@ namespace Game.Client.Lobby
             IReadOnlyList<LobbyParticipant> participants,
             bool localIsHost,
             string localPlayerId);
+
+        void SetFriends(IReadOnlyList<FriendSummary> friends);
     }
 }

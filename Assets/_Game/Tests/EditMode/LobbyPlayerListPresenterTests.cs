@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Client.Lobby;
+using Game.Core.Home;
 using Game.Core.Lobby;
 using NUnit.Framework;
 using R3;
@@ -23,6 +24,7 @@ namespace Game.Tests.EditMode
             using var presenter = new LobbyPlayerListPresenter(
                 list,
                 host,
+                new FriendListSystem(),
                 view,
                 count,
                 new FakeConfirmView(),
@@ -35,6 +37,41 @@ namespace Game.Tests.EditMode
             Assert.That(view.UpdateCount, Is.EqualTo(1));
             Assert.That(count.Current, Is.EqualTo(2));
             Assert.That(count.Max, Is.EqualTo(6));
+        }
+
+        [Test]
+        public void Start_PushesFriendsFromTheSharedStore()
+        {
+            var list = new LobbyParticipantList(Array.Empty<LobbyParticipant>());
+            var host = CreateHostSession(true);
+            var friends = new FriendListSystem();
+            friends.ReplaceFriends(new[]
+            {
+                new FriendSummary("f-1", "온라인친구", FriendPresence.Online),
+                new FriendSummary("f-2", "오프라인친구", FriendPresence.Offline),
+            });
+            var view = new FakePlayerListView();
+            using var presenter = new LobbyPlayerListPresenter(
+                list,
+                host,
+                friends,
+                view,
+                new FakeCountView(),
+                new FakeConfirmView(),
+                new FakeConfirmView());
+
+            presenter.Start();
+
+            Assert.That(view.Friends.Count, Is.EqualTo(2));
+            Assert.That(view.Friends[0].Nickname, Is.EqualTo("온라인친구"));
+            Assert.That(view.Friends[1].Nickname, Is.EqualTo("오프라인친구"));
+
+            friends.ReplaceFriends(new[]
+            {
+                new FriendSummary("f-3", "새친구", FriendPresence.InLobby),
+            });
+            Assert.That(view.Friends.Count, Is.EqualTo(1));
+            Assert.That(view.Friends[0].Nickname, Is.EqualTo("새친구"));
         }
 
         [Test]
@@ -53,6 +90,7 @@ namespace Game.Tests.EditMode
             using var presenter = new LobbyPlayerListPresenter(
                 list,
                 host,
+                new FriendListSystem(),
                 view,
                 new FakeCountView(),
                 kickConfirm,
@@ -127,6 +165,8 @@ namespace Game.Tests.EditMode
         private sealed class FakePlayerListView : ILobbyPlayerListView
         {
             public IReadOnlyList<LobbyParticipant> Participants { get; private set; }
+            public IReadOnlyList<FriendSummary> Friends { get; private set; } =
+                Array.Empty<FriendSummary>();
             public bool LocalIsHost { get; private set; }
             public int UpdateCount { get; private set; }
 
@@ -141,6 +181,11 @@ namespace Game.Tests.EditMode
                 Participants = participants;
                 LocalIsHost = localIsHost;
                 UpdateCount++;
+            }
+
+            public void SetFriends(IReadOnlyList<FriendSummary> friends)
+            {
+                Friends = friends;
             }
 
             public void RaiseKick(string id, string name) => KickClicked?.Invoke(id, name);

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Client.Home;
+using Game.Core.Home;
 using Game.Core.Lobby;
 using TMPro;
 using UnityEngine;
@@ -43,18 +44,6 @@ namespace Game.Client.Lobby
         public static float ColumnWidth => ModalWidth * ColumnWidthRatio;
 
         public static readonly Vector2 ModalSize = new Vector2(ModalWidth, ModalHeight);
-
-        private static readonly string[] PlaceholderFriends =
-        {
-            "일이삼사오육칠팔구십일이",
-            "초대할까말까할까말까",
-            "로비친구하나",
-            "로비친구둘",
-            "로비친구셋",
-            "로비친구넷",
-            "로비친구다섯",
-            "로비친구여섯"
-        };
 
         private RectTransform participantRowRoot;
         private RectTransform friendRowRoot;
@@ -121,6 +110,30 @@ namespace Game.Client.Lobby
                 {
                     kick.onClick.AddListener(() => KickClicked?.Invoke(playerId, displayName));
                 }
+            }
+        }
+
+        public void SetFriends(IReadOnlyList<FriendSummary> friends)
+        {
+            EnsureLayout();
+            ClearRows(friendRows);
+
+            if (friends == null || friends.Count == 0)
+            {
+                CreateInfoRow(friendRowRoot, friendRows, "친구가 없습니다.");
+                return;
+            }
+
+            for (var index = 0; index < friends.Count; index++)
+            {
+                CreateRow(
+                    friendRowRoot,
+                    friendRows,
+                    $"Friend_{friends[index].PlayerId}",
+                    friends[index].Nickname,
+                    showLeader: false,
+                    showKick: false,
+                    showAdd: true);
             }
         }
 
@@ -201,7 +214,6 @@ namespace Game.Client.Lobby
             var friends = CreateColumn(columns, "Friends", FriendsTitle, out friendsTitle);
             friendRowRoot = friends;
             PlaceColumns();
-            FillPlaceholderFriends();
         }
 
         private void PlaceColumns()
@@ -415,26 +427,6 @@ namespace Game.Client.Lobby
             scrollbar.targetGraphic = grab;
             scrollbar.transition = Selectable.Transition.None;
             return scrollbar;
-        }
-
-        private void FillPlaceholderFriends()
-        {
-            if (friendRows.Count > 0)
-            {
-                return;
-            }
-
-            for (var index = 0; index < PlaceholderFriends.Length; index++)
-            {
-                CreateRow(
-                    friendRowRoot,
-                    friendRows,
-                    $"Friend_{index}",
-                    PlaceholderFriends[index],
-                    showLeader: false,
-                    showKick: false,
-                    showAdd: true);
-            }
         }
 
         private RectTransform CreateRow(

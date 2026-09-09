@@ -177,6 +177,7 @@ namespace Game.Bootstrap
                     Lifetime.Scoped)
                 .As<ILobbyChatLog>();
             builder.RegisterEntryPoint<LobbyPlayerListPresenter>();
+            builder.RegisterEntryPoint<LobbyFriendRefresh>();
             builder.RegisterEntryPoint<LobbyPauseMenuPresenter>();
             builder.RegisterEntryPoint<PlaySettingsPresenter>();
             builder.RegisterEntryPoint<LobbyMatchInfoPresenter>();
