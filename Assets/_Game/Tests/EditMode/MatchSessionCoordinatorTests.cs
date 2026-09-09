@@ -59,6 +59,25 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void CombatTotals_AccumulateAcrossStuns_IgnoreRejectedHits_AndResetForNextMatch()
+        {
+            StartSearching();
+            Assert.That(session.GetCombatTotals(1), Is.EqualTo((0, 0)));
+            Assert.That(session.RegisterHit(0, 0, Vector3.zero, 200d), Is.EqualTo(HitResult.Ignored));
+            foreach (var time in new[] { 200d, 201d, 202d }) session.RegisterHit(0, 1, Vector3.zero, time);
+            Assert.That(session.GetHitCount(1), Is.Zero);
+            Assert.That(session.GetCombatTotals(1), Is.EqualTo((3, 1)));
+            Assert.That(session.RegisterHit(0, 1, Vector3.zero, 202.1d), Is.EqualTo(HitResult.Ignored));
+            Assert.That(session.GetCombatTotals(1), Is.EqualTo((3, 1)));
+            foreach (var time in new[] { 210d, 211d, 212d }) session.RegisterHit(0, 1, Vector3.zero, time);
+            Assert.That(session.GetCombatTotals(1), Is.EqualTo((6, 2)));
+            Assert.That(session.GetCombatTotals(0), Is.EqualTo((0, 0)));
+            using var nextState = new MatchState();
+            var next = CreateSession(nextState, 5678);
+            Assert.That(next.GetCombatTotals(1), Is.EqualTo((0, 0)));
+        }
+
+        [Test]
         public void BothIntros_WaitForEveryActivePlayerAndExcludeDisconnectedPlayers()
         {
             session.EnablePhaseIntros(waitForReady: true);
@@ -1616,6 +1635,7 @@ namespace Game.Tests.EditMode
                 session.RegisterHit(1, 2, Vector3.zero, 20.2d),
                 Is.EqualTo(HitResult.Registered));
             Assert.That(session.IsPlayerStunned(2, 20.3d), Is.False);
+            Assert.That(session.GetCombatTotals(2), Is.EqualTo((3, 0)));
             Assert.That(
                 session.TryHoldObject(1, "shelf", 20d),
                 Is.False);

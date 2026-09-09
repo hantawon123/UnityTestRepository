@@ -11,6 +11,33 @@ namespace Game.Tests.EditMode
     public sealed class ReplayVisualTests
     {
         [Test]
+        public void PlayerReplay_DoesNotRestoreHeldItemOwnedByItemReplay()
+        {
+            var player = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var item = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            item.AddComponent<Game.Client.Interactions.CarryableItem>();
+            item.transform.SetParent(player.transform);
+            var playerReplay = new ReplayVisual(player.transform, null);
+            var itemReplay = new ReplayVisual(item.transform, null);
+            try
+            {
+                playerReplay.SetPlaying(true);
+                Assert.That(item.GetComponent<Renderer>().forceRenderingOff, Is.False);
+                itemReplay.SetPlaying(true);
+                playerReplay.SetPlaying(false);
+                Assert.That(item.GetComponent<Renderer>().forceRenderingOff, Is.True);
+                itemReplay.SetPlaying(false);
+                Assert.That(item.GetComponent<Renderer>().forceRenderingOff, Is.False);
+            }
+            finally
+            {
+                playerReplay.Dispose();
+                itemReplay.Dispose();
+                Object.DestroyImmediate(player);
+            }
+        }
+
+        [Test]
         public void ReplayCopy_InitializesAnimatorBeforeManualPlayback()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(

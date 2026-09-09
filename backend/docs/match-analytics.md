@@ -91,3 +91,25 @@ GROUP BY p.map_id, p.phase, FLOOR(p.pos_x / 2) * 2, FLOOR(p.pos_z / 2) * 2;
   운영 원본 테이블에는 테스트 데이터를 넣지 않았습니다.
 - 실제 수집에는 새 Unity 빌드 배포가 필요합니다. 뷰에는 백엔드 배포가 필요합니다.
   실제 멀티플레이 경기 종료 → HTTP 202 → DB 건수 일치 → Metabase 조회까지의 운영 검증은 별도입니다.
+
+## 누적 피격·기절 횟수
+
+`position_sample.params.total_hits_received`는 이번 경기에서 서버가 인정한 누적 피격 횟수,
+`total_stuns`는 누적 기절 발생 횟수입니다. 기절 시 초기화되는 현재 피격 스택과 다릅니다.
+숨기기 대기 중 인정된 펀치도 피격에 포함하지만 기절은 늘지 않습니다. 무적·기절 중 거절된 공격,
+빗나간 공격과 로비 펀치는 집계하지 않습니다. 새 경기에서 0부터 시작합니다.
+마지막 1초 사이 발생한 횟수를 놓치지 않도록 `player_result`에도 종료 시 누적값을 담습니다.
+기존 `game_event.params` JSON으로 저장하므로 API/테이블 마이그레이션은 필요하지 않습니다.
+과거 기록에는 필드가 없으며 NULL은 미수집을 의미합니다. 기존 위치 뷰에는 새 열이 없으므로 원본에서 조회합니다.
+
+```sql
+SELECT match_id, match_time_ms, params->>'$.seat' AS player_seat,
+       CAST(params->>'$.total_hits_received' AS UNSIGNED) AS total_hits_received,
+       CAST(params->>'$.total_stuns' AS UNSIGNED) AS total_stuns
+FROM game_event
+WHERE event_name = 'position_sample' AND from_host = 1 AND schema_ver = 2
+ORDER BY match_id, match_time_ms, player_seat;
+```
+
+누적값이므로 매초 값을 SUM하면 중복 집계됩니다. 최종값은 `player_result`를 사용하거나
+완료된 동일 경기·플레이어의 MAX를 조회합니다.
