@@ -16,6 +16,8 @@ namespace Game.Core.Maps
             PlaygroundId
         };
 
+        private static readonly Random RandomPicker = new();
+
         public static IReadOnlyList<string> MapIds { get; } =
             Array.AsReadOnly(MapIdValues);
 
@@ -39,6 +41,45 @@ namespace Game.Core.Maps
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Empty id is the lobby's random choice; it is resolved to a playable
+        /// map when the match starts, not when the host saves settings.
+        /// </summary>
+        public static bool IsRandom(string mapId) => string.IsNullOrWhiteSpace(mapId);
+
+        public static bool IsLobbyChoice(string mapId) => IsRandom(mapId) || Contains(mapId);
+
+        public static string NormalizeLobbyMapId(string mapId, string fallback)
+        {
+            if (IsRandom(mapId))
+            {
+                return string.Empty;
+            }
+
+            return Contains(mapId) ? mapId.Trim() : fallback?.Trim() ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Picks one of the playable maps. Used when the lobby map choice is random.
+        /// </summary>
+        public static string PickRandom()
+        {
+            if (MapIdValues.Length == 0)
+            {
+                return DefaultMapId;
+            }
+
+            if (MapIdValues.Length == 1)
+            {
+                return MapIdValues[0];
+            }
+
+            lock (RandomPicker)
+            {
+                return MapIdValues[RandomPicker.Next(MapIdValues.Length)];
+            }
         }
     }
 }

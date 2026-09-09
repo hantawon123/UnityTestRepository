@@ -14,10 +14,14 @@ namespace Game.Client.Interactions
         public const float KeyIconSize = 24f;
         public const string LeftClickIconResource = "UI/ic_left_click";
         public static readonly Color KeyBoxColor = new(0f, 0f, 0f, 0.27f);
+        public const float WorldLift = 0.08f;
+        public const float ScaleReferenceDistance = 3f;
+        public const float MinDistanceScale = 1f;
+        public const float MaxDistanceScale = 1.5f;
 
         private const int SortingOrder = 220;
-        private const float WorldLift = 0.08f;
         private const float FollowSmoothTime = 0.05f;
+        private static readonly Color DefaultActionColor = Color.white;
 
         private Canvas canvas;
         private RectTransform root;
@@ -31,6 +35,7 @@ namespace Game.Client.Interactions
         private string shownKey;
         private string shownAction;
         private Sprite shownIcon;
+        private Color shownActionColor;
         private Vector3 followLocalAnchor;
         private bool hasFollowLocalAnchor;
         private Vector3 dampedScreen;
@@ -47,6 +52,18 @@ namespace Game.Client.Interactions
 
         public bool IsVisible => root != null && root.gameObject.activeSelf;
 
+        public float CurrentScale => root != null ? root.localScale.x : 1f;
+
+        public static float ScaleFromDistance(float distance)
+        {
+            if (distance <= 0.01f)
+            {
+                return MaxDistanceScale;
+            }
+
+            return Mathf.Clamp(ScaleReferenceDistance / distance, MinDistanceScale, MaxDistanceScale);
+        }
+
         public static InteractionPromptView Create()
         {
             var root = new GameObject(
@@ -60,10 +77,17 @@ namespace Game.Client.Interactions
             return view;
         }
 
-        public void Show(string key, string action, Transform target, Sprite icon = null)
+        public void Show(
+            string key,
+            string action,
+            Transform target,
+            Sprite icon = null,
+            Color? actionColor = null,
+            Vector3? worldAnchor = null)
         {
             EnsureBuilt();
             var nextAction = action ?? string.Empty;
+            var nextColor = actionColor ?? DefaultActionColor;
             if (follow != target)
             {
                 follow = target;
@@ -72,13 +96,21 @@ namespace Game.Client.Interactions
                 screenVelocity = Vector3.zero;
             }
 
-            if (shownKey != key || shownAction != nextAction || shownIcon != icon)
+            if (worldAnchor.HasValue && target != null)
+            {
+                followLocalAnchor = target.InverseTransformPoint(worldAnchor.Value);
+                hasFollowLocalAnchor = true;
+            }
+
+            if (shownKey != key || shownAction != nextAction || shownIcon != icon || shownActionColor != nextColor)
             {
                 ApplyKeyContent(key, icon);
                 actionLabel.text = nextAction;
+                actionLabel.color = nextColor;
                 shownKey = key;
                 shownAction = nextAction;
                 shownIcon = icon;
+                shownActionColor = nextColor;
             }
 
             root.gameObject.SetActive(true);
@@ -94,11 +126,13 @@ namespace Game.Client.Interactions
             shownKey = null;
             shownAction = null;
             shownIcon = null;
+            shownActionColor = default;
             hasFollowLocalAnchor = false;
             hasDampedScreen = false;
             screenVelocity = Vector3.zero;
             if (root != null)
             {
+                root.localScale = Vector3.one;
                 root.gameObject.SetActive(false);
             }
         }
@@ -272,6 +306,9 @@ namespace Game.Client.Interactions
             }
 
             root.position = dampedScreen;
+            var distance = Vector3.Distance(followCamera.transform.position, world);
+            var scale = ScaleFromDistance(distance);
+            root.localScale = new Vector3(scale, scale, 1f);
         }
 
         private Vector3 ResolveFollowWorld()
@@ -347,7 +384,7 @@ namespace Game.Client.Interactions
 
             text.fontSize = fontSize;
             text.fontStyle = style;
-            text.color = Color.white;
+            text.color = DefaultActionColor;
             text.alignment = TextAlignmentOptions.Center;
             text.textWrappingMode = TextWrappingModes.NoWrap;
             text.overflowMode = TextOverflowModes.Overflow;

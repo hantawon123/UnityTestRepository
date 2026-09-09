@@ -31,9 +31,9 @@ namespace Game.Tests.EditMode
             Assert.DoesNotThrow(() => board.Interact(interactor));
         }
 
-        [TestCase(true, "방 설정 열기")]
-        [TestCase(false, "작전 계획 보기")]
-        public void AttachedBoard_PromptFollowsHostAuthority(bool isHost, string expectedPrompt)
+        [TestCase(true)]
+        [TestCase(false)]
+        public void AttachedBoard_PromptIsRoomSettingsForHostAndGuest(bool isHost)
         {
             using var session = new HostSession();
             session.SetLocalHost(isHost);
@@ -43,7 +43,7 @@ namespace Game.Tests.EditMode
 
             presenter.Attach(board);
 
-            Assert.That(board.InteractionPrompt, Is.EqualTo(expectedPrompt));
+            Assert.That(board.InteractionPrompt, Is.EqualTo("방 설정"));
         }
 
         [Test]
@@ -71,11 +71,12 @@ namespace Game.Tests.EditMode
             using var presenter = new LobbyPlanBoardPresenter(opener, session);
             var board = CreateBoard();
             presenter.Attach(board);
-            Assert.That(board.InteractionPrompt, Is.EqualTo("작전 계획 보기"));
+            Assert.That(board.InteractionPrompt, Is.EqualTo("방 설정"));
 
             session.SetLocalHost(true);
 
-            Assert.That(board.InteractionPrompt, Is.EqualTo("방 설정 열기"));
+            Assert.That(board.InteractionPrompt, Is.EqualTo("방 설정"));
+            Assert.That(board.IsBound, Is.True);
         }
 
         [Test]
