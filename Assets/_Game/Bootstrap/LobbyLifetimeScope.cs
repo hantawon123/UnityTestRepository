@@ -44,9 +44,6 @@ namespace Game.Bootstrap
         private KickConfirmView kickConfirmView;
 
         [SerializeField]
-        private HostTransferConfirmView transferConfirmView;
-
-        [SerializeField]
         private MatchChatView chatView;
 
         [SerializeField]
@@ -88,10 +85,39 @@ namespace Game.Bootstrap
         {
             private readonly NetworkRunnerService network;
             private readonly LobbyHudView view;
-            public LobbyStartCountdown(NetworkRunnerService network, LobbyHudView view)
-            { this.network = network; this.view = view; }
-            public void Tick() => view.SetStartCountdown(network.StartCountdownRemaining);
+            private readonly LobbyPauseMenuPresenter pauseMenu;
+            private bool dismissedForCountdown;
+
+            public LobbyStartCountdown(
+                NetworkRunnerService network,
+                LobbyHudView view,
+                LobbyPauseMenuPresenter pauseMenu)
+            {
+                this.network = network;
+                this.view = view;
+                this.pauseMenu = pauseMenu;
+            }
+
+            public void Tick()
+            {
+                var remaining = network.StartCountdownRemaining;
+                view.SetStartCountdown(remaining);
+                if (remaining <= 0d)
+                {
+                    dismissedForCountdown = false;
+                    return;
+                }
+
+                if (dismissedForCountdown)
+                {
+                    return;
+                }
+
+                dismissedForCountdown = true;
+                pauseMenu.DismissForMatchStart();
+            }
         }
+
         protected override void Awake()
         {
             // Fusion can merge additive content into its runner scene after
@@ -128,7 +154,7 @@ namespace Game.Bootstrap
                     "LobbyPlayerListView must be assigned. Lobby 씬에서 Game > Lobby > Build HUD Layout 을 실행하세요.");
             }
 
-            if (playSettingsView == null || kickConfirmView == null || transferConfirmView == null)
+            if (playSettingsView == null || kickConfirmView == null)
             {
                 throw new InvalidOperationException(
                     "Host UI views must be assigned. Lobby 씬에서 Game > Lobby > Build HUD Layout 을 실행하세요.");
@@ -154,11 +180,14 @@ namespace Game.Bootstrap
                     .Bind(c.Resolve<InterfaceSettingsSystem>(), () => network.LocalPingMilliseconds);
             });
             builder.RegisterEntryPoint<LobbyStartCountdown>();
+            var shortcutOverlay = hudView.EnsureShortcutOverlay();
+            shortcutOverlay.BindPlayerList(playerListView);
+            builder.RegisterComponent(shortcutOverlay).As<ILobbyShortcutOverlay>();
+            builder.RegisterComponent(hudView.EnsurePlayerCount()).As<ILobbyPlayerCountView>();
             builder.RegisterComponent(pauseMenuView).As<ILobbyPauseMenuView>();
             builder.RegisterComponent(playerListView).As<ILobbyPlayerListView>();
             builder.RegisterComponent(playSettingsView).As<IPlaySettingsView>();
-            builder.RegisterComponent(kickConfirmView).As<IKickConfirmView>();
-            builder.RegisterComponent(transferConfirmView).As<IHostTransferConfirmView>();
+            builder.RegisterComponent(kickConfirmView).As<ILobbyConfirmView>();
             chatView.SetKeepChromeVisible(true);
             builder.RegisterComponent(chatView).As<IChatView>();
             builder.RegisterComponent(chatBubbleView).As<IMatchChatBubbleView>();
@@ -186,6 +215,7 @@ namespace Game.Bootstrap
                     Lifetime.Scoped)
                 .As<ILobbyChatLog>();
             builder.RegisterEntryPoint<LobbyPlayerListPresenter>();
+            builder.RegisterEntryPoint<LobbyFriendRefresh>();
             builder.RegisterEntryPoint<LobbyPauseMenuPresenter>().AsSelf();
             var settingsObject = new GameObject("Lobby Settings");
             settingsObject.transform.SetParent(transform, false);

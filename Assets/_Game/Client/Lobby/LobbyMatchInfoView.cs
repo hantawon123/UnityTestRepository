@@ -22,7 +22,7 @@ namespace Game.Client.Lobby
         public const float ContentSpacing = 12f;
         public const float MapRowPadding = 10f;
         public const float MapNameSpacing = 12f;
-        public const float PlayerListGap = 16f;
+        public const float PlayerListGap = 24f;
         public const int PanelRadius = 16;
         public const int MapRowRadius = 12;
         public const int MapPreviewRadius = 8;

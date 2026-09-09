@@ -60,27 +60,22 @@ namespace Game.Editor
             var root = hud.transform as RectTransform;
             var playerList = GetOrCreateSlot(root, "PlayerListRoot", new Color(0.15f, 0.16f, 0.2f, 0.75f));
             var chat = GetOrCreateSlot(root, "ChatRoot", new Color(0.15f, 0.16f, 0.2f, 0.75f));
-            var voice = GetOrCreateSlot(root, "VoiceButton", new Color(0.25f, 0.25f, 0.28f, 0.9f));
 
-            // Sits under the always-on category/map card in the top-right.
+            // Hidden on the HUD; 2 reparents this into the overlay.
             Place(
                 playerList,
-                Anchor.TopRight,
-                new Vector2(-24f, -LobbyMatchInfoView.PlayerListTopOffset),
-                new Vector2(300f, 420f));
+                Anchor.Center,
+                Vector2.zero,
+                LobbyPlayerListView.ModalSize);
+            playerList.gameObject.SetActive(false);
             Place(
                 chat,
                 Anchor.BottomLeft,
                 new Vector2(MatchChatView.Margin, MatchChatView.Margin),
                 new Vector2(MatchChatView.InputWidth, 306f));
-            Place(voice, Anchor.BottomRight, new Vector2(-24f, 24f), new Vector2(72f, 72f));
 
             SetLabel(playerList, string.Empty);
             SetLabel(chat, string.Empty);
-            SetLabel(voice, "MIC");
-            // The only always-on button left. Muting happens mid-sentence, which
-            // is too fast for a menu that has to be opened first.
-            EnsureButton(voice.gameObject);
             EnsurePlayerListContent(playerList);
             EnsureChatContent(chat);
 
@@ -94,6 +89,7 @@ namespace Game.Editor
             DestroyIfExists(root, "PlaySettingsButton");
             DestroyIfExists(root, "KeyGuideButton");
             DestroyIfExists(root, "KeyGuidePanel");
+            DestroyIfExists(root, "VoiceButton");
 
             var playerListView = playerList.GetComponent<LobbyPlayerListView>();
             if (playerListView == null)
@@ -116,14 +112,8 @@ namespace Game.Editor
             DestroyIfExists(pauseMenuPanel, "KeyGuideButton");
             var pausePlaySettings = pauseMenuPanel.Find("PlaySettingsButton") as RectTransform;
             var playSettingsView = EnsurePlaySettingsView(root, pausePlaySettings);
-            var kickConfirm = EnsureConfirmView<KickConfirmView>(
-                root,
-                "KickConfirmPanel",
-                "강퇴 확인");
-            var transferConfirm = EnsureConfirmView<HostTransferConfirmView>(
-                root,
-                "HostTransferConfirmPanel",
-                "방장 위임 확인");
+            var kickConfirm = EnsureKickConfirmView(root);
+            DestroyIfExists(root, "HostTransferConfirmPanel");
             var voiceView = hud.GetComponent<VoiceView>();
             if (voiceView == null)
             {
@@ -131,37 +121,26 @@ namespace Game.Editor
             }
 
             var voiceSo = new SerializedObject(voiceView);
-            voiceSo.FindProperty("muteButton").objectReferenceValue =
-                voice.GetComponent<Button>();
-            voiceSo.FindProperty("background").objectReferenceValue =
-                voice.GetComponent<Image>();
-            voiceSo.FindProperty("label").objectReferenceValue =
-                voice.Find("Label")?.GetComponent<Text>();
+            voiceSo.FindProperty("muteButton").objectReferenceValue = null;
+            voiceSo.FindProperty("background").objectReferenceValue = null;
+            voiceSo.FindProperty("label").objectReferenceValue = null;
             voiceSo.ApplyModifiedPropertiesWithoutUndo();
 
             var chatBubbleView = EnsureChatBubbleWorld(scope.transform);
             KeySettingGuideView.Ensure(root);
+            LobbyShortcutGuideView.Ensure(root);
+            var shortcutOverlay = LobbyShortcutOverlayView.Ensure(root);
+            shortcutOverlay?.BindPlayerList(playerListView);
+            shortcutOverlay?.Hide();
             LobbyMatchInfoView.Ensure(root);
+            LobbyPlayerCountView.Ensure(root);
 
             var hudSo = new SerializedObject(hud);
             hudSo.FindProperty("playerListRoot").objectReferenceValue = playerList;
             hudSo.FindProperty("chatRoot").objectReferenceValue = chat;
-            hudSo.FindProperty("voiceButton").objectReferenceValue = voice;
             hudSo.ApplyModifiedPropertiesWithoutUndo();
 
-            var playerListSo = new SerializedObject(playerListView);
-            playerListSo.FindProperty("titleText").objectReferenceValue =
-                playerList.Find("Title")?.GetComponent<Text>();
-            playerListSo.FindProperty("rowRoot").objectReferenceValue =
-                playerList.Find("RowRoot");
-            playerListSo.FindProperty("uiFont").objectReferenceValue = ResolveLobbyFont();
-            playerListSo.ApplyModifiedPropertiesWithoutUndo();
-
-            var title = playerList.Find("Title")?.GetComponent<Text>();
-            if (title != null)
-            {
-                ApplyText(title, "참가자 목록", 22, TextAnchor.UpperCenter);
-            }
+            playerListView.EnsureLayout();
 
             var scopeSo = new SerializedObject(scope);
             scopeSo.FindProperty("hudView").objectReferenceValue = hud;
@@ -169,7 +148,6 @@ namespace Game.Editor
             scopeSo.FindProperty("playerListView").objectReferenceValue = playerListView;
             scopeSo.FindProperty("playSettingsView").objectReferenceValue = playSettingsView;
             scopeSo.FindProperty("kickConfirmView").objectReferenceValue = kickConfirm;
-            scopeSo.FindProperty("transferConfirmView").objectReferenceValue = transferConfirm;
             scopeSo.FindProperty("chatView").objectReferenceValue = chatView;
             scopeSo.FindProperty("chatBubbleView").objectReferenceValue = chatBubbleView;
             scopeSo.FindProperty("voiceView").objectReferenceValue = voiceView;
@@ -527,51 +505,15 @@ namespace Game.Editor
             }
         }
 
-        private static TConfirm EnsureConfirmView<TConfirm>(
-            RectTransform root,
-            string panelName,
-            string title)
-            where TConfirm : LobbyConfirmView
+        private static KickConfirmView EnsureKickConfirmView(RectTransform root)
         {
-            var panel = root.Find(panelName) as RectTransform;
-            if (panel == null)
-            {
-                panel = GetOrCreateSlot(root, panelName, new Color(0.12f, 0.13f, 0.18f, 0.96f));
-                Place(panel, Anchor.Center, Vector2.zero, new Vector2(460f, 220f));
-                SetLabel(panel, string.Empty);
-            }
-
-            var messageTransform = panel.Find("MessageText");
-            if (messageTransform == null)
-            {
-                messageTransform = CreateTextChild(panel, "MessageText", title, 22, TextAnchor.MiddleCenter).transform;
-            }
-
-            var messageRect = messageTransform.GetComponent<RectTransform>();
-            messageRect.anchorMin = new Vector2(0f, 0f);
-            messageRect.anchorMax = new Vector2(1f, 1f);
-            messageRect.offsetMin = new Vector2(24f, 88f);
-            messageRect.offsetMax = new Vector2(-24f, -24f);
-
-            EnsureButtonSlot(panel, "ConfirmButton", "예", new Vector2(-80f, -58f), new Vector2(120f, 40f));
-            EnsureButtonSlot(panel, "CancelButton", "아니오", new Vector2(80f, -58f), new Vector2(120f, 40f));
-
-            var view = panel.GetComponent<TConfirm>();
+            DestroyIfExists(root, "KickConfirmPanel");
+            var view = root.GetComponent<KickConfirmView>();
             if (view == null)
             {
-                view = Undo.AddComponent<TConfirm>(panel.gameObject);
+                view = Undo.AddComponent<KickConfirmView>(root.gameObject);
             }
 
-            var so = new SerializedObject(view);
-            so.FindProperty("panel").objectReferenceValue = panel.gameObject;
-            so.FindProperty("messageText").objectReferenceValue =
-                panel.Find("MessageText")?.GetComponent<Text>();
-            so.FindProperty("confirmButton").objectReferenceValue =
-                panel.Find("ConfirmButton")?.GetComponent<Button>();
-            so.FindProperty("cancelButton").objectReferenceValue =
-                panel.Find("CancelButton")?.GetComponent<Button>();
-            so.ApplyModifiedPropertiesWithoutUndo();
-            panel.gameObject.SetActive(false);
             return view;
         }
 
@@ -773,48 +715,16 @@ namespace Game.Editor
                 leftoverLabel.gameObject.SetActive(false);
             }
 
-            var title = playerList.Find("Title");
-            if (title == null)
+            var leftoverTitle = playerList.Find("Title");
+            if (leftoverTitle != null)
             {
-                var titleGo = CreateTextChild(playerList, "Title", "참가자 목록", 22, TextAnchor.UpperCenter);
-                var titleRect = titleGo.GetComponent<RectTransform>();
-                titleRect.anchorMin = new Vector2(0f, 1f);
-                titleRect.anchorMax = new Vector2(1f, 1f);
-                titleRect.pivot = new Vector2(0.5f, 1f);
-                titleRect.sizeDelta = new Vector2(-16f, 36f);
-                titleRect.anchoredPosition = new Vector2(0f, -10f);
-            }
-            else
-            {
-                ApplyText(title.GetComponent<Text>(), "참가자 목록", 22, TextAnchor.UpperCenter);
+                leftoverTitle.gameObject.SetActive(false);
             }
 
-            if (playerList.Find("BodyText") == null)
+            var leftoverBody = playerList.Find("BodyText");
+            if (leftoverBody != null)
             {
-                var bodyGo = CreateTextChild(playerList, "BodyText", string.Empty, 20, TextAnchor.UpperLeft);
-                var bodyRect = bodyGo.GetComponent<RectTransform>();
-                bodyRect.anchorMin = Vector2.zero;
-                bodyRect.anchorMax = Vector2.one;
-                bodyRect.offsetMin = new Vector2(16f, 16f);
-                bodyRect.offsetMax = new Vector2(-16f, -48f);
-                var bodyText = bodyGo.GetComponent<Text>();
-                bodyText.alignment = TextAnchor.UpperLeft;
-                bodyText.horizontalOverflow = HorizontalWrapMode.Wrap;
-                bodyText.verticalOverflow = VerticalWrapMode.Overflow;
-                bodyText.lineSpacing = 1.2f;
-                bodyGo.SetActive(false);
-            }
-
-            if (playerList.Find("RowRoot") == null)
-            {
-                var rowRootGo = new GameObject("RowRoot", typeof(RectTransform));
-                Undo.RegisterCreatedObjectUndo(rowRootGo, "Create RowRoot");
-                rowRootGo.transform.SetParent(playerList, false);
-                var rowRoot = rowRootGo.GetComponent<RectTransform>();
-                rowRoot.anchorMin = Vector2.zero;
-                rowRoot.anchorMax = Vector2.one;
-                rowRoot.offsetMin = new Vector2(12f, 12f);
-                rowRoot.offsetMax = new Vector2(-12f, -48f);
+                leftoverBody.gameObject.SetActive(false);
             }
         }
 
@@ -867,11 +777,8 @@ namespace Game.Editor
                 panel, "ResumeButton", "돌아가기", new Vector2(0f, -128f), buttonSize);
             EnsureImage(start.gameObject, new Color(1f, 0.85f, 0.2f, 0.95f));
 
-            // Nothing answers this one yet. It keeps its place so the menu does
-            // not reshuffle when a settings screen arrives, but it is left
-            // unpressable: a button that swallows a click reads as broken.
             var settingsButton = settings.GetComponent<Button>();
-            settingsButton.interactable = false;
+            settingsButton.interactable = true;
 
             var view = hud.GetComponent<LobbyPauseMenuView>();
             if (view == null)

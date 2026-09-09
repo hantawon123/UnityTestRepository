@@ -70,7 +70,8 @@ namespace Game.Bootstrap
                 rows.Add(new LobbyParticipant(
                     one.PlayerId,
                     DisplayNameOf(one),
-                    one.IsHost));
+                    one.IsHost,
+                    one.UserId));
             }
 
             projected.Replace(rows);

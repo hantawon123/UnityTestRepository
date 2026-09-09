@@ -16,8 +16,9 @@ namespace Game.Client.Lobby
     /// <see cref="LobbyPauseMenuView"/>.
     /// <para>
     /// What is left is the things a player reads rather than clicks: the
-    /// category/map card, the shared key guide, and the chat field, which
-    /// the keyboard reaches on its own.
+    /// category/map card, the player count, the shared key guide, the
+    /// 1 / 2 / Esc shortcut row, and the chat field, which the keyboard
+    /// reaches on its own. The full roster opens from 2.
     /// </para>
     /// </remarks>
     public sealed class LobbyHudView : MonoBehaviour
@@ -27,9 +28,6 @@ namespace Game.Client.Lobby
 
         [SerializeField]
         private RectTransform chatRoot;
-
-        [SerializeField]
-        private RectTransform voiceButton;
         private TextMeshProUGUI countdown;
         private string lastCountdownText;
 
@@ -101,10 +99,28 @@ namespace Game.Client.Lobby
             KeySettingGuideView.Ensure(transform)?.SetVisible(true);
         }
 
+        public LobbyShortcutGuideView EnsureShortcutGuide()
+        {
+            HideVoiceButton();
+            return LobbyShortcutGuideView.Ensure(transform);
+        }
+
+        public LobbyShortcutOverlayView EnsureShortcutOverlay()
+        {
+            return LobbyShortcutOverlayView.Ensure(transform);
+        }
+
+        public LobbyPlayerCountView EnsurePlayerCount()
+        {
+            HideHudPlayerList();
+            return LobbyPlayerCountView.Ensure(transform);
+        }
+
         public LobbyMatchInfoView EnsureMatchInfo()
         {
             var info = LobbyMatchInfoView.Ensure(transform);
-            PlacePlayerListBelowMatchInfo();
+            HideHudPlayerList();
+            EnsurePlayerCount();
             return info;
         }
 
@@ -113,29 +129,51 @@ namespace Game.Client.Lobby
             EnsureMatchInfo()?.SetInfo(categoryLabel, mapLabel);
         }
 
-        private void PlacePlayerListBelowMatchInfo()
+        /// <summary>
+        /// The talk keys still run through <c>VoicePresenter</c>. The corner
+        /// button is gone because a captured cursor cannot reach it.
+        /// </summary>
+        private void HideVoiceButton()
         {
-            if (playerListRoot == null)
+            var slot = transform.Find("VoiceButton");
+            if (slot != null)
+            {
+                slot.gameObject.SetActive(false);
+            }
+        }
+
+        private void HideHudPlayerList()
+        {
+            var overlay = GetComponent<LobbyShortcutOverlayView>();
+            if (overlay != null &&
+                overlay.IsOpen &&
+                overlay.OpenKind == LobbyShortcutKind.Players)
             {
                 return;
             }
 
-            playerListRoot.anchorMin = playerListRoot.anchorMax = new Vector2(1f, 1f);
-            playerListRoot.pivot = new Vector2(1f, 1f);
-            playerListRoot.anchoredPosition = new Vector2(
-                -24f,
-                -LobbyMatchInfoView.PlayerListTopOffset);
+            var slot = playerListRoot != null
+                ? playerListRoot
+                : transform.Find("PlayerListRoot") as RectTransform;
+            if (slot != null)
+            {
+                slot.gameObject.SetActive(false);
+            }
         }
 
         private void Awake()
         {
             EnsureSharedGuide();
+            EnsureShortcutGuide();
+            EnsureShortcutOverlay();
             EnsureMatchInfo();
         }
 
         private void OnEnable()
         {
             EnsureSharedGuide();
+            EnsureShortcutGuide();
+            EnsureShortcutOverlay();
             EnsureMatchInfo();
             var canvas = GetComponentInParent<Canvas>();
             HomeUiFonts.ApplyLegacy(canvas != null ? canvas.transform : transform);

@@ -10,15 +10,15 @@ using VContainer.Unity;
 namespace Game.Client.Lobby
 {
     /// <summary>
-    /// Owns what the mouse and the Esc key do in the lobby.
+    /// Owns what the mouse and the 1 / 2 / Esc keys do in the lobby.
     /// </summary>
     /// <remarks>
     /// The lobby is a place the player walks around, so the cursor stays
     /// captured for looking: movement is camera-relative and the character
     /// faces where the camera faces, which leaves a freed cursor with no way to
-    /// turn. Esc is the way back out to the pointer, and it opens the menu in
-    /// the same breath because a released cursor with nothing to press is just
-    /// a stuck screen.
+    /// turn. Esc currently leaves the room; 1 and 2 open the overlays the
+    /// bottom-right guide names. A released cursor with nothing to press is
+    /// just a stuck screen.
     /// <para>
     /// Cursor and movement are set here rather than once while the scene loads.
     /// The one-shot call this replaces ran before the avatar had replicated in,
@@ -38,6 +38,8 @@ namespace Game.Client.Lobby
         private readonly IPlaySettingsView playSettings;
         private readonly ILobbyHostSession hostSession;
         private readonly LobbyExitPresenter exit;
+        private readonly ILobbyShortcutOverlay shortcuts;
+        private readonly Action shortcutClose;
         private IDisposable hostSubscription;
         private PlayerCameraController cameraRig;
         private PlayerMovement lockedMovement;
@@ -63,7 +65,8 @@ namespace Game.Client.Lobby
             ILobbyPauseMenuView view,
             IPlaySettingsView playSettings,
             ILobbyHostSession hostSession,
-            LobbyExitPresenter exit)
+            LobbyExitPresenter exit,
+            ILobbyShortcutOverlay shortcuts)
         {
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.playSettings = playSettings
@@ -71,6 +74,9 @@ namespace Game.Client.Lobby
             this.hostSession = hostSession
                 ?? throw new ArgumentNullException(nameof(hostSession));
             this.exit = exit ?? throw new ArgumentNullException(nameof(exit));
+            this.shortcuts = shortcuts
+                ?? throw new ArgumentNullException(nameof(shortcuts));
+            shortcutClose = this.shortcuts.RequestClose;
         }
 
         public void Start()
@@ -79,11 +85,14 @@ namespace Game.Client.Lobby
             view.LeaveClicked += OnLeaveClicked;
             view.ResumeClicked += Close;
             view.PlaySettingsClicked += OnPlaySettingsClicked;
+            view.SettingsClicked += OnSettingsClicked;
 
             // Play settings is opened by its own presenter, which listens to
             // the same button. Coming back is what is left over, and it is the
-            // menu's to do.
+            // menu's to do. The 1 / 2 / Esc overlays share that same return.
             playSettings.CloseRequested += OnScreenClosed;
+            shortcuts.CloseRequested += OnScreenClosed;
+            hostSession.StartRequested += DismissForMatchStart;
 
             // Starting and changing the room are the host's to ask for, so
             // neither entry is there for anyone else.
@@ -98,7 +107,10 @@ namespace Game.Client.Lobby
             view.LeaveClicked -= OnLeaveClicked;
             view.ResumeClicked -= Close;
             view.PlaySettingsClicked -= OnPlaySettingsClicked;
+            view.SettingsClicked -= OnSettingsClicked;
             playSettings.CloseRequested -= OnScreenClosed;
+            shortcuts.CloseRequested -= OnScreenClosed;
+            hostSession.StartRequested -= DismissForMatchStart;
             hostSubscription?.Dispose();
 
             // A frozen avatar and a rig that no longer answers Esc would both
@@ -119,19 +131,50 @@ namespace Game.Client.Lobby
                 LockMovement();
             }
 
-            if (Keyboard.current == null ||
-                !Keyboard.current.escapeKey.wasPressedThisFrame)
+            if (Keyboard.current == null)
             {
                 return;
             }
 
             // Chat opens on Enter and takes the keyboard while it is focused.
-            // Esc there belongs to the field the player is typing in.
+            // Keys there belong to the field the player is typing in.
             if (PlayerMovement.IsTextInputFocused())
             {
                 return;
             }
 
+            var keyboard = Keyboard.current;
+            var pressed = LobbyShortcutBindings.ReadPressed(
+                WasPressed(keyboard.digit1Key) || WasPressed(keyboard.numpad1Key),
+                WasPressed(keyboard.digit2Key) || WasPressed(keyboard.numpad2Key),
+                false);
+
+            // Esc always backs out of whatever is already up. 1 and 2 switch
+            // between their overlays, and only open a new one from the room.
+            var canOpenShortcut = LobbyShortcutBindings.CanHandle(
+                false,
+                view.IsOpen,
+                HasForeignScreen);
+            if ((pressed == LobbyShortcutKind.Character ||
+                 pressed == LobbyShortcutKind.Players) &&
+                (canOpenShortcut || (shortcuts.IsOpen && !HasForeignScreen)))
+            {
+                ToggleShortcut(pressed);
+                return;
+            }
+
+            if (WasPressed(keyboard.escapeKey))
+            {
+                HandleEscape();
+            }
+        }
+
+        /// <summary>
+        /// Temporary: Esc backs out of an open screen, then leaves the room.
+        /// Settings will take this key again later.
+        /// </summary>
+        public void HandleEscape()
+        {
             // One page back rather than all the way out. Asking the screen to
             // close, instead of hiding it, keeps its presenter's idea of whether
             // it is open in step with what is on the glass.
@@ -144,11 +187,10 @@ namespace Game.Client.Lobby
             if (view.IsOpen)
             {
                 Close();
+                return;
             }
-            else
-            {
-                Open();
-            }
+
+            Leave();
         }
 
         private void ApplyHostControls(bool isHost)
@@ -172,10 +214,20 @@ namespace Game.Client.Lobby
             LockMovement();
         }
 
+        /// <summary>
+        /// Folds every lobby menu and lets the avatar walk. Play settings'
+        /// start button hides that screen without a close request, so the
+        /// movement lock from opening it would otherwise last the whole
+        /// countdown.
+        /// </summary>
+        public void DismissForMatchStart() => Close();
+
         private void Close()
         {
+            var pending = closeOpenScreen;
             closeOpenScreen = null;
             openedFromWorld = false;
+            pending?.Invoke();
             view.SetVisible(false);
             SetCursorCaptured(true);
             ReleaseMovement();
@@ -217,6 +269,58 @@ namespace Game.Client.Lobby
         /// hand them a settings screen they cannot click.
         /// </remarks>
         private void OnPlaySettingsClicked() => StepAsideFor(playSettings.RequestClose);
+
+        private void OnSettingsClicked()
+        {
+            openedFromWorld = false;
+            StepAsideFor(shortcutClose);
+            shortcuts.Show(LobbyShortcutKind.Settings);
+        }
+
+        /// <summary>
+        /// Opens a 1 / 2 / Esc overlay from the room. Closing it returns to
+        /// walking rather than to the pause menu, the same as opening play
+        /// settings from the plan board.
+        /// </summary>
+        public void ToggleShortcut(LobbyShortcutKind kind)
+        {
+            if (kind == LobbyShortcutKind.None || HasForeignScreen)
+            {
+                return;
+            }
+
+            if (shortcuts.IsOpen && shortcuts.OpenKind == kind)
+            {
+                shortcutClose.Invoke();
+                return;
+            }
+
+            if (!shortcuts.IsOpen)
+            {
+                if (view.IsOpen)
+                {
+                    openedFromWorld = false;
+                    StepAsideFor(shortcutClose);
+                }
+                else
+                {
+                    openedFromWorld = true;
+                    SetCursorCaptured(false);
+                    LockMovement();
+                    StepAsideFor(shortcutClose);
+                }
+            }
+
+            shortcuts.Show(kind);
+        }
+
+        private bool HasForeignScreen =>
+            closeOpenScreen != null && closeOpenScreen != shortcutClose;
+
+        private static bool WasPressed(UnityEngine.InputSystem.Controls.KeyControl key)
+        {
+            return key != null && key.wasPressedThisFrame;
+        }
 
         private void StepAsideFor(Action close)
         {

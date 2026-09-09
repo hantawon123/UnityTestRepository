@@ -19,14 +19,13 @@ namespace Game.Client.Voice
     }
 
     /// <summary>
-    /// The microphone button in the corner of the lobby HUD.
+    /// Paints a microphone button when one is wired. The lobby HUD no longer
+    /// keeps that button — talk keys still reach this view's presenter.
     /// </summary>
     /// <remarks>
-    /// Stays on the always-on HUD rather than moving into the Esc menu the way
-    /// the other buttons did. Muting is something a player does mid-sentence,
-    /// and a menu that has to be opened first is too slow for that. The talk key
-    /// is the main way in either case — this shows what the microphone is doing
-    /// and gives the mouse a way to silence it.
+    /// The lobby no longer shows this control. Talk keys still go through
+    /// <c>VoicePresenter</c>; the button refs stay optional so a match HUD
+    /// can keep painting one.
     /// </remarks>
     public sealed class VoiceView : MonoBehaviour, IVoiceView
     {
@@ -71,10 +70,6 @@ namespace Game.Client.Voice
         {
             if (muteButton == null)
             {
-                Debug.LogError(
-                    "VoiceButton is not wired. Run " +
-                    "Game > Lobby > Build HUD Layout on the Lobby scene.",
-                    this);
                 return;
             }
 
