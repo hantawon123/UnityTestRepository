@@ -574,7 +574,9 @@ namespace Game.Bootstrap
                 avatar.GetComponent<PlayerAnimationDriver>()?.ApplyNetworkState(
                     motor.AnimationSpeed,
                     motor.AnimationGrounded,
-                    motor.AttackSequence);
+                    motor.AttackSequence,
+                    new Vector2(motor.AnimationMoveX, motor.AnimationMoveZ),
+                    motor.AnimationCarrying);
             }
         }
     }
