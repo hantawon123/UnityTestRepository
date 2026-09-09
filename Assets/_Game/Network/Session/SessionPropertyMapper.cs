@@ -49,6 +49,12 @@ namespace Game.Network.Session
             properties[SessionPropertyKeys.Locked] = !string.IsNullOrEmpty(request.Password);
             properties[SessionPropertyKeys.OpenedAt] =
                 (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+            // Written now even though no room starts playing: Photon fixes the
+            // set of properties it forwards to the lobby when the room is
+            // created, so a key first written at match start never reaches the
+            // room list and every room stays "waiting" there.
+            properties[SessionPropertyKeys.Playing] = false;
             AddMatchRules(properties, MatchRuleSettings.Default);
             return properties;
         }

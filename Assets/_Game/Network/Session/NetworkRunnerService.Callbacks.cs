@@ -119,6 +119,19 @@ namespace Game.Network.Session
                 return;
             }
 
+            // The room list disables a playing room, but a code typed by hand
+            // and a list read before the status arrived both bypass that, and
+            // a late joiner would land in a match with no seat in its line-up.
+            // The countdown counts as playing, matching what the listing says:
+            // arriving during it would otherwise call the whole start off.
+            if (_matchStarter != null &&
+                (_matchStarter.HasStartedMatch || _matchStarter.IsStartPending))
+            {
+                Debug.Log("[Network] Refused a join: the match has already started.");
+                request.Refuse();
+                return;
+            }
+
             if (string.IsNullOrEmpty(_expectedPassword))
             {
                 request.Accept();
