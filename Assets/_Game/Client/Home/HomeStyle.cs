@@ -99,6 +99,14 @@ namespace Game.Client.Home
 
             public static readonly Color SearchText = FromHex(0xFFFFFF);
             public static readonly Color Placeholder = FromHex(0xA8ADB3);
+
+            public static readonly Color ToastFill = FromHex(0xFFFFFF);
+
+            /// <summary>
+            /// Not given by the design, which names only the weight. The dark
+            /// the check button already uses on white.
+            /// </summary>
+            public static readonly Color ToastText = FromHex(0x0B1018);
             public static readonly Color Refresh = FromHex(0xFF9A6A);
 
             public static readonly Color SectionPrimary = FromHex(0xFF9A6A);
@@ -147,6 +155,19 @@ namespace Game.Client.Home
 
             public const float QuitLeft = 60f;
             public const float QuitBottom = 40f;
+
+            /// <summary>
+            /// How much a menu line grows under the pointer. Small on purpose:
+            /// enough to feel the line answer, not so much that the column
+            /// appears to shift.
+            /// </summary>
+            public const float MenuHoverScale = 1.06f;
+
+            /// <summary>
+            /// How long that growth takes, matched to the colour tint's own fade
+            /// so the two read as one response.
+            /// </summary>
+            public const float MenuHoverSeconds = 0.08f;
 
             /// <summary>
             /// The chip grows with the name it holds, between these two. Twelve
@@ -422,11 +443,65 @@ namespace Game.Client.Home
             public const string TitlePlaceholder = "방 이름 입력";
         }
 
+        /// <summary>
+        /// The room-invite cards stacked at the top left. Measured off the
+        /// design at 1920x1080.
+        /// </summary>
+        public static class Toast
+        {
+            /// <summary>
+            /// Above the home canvas's 100, so a card is never behind a panel
+            /// that opened after it.
+            /// </summary>
+            public const int SortingOrder = 200;
+
+            public const float Width = 474f;
+            public const float Height = 85f;
+            public const float Left = 60f;
+            public const float Top = 63f;
+            public const float Gap = 11f;
+
+            public const float IconWidth = 50f;
+            public const float IconHeight = 40f;
+            public const float IconLeft = 12f;
+
+            /// <summary>
+            /// Not given by the design. Read off the screen: wider than the
+            /// icon's own left margin, so the name starts clear of the envelope
+            /// rather than crowding it.
+            /// </summary>
+            public const float IconToText = 15f;
+
+            /// <summary>
+            /// The design gives the two buttons as one span of 84 with 4
+            /// between them, which is two of these. Read that way because two
+            /// buttons the height of the card would leave no room for the
+            /// longest name on its own line.
+            /// </summary>
+            public const float ButtonDiameter = 40f;
+
+            public const float ButtonGap = 4f;
+
+            /// <summary>
+            /// Wider than the 11 the design first gave. On screen the pair sat
+            /// tight against the card's edge, and the extra breath settles them
+            /// against the rounded corner rather than in it.
+            /// </summary>
+            public const float ButtonRight = 15f;
+
+            /// <summary>
+            /// Not given by the design. Keeps a long name from touching the
+            /// decline button.
+            /// </summary>
+            public const float TextToButtons = 12f;
+        }
+
         public static class Radius
         {
             public const int Chip = 20;
             public const int IconButton = 20;
             public const int Panel = 20;
+            public const int Toast = 20;
 
             /// <summary>
             /// Not given by the design. Read off the mock-up, where the field
@@ -455,6 +530,7 @@ namespace Game.Client.Home
             public const float Check = 20f;
             public const float Apply = 24f;
             public const float Message = 18f;
+            public const float Toast = 20f;
             public const float Counter = 18f;
             public const float ServerTitle = 20f;
             public const float Region = 24f;

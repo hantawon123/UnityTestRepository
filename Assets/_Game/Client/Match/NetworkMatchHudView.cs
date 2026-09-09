@@ -117,6 +117,8 @@ namespace Game.Client.Match
             Array.Empty<PlayerItemStatusSnapshot>();
         private bool playerStatusVisible = true;
         private bool highlightOnly;
+        private bool hidingPresentation, searchingPresentation;
+        public bool HasEssentialPresentation => hidingPresentation || searchingPresentation || highlightOnly || showEndCountdown;
         private bool showEndCountdown;
         private readonly Dictionary<Graphic, bool> hiddenGraphics = new();
         private readonly Dictionary<PlayerInteractor, bool> hiddenCrosshairs = new();
@@ -189,7 +191,7 @@ namespace Game.Client.Match
             }
             foreach (var interactor in FindObjectsByType<PlayerInteractor>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
-                hiddenCrosshairs[interactor] = interactor.HudVisible;
+                hiddenCrosshairs[interactor] = interactor.PresentationHudVisible;
                 interactor.SetHudVisible(false);
             }
         }
@@ -339,22 +341,26 @@ namespace Game.Client.Match
         public void ShowHidingIntro(string itemDisplayName, string itemId)
         {
             EnsureHidingIntro();
+            hidingPresentation = true;
             hidingIntroView?.Show(itemDisplayName, itemId);
         }
 
         public void HideHidingIntro()
         {
+            hidingPresentation = false;
             hidingIntroView?.Hide();
         }
 
         public void ShowSearchingIntro(string itemDisplayName, string itemId)
         {
             EnsureSearchingIntro();
+            searchingPresentation = true;
             searchingIntroView?.Show(itemDisplayName, itemId);
         }
 
         public void HideSearchingIntro()
         {
+            searchingPresentation = false;
             searchingIntroView?.Hide();
         }
 

@@ -4,6 +4,8 @@ using Game.Client.Home;
 using Game.Client.Settings;
 using Game.Core.Flow;
 using Game.Core.Settings;
+using Game.Core.Ports;
+using VContainer;
 using NUnit.Framework;
 
 namespace Game.Architecture.Tests
@@ -1208,6 +1210,74 @@ namespace Game.Architecture.Tests
             view.StepLanguage(1);
 
             Assert.That(view.LanguageLabel, Is.EqualTo("한국어"));
+        }
+
+        [Test]
+        public void DiscardAndReopen_DoesNotRestoreUnappliedSensitivity()
+        {
+            using var presenter = Started();
+            view.DragSensitivity(ControlSensitivity.FirstPersonMouse, 90);
+            view.Back();
+            view.Decline();
+            view.Reopen();
+            Assert.That(presenter.ControlDraft.Get(ControlSensitivity.FirstPersonMouse), Is.EqualTo(50));
+            Assert.That(view.ActionsEnabled, Is.False);
+        }
+
+        [Test]
+        public void LobbyClose_KeepsNetworkFlowAndAppliesOnlyConfirmedDraft()
+        {
+            flow.TryTransitionTo(AppFlowState.Home);
+            flow.TryTransitionTo(AppFlowState.Lobby);
+            var closed = 0;
+            using var presenter = new SettingsPresenter(view, general, graphics, ui, sound,
+                microphoneTest, controls, keyCapture, notifications, host, flow, () => closed++);
+            presenter.Start();
+            view.DragSensitivity(ControlSensitivity.FirstPersonMouse, 80);
+            view.Back();
+            Assert.That(closed, Is.Zero);
+            view.Accept();
+            Assert.That(closed, Is.EqualTo(1));
+            Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.Lobby));
+            Assert.That(new ControlSettingsSystem(controlStore).Current.Get(ControlSensitivity.FirstPersonMouse), Is.EqualTo(80));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Container_ResolvesHomeAndLobbySettings(bool lobby)
+        {
+            var builder = new ContainerBuilder();
+            builder.RegisterInstance<ISettingsView>(view);
+            builder.RegisterInstance(general);
+            builder.RegisterInstance(graphics);
+            builder.RegisterInstance(ui);
+            builder.RegisterInstance(sound);
+            builder.RegisterInstance<IMicrophoneTest>(microphoneTest);
+            builder.RegisterInstance(controls);
+            builder.RegisterInstance<IKeyCapture>(keyCapture);
+            builder.RegisterInstance(notifications);
+            builder.RegisterInstance<IHomeApplicationHost>(host);
+            builder.RegisterInstance(flow);
+            var registration = builder.Register<SettingsPresenter>(Lifetime.Scoped);
+            var closed = false;
+            if (lobby) registration.WithParameter<Action>(() => closed = true);
+            else registration.WithParameter<Action>((Action)null);
+            using var container = builder.Build();
+            var presenter = container.Resolve<SettingsPresenter>();
+            presenter.Start();
+            view.Back();
+            Assert.That(closed, Is.EqualTo(lobby));
+            Assert.That(flow.CurrentState, Is.EqualTo(lobby ? AppFlowState.Settings : AppFlowState.Home));
+        }
+
+        [Test]
+        public void ReopenedCachedScreen_DiscardsDraftAfterExternalNavigation()
+        {
+            using var presenter = Started();
+            view.DragSensitivity(ControlSensitivity.ThirdPersonMouse, 10);
+            view.Reopen();
+            Assert.That(presenter.ControlDraft.Get(ControlSensitivity.ThirdPersonMouse), Is.EqualTo(50));
+            Assert.That(view.ActionsEnabled, Is.False);
         }
 
         private SettingsPresenter Started()

@@ -52,11 +52,23 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<HomeProfileBridge>();
         }
 
-        private sealed class HomeExitNotice : IStartable, System.IDisposable
+        /// <remarks>
+        /// Said on Home's own toast, the way every other failure that lands
+        /// here is said. It used to raise the lobby's confirm dialog, which is
+        /// built for the lobby's canvas and arrived on Home as a grey slab with
+        /// a stock blue button, reading as a crash rather than as this screen
+        /// telling the player why they are back on it.
+        /// <para>
+        /// There is nothing to press now, so the exit is acknowledged as it is
+        /// shown. Acknowledging only clears the flag that would otherwise put
+        /// the same notice up again the next time Home opens; the player has
+        /// already been returned here either way.
+        /// </para>
+        /// </remarks>
+        private sealed class HomeExitNotice : IStartable
         {
             private readonly HomeMenuView view;
             private readonly RoomBrowserSystem room;
-            private LobbyConfirmView notice;
 
             public HomeExitNotice(HomeMenuView view, RoomBrowserSystem room)
             {
@@ -67,20 +79,24 @@ namespace Game.Bootstrap
             public void Start()
             {
                 var reason = room.LastExit.CurrentValue;
-                if (!reason.HasValue) return;
-                if (reason == RoomExitReason.Left) { room.AcknowledgeExit(); return; }
-                notice = LobbyConfirmView.Create(view.transform, showCancel: false);
-                notice.Confirmed += Acknowledge;
-                notice.Show(reason == RoomExitReason.HostClosed
+                if (!reason.HasValue)
+                {
+                    return;
+                }
+
+                room.AcknowledgeExit();
+                if (reason == RoomExitReason.Left)
+                {
+                    // The player walked out. They know why they are here.
+                    return;
+                }
+
+                view.ShowConnectionError(reason == RoomExitReason.HostClosed
                     ? "호스트의 연결이 끊어졌습니다" : "서버와의 연결이 끊어졌습니다");
+
+                // The game locked the cursor away. Home is a screen to click on.
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
-            }
-
-            private void Acknowledge() { room.AcknowledgeExit(); notice.Hide(); }
-            public void Dispose()
-            {
-                if (notice != null) { notice.Confirmed -= Acknowledge; Object.Destroy(notice.gameObject); }
             }
         }
 
@@ -280,6 +296,37 @@ namespace Game.Bootstrap
 
                 CreateThenOpenLobbyAsync(request)
                     .Forget(exception => Debug.LogException(exception));
+            }
+
+            public void JoinRoom(string roomCode)
+            {
+                JoinThenOpenLobbyAsync(roomCode)
+                    .Forget(exception => Debug.LogException(exception));
+            }
+
+            /// <remarks>
+            /// The invite carries no password: a friend's room is entered as the
+            /// friend meant it to be. A locked room answers with the same notice
+            /// the code field gives, which is the honest one.
+            /// </remarks>
+            private async UniTask JoinThenOpenLobbyAsync(string roomCode)
+            {
+                var result = await rooms.EnterByCodeAsync(roomCode, null, CancellationToken.None);
+                if (!result.Ok)
+                {
+                    Debug.LogWarning($"[Home] Joining an invited room failed: {result.Failure}.");
+                    view.ShowConnectionError(
+                        RoomEntryMessages.Describe(result.Failure, RoomEntrySource.Invite));
+                    return;
+                }
+
+                if (appFlow.CurrentState != AppFlowState.Lobby &&
+                    !appFlow.TryTransitionTo(AppFlowState.Lobby))
+                {
+                    Debug.LogError($"[Home] Opened a room from {appFlow.CurrentState}.");
+                }
+
+                OpenLobby();
             }
 
             private async UniTask CreateThenOpenLobbyAsync(RoomCreateRequest request)

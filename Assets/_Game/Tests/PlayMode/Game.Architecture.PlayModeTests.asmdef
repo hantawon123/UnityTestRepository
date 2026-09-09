@@ -8,7 +8,15 @@
         "Game.Server",
         "Game.SOAP",
         "UniTask",
-        "UnityEngine.TestRunner"
+        "UnityEngine.TestRunner",
+        "Game.Client",
+        "VContainer",
+        "Unity.InputSystem",
+        "Game.Network",
+        "Fusion.Unity",
+        "Unity.TextMeshPro",
+        "PhotonVoice",
+        "Photon.Realtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -43,6 +43,9 @@ namespace Game.Client.Settings
     /// </summary>
     public interface ISettingsView
     {
+        /// <summary>The screen became visible, including a cached scene reopening.</summary>
+        event Action Opened;
+
         /// <summary>The arrow at the top left.</summary>
         event Action BackRequested;
 

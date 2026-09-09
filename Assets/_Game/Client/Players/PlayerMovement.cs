@@ -249,6 +249,13 @@ namespace Game.Client.Players
 
         private void Update()
         {
+            // 네트워크 플레이어는 KCC가 이동을 맡기고 CharacterController는 꺼 둔다.
+            // 이 컴포넌트는 오너 입력 캡처용으로만 살아 있으므로 Move를 부르면 안 된다.
+            if (controller == null || !controller.enabled)
+            {
+                return;
+            }
+
             var inputLocked = IsLocomotionLocked || IsTextInputFocused();
             var input = inputLocked ? Vector2.zero : moveAction.ReadValue<Vector2>();
             var direction = ToCameraRelativeDirection(input);

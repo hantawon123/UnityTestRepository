@@ -33,7 +33,8 @@ namespace Game.Bootstrap
             builder.Register<SettingsApplicationHost>(Lifetime.Scoped)
                 .As<IHomeApplicationHost>();
             builder.RegisterComponent(settingsView).As<ISettingsView>();
-            builder.RegisterEntryPoint<SettingsPresenter>();
+            builder.RegisterEntryPoint<SettingsPresenter>()
+                .WithParameter<System.Action>((System.Action)null);
 
             // 피드백을 서버로 보내는 쪽. 화면과 같은 수명이라 여기 둡니다. 프로젝트
             // 범위에 두면 설정 화면이 없을 때도 살아 있고, 그때 ISettingsView 를
@@ -72,6 +73,8 @@ namespace Game.Bootstrap
             /// </summary>
             public void CreateRoom(string title, bool isPublic, int maxPlayers) =>
                 fallback.CreateRoom(title, isPublic, maxPlayers);
+
+            public void JoinRoom(string roomCode) => fallback.JoinRoom(roomCode);
 
             public void OpenLobby() => fallback.OpenLobby();
         }

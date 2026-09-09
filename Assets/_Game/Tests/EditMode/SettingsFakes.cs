@@ -18,6 +18,8 @@ namespace Game.Architecture.Tests
     /// </remarks>
     internal sealed class FakeSettingsView : ISettingsView
     {
+        public event Action Opened;
+
         public event Action BackRequested;
 
         public event Action ResetAllRequested;
@@ -241,6 +243,8 @@ namespace Game.Architecture.Tests
 
         public void Apply() => ApplyRequested?.Invoke();
 
+        public void Reopen() => Opened?.Invoke();
+
         public void Accept() => ConfirmAccepted?.Invoke();
 
         public void Decline() => ConfirmDeclined?.Invoke();
@@ -278,6 +282,10 @@ namespace Game.Architecture.Tests
         }
 
         public void CreateRoom(string title, bool isPublic, int maxPlayers)
+        {
+        }
+
+        public void JoinRoom(string roomCode)
         {
         }
 

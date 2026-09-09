@@ -317,6 +317,10 @@ namespace Game.Architecture.Tests
             {
             }
 
+            public void JoinRoom(string roomCode)
+            {
+            }
+
             public void OpenLobby() { }
         }
 
@@ -735,9 +739,35 @@ namespace Game.Architecture.Tests
                 "KCC must be the only network transform writer.");
             Assert.That(prefab.GetComponent<CharacterController>().enabled, Is.False,
                 "The inherited CharacterController must not compete with KCC.");
+            Assert.That(prefab.GetComponent<PlayerMovement>().enabled, Is.True,
+                "PlayerMovement stays on so the owner can capture input. Update must not Move the disabled CharacterController.");
             Assert.That(
                 prefab.GetComponent<PlayerMovement>(),
                 Is.InstanceOf<IPlayerInputIntentSource>());
+        }
+
+        [Test]
+        public void PlayerMovement_DoesNotMoveDisabledCharacterController()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab");
+            var instance = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
+            try
+            {
+                var movement = instance.GetComponent<PlayerMovement>();
+                var controller = instance.GetComponent<CharacterController>();
+                controller.enabled = false;
+
+                var update = typeof(PlayerMovement).GetMethod(
+                    "Update",
+                    System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.NonPublic);
+                Assert.DoesNotThrow(() => update.Invoke(movement, null));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
         }
 
         [Test]

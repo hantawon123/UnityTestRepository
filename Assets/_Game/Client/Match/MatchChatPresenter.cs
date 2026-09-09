@@ -13,6 +13,14 @@ namespace Game.Client.Match
         private readonly IChatView view;
         private readonly IMatchChatBubbleView bubbleView;
         private IDisposable messagesSubscription;
+        private Game.Core.Settings.InterfacePresentation presentation;
+        [VContainer.Inject]
+        public void BindPresentation(Game.Core.Settings.InterfacePresentation value) => presentation = value;
+        private void RefreshPresentation()
+        {
+            bubbleView?.Clear();
+            HandleMessagesChanged(chatLog.Messages.CurrentValue);
+        }
 
         public MatchChatPresenter(
             ILobbyChatLog chatLog,
@@ -36,6 +44,7 @@ namespace Game.Client.Match
 
         public void Start()
         {
+            if (presentation != null) presentation.Changed += RefreshPresentation;
             view.SendRequested += HandleSend;
             transport.MatchChatReceived += HandleReceived;
             messagesSubscription = chatLog.Messages.Subscribe(HandleMessagesChanged);
@@ -44,6 +53,7 @@ namespace Game.Client.Match
 
         public void Dispose()
         {
+            if (presentation != null) presentation.Changed -= RefreshPresentation;
             view.SendRequested -= HandleSend;
             transport.MatchChatReceived -= HandleReceived;
             messagesSubscription?.Dispose();
@@ -66,10 +76,17 @@ namespace Game.Client.Match
         private void HandleReceived(LobbyChatMessage message)
         {
             chatLog.Append(message);
-            bubbleView?.Show(message);
+            if (presentation == null || presentation.ShowsChat(message.SenderId)) bubbleView?.Show(message);
         }
 
-        private void HandleMessagesChanged(IReadOnlyList<LobbyChatMessage> messages) =>
-            view.SetMessages(messages ?? Array.Empty<LobbyChatMessage>());
+        private void HandleMessagesChanged(IReadOnlyList<LobbyChatMessage> messages)
+        {
+            if (presentation == null) { view.SetMessages(messages ?? Array.Empty<LobbyChatMessage>()); return; }
+            var visible = new List<LobbyChatMessage>();
+            if (messages != null)
+                foreach (var message in messages)
+                    if (presentation.ShowsChat(message.SenderId)) visible.Add(message);
+            view.SetMessages(visible);
+        }
     }
 }

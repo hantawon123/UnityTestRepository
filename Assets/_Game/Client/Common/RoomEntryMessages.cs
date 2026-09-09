@@ -22,6 +22,13 @@ namespace Game.Client.Common
         /// gone means something different when the player is the one making it.
         /// </summary>
         RoomCreate,
+
+        /// <summary>
+        /// A friend's invitation, taken up from the card. The player typed no
+        /// code and picked nothing from a list, so anything that tells them to
+        /// check what they entered is talking about something they never did.
+        /// </summary>
+        Invite,
     }
 
     /// <summary>
@@ -55,9 +62,19 @@ namespace Game.Client.Common
                         return "방을 만들지 못했어요. 다시 시도해 주세요.";
                     }
 
+                    if (source == RoomEntrySource.Invite)
+                    {
+                        return "초대받은 방이 사라졌어요.";
+                    }
+
                     return source == RoomEntrySource.RoomCode
                         ? "그런 방이 없어요. 코드를 다시 확인해 주세요."
                         : "사라진 방이에요. 목록을 새로고침 해주세요.";
+
+                case RoomEntryFailure.InvalidCode when source == RoomEntrySource.Invite:
+                    // The card outlived the invitation behind it, or the room
+                    // was taken down between the press and the answer.
+                    return "초대가 만료됐어요.";
 
                 case RoomEntryFailure.Full:
                     if (source == RoomEntrySource.RoomCreate)
@@ -65,7 +82,7 @@ namespace Game.Client.Common
                         return "방을 만들지 못했어요. 다시 시도해 주세요.";
                     }
 
-                    return source == RoomEntrySource.RoomCode
+                    return source is RoomEntrySource.RoomCode or RoomEntrySource.Invite
                         ? "방이 가득 찼어요."
                         : "방이 가득 찼어요. 다른 방을 골라주세요.";
 

@@ -79,6 +79,14 @@ blender --background --python Tools/make_first_carry_postures.py -- CARRY.fbx OU
 `PutDown_Low`는 `Pickup_Low`의 역동작이다. 게임 상호작용 연결 시 물건은 이 동작의
 접촉 프레임에 HoldPoint에서 분리한다.
 
+몸통 후속 보정은 `Tools/refine_throw_torso.py -- INPUT_DIR OUT_DIR`로 생성한다.
+몸통 중앙의 팔뼈 가중치를 Spine으로 옮기고 상완 방향을 조금 위로 올린다.
+공용 Idle와 Throw FBX를 함께 반영하며, 재실행 입력은 보정 전 파일을 사용한다.
+
+손목 후속 보정은 `Tools/align_throw_wrist.py`로 베이크한다. 아래팔과 손의 축을
+일치시키며 처음·마지막 3프레임만 기존 연결 자세로 보간한다. 다른 뼈의 동작과
+메시 가중치는 유지한다. 실행 인자는 `-- INPUT_THROW.fbx OUT_DIR`이다.
+
 `Throw`는 `Carry_Idle`에서 상완을 옆으로 열고, 상완·전완을 같이 올린 뒤
 팔을 직선으로 펴서 던진다. 물건은 26프레임에서 놓으며 끝은 기본 대기다.
 

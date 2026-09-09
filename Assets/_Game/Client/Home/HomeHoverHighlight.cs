@@ -5,7 +5,8 @@ using UnityEngine.UI;
 namespace Game.Client.Home
 {
     /// <summary>
-    /// Repaints a fill and shows a hairline while the pointer is over it.
+    /// Repaints a fill on hover, and shows a hairline while the pointer is
+    /// over it or while what it opens is on screen.
     /// </summary>
     /// <remarks>
     /// The profile chip and the two icon buttons change two things at once on
@@ -38,34 +39,65 @@ namespace Game.Client.Home
         /// </remarks>
         private bool hovered;
 
+        /// <summary>
+        /// Whether what this button opens is on screen right now.
+        /// </summary>
+        /// <remarks>
+        /// The hairline used to mean "the pointer is here", which left an open
+        /// panel with nothing pointing back at the button that opened it: the
+        /// only way to see which one was open was to go and hover it. It now
+        /// means "this is where you are", and hover keeps borrowing it, so a
+        /// button that is both reads the same as one that is only open.
+        /// <para>
+        /// The fill is deliberately left to hover alone. It is the pointer
+        /// answering a movement, and holding it lit under an open panel would
+        /// make the button look pressed rather than current.
+        /// </para>
+        /// </remarks>
+        private bool selected;
+
         public void Bind(Image fillImage, Image strokeImage, Color normal, Color hover)
         {
             fill = fillImage;
             stroke = strokeImage;
             normalColor = normal;
             hoverColor = hover;
-            Apply(hovered);
+            Apply();
+        }
+
+        /// <summary>
+        /// Marks this as the button whose panel is open, or no longer is.
+        /// </summary>
+        public void SetSelected(bool value)
+        {
+            selected = value;
+            Apply();
         }
 
         public void OnPointerEnter(PointerEventData eventData)
         {
             hovered = true;
-            Apply(true);
+            Apply();
         }
 
         public void OnPointerExit(PointerEventData eventData)
         {
             hovered = false;
-            Apply(false);
+            Apply();
         }
 
+        /// <remarks>
+        /// Only the pointer state is dropped. Selection outlives being hidden,
+        /// because whether a panel is open is not something this object stops
+        /// being told while it is off.
+        /// </remarks>
         private void OnDisable()
         {
             hovered = false;
-            Apply(false);
+            Apply();
         }
 
-        private void Apply(bool hovered)
+        private void Apply()
         {
             if (fill != null)
             {
@@ -74,7 +106,7 @@ namespace Game.Client.Home
 
             if (stroke != null)
             {
-                stroke.enabled = hovered;
+                stroke.enabled = hovered || selected;
             }
         }
     }

@@ -44,6 +44,7 @@ namespace Game.Client.Settings
         private readonly NotificationSettingsSystem notifications;
         private readonly IHomeApplicationHost applicationHost;
         private readonly AppFlowSystem appFlow;
+        private readonly Action closeSettings;
 
         private GeneralSettings generalDraft;
         private GeneralSettings generalApplied;
@@ -79,7 +80,8 @@ namespace Game.Client.Settings
             IKeyCapture keyCapture,
             NotificationSettingsSystem notifications,
             IHomeApplicationHost applicationHost,
-            AppFlowSystem appFlow)
+            AppFlowSystem appFlow,
+            Action closeSettings = null)
         {
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.general = general ?? throw new ArgumentNullException(nameof(general));
@@ -93,6 +95,7 @@ namespace Game.Client.Settings
             this.applicationHost = applicationHost
                                    ?? throw new ArgumentNullException(nameof(applicationHost));
             this.appFlow = appFlow ?? throw new ArgumentNullException(nameof(appFlow));
+            this.closeSettings = closeSettings;
         }
 
         /// <summary>What has been changed but not applied. For tests.</summary>
@@ -137,6 +140,7 @@ namespace Game.Client.Settings
 
         public void Start()
         {
+            view.Opened += Open;
             view.BackRequested += OnBackRequested;
             view.ResetAllRequested += OnResetAllRequested;
             view.TabSelected += OnTabSelected;
@@ -167,6 +171,16 @@ namespace Game.Client.Settings
             controls.Changed += OnControlsApplied;
             notifications.Changed += OnNotificationsApplied;
 
+            Open();
+        }
+
+        /// <summary>Starts a fresh draft, including when a cached screen is reopened.</summary>
+        public void Open()
+        {
+            StopMicrophoneTest();
+            StopListening();
+            pending = null;
+            isWritingFeedback = false;
             generalApplied = general.Current;
             generalDraft = generalApplied;
             graphicsApplied = graphics.Current;
@@ -187,6 +201,7 @@ namespace Game.Client.Settings
 
         public void Dispose()
         {
+            view.Opened -= Open;
             view.BackRequested -= OnBackRequested;
             view.ResetAllRequested -= OnResetAllRequested;
             view.TabSelected -= OnTabSelected;
@@ -910,6 +925,14 @@ namespace Game.Client.Settings
         {
             StopMicrophoneTest();
             StopListening();
+
+            // Discard the draft before the cached screen is hidden.
+            Open();
+            if (closeSettings != null)
+            {
+                closeSettings();
+                return;
+            }
 
             if (appFlow.CurrentState != AppFlowState.Home &&
                 !appFlow.TryTransitionTo(AppFlowState.Home))

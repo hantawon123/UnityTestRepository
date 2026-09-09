@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Common;
 using Game.Client.Home;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -243,6 +244,12 @@ namespace Game.Bootstrap
             return false;
         }
 
+        /// <remarks>
+        /// A root marked <see cref="FrontendPersistentRoot"/> is skipped. It
+        /// belongs to the application rather than to the screen whose scene
+        /// happens to hold it, and switching it off with that screen would hide
+        /// a notice the player is meant to answer from wherever they are.
+        /// </remarks>
         private static void SetRootsActive(Scene scene, bool active)
         {
             if (!scene.IsValid() || !scene.isLoaded)
@@ -252,6 +259,11 @@ namespace Game.Bootstrap
 
             foreach (var root in scene.GetRootGameObjects())
             {
+                if (root.GetComponent<FrontendPersistentRoot>() != null)
+                {
+                    continue;
+                }
+
                 root.SetActive(active);
             }
         }

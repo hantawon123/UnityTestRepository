@@ -1,4 +1,6 @@
 using Game.Client.Players;
+using Game.Core.Settings;
+using VContainer;
 using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -48,6 +50,11 @@ namespace Game.Client.Cameras
 
         [SerializeField, Min(0.1f)]
         private float eyeHeightLerpSpeed = 8f;
+
+        private ControlSettingsSystem controls;
+
+        [Inject]
+        public void BindSettings(ControlSettingsSystem settings) => controls = settings;
 
         private InputActionMap playerMap;
         private InputAction lookAction;
@@ -167,7 +174,9 @@ namespace Game.Client.Cameras
                 }
             }
 
-            if (toggleViewAction.WasPressedThisFrame())
+            if (!cursorCaptureEnabled) return;
+
+            if (Cursor.lockState == CursorLockMode.Locked && !IsPointerOverUi() && toggleViewAction.WasPressedThisFrame())
             {
                 isFirstPerson = !isFirstPerson;
                 ApplyView();
@@ -194,8 +203,10 @@ namespace Game.Client.Cameras
             if (Cursor.lockState == CursorLockMode.Locked)
             {
                 var look = lookAction.ReadValue<Vector2>();
-                yaw += look.x * lookSensitivity;
-                pitch = Mathf.Clamp(pitch - look.y * lookSensitivity, minPitch, maxPitch);
+                var settings = controls?.Current ?? ControlCatalog.Defaults;
+                var scale = CameraLookScale.From(settings, isFirstPerson);
+                yaw += look.x * lookSensitivity * scale.x;
+                pitch = Mathf.Clamp(pitch - look.y * lookSensitivity * scale.y, minPitch, maxPitch);
             }
 
         }

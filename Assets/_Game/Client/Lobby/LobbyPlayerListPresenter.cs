@@ -14,6 +14,9 @@ namespace Game.Client.Lobby
         private readonly ILobbyConfirmView kickConfirmView;
         private readonly ILobbyConfirmView transferConfirmView;
 
+        private Game.Core.Settings.InterfacePresentation presentation;
+        [VContainer.Inject]
+        public void BindPresentation(Game.Core.Settings.InterfacePresentation value) => presentation = value;
         private IDisposable refreshSubscription;
         private string pendingPlayerId;
         private bool pendingIsKick;
@@ -40,6 +43,7 @@ namespace Game.Client.Lobby
             kickConfirmView.Hide();
             transferConfirmView.Hide();
 
+            if (presentation != null) presentation.Changed += CancelPending;
             view.KickClicked += OnKickClicked;
             view.TransferClicked += OnTransferClicked;
             kickConfirmView.Confirmed += ConfirmPending;
@@ -60,6 +64,7 @@ namespace Game.Client.Lobby
 
         public void Dispose()
         {
+            if (presentation != null) presentation.Changed -= CancelPending;
             view.KickClicked -= OnKickClicked;
             view.TransferClicked -= OnTransferClicked;
             kickConfirmView.Confirmed -= ConfirmPending;
@@ -79,7 +84,7 @@ namespace Game.Client.Lobby
             pendingIsKick = true;
             pendingPlayerId = playerId;
             transferConfirmView.Hide();
-            kickConfirmView.Show($"{displayName}님을 강퇴하시겠습니까?");
+            kickConfirmView.Show(string.IsNullOrEmpty(displayName) ? "선택한 참가자를 강퇴하시겠습니까?" : $"{displayName}님을 강퇴하시겠습니까?");
         }
 
         private void OnTransferClicked(string playerId, string displayName)
@@ -92,7 +97,7 @@ namespace Game.Client.Lobby
             pendingIsKick = false;
             pendingPlayerId = playerId;
             kickConfirmView.Hide();
-            transferConfirmView.Show($"{displayName}님에게 방장을 위임하시겠습니까?");
+            transferConfirmView.Show(string.IsNullOrEmpty(displayName) ? "선택한 참가자에게 방장을 위임하시겠습니까?" : $"{displayName}님에게 방장을 위임하시겠습니까?");
         }
 
         private void ConfirmPending()
