@@ -74,16 +74,26 @@ namespace Game.Client.Home
             Advance(Time.unscaledDeltaTime);
         }
 
+        /// <summary>
+        /// Drops the pointer and returns the label to its own size at once.
+        /// </summary>
         /// <remarks>
-        /// A label hidden under the pointer comes back its own size rather than
-        /// still grown, since no exit is raised for an object switched off.
+        /// Public for the same reason <see cref="Advance"/> is: an edit-mode
+        /// test runs no lifecycle callbacks, so <c>OnDisable</c> never fires
+        /// there and the behaviour would otherwise go unchecked.
         /// </remarks>
-        private void OnDisable()
+        public void Release()
         {
             hovered = false;
             current = 1f;
             Apply();
         }
+
+        /// <remarks>
+        /// A label hidden under the pointer comes back its own size rather than
+        /// still grown, since no exit is raised for an object switched off.
+        /// </remarks>
+        private void OnDisable() => Release();
 
         private void Apply()
         {

@@ -324,10 +324,17 @@ namespace Game.Tests.EditMode
         }
 
         /// <summary>
-        /// A line hidden while the pointer is on it comes back its own size.
+        /// A line let go of while the pointer is on it comes back its own size
+        /// at once, rather than easing back from under a pointer that is no
+        /// longer going to leave.
         /// </summary>
+        /// <remarks>
+        /// Driven through <c>Release</c> rather than by hiding the line, which
+        /// is what calls it in the game: edit mode runs no lifecycle callbacks,
+        /// so switching the object off here would raise no <c>OnDisable</c>.
+        /// </remarks>
         [Test]
-        public void ALineHiddenWhileHovered_ComesBackItsOwnSize()
+        public void ALineLetGoOfWhileHovered_ComesBackItsOwnSizeAtOnce()
         {
             using var home = new BuiltHome();
             var line = home.Rect(HomeMenuAction.Character.ToString());
@@ -335,8 +342,15 @@ namespace Game.Tests.EditMode
 
             pop.OnPointerEnter(null);
             pop.Advance(HomeStyle.Layout.MenuHoverSeconds);
-            line.gameObject.SetActive(false);
+            Assert.That(line.localScale.x, Is.EqualTo(HomeStyle.Layout.MenuHoverScale).Within(0.001f));
 
+            pop.Release();
+
+            Assert.That(line.localScale.x, Is.EqualTo(1f).Within(0.001f));
+
+            // The pointer is forgotten too, so it does not grow back on the
+            // next frame without the pointer ever returning.
+            pop.Advance(HomeStyle.Layout.MenuHoverSeconds);
             Assert.That(line.localScale.x, Is.EqualTo(1f).Within(0.001f));
         }
 
