@@ -79,6 +79,26 @@ namespace Game.Client.Players
             }
         }
 
+        /// <summary>
+        /// First 클립 기준 수평 속도. +X가 왼쪽, +Y가 앞이다.
+        /// Unity 로컬 +X(오른쪽)는 여기서 부호를 뒤집는다.
+        /// </summary>
+        public Vector2 PlanarVelocityLocal
+        {
+            get
+            {
+                if (controller == null)
+                {
+                    return Vector2.zero;
+                }
+
+                var velocity = controller.velocity;
+                velocity.y = 0f;
+                var local = transform.InverseTransformDirection(velocity);
+                return new Vector2(-local.x, local.z);
+            }
+        }
+
         public bool IsGrounded => controller.isGrounded;
 
         public void ApplyNetworkPosture(PlayerPosture posture)
