@@ -147,6 +147,38 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void ASendIsNotTiedToTheScreen()
+        {
+            using var bridge = Started();
+            view.Feedback();
+
+            view.SubmitFeedback("화면 수명과 무관해야 합니다");
+
+            Assert.That(
+                gateway.TokenCanBeCancelled,
+                Is.False,
+                "화면이 사라질 때 취소되는 토큰을 넘기면 안 됩니다.");
+        }
+
+        [Test]
+        public void LeavingRightAfterPressingSend_StillReachesTheServer()
+        {
+            // 보내기를 누르고 곧바로 나가는 경우입니다. 요청은 이미 나갔고, 답이 와도
+            // 알릴 화면이 없으므로 화면은 건드리지 않습니다.
+            gateway.Pending = new UniTaskCompletionSource<BackendResult>();
+
+            var bridge = Started();
+            view.Feedback();
+            view.SubmitFeedback("나가면서 보낸 글");
+            bridge.Dispose();
+
+            gateway.Pending.TrySetResult(BackendResult.Success());
+
+            Assert.That(gateway.Calls, Is.EqualTo(1), "요청은 나가 있어야 합니다.");
+            Assert.That(view.Notices, Is.Empty, "사라진 화면에 안내를 띄우지 않습니다.");
+        }
+
+        [Test]
         public void Blank_IsNotSent()
         {
             using var bridge = Started();
@@ -182,10 +214,21 @@ namespace Game.Architecture.Tests
             /// <summary>Set to keep a send in flight until the test finishes it.</summary>
             public UniTaskCompletionSource<BackendResult> Pending { get; set; }
 
+            /// <summary>
+            /// Whether the token handed in could ever be cancelled.
+            /// </summary>
+            /// <remarks>
+            /// <see cref="CancellationToken.None"/> answers false. That is the point:
+            /// a send must not be tied to the screen's lifetime, or leaving right after
+            /// pressing 보내기 throws away what was written.
+            /// </remarks>
+            public bool TokenCanBeCancelled { get; private set; }
+
             public UniTask<BackendResult> SendAsync(string message, CancellationToken cancellation)
             {
                 Calls++;
                 LastMessage = message;
+                TokenCanBeCancelled = cancellation.CanBeCanceled;
 
                 return Pending != null ? Pending.Task : UniTask.FromResult(Answer);
             }
