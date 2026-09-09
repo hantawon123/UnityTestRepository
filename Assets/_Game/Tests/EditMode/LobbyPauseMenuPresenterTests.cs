@@ -219,6 +219,18 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void LeaveRoom_LeavesTheGame()
+        {
+            using var fixture = new Fixture();
+            fixture.Presenter.Start();
+
+            fixture.Presenter.LeaveRoom();
+
+            Assert.That(fixture.Left, Is.True);
+            Assert.That(fixture.Menu.IsOpen, Is.False);
+        }
+
+        [Test]
         public void StartRequested_WhileSettingsOpenFromWorld_ReturnsToRoom()
         {
             using var fixture = new Fixture();

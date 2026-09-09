@@ -7,7 +7,7 @@ namespace Game.Architecture.Tests
     public sealed class SettingsViewLobbyChromeTests
     {
         [Test]
-        public void ConfigureAsLobbyOverlay_HidesFeedback()
+        public void ConfigureAsLobbyOverlay_HidesFeedbackAndAddsLeaveButton()
         {
             var root = new GameObject("Lobby Settings");
             try
@@ -18,6 +18,14 @@ namespace Game.Architecture.Tests
                 root.SetActive(true);
 
                 Assert.That(Find(root, "FeedbackRow"), Is.Null);
+                var leave = Find(root, "LeaveGameButton");
+                Assert.That(leave, Is.Not.Null);
+                var rect = leave.GetComponent<RectTransform>();
+                Assert.That(rect.sizeDelta, Is.EqualTo(SettingsStyle.Buttons.Size));
+                Assert.That(leave.GetComponent<UiLinearGradient>(), Is.Not.Null);
+
+                var apply = Find(root, "ApplyButton").GetComponent<RectTransform>();
+                Assert.That(rect.sizeDelta, Is.EqualTo(apply.sizeDelta));
             }
             finally
             {
@@ -26,7 +34,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void HomeLayout_KeepsFeedback()
+        public void HomeLayout_KeepsFeedbackAndOmitsLeaveButton()
         {
             var root = new GameObject("Home Settings");
             try
@@ -34,6 +42,7 @@ namespace Game.Architecture.Tests
                 root.AddComponent<SettingsView>();
 
                 Assert.That(Find(root, "FeedbackRow"), Is.Not.Null);
+                Assert.That(Find(root, "LeaveGameButton"), Is.Null);
             }
             finally
             {

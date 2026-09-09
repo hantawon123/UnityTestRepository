@@ -87,6 +87,7 @@ namespace Game.Client.Settings
         private Image applyFill;
         private TMP_Text applyLabel;
         private GameObject feedbackRow;
+        private RectTransform leaveGameButton;
         private bool lobbyOverlay;
 
         public event Action Opened;
@@ -119,10 +120,12 @@ namespace Game.Client.Settings
 
         public event Action ApplyRequested;
 
+        public event Action LeaveGameRequested;
+
         /// <summary>
-        /// Lobby overlay: no feedback row. Call before the first activation
-        /// when this view is built in code rather than placed in the Settings
-        /// scene.
+        /// Lobby overlay: no feedback row, and 게임 나가기 at the panel's
+        /// bottom left. Call before the first activation when this view is
+        /// built in code rather than placed in the Settings scene.
         /// </summary>
         public void ConfigureAsLobbyOverlay()
         {
@@ -252,6 +255,8 @@ namespace Game.Client.Settings
             {
                 feedbackRow.SetActive(false);
             }
+
+            EnsureLeaveGameButton();
         }
 
         /// <summary>
@@ -534,6 +539,32 @@ namespace Game.Client.Settings
                 out applyLabel,
                 out _);
             applyButton = AddPlateButton(apply, applyFill, () => ApplyRequested?.Invoke());
+        }
+
+        private void EnsureLeaveGameButton()
+        {
+            if (leaveGameButton != null || panel == null)
+            {
+                return;
+            }
+
+            leaveGameButton = CreatePlate(
+                panel,
+                "LeaveGameButton",
+                SettingsStyle.Buttons.LeaveLeft,
+                SettingsStyle.Buttons.LeaveLabel,
+                null,
+                out var fill,
+                out var label,
+                out _);
+            fill.color = Color.white;
+            label.color = SettingsStyle.Palette.ApplyOnLabel;
+            var gradient = leaveGameButton.gameObject.AddComponent<UiLinearGradient>();
+            gradient.Bind(
+                SettingsStyle.Palette.LeaveGameStart,
+                SettingsStyle.Palette.LeaveGameEnd,
+                alongVertical: false);
+            AddPlateButton(leaveGameButton, fill, () => LeaveGameRequested?.Invoke());
         }
 
         /// <summary>

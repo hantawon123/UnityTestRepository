@@ -176,7 +176,7 @@ namespace Game.Client.Lobby
 
         /// <summary>
         /// Esc backs out of an open screen, then opens environment settings.
-        /// Leaving the room is the pause menu's 게임 나가기, not this key.
+        /// Leaving the room is 게임 나가기 on that overlay, not this key.
         /// </summary>
         public void HandleEscape()
         {
@@ -366,6 +366,12 @@ namespace Game.Client.Lobby
         /// with a captured cursor leaves nothing on it clickable.
         /// </remarks>
         private void OnLeaveClicked() => Leave();
+
+        /// <summary>
+        /// Leaves the room from another screen that offers the same way out,
+        /// such as the lobby settings overlay.
+        /// </summary>
+        public void LeaveRoom() => Leave();
 
         private void Leave()
         {
