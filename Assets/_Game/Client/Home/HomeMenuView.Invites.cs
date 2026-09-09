@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Common;
 using Game.Core.Home;
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace Game.Client.Home
@@ -32,14 +34,60 @@ namespace Game.Client.Home
 
         private readonly List<InviteCard> inviteCards = new List<InviteCard>(RoomInviteInbox.VisibleLimit);
 
+        /// <summary>
+        /// The cards' own scene root, kept apart from the home canvas.
+        /// </summary>
+        private GameObject inviteRoot;
+
         /// <summary>The player took up an invitation, by the id it was shown under.</summary>
         public event Action<string> RoomInviteAccepted;
 
         /// <summary>The player turned an invitation down, by the id it was shown under.</summary>
         public event Action<string> RoomInviteDeclined;
 
-        private void CreateInviteStack(RectTransform canvas)
+        /// <summary>
+        /// Builds the invite stack on a canvas of its own, at the root of this
+        /// screen's scene rather than inside the home canvas.
+        /// </summary>
+        /// <remarks>
+        /// An invitation is a question a friend is waiting on, so it has to be
+        /// answerable from wherever the player wanders off to. Room browsing,
+        /// the closet and the settings screen all keep this scene loaded and
+        /// merely switch its roots off; a card inside the home canvas would go
+        /// dark with it and only resurface once the player came back, which is
+        /// too late to be an answer.
+        /// <para>
+        /// It draws above the home canvas so a card is never behind a panel,
+        /// and it is the only thing on its canvas, so nothing else it might
+        /// have covered goes with it.
+        /// </para>
+        /// </remarks>
+        private void CreateInviteStack()
         {
+            inviteRoot = new GameObject("InviteToasts", typeof(RectTransform));
+            inviteRoot.layer = LayerMask.NameToLayer("UI");
+            inviteRoot.AddComponent<FrontendPersistentRoot>();
+
+            // Built while this scene is loading, when the active scene may still
+            // be another one. Placed by hand so it is a root of this scene and
+            // goes when this scene does.
+            if (gameObject.scene.IsValid())
+            {
+                SceneManager.MoveGameObjectToScene(inviteRoot, gameObject.scene);
+            }
+
+            var canvasComponent = inviteRoot.AddComponent<Canvas>();
+            canvasComponent.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvasComponent.sortingOrder = HomeStyle.Toast.SortingOrder;
+
+            var scaler = inviteRoot.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = HomeStyle.ReferenceResolution;
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
+            inviteRoot.AddComponent<GraphicRaycaster>();
+
+            var canvas = inviteRoot.GetComponent<RectTransform>();
             var root = CreateRect("InviteStack", canvas);
             SetAnchor(root, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f));
             root.anchoredPosition = new Vector2(HomeStyle.Toast.Left, -HomeStyle.Toast.Top);

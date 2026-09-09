@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Game.Client.Common;
 using Game.Client.Home;
 using Game.Core.Home;
 using NUnit.Framework;
@@ -355,6 +356,38 @@ namespace Game.Tests.EditMode
         }
 
         /// <summary>
+        /// The cards live on a root the screen switching leaves alone, so an
+        /// invitation can be answered from the room browser or the closet.
+        /// </summary>
+        [Test]
+        public void TheInviteStack_SitsOnARootThatSurvivesScreenSwitching()
+        {
+            using var home = new BuiltHome();
+
+            var invites = home.InviteRoot;
+            Assert.That(invites, Is.Not.Null, "the cards were not given a root of their own.");
+            Assert.That(
+                invites.transform.parent,
+                Is.Null,
+                "the cards hang off the home screen and would be switched off with it.");
+            Assert.That(
+                invites.GetComponent<FrontendPersistentRoot>(),
+                Is.Not.Null,
+                "nothing tells the screen switching to leave this root alone.");
+
+            var canvas = invites.GetComponent<Canvas>();
+            Assert.That(canvas, Is.Not.Null, "the cards have no canvas to draw on.");
+            Assert.That(
+                canvas.sortingOrder,
+                Is.GreaterThan(100),
+                "a card would draw behind the home screen's own panels.");
+            Assert.That(
+                invites.GetComponent<GraphicRaycaster>(),
+                Is.Not.Null,
+                "the accept and decline buttons would take no clicks.");
+        }
+
+        /// <summary>
         /// The invite stack is three cards at the top left, all hidden until
         /// something arrives, spaced as the design draws them.
         /// </summary>
@@ -467,6 +500,11 @@ namespace Game.Tests.EditMode
 
             public HomeMenuView View { get; }
 
+            /// <remarks>
+            /// Both roots are searched. The invite cards sit on a scene root of
+            /// their own so that browsing rooms does not switch them off with
+            /// the home screen, which puts them outside this object.
+            /// </remarks>
             public RectTransform Rect(string name)
             {
                 foreach (var candidate in root.GetComponentsInChildren<RectTransform>(true))
@@ -477,8 +515,32 @@ namespace Game.Tests.EditMode
                     }
                 }
 
+                var invites = InviteRoot;
+                if (invites != null)
+                {
+                    foreach (var candidate in invites.GetComponentsInChildren<RectTransform>(true))
+                    {
+                        if (candidate.name == name)
+                        {
+                            return candidate;
+                        }
+                    }
+                }
+
                 Assert.Fail($"Home does not draw anything named {name}.");
                 return null;
+            }
+
+            /// <summary>The cards' own scene root, or null before it is built.</summary>
+            public GameObject InviteRoot
+            {
+                get
+                {
+                    var field = typeof(HomeMenuView).GetField(
+                        "inviteRoot", BindingFlags.Instance | BindingFlags.NonPublic);
+                    Assert.That(field, Is.Not.Null, "HomeMenuView.inviteRoot is gone.");
+                    return (GameObject)field.GetValue(View);
+                }
             }
 
             /// <summary>
@@ -541,8 +603,19 @@ namespace Game.Tests.EditMode
                 return value;
             }
 
+            /// <remarks>
+            /// The invite root is destroyed here rather than left to the view's
+            /// own <c>OnDestroy</c>: edit mode runs no lifecycle callbacks, so
+            /// it would outlive the test and be found by the next one.
+            /// </remarks>
             public void Dispose()
             {
+                var invites = InviteRoot;
+                if (invites != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(invites);
+                }
+
                 UnityEngine.Object.DestroyImmediate(root);
             }
         }

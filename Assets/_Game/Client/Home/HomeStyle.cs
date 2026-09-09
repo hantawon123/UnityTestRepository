@@ -449,6 +449,12 @@ namespace Game.Client.Home
         /// </summary>
         public static class Toast
         {
+            /// <summary>
+            /// Above the home canvas's 100, so a card is never behind a panel
+            /// that opened after it.
+            /// </summary>
+            public const int SortingOrder = 200;
+
             public const float Width = 474f;
             public const float Height = 85f;
             public const float Left = 60f;

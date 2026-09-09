@@ -198,6 +198,14 @@ namespace Game.Client.Home
             ClearRowButtons(requestRows);
             actionHighlights.Clear();
 
+            // A root of its own is not a child, so it does not go with this
+            // object. It is taken down by hand rather than left behind.
+            if (inviteRoot != null)
+            {
+                Destroy(inviteRoot);
+                inviteRoot = null;
+            }
+
             if (dismissButton != null)
             {
                 dismissButton.onClick.RemoveAllListeners();

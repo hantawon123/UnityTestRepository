@@ -65,10 +65,10 @@ namespace Game.Client.Home
             CreateFriendButton(canvas);
             CreateServerButton(canvas);
 
-            // After the panels for the same reason as the chip: the cards take
-            // presses, and a panel's dismiss area underneath must not get there
-            // first.
-            CreateInviteStack(canvas);
+            // On a canvas and a scene root of its own, so browsing rooms or
+            // opening the closet does not switch the cards off with this
+            // screen. See CreateInviteStack.
+            CreateInviteStack();
 
             // Last, so it draws over the panels. It never takes a click, so
             // being on top costs the controls underneath nothing.
