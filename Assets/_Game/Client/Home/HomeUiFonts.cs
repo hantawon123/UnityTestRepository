@@ -288,10 +288,12 @@ namespace Game.Client.Home
         private const string LightResource = "Fonts/Paperlogy-3Light";
         private const string RegularResource = "Fonts/Paperlogy-4Regular";
         private const string MediumResource = "Fonts/Paperlogy-5Medium";
+        private const string BoldResource = "Fonts/Paperlogy-7Bold";
         private const string BlackResource = "Fonts/Paperlogy-9Black";
         private static TMP_FontAsset koreanLightFont;
         private static TMP_FontAsset koreanRegularFont;
         private static TMP_FontAsset koreanMediumFont;
+        private static TMP_FontAsset koreanBoldFont;
         private static TMP_FontAsset koreanBlackFont;
         private static TMP_FontAsset koreanExtraBoldFont;
         private static Font legacyFont;
@@ -344,6 +346,24 @@ namespace Game.Client.Home
             {
                 koreanMediumFont = LoadKorean(MediumResource, fontAsset);
                 return koreanMediumFont;
+            }
+            catch (InvalidOperationException)
+            {
+                return Apply(fontAsset);
+            }
+        }
+
+        public static TMP_FontAsset ApplyBold(TMP_FontAsset fontAsset = null)
+        {
+            if (koreanBoldFont != null)
+            {
+                return koreanBoldFont;
+            }
+
+            try
+            {
+                koreanBoldFont = LoadKorean(BoldResource, fontAsset);
+                return koreanBoldFont;
             }
             catch (InvalidOperationException)
             {

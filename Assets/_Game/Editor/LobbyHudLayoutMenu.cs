@@ -61,12 +61,13 @@ namespace Game.Editor
             var playerList = GetOrCreateSlot(root, "PlayerListRoot", new Color(0.15f, 0.16f, 0.2f, 0.75f));
             var chat = GetOrCreateSlot(root, "ChatRoot", new Color(0.15f, 0.16f, 0.2f, 0.75f));
 
-            // Sits under the always-on category/map card in the top-right.
+            // Replaced on the HUD by the compact count; the roster stays for 2.
             Place(
                 playerList,
                 Anchor.TopRight,
                 new Vector2(-24f, -LobbyMatchInfoView.PlayerListTopOffset),
                 new Vector2(300f, 420f));
+            playerList.gameObject.SetActive(false);
             Place(
                 chat,
                 Anchor.BottomLeft,
@@ -136,6 +137,7 @@ namespace Game.Editor
             LobbyShortcutGuideView.Ensure(root);
             LobbyShortcutOverlayView.Ensure(root)?.Hide();
             LobbyMatchInfoView.Ensure(root);
+            LobbyPlayerCountView.Ensure(root);
 
             var hudSo = new SerializedObject(hud);
             hudSo.FindProperty("playerListRoot").objectReferenceValue = playerList;

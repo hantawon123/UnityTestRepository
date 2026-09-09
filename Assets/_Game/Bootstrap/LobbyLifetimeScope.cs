@@ -143,6 +143,7 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<LobbyStartCountdown>();
             builder.RegisterComponent(hudView.EnsureShortcutOverlay())
                 .As<ILobbyShortcutOverlay>();
+            builder.RegisterComponent(hudView.EnsurePlayerCount()).As<ILobbyPlayerCountView>();
             builder.RegisterComponent(pauseMenuView).As<ILobbyPauseMenuView>();
             builder.RegisterComponent(playerListView).As<ILobbyPlayerListView>();
             builder.RegisterComponent(playSettingsView).As<IPlaySettingsView>();

@@ -19,10 +19,12 @@ namespace Game.Tests.EditMode
             });
             var host = CreateHostSession(true);
             var view = new FakePlayerListView();
+            var count = new FakeCountView();
             using var presenter = new LobbyPlayerListPresenter(
                 list,
                 host,
                 view,
+                count,
                 new FakeConfirmView(),
                 new FakeConfirmView());
 
@@ -31,6 +33,8 @@ namespace Game.Tests.EditMode
             Assert.That(view.Participants.Count, Is.EqualTo(2));
             Assert.That(view.LocalIsHost, Is.True);
             Assert.That(view.UpdateCount, Is.EqualTo(1));
+            Assert.That(count.Current, Is.EqualTo(2));
+            Assert.That(count.Max, Is.EqualTo(6));
         }
 
         [Test]
@@ -50,6 +54,7 @@ namespace Game.Tests.EditMode
                 list,
                 host,
                 view,
+                new FakeCountView(),
                 kickConfirm,
                 new FakeConfirmView());
 
@@ -139,6 +144,18 @@ namespace Game.Tests.EditMode
             }
 
             public void RaiseKick(string id, string name) => KickClicked?.Invoke(id, name);
+        }
+
+        private sealed class FakeCountView : ILobbyPlayerCountView
+        {
+            public int Current { get; private set; }
+            public int Max { get; private set; }
+
+            public void SetCount(int current, int max)
+            {
+                Current = current;
+                Max = max;
+            }
         }
 
         private sealed class FakeConfirmView : IKickConfirmView, IHostTransferConfirmView

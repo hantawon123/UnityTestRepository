@@ -16,8 +16,9 @@ namespace Game.Client.Lobby
     /// <see cref="LobbyPauseMenuView"/>.
     /// <para>
     /// What is left is the things a player reads rather than clicks: the
-    /// category/map card, the shared key guide, the 1 / 2 / Esc shortcut
-    /// row, and the chat field, which the keyboard reaches on its own.
+    /// category/map card, the player count, the shared key guide, the
+    /// 1 / 2 / Esc shortcut row, and the chat field, which the keyboard
+    /// reaches on its own.
     /// </para>
     /// </remarks>
     public sealed class LobbyHudView : MonoBehaviour
@@ -109,10 +110,17 @@ namespace Game.Client.Lobby
             return LobbyShortcutOverlayView.Ensure(transform);
         }
 
+        public LobbyPlayerCountView EnsurePlayerCount()
+        {
+            HideHudPlayerList();
+            return LobbyPlayerCountView.Ensure(transform);
+        }
+
         public LobbyMatchInfoView EnsureMatchInfo()
         {
             var info = LobbyMatchInfoView.Ensure(transform);
-            PlacePlayerListBelowMatchInfo();
+            HideHudPlayerList();
+            EnsurePlayerCount();
             return info;
         }
 
@@ -134,18 +142,15 @@ namespace Game.Client.Lobby
             }
         }
 
-        private void PlacePlayerListBelowMatchInfo()
+        private void HideHudPlayerList()
         {
-            if (playerListRoot == null)
+            var slot = playerListRoot != null
+                ? playerListRoot
+                : transform.Find("PlayerListRoot") as RectTransform;
+            if (slot != null)
             {
-                return;
+                slot.gameObject.SetActive(false);
             }
-
-            playerListRoot.anchorMin = playerListRoot.anchorMax = new Vector2(1f, 1f);
-            playerListRoot.pivot = new Vector2(1f, 1f);
-            playerListRoot.anchoredPosition = new Vector2(
-                -24f,
-                -LobbyMatchInfoView.PlayerListTopOffset);
         }
 
         private void Awake()

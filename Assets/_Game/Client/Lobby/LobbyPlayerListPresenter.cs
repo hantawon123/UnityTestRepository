@@ -11,6 +11,7 @@ namespace Game.Client.Lobby
         private readonly ILobbyParticipantList participantList;
         private readonly ILobbyHostSession hostSession;
         private readonly ILobbyPlayerListView view;
+        private readonly ILobbyPlayerCountView countView;
         private readonly ILobbyConfirmView kickConfirmView;
         private readonly ILobbyConfirmView transferConfirmView;
 
@@ -22,6 +23,7 @@ namespace Game.Client.Lobby
             ILobbyParticipantList participantList,
             ILobbyHostSession hostSession,
             ILobbyPlayerListView view,
+            ILobbyPlayerCountView countView,
             IKickConfirmView kickConfirmView,
             IHostTransferConfirmView transferConfirmView)
         {
@@ -29,6 +31,7 @@ namespace Game.Client.Lobby
                 ?? throw new ArgumentNullException(nameof(participantList));
             this.hostSession = hostSession ?? throw new ArgumentNullException(nameof(hostSession));
             this.view = view ?? throw new ArgumentNullException(nameof(view));
+            this.countView = countView ?? throw new ArgumentNullException(nameof(countView));
             this.kickConfirmView = kickConfirmView
                 ?? throw new ArgumentNullException(nameof(kickConfirmView));
             this.transferConfirmView = transferConfirmView
@@ -50,12 +53,18 @@ namespace Game.Client.Lobby
             refreshSubscription = Observable.CombineLatest(
                     participantList.Participants,
                     hostSession.IsLocalHost,
-                    (participants, isLocalHost) =>
-                        (Participants: participants, IsLocalHost: isLocalHost))
-                .Subscribe(state => view.SetParticipants(
-                    state.Participants ?? Array.Empty<LobbyParticipant>(),
-                    state.IsLocalHost,
-                    hostSession.LocalPlayerId));
+                    hostSession.Settings,
+                    (participants, isLocalHost, settings) =>
+                        (Participants: participants, IsLocalHost: isLocalHost, Settings: settings))
+                .Subscribe(state =>
+                {
+                    var people = state.Participants ?? Array.Empty<LobbyParticipant>();
+                    view.SetParticipants(
+                        people,
+                        state.IsLocalHost,
+                        hostSession.LocalPlayerId);
+                    countView.SetCount(people.Count, state.Settings.MaxPlayers);
+                });
         }
 
         public void Dispose()
