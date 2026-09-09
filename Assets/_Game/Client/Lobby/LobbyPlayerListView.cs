@@ -64,6 +64,33 @@ namespace Game.Client.Lobby
         private readonly Dictionary<string, Image> inviteIcons = new();
         private readonly Dictionary<string, float> inviteReadyAt = new();
         private Func<float> inviteClock = () => Time.unscaledTime;
+        private Game.Core.Settings.InterfacePresentation presentation;
+        private IReadOnlyList<LobbyParticipant> lastParticipants;
+        private bool lastHost;
+        private string lastLocal;
+
+        [VContainer.Inject]
+        public void BindPresentation(Game.Core.Settings.InterfacePresentation value)
+        {
+            if (presentation != null)
+            {
+                presentation.Changed -= RefreshPresentation;
+            }
+
+            presentation = value;
+            presentation.Changed += RefreshPresentation;
+        }
+
+        private void RefreshPresentation() =>
+            SetParticipants(lastParticipants, lastHost, lastLocal);
+
+        private void OnDestroy()
+        {
+            if (presentation != null)
+            {
+                presentation.Changed -= RefreshPresentation;
+            }
+        }
 
         public event Action<string, string> KickClicked;
         public event Action<string, string> InviteClicked;
@@ -93,6 +120,7 @@ namespace Game.Client.Lobby
             bool localIsHost,
             string localPlayerId)
         {
+            lastParticipants = participants; lastHost = localIsHost; lastLocal = localPlayerId;
             EnsureLayout();
             ClearRows(participantRows);
 
@@ -107,11 +135,14 @@ namespace Game.Client.Lobby
                 var participant = participants[index];
                 var isSelf = string.Equals(participant.Id, localPlayerId, StringComparison.Ordinal);
                 var canKick = localIsHost && !isSelf;
+                var shownName = presentation == null
+                    ? participant.DisplayName
+                    : presentation.Name(participant.Id, participant.DisplayName);
                 var row = CreateRow(
                     participantRowRoot,
                     participantRows,
                     $"Row_{participant.Id}",
-                    participant.DisplayName,
+                    shownName,
                     participant.IsHost,
                     canKick,
                     showAdd: false);

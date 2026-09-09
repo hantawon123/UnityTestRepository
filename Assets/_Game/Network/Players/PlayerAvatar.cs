@@ -84,6 +84,19 @@ namespace Game.Network.Players
         [Networked]
         public bool IsHost { get; set; }
 
+        // Hidden until the owner publishes its preference, including late joins.
+        [Networked] public int NicknameVisibility { get; set; }
+        [Networked] public NetworkString<_512> NicknameViewers { get; set; }
+
+        [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+        public void RPC_SetNicknameVisibility(int visibility, string viewers)
+        {
+            if (visibility < 0 || visibility > 2 || viewers == null || viewers.Length > 511) return;
+            NicknameVisibility = visibility;
+            NicknameViewers = viewers;
+        }
+
+
         /// <summary>
         /// The player this character belongs to. Comes from the spawner and is
         /// the same value on every peer.

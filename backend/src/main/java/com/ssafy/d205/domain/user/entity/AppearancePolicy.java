@@ -16,9 +16,9 @@ public final class AppearancePolicy {
     /**
      * 파츠 id 최대 길이. V12 의 컬럼 길이와 같은 값입니다.
      *
-     * <p>Photon 복제 한도가 아닙니다. 외형은 로비와 경기에서 카탈로그 인덱스(byte) 로
-     * 복제되고 문자열 id 는 네트워크를 타지 않습니다. 그래서 이 값은 저장 길이만 뜻하고,
-     * 바꿀 때 맞춰야 할 곳은 V12 와 client-guide 두 곳입니다.
+     * <p>Photon 복제 한도가 아닙니다. 클라이언트는 외형을 아직 자기 화면에만 적용하고 다른
+     * 사람에게 복제하지 않으며, 서버와는 이 문자열 id 를 그대로 주고받습니다. 그래서 이 값은
+     * 저장 길이만 뜻하고, 바꿀 때 맞춰야 할 곳은 V12 와 client-guide 두 곳입니다.
      */
     public static final int MAX_LENGTH = 32;
 

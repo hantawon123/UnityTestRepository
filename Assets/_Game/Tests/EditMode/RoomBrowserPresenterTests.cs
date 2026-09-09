@@ -345,6 +345,10 @@ namespace Game.Tests.EditMode
             {
             }
 
+            public void JoinRoom(string roomCode)
+            {
+            }
+
             public void OpenLobby()
             {
                 LobbyOpenCount++;

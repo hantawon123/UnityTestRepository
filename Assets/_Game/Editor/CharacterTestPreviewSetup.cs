@@ -279,6 +279,13 @@ namespace Game.Editor
             HideNamed("BlenderPreview");
 
             var preview = FindNamed(PreviewName);
+            if (preview != null &&
+                PrefabUtility.GetCorrespondingObjectFromSource(preview) != prefab)
+            {
+                Object.DestroyImmediate(preview);
+                preview = null;
+            }
+
             if (preview == null)
             {
                 preview = (GameObject)PrefabUtility.InstantiatePrefab(prefab);

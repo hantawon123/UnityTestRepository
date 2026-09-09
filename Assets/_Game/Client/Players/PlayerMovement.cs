@@ -79,6 +79,26 @@ namespace Game.Client.Players
             }
         }
 
+        /// <summary>
+        /// First 클립 기준 수평 속도. +X가 왼쪽, +Y가 앞이다.
+        /// Unity 로컬 +X(오른쪽)는 여기서 부호를 뒤집는다.
+        /// </summary>
+        public Vector2 PlanarVelocityLocal
+        {
+            get
+            {
+                if (controller == null)
+                {
+                    return Vector2.zero;
+                }
+
+                var velocity = controller.velocity;
+                velocity.y = 0f;
+                var local = transform.InverseTransformDirection(velocity);
+                return new Vector2(-local.x, local.z);
+            }
+        }
+
         public bool IsGrounded => controller.isGrounded;
 
         public void ApplyNetworkPosture(PlayerPosture posture)
@@ -229,6 +249,13 @@ namespace Game.Client.Players
 
         private void Update()
         {
+            // 네트워크 플레이어는 KCC가 이동을 맡기고 CharacterController는 꺼 둔다.
+            // 이 컴포넌트는 오너 입력 캡처용으로만 살아 있으므로 Move를 부르면 안 된다.
+            if (controller == null || !controller.enabled)
+            {
+                return;
+            }
+
             var inputLocked = IsLocomotionLocked || IsTextInputFocused();
             var input = inputLocked ? Vector2.zero : moveAction.ReadValue<Vector2>();
             var direction = ToCameraRelativeDirection(input);

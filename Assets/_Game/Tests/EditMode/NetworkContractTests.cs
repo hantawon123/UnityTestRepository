@@ -317,6 +317,10 @@ namespace Game.Architecture.Tests
             {
             }
 
+            public void JoinRoom(string roomCode)
+            {
+            }
+
             public void OpenLobby() { }
         }
 
@@ -502,7 +506,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void RoomStatePrefabs_EachFitTheLegacyHeapPage()
+        public void RoomStatePrefabs_EachFitTheConfiguredHeapPage()
         {
             var sessionPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
                 "Assets/_Game/Content/Prefabs/MatchSession.prefab");
@@ -523,10 +527,13 @@ namespace Game.Architecture.Tests
                     prefab.GetComponent<Fusion.NetworkObject>());
                 Assert.That(wordCount, Is.GreaterThan(Fusion.NetworkObjectHeader.WORDS));
                 Assert.DoesNotThrow(() =>
-                    PlayerSpawner.ValidateRoomObjectStateSize(wordCount, 15));
+                    PlayerSpawner.ValidateRoomObjectStateSize(
+                        wordCount, (int)Fusion.NetworkProjectConfig.Global.Heap.PageShift));
             }
         }
 
+        [TestCase(8259, 15, false)] // Current 33,036-byte state exceeds the legacy 32 KiB page.
+        [TestCase(8259, 16, true)]
         [TestCase(10499, 15, false)] // Observed 41,996-byte MatchSession vs the old 32 KiB page.
         [TestCase(10499, 16, true)]
         [TestCase(16384, 16, true)]
@@ -732,9 +739,35 @@ namespace Game.Architecture.Tests
                 "KCC must be the only network transform writer.");
             Assert.That(prefab.GetComponent<CharacterController>().enabled, Is.False,
                 "The inherited CharacterController must not compete with KCC.");
+            Assert.That(prefab.GetComponent<PlayerMovement>().enabled, Is.True,
+                "PlayerMovement stays on so the owner can capture input. Update must not Move the disabled CharacterController.");
             Assert.That(
                 prefab.GetComponent<PlayerMovement>(),
                 Is.InstanceOf<IPlayerInputIntentSource>());
+        }
+
+        [Test]
+        public void PlayerMovement_DoesNotMoveDisabledCharacterController()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab");
+            var instance = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
+            try
+            {
+                var movement = instance.GetComponent<PlayerMovement>();
+                var controller = instance.GetComponent<CharacterController>();
+                controller.enabled = false;
+
+                var update = typeof(PlayerMovement).GetMethod(
+                    "Update",
+                    System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.NonPublic);
+                Assert.DoesNotThrow(() => update.Invoke(movement, null));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
         }
 
         [Test]

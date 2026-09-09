@@ -15,6 +15,9 @@ namespace Game.Bootstrap
     /// <summary>Adapts authority-confirmed match events to the scene HUD.</summary>
     public sealed class NetworkMatchHudPresenter : IStartable, ITickable, IDisposable
     {
+        private Game.Core.Settings.InterfacePresentation presentation;
+        [VContainer.Inject]
+        public void BindPresentation(Game.Core.Settings.InterfacePresentation value) => presentation = value;
         private const double NoticeDurationSeconds = 3d;
         private const float MarkerScreenMargin = 32f;
 
@@ -72,6 +75,7 @@ namespace Game.Bootstrap
 
         public void Start()
         {
+            if (presentation != null) presentation.Changed += OnPresentationChanged;
             events.MatchStateReceived += OnMatchStateReceived;
             events.MatchResultReceived += OnMatchResultReceived;
             events.ItemAssignmentReceived += OnItemAssignmentReceived;
@@ -95,6 +99,7 @@ namespace Game.Bootstrap
 
         public void Dispose()
         {
+            if (presentation != null) presentation.Changed -= OnPresentationChanged;
             events.MatchStateReceived -= OnMatchStateReceived;
             events.MatchResultReceived -= OnMatchResultReceived;
             events.ItemAssignmentReceived -= OnItemAssignmentReceived;
@@ -110,6 +115,14 @@ namespace Game.Bootstrap
             HideHidingActiveHud();
             HideHidingWaitHud();
             HideVitals();
+        }
+
+        private void OnPresentationChanged()
+        {
+            view.HideDestructionNotice();
+            noticeEndsAt = 0;
+            hasReportedPhase = false;
+            if (hasSnapshot && clock.IsRuntimeReady) ReportPhase();
         }
 
         public void Tick()
@@ -776,12 +789,11 @@ namespace Game.Bootstrap
                         continue;
                     }
 
-                    return string.IsNullOrEmpty(participant.Nickname)
-                        ? playerId
-                        : participant.Nickname;
+                    var name = string.IsNullOrEmpty(participant.Nickname) ? playerId : participant.Nickname;
+                    return presentation == null ? name : presentation.Name(playerId, name);
                 }
 
-                return playerId;
+                return presentation == null ? playerId : presentation.Name(playerId, playerId);
             }
 
             return $"플레이어 {playerIndex + 1}";

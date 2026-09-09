@@ -87,7 +87,14 @@ namespace Game.Client.Settings
         private Image applyFill;
         private TMP_Text applyLabel;
 
+        public event Action Opened;
+        private void OnEnable() => Opened?.Invoke();
+
         public event Action BackRequested;
+        public event Action Closed;
+
+        public void RequestBack() => BackRequested?.Invoke();
+        private void OnDisable() => Closed?.Invoke();
 
         public event Action ResetAllRequested;
 
@@ -273,7 +280,7 @@ namespace Game.Client.Settings
             var image = art.gameObject.AddComponent<Image>();
             image.sprite = backgroundSprite;
             image.type = Image.Type.Simple;
-            image.raycastTarget = false;
+            image.raycastTarget = true;
             image.color = backgroundSprite != null
                 ? Color.white
                 : SettingsStyle.Palette.BackgroundFallback;

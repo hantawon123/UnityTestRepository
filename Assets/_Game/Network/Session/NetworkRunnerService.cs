@@ -391,6 +391,8 @@ namespace Game.Network.Session
         }
 
         public bool IsRunning => _runner != null && _runner.IsRunning;
+        public double? LocalPingMilliseconds => !IsRunning || _runner.LocalPlayer == PlayerRef.None
+            ? null : _runner.GetPlayerRtt(_runner.LocalPlayer) * 1000d;
 
         /// <summary>
         /// The local microphone for the session that is running, or null on a
@@ -639,6 +641,7 @@ namespace Game.Network.Session
 
         public int DestructionLimit => _destructionLimit;
         public MatchRuleSettings MatchRules => _matchRules;
+        public string AnalyticsMapId => _configuredMapId;
 
         /// <summary>
         /// Connects to the matchmaking lobby so the room list starts arriving

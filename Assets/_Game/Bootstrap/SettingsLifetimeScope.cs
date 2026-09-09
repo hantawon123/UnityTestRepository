@@ -33,7 +33,8 @@ namespace Game.Bootstrap
             builder.Register<SettingsApplicationHost>(Lifetime.Scoped)
                 .As<IHomeApplicationHost>();
             builder.RegisterComponent(settingsView).As<ISettingsView>();
-            builder.RegisterEntryPoint<SettingsPresenter>();
+            builder.RegisterEntryPoint<SettingsPresenter>()
+                .WithParameter<System.Action>((System.Action)null);
         }
 
         /// <summary>
@@ -67,6 +68,8 @@ namespace Game.Bootstrap
             /// </summary>
             public void CreateRoom(string title, bool isPublic, int maxPlayers) =>
                 fallback.CreateRoom(title, isPublic, maxPlayers);
+
+            public void JoinRoom(string roomCode) => fallback.JoinRoom(roomCode);
 
             public void OpenLobby() => fallback.OpenLobby();
         }

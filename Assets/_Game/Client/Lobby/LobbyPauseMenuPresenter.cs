@@ -123,8 +123,9 @@ namespace Game.Client.Lobby
             // The avatar can arrive after the menu is already open, and an open
             // menu the player can walk away from is not open in any useful
             // sense.
-            if (view.IsOpen && lockedMovement == null)
+            if ((view.IsOpen || closeOpenScreen != null) && lockedMovement == null)
             {
+                SetCursorCaptured(false);
                 LockMovement();
             }
 
@@ -227,6 +228,15 @@ namespace Game.Client.Lobby
         /// screen that is already up wins; opening a second one on top of it
         /// would leave two things claiming Esc.
         /// </remarks>
+        public void OpenSettingsScreen(Action close)
+        {
+            openedFromWorld = false;
+            closeOpenScreen = close;
+            view.SetVisible(false);
+            SetCursorCaptured(false);
+            LockMovement();
+        }
+
         public void OpenPlaySettingsFromWorld()
         {
             if (view.IsOpen || closeOpenScreen != null)
@@ -310,7 +320,7 @@ namespace Game.Client.Lobby
         /// Runs for the screen's own close button and for Esc alike, since both
         /// arrive as the same request. Returning here preserves the menu's cursor and movement lock.
         /// </remarks>
-        private void OnScreenClosed()
+        public void OnScreenClosed()
         {
             if (closeOpenScreen == null)
             {

@@ -65,6 +65,11 @@ namespace Game.Client.Home
             CreateFriendButton(canvas);
             CreateServerButton(canvas);
 
+            // On a canvas and a scene root of its own, so browsing rooms or
+            // opening the closet does not switch the cards off with this
+            // screen. See CreateInviteStack.
+            CreateInviteStack();
+
             // Last, so it draws over the panels. It never takes a click, so
             // being on top costs the controls underneath nothing.
             connectionToast = ConnectionToast.AttachTo(canvas);
@@ -299,8 +304,12 @@ namespace Game.Client.Home
             button.onClick.AddListener(() => ActionClicked?.Invoke(action));
             menuButtons.Add(button);
 
-            rect.gameObject.AddComponent<HomeHoverHighlight>()
-                .Bind(fill, stroke, normal, HomeStyle.Palette.HoverFill);
+            var highlight = rect.gameObject.AddComponent<HomeHoverHighlight>();
+            highlight.Bind(fill, stroke, normal, HomeStyle.Palette.HoverFill);
+
+            // Kept so the panels can point back at the button that opens them.
+            // Rebuilding the layout re-registers over the same key.
+            actionHighlights[action] = highlight;
         }
 
         /// <summary>
@@ -367,13 +376,20 @@ namespace Game.Client.Home
         }
 
         /// <summary>
-        /// Makes a label clickable, lit in the accent colour while hovered.
+        /// Makes a label clickable, lit in the accent colour and slightly grown
+        /// while hovered.
         /// </summary>
         /// <remarks>
         /// The tint multiplies the graphic's own colour, so callers leave the
         /// text white and the palette lives entirely in the colour block.
         /// Selected matches normal: a label that was clicked and returned to
         /// should not stay lit while the pointer is elsewhere.
+        /// <para>
+        /// The growth is <see cref="HomeLabelPop"/>'s, on the same eighth of a
+        /// second as the tint. Every label built here is pivoted at its leading
+        /// edge, so each grows away from the edge it is aligned to and the
+        /// column stays put.
+        /// </para>
         /// </remarks>
         private void AddLabelButton(RectTransform rect, TMP_Text text, HomeMenuAction action)
         {
@@ -393,6 +409,9 @@ namespace Game.Client.Home
 
             button.onClick.AddListener(() => ActionClicked?.Invoke(action));
             menuButtons.Add(button);
+
+            rect.gameObject.AddComponent<HomeLabelPop>()
+                .Bind(rect, HomeStyle.Layout.MenuHoverScale, HomeStyle.Layout.MenuHoverSeconds);
         }
 
         /// <summary>

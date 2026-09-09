@@ -10,6 +10,12 @@ Unity 클라이언트와 백엔드가 주고받는 행동 이벤트의 규약입
 영향을 받지 않습니다. 수집 코드는 같은 Spring 앱의 `domain/analytics` 패키지에 있습니다.
 별도 서비스로 나누지 않은 이유와 나눌 시점은 지라 에픽 S15P21D205-780 에 있습니다.
 
+**구현 상태.** 서버 수집(`POST /api/v1/events`)과 저장은 구현되어 있습니다.
+Unity의 현재 구현은 **schemaVer=2, 호스트 1초 수집·경기 종료 후 전송**입니다.
+구현 범위와 필드·조회 방법은 [경기 분석 수집 v2](match-analytics.md)를 따릅니다.
+아래 v1의 19개 이벤트 전체, 10초 주기 flush, Core 포트 설계는 기존 계획이며
+현재 Unity 구현 전체를 의미하지 않습니다. v2는 시작·페이즈·위치·결과·종료 5종만 발행합니다.
+
 ---
 
 ## 1. 이 로그로 답하려는 질문
@@ -19,10 +25,10 @@ Unity 클라이언트와 백엔드가 주고받는 행동 이벤트의 규약입
 
 | # | 질문 | 왜 알아야 하나 |
 | --- | --- | --- |
-| 1 | 숨는 시간 기본 30초가 맞나 | 짧으면 못 숨긴 채 시작하고, 길면 지루하다 |
+| 1 | 숨는 시간 기본값(한 사람당 30초, 단계 전체는 인원수 × 30초)이 맞나 | 짧으면 못 숨긴 채 시작하고, 길면 지루하다 |
 | 2 | 맵의 어느 구역이 안 쓰이나 | 안 쓰이는 구역은 만든 값을 못 한다 |
 | 3 | 너무 좋거나 나쁜 은신처는 어디인가 | 아무도 못 찾는 자리가 있으면 게임이 성립하지 않는다 |
-| 4 | 찾는 시간 기본 5분이 맞나 | 전체 플레이의 83%다. 여기가 비면 게임이 비는 것이다 |
+| 4 | 찾는 시간 기본 5분이 맞나 | 6인 기준 전체 플레이의 약 60%다. 여기가 비면 게임이 비는 것이다 |
 | 5 | 기절 펀치 3회가 맞나 | 전투가 너무 빨리 끝나거나 너무 안 끝난다 |
 | 6 | 조작이 학습되나 | 키가 12개다. 파티게임치고 많다 |
 | 7 | 어느 단계에서 이탈하나 | 이탈 지점이 곧 가장 재미없는 구간이다 |
@@ -40,7 +46,7 @@ Unity 클라이언트와 백엔드가 주고받는 행동 이벤트의 규약입
 | `client_seq` | int | 세션 안에서 0부터 단조 증가. **재전송 중복 제거의 키**다 |
 | `room_code` | char(6) | Photon 방 코드. 방에 없으면 null. 매치 시작 전 로비 이탈을 묶는 유일한 열쇠다 |
 | `match_id` | uuid | 경기 단위. 호스트가 만들어 전원에게 공유한다. 인게임 밖이면 null |
-| `match_time_ms` | int | Fusion `ServerTime` 기준 경기 시각. **호스트 이벤트만** 채운다 |
+| `match_time_ms` | int | `NetworkRunner.SimulationTime`(MatchStarter 의 `ServerTime` 별칭) 기준 경기 시각. **호스트 이벤트만** 채운다 |
 | `user_public_id` | uuid | **행동의 주체.** `users.public_id`. 계정 발급 응답의 `userId`와 같은 값 |
 | `event_name` | string | 5절 목록 중 하나 |
 | `phase` | enum | `Waiting` / `Hiding` / `Searching` / `Highlight` / `Result`. 코드의 `MatchPhase` 이름 그대로. 인게임 밖이면 null |
@@ -75,7 +81,7 @@ Unity 클라이언트와 백엔드가 주고받는 행동 이벤트의 규약입
 | --- | --- | --- |
 | `occurred_at` | 클라이언트 벽시계 | 날짜별 집계, 파티션 키. **믿지 않는다** |
 | `received_at` | 서버 | 수집 상태 확인. `occurred_at`과 크게 벌어지면 스풀 재전송이거나 시계가 틀린 것 |
-| `match_time_ms` | 호스트의 Fusion `ServerTime` | **경기 안 시간 계산 전부.** "숨기기 시작 후 몇 초에 숨겼나"는 이 값으로 구한다 |
+| `match_time_ms` | 호스트의 `NetworkRunner.SimulationTime`(MatchStarter 의 `ServerTime` 별칭) | **경기 안 시간 계산 전부.** "숨기기 시작 후 몇 초에 숨겼나"는 이 값으로 구한다 |
 
 `occurred_at`은 UTC epoch ms 로 보내고 서버가 UTC `DATETIME(3)`으로 넣습니다. 기존 게임
 테이블은 CHAR(14) UTC 문자열이고 JDBC URL 은 `serverTimezone=Asia/Seoul`이라, 규칙을 적어두지
@@ -119,7 +125,7 @@ UI 클릭, 설정 변경, FPS·핑, 이탈, 조작 학습 지표, **펀치 휘�
 호스트가 알 수 없는 정보입니다. `from_host`는 `false`입니다.
 
 펀치 휘두름이 여기 있는 이유: [PlayerCombatant](../../Assets/_Game/Client/Combat/PlayerCombatant.cs)는
-레이캐스트가 사람을 맞췄을 때만 호스트에 `TryRequestHit`을 보냅니다. **빗나간 주먹은 호스트에
+공격 반경 `OverlapSphere`에 사람이 잡혔을 때만 호스트에 `TryRequestHit`을 보냅니다. **빗나간 주먹은 호스트에
 도달하지 않습니다.** 그래서 명중률은 클라이언트의 `punch_swung`과 호스트의 `punch_hit`을
 유저·경기로 조인해서 구합니다. 빗나감을 호스트로 올리는 RPC 를 새로 만들지 않습니다.
 분석 때문에 네트워크 트래픽을 늘리는 것은 순서가 뒤바뀐 것입니다.
@@ -152,7 +158,7 @@ UI 클릭, 설정 변경, FPS·핑, 이탈, 조작 학습 지표, **펀치 휘�
 
 | 이벤트 | `params` | 비고 |
 | --- | --- | --- |
-| `match_start` | `map_id, player_count, hide_sec, seek_sec, run_speed, stun_hits, destroy_limit, players[]` | **방 설정을 전부 박는다.** 이게 없으면 "30초일 때 vs 60초일 때"를 비교할 수 없다. `players`는 `{seat, user_public_id}` 목록. 좌석↔유저 대응의 원본 |
+| `match_start` | `map_id, player_count, hide_sec, seek_sec, run_speed, stun_hits, destroy_limit, players[]` | **방 설정을 전부 박는다.** 이게 없으면 "30초일 때 vs 60초일 때"를 비교할 수 없다. `hide_sec`은 **한 사람당** 숨는 시간(기본 30)이고 Hiding 단계 길이는 `hide_sec × player_count`다. `players`는 `{seat, user_public_id}` 목록. 좌석↔유저 대응의 원본 |
 | `phase_change` | `from, to` | 모든 단계 계산의 기준점. `to`는 `MatchPhase` 이름 |
 | `final_warning` | `ends_in_ms` | Searching 마지막 30초 진입. 단계가 아니라 이벤트로 찍는다 |
 | `host_migrated` | `previous_host_user_public_id` | 새 호스트가 복원 직후 한 번. 이 경기는 경계 중복을 의심한다 |
@@ -161,7 +167,7 @@ UI 클릭, 설정 변경, FPS·핑, 이탈, 조작 학습 지표, **펀치 휘�
 | `item_hidden` | `item_id, owner_id` | 좌표 = 숨긴 위치. **질문 3의 핵심.** `TryRecordItemPlacement`가 신호 |
 | `item_picked_up` | `item_id, owner_id, holder_id, hidden_ago_ms` | 좌표 = 집은 위치. `holder_id ≠ owner_id`면 발견/탈취, 같으면 되찾음. `TryHoldObject`가 신호 |
 | `item_destroyed` | `item_id, owner_id, destroyer_id` | `PlayerItemDestroyed`가 신호 |
-| `punch_hit` | `attacker_id, target_id, hits_so_far` | **명중만.** 빗나감은 클라이언트의 `punch_swung`. `RegisterHit`이 `Ignored`가 아닐 때 |
+| `punch_hit` | `attacker_id, target_id, hits_so_far` | **명중만.** 빗나감은 클라이언트의 `punch_swung`. `RegisterHit`이 `Ignored`가 아닐 때. 단, Hiding 단계의 명중은 기절 카운터를 올리지 않으므로 `hits_so_far`를 null 로 보내거나 phase ≠ Hiding 조건을 함께 둔다 |
 | `player_stunned` | `attacker_id, combat_ms, punches_landed` | `PlayerStunned`가 신호 |
 
 발견·탈취·되찾음을 이벤트 셋으로 나누지 않고 `item_picked_up` 하나로 둔 이유: 코드에
@@ -171,8 +177,11 @@ UI 클릭, 설정 변경, FPS·핑, 이탈, 조작 학습 지표, **펀치 휘�
 
 `item_hidden`은 Hiding 단계와 Searching 단계의 재배치 양쪽에서 발생합니다. `phase`가 구분해 줍니다.
 
-호스트 발행 지점은 `Server`(순수 C#) 계층에 둡니다. 위 신호들을 이미 받고 있는
-`HighlightEventRecorder` 옆이 자연스러운 자리입니다.
+호스트 발행 지점은 `Server`(Photon 을 모르는) 계층에 둡니다. 위 신호 중 집기·상호작용
+(`RecordItemPickup`·`RecordItemInteraction`), 파괴(`RecordItemDestroyed`), 기절(`RecordPlayerStunned`)을
+이미 받고 있는 `HighlightEventRecorder` 옆이 자연스러운 자리입니다. 배치(`RecordPlacement`),
+명중(`RegisterHit`), 단계 전환, 경기 시작·종료는 그 레코더가 받지 않으므로
+`MatchSessionCoordinator`에서 따로 끌어와야 합니다.
 
 ### 5.2 호스트 발행 — 공간 (1)
 
@@ -205,7 +214,7 @@ UI 클릭, 설정 변경, FPS·핑, 이탈, 조작 학습 지표, **펀치 휘�
 
 | 질문 | 답을 내는 방법 |
 | --- | --- |
-| 1 숨는 시간 | `phase_change(Hiding→Searching)`의 `match_time_ms`까지 `item_hidden`이 없는 인원 비율 |
+| 1 숨는 시간 | `phase_change(Hiding→Searching)`의 `match_time_ms`까지 `item_hidden`이 없는 인원 비율. 비교 축은 `match_start.hide_sec`(한 사람당 값, 기본 30초)이고 단계 전체 길이는 인원수 × 30초다 |
 | 2 죽은 구역 | `position_sample` 좌표 히트맵 |
 | 3 은신처 품질 | `item_hidden` 좌표 bin 별 건수 × `item_picked_up.hidden_ago_ms` 중앙값 |
 | 4 찾는 시간 | `item_picked_up`(`holder ≠ owner`)의 `match_time_ms` 분포 vs `match_start.seek_sec` |
@@ -291,7 +300,7 @@ occurred_at)`이 DB 에서 막습니다(7절).
 Unity 쪽 전송 구현은 `Backend` 계층에 둡니다. `Client`가 아닙니다. `UnityWebRequest`를
 만지는 계층은 `Backend` 하나라는 것이 `_Game/README.md`의 규칙이고, 계정·친구·접속 상태가
 그렇게 되어 있습니다. `Core`에는 `IAnalyticsSink` 포트와 순수 이벤트 타입만 둡니다.
-`Server`는 `Core`만 보므로 호스트 발행 지점이 HTTP 를 모른 채 포트에 밀어 넣을 수 있습니다.
+`Server`는 `Backend`를 보지 않으므로 호스트 발행 지점이 HTTP 를 모른 채 포트에 밀어 넣을 수 있습니다.
 
 ### 서버는 기다리지 않는다
 
@@ -304,9 +313,11 @@ Unity 쪽 전송 구현은 `Backend` 계층에 둡니다. `Client`가 아닙니�
 닿지 않고, 한 IP 가 무한히 쏘는 것만 막습니다. 429 는 400 과 달리 **재전송합니다.** 배치를
 스풀에 그대로 두고 다음 flush 에 다시 보냅니다.
 
-서버가 배치를 거부하는 경우(400)는 `event_name`이 목록에 없을 때, 배열이 상한을 넘을 때,
-`occurred_at`이 3절의 범위를 벗어날 때입니다. 클라이언트는 400 을 받은 배치를 재전송하지
-않고 버립니다. 다시 보내도 같은 답이 옵니다.
+서버가 배치를 거부하는 경우(400)는 대표적으로 `event_name`이 목록에 없을 때, 배열이 상한을
+넘을 때, `occurred_at`이 3절의 범위를 벗어날 때이고, 그 밖에 `params`가 JSON 객체가 아니거나
+2048바이트를 넘을 때, 필수 필드 누락, UUID 형식 위반(`clientSessionId`·`matchId`·`userPublicId` —
+빈 문자열도 위반) 등 요청 검증 실패도 400 `INVALID_REQUEST` 입니다. 클라이언트는 400 을 받은
+배치를 재전송하지 않고 버립니다. 다시 보내도 같은 답이 옵니다.
 
 ---
 

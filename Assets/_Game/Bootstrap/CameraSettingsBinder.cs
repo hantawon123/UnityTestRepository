@@ -1,0 +1,29 @@
+using Game.Client.Cameras;
+using Game.Core.Settings;
+using UnityEngine.SceneManagement;
+using VContainer.Unity;
+
+namespace Game.Bootstrap
+{
+    public sealed class CameraSettingsBinder : IStartable, System.IDisposable
+    {
+        private readonly ControlSettingsSystem settings;
+        public CameraSettingsBinder(ControlSettingsSystem settings) => this.settings = settings;
+
+        public void Start()
+        {
+            SceneManager.sceneLoaded += Bind;
+            for (var i = 0; i < SceneManager.sceneCount; i++) Bind(SceneManager.GetSceneAt(i), LoadSceneMode.Additive);
+        }
+
+        private void Bind(Scene scene, LoadSceneMode mode)
+        {
+            if (!scene.isLoaded) return;
+            foreach (var root in scene.GetRootGameObjects())
+                foreach (var camera in root.GetComponentsInChildren<PlayerCameraController>(true))
+                    camera.BindSettings(settings);
+        }
+
+        public void Dispose() => SceneManager.sceneLoaded -= Bind;
+    }
+}

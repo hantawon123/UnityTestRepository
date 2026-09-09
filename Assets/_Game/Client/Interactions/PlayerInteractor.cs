@@ -1,5 +1,6 @@
 using Game.Client.Players;
 using Game.Core.Lobby;
+using Game.Core.Players;
 using Game.SOAP.Config;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -24,16 +25,25 @@ namespace Game.Client.Interactions
     /// 플레이어의 상호작용 담당: 카메라 중앙(크로스헤어)으로 조준한 대상을 감지하고
     /// F키 입력을 대상에 전달한다. 입력 의도만 다루며, 상태 확정은 각 대상이 수행한다.
     /// </summary>
-    public sealed class PlayerInteractor : MonoBehaviour, ICarriedItemDropper
+    public sealed class PlayerInteractor : MonoBehaviour, ICarriedItemDropper, ICarryingState
     {
         private const int MaxAimHits = 8;
-        public bool HudVisible { get; private set; } = true;
+        private bool hudVisible = true;
+        private bool interfaceHudVisible = true;
+        public bool HudVisible => hudVisible && interfaceHudVisible;
+        public bool PresentationHudVisible => hudVisible;
+        public void SetInterfaceHudVisible(bool visible)
+        {
+            if (interfaceHudVisible == visible) return;
+            interfaceHudVisible = visible;
+            RefreshInteractionCue();
+        }
 
         private bool interactionPromptVisible = true;
 
         public void SetHudVisible(bool visible)
         {
-            HudVisible = visible;
+            hudVisible = visible;
             RefreshInteractionCue();
         }
 
@@ -65,6 +75,8 @@ namespace Game.Client.Interactions
         private float holdSideOffset = 0.25f;
 
         public CarryableItem CarriedItem { get; private set; }
+
+        public bool IsCarrying => CarriedItem != null;
 
         public Transform HoldPoint => holdPoint;
 
@@ -247,6 +259,7 @@ namespace Game.Client.Interactions
             EnsureSafeReleasePosition(thrown);
             var velocity = GetThrowVelocity();
 
+            GetComponent<PlayerAnimationDriver>()?.PlayThrow();
             if (commands != null)
             {
                 commands.RequestThrow(
@@ -273,6 +286,7 @@ namespace Game.Client.Interactions
 
             CarriedItem = item;
             item.OnPickedUp(holdPoint);
+            GetComponent<PlayerAnimationDriver>()?.PlayPickup();
             return true;
         }
 
@@ -285,9 +299,11 @@ namespace Game.Client.Interactions
 
             if (commands != null)
             {
+                GetComponent<PlayerAnimationDriver>()?.PlayPutDown();
                 return commands.RequestRelease(new Pose(position, rotation));
             }
 
+            GetComponent<PlayerAnimationDriver>()?.PlayPutDown();
             var item = ReleaseCarriedItem();
             item.OnPlaced(position, rotation);
             return true;
@@ -318,6 +334,7 @@ namespace Game.Client.Interactions
 
             CarriedItem = item;
             item.OnPickedUp(holdPoint);
+            GetComponent<PlayerAnimationDriver>()?.PlayPickup();
             return true;
         }
 
@@ -359,11 +376,13 @@ namespace Game.Client.Interactions
 
             if (commands != null)
             {
+                GetComponent<PlayerAnimationDriver>()?.PlayPutDown();
                 commands.RequestDrop(
                     new Pose(dropped.transform.position, dropped.transform.rotation));
                 return;
             }
 
+            GetComponent<PlayerAnimationDriver>()?.PlayPutDown();
             CarriedItem = null;
             dropped.OnDropped();
         }

@@ -158,10 +158,12 @@ namespace Game.Bootstrap
                 }
             }
 
+#if !UNITY_WEBGL || UNITY_EDITOR
             public void Dispatch()
             {
                 socket.DispatchMessageQueue();
             }
+#endif
 
             private async UniTaskVoid LiveAsync()
             {

@@ -22,6 +22,11 @@ namespace Game.Client.Lobby
         private readonly ILobbyConfirmView confirmView;
 
         private readonly CancellationTokenSource lifetime = new();
+        private Game.Core.Settings.InterfacePresentation presentation;
+
+        [VContainer.Inject]
+        public void BindPresentation(Game.Core.Settings.InterfacePresentation value) =>
+            presentation = value;
         private IDisposable refreshSubscription;
         private string pendingPlayerId;
         private PendingConfirm pending;
@@ -52,6 +57,7 @@ namespace Game.Client.Lobby
         {
             confirmView.Hide();
 
+            if (presentation != null) presentation.Changed += CancelPending;
             view.KickClicked += OnKickClicked;
             view.InviteClicked += OnInviteClicked;
             view.ReportClicked += OnReportClicked;
@@ -79,6 +85,7 @@ namespace Game.Client.Lobby
 
         public void Dispose()
         {
+            if (presentation != null) presentation.Changed -= CancelPending;
             view.KickClicked -= OnKickClicked;
             view.InviteClicked -= OnInviteClicked;
             view.ReportClicked -= OnReportClicked;

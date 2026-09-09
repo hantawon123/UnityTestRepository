@@ -99,6 +99,29 @@ namespace Game.Tests.EditMode
             }
         }
 
+        [Test]
+        public void FriendScope_FiltersHistoryAndBubbles_AndRefreshesAfterFriendChange()
+        {
+            using var room = new Game.Core.Lobby.RoomBrowserSystem();
+            room.SetLocalPlayer("local");
+            room.SetParticipants(new[] { new Game.Core.Rooms.RoomParticipant("remote", 1, false, "remote", "account") });
+            var settings = new Game.Core.Settings.InterfaceSettingsSystem(new Game.Core.Settings.InMemoryInterfaceSettingsStore());
+            settings.Apply(settings.Current.With(Game.Core.Settings.InterfaceOption.ChatScope, Game.Core.Settings.InterfaceCatalog.On));
+            var friends = new Game.Core.Home.FriendListSystem();
+            using var policy = new Game.Core.Settings.InterfacePresentation(settings, friends, room);
+            using var log = new LobbyChatLog("local", "local");
+            var view = new FakeView(); var transport = new FakeTransport(); var bubbles = new FakeBubbleView();
+            using var presenter = new MatchChatPresenter(log, transport, view, bubbles);
+            presenter.BindPresentation(policy); presenter.Start();
+            transport.Emit(new LobbyChatMessage("remote", "remote", "hello"));
+            Assert.That(view.LastMessages, Is.Empty);
+            Assert.That(bubbles.Shown, Is.Empty);
+            friends.ReplaceFriends(new[] { new Game.Core.Home.FriendSummary("account", "remote", Game.Core.Home.FriendPresence.Online) });
+            Assert.That(view.LastMessages.Count, Is.EqualTo(1));
+            friends.ReplaceFriends(Array.Empty<Game.Core.Home.FriendSummary>());
+            Assert.That(view.LastMessages, Is.Empty);
+        }
+
         private sealed class FakeView : IChatView
         {
             public event Action<string> SendRequested;

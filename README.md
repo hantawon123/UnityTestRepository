@@ -2,6 +2,8 @@
 
 이 문서는 프로젝트 코드와 Unity 에셋을 같은 기준으로 작성하기 위한 아키텍처 규칙만 다룹니다.
 
+별도의 Spring 백엔드 서버는 `backend/`에 있습니다. 실행 방법과 패키지 규칙은 [backend/README.md](backend/README.md)를 봅니다.
+
 ## 개발 환경
 
 - Unity `6000.3.22f1`
@@ -24,15 +26,19 @@ Assets/_Game/
 ├─ Client/     입력, UI, 카메라, 애니메이션과 로컬 표현
 ├─ Server/     권한 판정과 경기 규칙 진행
 ├─ Network/    Photon Fusion 연결, 세션과 상태 동기화
-├─ SOAP/       정적 Definition과 Config
+├─ Backend/    Spring 서버와 통신하는 HTTP·WebSocket 게이트웨이
+├─ SOAP/       정적 Config ScriptableObject
 ├─ Content/    씬, 프리팹, 오디오와 ScriptableObject 에셋
+├─ Editor/     에디터 전용 씬·프리팹 셋업 메뉴와 빌드 스크립트
+├─ Tools/      예약 폴더 (현재 비어 있음)
 └─ Tests/      EditMode와 PlayMode 테스트
 ```
 
 asmdef 의존 방향은 다음과 같습니다.
 
 ```text
-Bootstrap -> Client, Server, Network
+Bootstrap -> Client, Backend, Core, Network, Server, SOAP
+Backend   -> Core, UniTask
 Client    -> Core, SOAP
 Server    -> Core, SOAP
 Network   -> Core, Server
@@ -40,7 +46,9 @@ SOAP      -> Core
 Core      -> 외부 게임 계층에 의존하지 않음 (허용: UniTask, R3)
 ```
 
-`Core`가 참조할 수 있는 것은 `UniTask`와 `R3`뿐입니다. 포트의 비동기 반환에는 `UniTask`를, 읽기 전용 런타임 상태 노출에는 R3를 사용합니다. Fusion, VContainer, UI 계열과 `Client`·`Server`·`SOAP`·`Network`는 참조하지 않습니다.
+`Bootstrap`은 게임 계층 외에 Photon.Realtime, UniTask, VContainer, Input System, NativeWebSocket도 참조합니다. 실제 목록은 `Assets/_Game/Bootstrap/Game.Bootstrap.asmdef`가 원본입니다.
+
+`Core`가 참조할 수 있는 것은 `UniTask`와 `R3`뿐입니다. 포트의 비동기 반환에는 `UniTask`를, 읽기 전용 런타임 상태 노출에는 R3를 사용합니다. Fusion, VContainer, UI 계열과 `Client`·`Server`·`SOAP`·`Network`·`Backend`는 참조하지 않습니다.
 
 `Client`와 `Server`는 서로 직접 참조하지 않습니다. 두 영역이 함께 사용하는 규칙과 타입은 `Core`로 이동합니다. `Server`는 순수 게임 규칙과 권한 판정을 담당하고 Photon Fusion 타입은 `Network`에만 둡니다. 이 프로젝트의 `Server`는 별도 Spring 서버를 뜻하지 않습니다.
 
@@ -102,8 +110,8 @@ UI는 MVP 구조를 기본으로 사용합니다.
 
 SOAP 폴더에는 런타임 변수 에셋과 이벤트 채널을 만들지 않습니다.
 
-- `Definitions`: 아이템, 맵 등 변경되지 않는 데이터 정의
-- `Config`: 경기 시간, 인원 제한 등 조정 가능한 정적 설정
+- `Config`: 경기 시간, 인원 제한 등 조정 가능한 정적 설정. `Assets/_Game/SOAP`에는 이 폴더만 있습니다.
+- 아이템·맵 정의는 ScriptableObject가 아니라 `Core/Items`, `Core/Maps`의 C# 코드에 둡니다. `Definitions` 폴더는 쓰지 않습니다.
 
 플레이 중 변하는 상태는 일반 C# 객체와 R3가 소유합니다. 방 정보와 네트워크 상태는 Photon 영역이 원본을 소유합니다. ScriptableObject 에셋은 런타임 종료 후 값이 남지 않도록 상태 저장소로 사용하지 않습니다.
 
@@ -129,3 +137,5 @@ SOAP 폴더에는 런타임 변수 에셋과 이벤트 채널을 만들지 않�
 - 씬 조립, View 연결과 네트워크 객체 수명은 PlayMode 테스트 또는 실제 멀티플레이 실행으로 검증합니다.
 - 새 asmdef를 추가할 때 의존 방향이 역전되거나 `Client`와 `Server`가 직접 연결되지 않았는지 확인합니다.
 - 기능 완료 전 Unity Console의 컴파일 오류가 없어야 하며, 관련 테스트를 실행합니다.
+- EditMode 테스트는 Unity `Window > General > Test Runner`의 EditMode 탭에서 `Game.Architecture.Tests` 어셈블리를 실행합니다. PlayMode 탭은 `Game.Architecture.PlayModeTests`입니다.
+- 에디터 없이 컴파일만 확인할 때는 Unity가 생성한 csproj(예: `Game.Network.csproj`)를 `dotnet build`합니다. 테스트는 돌지 않고 컴파일 오류만 잡습니다.
