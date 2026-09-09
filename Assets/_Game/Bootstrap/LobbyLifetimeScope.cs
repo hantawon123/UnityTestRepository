@@ -219,8 +219,9 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<LobbyPauseMenuPresenter>().AsSelf();
             var settingsObject = new GameObject("Lobby Settings");
             settingsObject.transform.SetParent(transform, false);
-            var settingsView = settingsObject.AddComponent<SettingsView>();
             settingsObject.SetActive(false);
+            var settingsView = settingsObject.AddComponent<SettingsView>();
+            settingsView.ConfigureAsLobbyOverlay();
             builder.RegisterComponent(settingsView).As<ISettingsView>().AsSelf();
             builder.RegisterEntryPoint<SettingsPresenter>().AsSelf()
                 .WithParameter<Action>(() => settingsObject.SetActive(false));
