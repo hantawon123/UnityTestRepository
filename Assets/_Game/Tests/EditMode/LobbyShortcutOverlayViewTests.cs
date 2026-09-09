@@ -34,6 +34,36 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void ShowPlayers_RevealsTheBoundParticipantList()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            var listGo = new GameObject("PlayerListRoot", typeof(RectTransform));
+            listGo.transform.SetParent(canvas.transform, false);
+            try
+            {
+                var list = listGo.AddComponent<LobbyPlayerListView>();
+                var view = LobbyShortcutOverlayView.Ensure(canvas.transform);
+                view.BindPlayerList(list);
+
+                Assert.That(listGo.activeSelf, Is.False);
+                view.Show(LobbyShortcutKind.Players);
+
+                Assert.That(listGo.activeSelf, Is.True);
+                Assert.That(listGo.transform.parent.name, Is.EqualTo(LobbyShortcutOverlayView.RootName));
+                Assert.That(
+                    canvas.transform.Find("ShortcutOverlay/Title").gameObject.activeSelf,
+                    Is.False);
+
+                view.Hide();
+                Assert.That(listGo.activeSelf, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
         public void RequestClose_HidesAndRaisesOnce()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));

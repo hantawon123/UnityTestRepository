@@ -18,7 +18,7 @@ namespace Game.Client.Lobby
     /// What is left is the things a player reads rather than clicks: the
     /// category/map card, the player count, the shared key guide, the
     /// 1 / 2 / Esc shortcut row, and the chat field, which the keyboard
-    /// reaches on its own.
+    /// reaches on its own. The full roster opens from 2.
     /// </para>
     /// </remarks>
     public sealed class LobbyHudView : MonoBehaviour
@@ -144,6 +144,14 @@ namespace Game.Client.Lobby
 
         private void HideHudPlayerList()
         {
+            var overlay = GetComponent<LobbyShortcutOverlayView>();
+            if (overlay != null &&
+                overlay.IsOpen &&
+                overlay.OpenKind == LobbyShortcutKind.Players)
+            {
+                return;
+            }
+
             var slot = playerListRoot != null
                 ? playerListRoot
                 : transform.Find("PlayerListRoot") as RectTransform;

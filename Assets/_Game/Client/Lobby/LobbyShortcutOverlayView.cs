@@ -26,6 +26,7 @@ namespace Game.Client.Lobby
 
         private GameObject overlayRoot;
         private TextMeshProUGUI title;
+        private RectTransform playerListRoot;
 
         public event Action CloseRequested;
 
@@ -51,6 +52,15 @@ namespace Game.Client.Lobby
             return view;
         }
 
+        public void BindPlayerList(LobbyPlayerListView list)
+        {
+            playerListRoot = list != null ? list.transform as RectTransform : null;
+            if (playerListRoot != null)
+            {
+                playerListRoot.gameObject.SetActive(false);
+            }
+        }
+
         public void Show(LobbyShortcutKind kind)
         {
             if (kind == LobbyShortcutKind.None)
@@ -61,12 +71,15 @@ namespace Game.Client.Lobby
 
             EnsureOverlay();
             OpenKind = kind;
+            var showPlayers = kind == LobbyShortcutKind.Players && playerListRoot != null;
             if (title != null)
             {
                 var index = (int)kind;
                 title.text = index >= 0 && index < Titles.Length ? Titles[index] : string.Empty;
+                title.gameObject.SetActive(!showPlayers);
             }
 
+            ShowPlayerList(showPlayers);
             if (overlayRoot != null)
             {
                 overlayRoot.SetActive(true);
@@ -76,10 +89,36 @@ namespace Game.Client.Lobby
         public void Hide()
         {
             OpenKind = LobbyShortcutKind.None;
+            ShowPlayerList(false);
+            if (title != null)
+            {
+                title.gameObject.SetActive(true);
+            }
+
             if (overlayRoot != null)
             {
                 overlayRoot.SetActive(false);
             }
+        }
+
+        private void ShowPlayerList(bool visible)
+        {
+            if (playerListRoot == null)
+            {
+                return;
+            }
+
+            if (visible)
+            {
+                playerListRoot.SetParent(overlayRoot != null ? overlayRoot.transform : transform, false);
+                playerListRoot.anchorMin = playerListRoot.anchorMax = new Vector2(0.5f, 0.5f);
+                playerListRoot.pivot = new Vector2(0.5f, 0.5f);
+                playerListRoot.anchoredPosition = Vector2.zero;
+                playerListRoot.sizeDelta = new Vector2(300f, 420f);
+                playerListRoot.SetAsLastSibling();
+            }
+
+            playerListRoot.gameObject.SetActive(visible);
         }
 
         public void RequestClose()

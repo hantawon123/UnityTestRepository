@@ -61,11 +61,11 @@ namespace Game.Editor
             var playerList = GetOrCreateSlot(root, "PlayerListRoot", new Color(0.15f, 0.16f, 0.2f, 0.75f));
             var chat = GetOrCreateSlot(root, "ChatRoot", new Color(0.15f, 0.16f, 0.2f, 0.75f));
 
-            // Replaced on the HUD by the compact count; the roster stays for 2.
+            // Hidden on the HUD; 2 reparents this into the overlay.
             Place(
                 playerList,
-                Anchor.TopRight,
-                new Vector2(-24f, -LobbyMatchInfoView.PlayerListTopOffset),
+                Anchor.Center,
+                Vector2.zero,
                 new Vector2(300f, 420f));
             playerList.gameObject.SetActive(false);
             Place(
@@ -135,7 +135,9 @@ namespace Game.Editor
             var chatBubbleView = EnsureChatBubbleWorld(scope.transform);
             KeySettingGuideView.Ensure(root);
             LobbyShortcutGuideView.Ensure(root);
-            LobbyShortcutOverlayView.Ensure(root)?.Hide();
+            var shortcutOverlay = LobbyShortcutOverlayView.Ensure(root);
+            shortcutOverlay?.BindPlayerList(playerListView);
+            shortcutOverlay?.Hide();
             LobbyMatchInfoView.Ensure(root);
             LobbyPlayerCountView.Ensure(root);
 

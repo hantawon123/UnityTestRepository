@@ -33,6 +33,11 @@ namespace Game.Client.Lobby
             HomeUiFonts.ApplyLegacy(transform);
         }
 
+        public void SetVisible(bool visible)
+        {
+            gameObject.SetActive(visible);
+        }
+
         public void SetParticipants(
             IReadOnlyList<LobbyParticipant> participants,
             bool localIsHost,
