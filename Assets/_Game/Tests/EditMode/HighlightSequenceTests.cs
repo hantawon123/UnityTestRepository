@@ -111,7 +111,7 @@ namespace Game.Tests.EditMode
                         new RoomParticipant("p1", 0, true, "방장"),
                         new RoomParticipant("p2", 1, false, "민수"),
                     }),
-                Is.EqualTo("FIRST BLOOD · 민수"));
+                Is.EqualTo("FIRST BLOOD : 민수"));
         }
 
         private static HighlightCandidate Candidate(HighlightType type)

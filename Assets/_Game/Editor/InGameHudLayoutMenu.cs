@@ -66,7 +66,7 @@ namespace Game.Editor
                 }
 
                 EnsureAssignedItem(hud);
-                EnsureHighlightTitle(hud);
+                EnsureHighlightHud(hud);
                 EnsureHidingIntro(hud);
                 EnsureSearchingIntro(hud);
                 EnsureHidingTurnStart(hud);
@@ -486,31 +486,34 @@ namespace Game.Editor
             text.gameObject.SetActive(false);
         }
 
-        private static void EnsureHighlightTitle(NetworkMatchHudView hud)
+        private static void EnsureHighlightHud(NetworkMatchHudView hud)
         {
-            var serialized = new SerializedObject(hud);
-            var property = serialized.FindProperty("highlightTitleText");
-            var text = property.objectReferenceValue as TMP_Text ??
-                       hud.transform.Find("HighlightTitleText")?.GetComponent<TMP_Text>();
-            if (text == null)
+            var leftover = hud.transform.Find("HighlightTitleText");
+            if (leftover != null)
             {
-                text = CreateText(
-                    hud.transform,
-                    "HighlightTitleText",
-                    "FIRST BLOOD",
-                    38f,
-                    TextAlignmentOptions.Right);
-                Place(
-                    text.rectTransform,
-                    Vector2.one,
-                    new Vector2(-270f, -72f),
-                    new Vector2(500f, 64f));
+                Object.DestroyImmediate(leftover.gameObject);
             }
 
-            text.font = HomeUiFonts.Apply();
-            property.objectReferenceValue = text;
+            var serialized = new SerializedObject(hud);
+            var property = serialized.FindProperty("highlightHudView");
+            var view = property.objectReferenceValue as HighlightHudView;
+            if (view == null)
+            {
+                view = hud.GetComponentInChildren<HighlightHudView>(true);
+            }
+
+            if (view == null)
+            {
+                view = HighlightHudView.Create(hud.transform);
+            }
+
+            property.objectReferenceValue = view;
             serialized.ApplyModifiedPropertiesWithoutUndo();
-            text.gameObject.SetActive(false);
+
+            var viewSerialized = new SerializedObject(view);
+            viewSerialized.FindProperty("previewOnAwake").boolValue = false;
+            viewSerialized.ApplyModifiedPropertiesWithoutUndo();
+            view.Hide();
         }
 
         private static void EnsureWaitingSpawnPoints(Scene scene)

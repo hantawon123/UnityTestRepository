@@ -163,14 +163,15 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void HighlightHud_KeepsOnlyTitleAndNotice_AndRestoresPriorVisibility()
+        public void HighlightHud_KeepsOnlyHighlightHudAndNotice_AndRestoresPriorVisibility()
         {
             var root = new GameObject("HUD", typeof(Canvas));
             try
             {
                 var hud = root.AddComponent<Game.Client.Match.NetworkMatchHudView>();
-                var title = new GameObject("Title", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
-                title.transform.SetParent(root.transform);
+                var highlight = hud.GetComponentInChildren<Game.Client.Match.HighlightHudView>(true)
+                    ?? Game.Client.Match.HighlightHudView.Create(root.transform);
+                highlight.Show("FIRST BLOOD : 민수", new[] { 0.4f, 0f, 0f });
                 var notice = new GameObject("Notice", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
                 notice.transform.SetParent(root.transform);
                 var timer = new GameObject("Timer", typeof(RectTransform), typeof(UnityEngine.UI.Image));
@@ -185,12 +186,12 @@ namespace Game.Tests.EditMode
                 var timerText = timerLabel.GetComponent<TMPro.TMP_Text>();
                 typeof(Game.Client.Match.MatchTimerView).GetField("timerText", flags).SetValue(timerView, timerText);
                 typeof(Game.Client.Match.NetworkMatchHudView).GetField("timerView", flags).SetValue(hud, timerView);
-                typeof(Game.Client.Match.NetworkMatchHudView).GetField("highlightTitleText", flags)
-                    .SetValue(hud, title.GetComponent<TMPro.TMP_Text>());
+                typeof(Game.Client.Match.NetworkMatchHudView).GetField("highlightHudView", flags)
+                    .SetValue(hud, highlight);
                 typeof(Game.Client.Match.NetworkMatchHudView).GetField("destructionNoticeRoot", flags)
                     .SetValue(hud, notice);
                 hud.SetPhase(Game.Core.Match.MatchPhase.Highlight, "");
-                Assert.That(title.GetComponent<TMPro.TMP_Text>().enabled, Is.True);
+                Assert.That(highlight.transform.Find("Header/Title").GetComponent<TMPro.TMP_Text>().enabled, Is.True);
                 Assert.That(notice.GetComponent<TMPro.TMP_Text>().enabled, Is.True);
                 Assert.That(timer.GetComponent<UnityEngine.UI.Image>().enabled, Is.False);
                 hud.SetEndCountdown(3d);
