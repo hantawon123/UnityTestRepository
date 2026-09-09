@@ -54,6 +54,10 @@ namespace Game.Network.Session
         /// session in a match looks exactly like one in its lobby from outside,
         /// and hiding the session instead would make a running match vanish from
         /// the list rather than show as unavailable.
+        /// <para>
+        /// Present from the moment the room is opened, as false: Photon only
+        /// forwards to the lobby the keys a room had when it was created.
+        /// </para>
         /// </remarks>
         public const string Playing = "playing";
 
