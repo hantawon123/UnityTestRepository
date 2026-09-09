@@ -186,12 +186,21 @@ namespace Game.Architecture.Tests
 
         public void SetFeedbackSubmitEnabled(bool enabled) => SubmitEnabled = enabled;
 
+        /// <summary>How many times a send was reported as having gone through.</summary>
+        /// <remarks>
+        /// The bridge tests assert on this rather than on
+        /// <see cref="FeedbackVisible"/>: those tests run without a presenter, so
+        /// nothing ever opens the panel and its visibility says nothing.
+        /// </remarks>
+        public int SentCalls { get; private set; }
+
         /// <summary>
         /// What the real view does: down, and the same event as a panel
         /// closed by hand so the presenter stops believing it is up.
         /// </summary>
         public void FeedbackSent()
         {
+            SentCalls++;
             FeedbackVisible = false;
             FeedbackDismissed?.Invoke();
         }

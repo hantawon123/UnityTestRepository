@@ -17,6 +17,12 @@ namespace Game.Architecture.Tests
     /// somebody who filled five hundred characters and lost them to a timeout
     /// does not write them a second time.
     /// <para>
+    /// <b>There is no presenter here.</b> Only the bridge is wired to the fake screen,
+    /// so nothing opens or closes the writing panel and its visibility means nothing.
+    /// What these tests watch is what the bridge asks the screen to do:
+    /// <see cref="FakeSettingsView.SentCalls"/>, the notices, and 보내기.
+    /// </para>
+    /// <para>
     /// The sends here complete inline: a UniTask that is already finished
     /// resumes its awaiter synchronously, so an assertion straight after the
     /// press sees the answer. Where the wait itself matters, a
@@ -43,7 +49,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void Sent_TakesThePanelDownAndThanks()
+        public void Sent_AsksTheScreenToCloseAndThanks()
         {
             using var bridge = Started();
             view.Feedback();
@@ -52,7 +58,7 @@ namespace Game.Architecture.Tests
 
             Assert.That(gateway.Calls, Is.EqualTo(1));
             Assert.That(gateway.LastMessage, Is.EqualTo("소리가 너무 작아요"));
-            Assert.That(view.FeedbackVisible, Is.False);
+            Assert.That(view.SentCalls, Is.EqualTo(1), "성공만 패널을 내립니다.");
             Assert.That(view.Notices, Is.EqualTo(new[] { SettingsStyle.FeedbackSentMessage }));
         }
 
@@ -67,7 +73,7 @@ namespace Game.Architecture.Tests
 
             view.SubmitFeedback("소리가 너무 작아요");
 
-            Assert.That(view.FeedbackVisible, Is.True, "What was written must survive a refusal.");
+            Assert.That(view.SentCalls, Is.Zero, "거절은 패널을 내리지 않습니다 - 쓴 글이 사라집니다.");
             Assert.That(view.SubmitEnabled, Is.True, "Retrying the same text has to be possible.");
             Assert.That(
                 view.Notices,
@@ -123,7 +129,7 @@ namespace Game.Architecture.Tests
             view.SubmitFeedback("떠나는 중");
 
             Assert.That(view.Notices, Is.Empty);
-            Assert.That(view.FeedbackVisible, Is.True);
+            Assert.That(view.SentCalls, Is.Zero);
         }
 
         [Test]
@@ -143,7 +149,7 @@ namespace Game.Architecture.Tests
             Assert.That(gateway.Calls, Is.EqualTo(1));
 
             gateway.Pending.TrySetResult(BackendResult.Success());
-            Assert.That(view.FeedbackVisible, Is.False);
+            Assert.That(view.SentCalls, Is.EqualTo(1), "한 번 보냈고 한 번 닫습니다.");
         }
 
         [Test]
