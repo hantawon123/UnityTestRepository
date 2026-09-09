@@ -36,12 +36,14 @@ timed restore docker run --rm --cpus=1 --memory=1g --user "$uid:$gid" \
 
 # This is the actual EC2 host identity used during official activation.
 # Never copy another computer's machine-id or change the license XML.
+# The nested license bind mount creates root-owned parents; keep preferences writable.
 run_unity() {
 docker run --rm --cpus=3 --cpu-shares=1024 --memory=8g --memory-swap=8g \
     --user "$uid:$gid" -e HOME=/home/unity -e WEBGL_REVISION="$revision" \
     -e BEE_CACHE_DIRECTORY=/cache/bee -e WEBGL_FAST_BUILD="${WEBGL_FAST_BUILD:-0}" \
     --mount "type=bind,src=$cache,dst=/cache" \
     --tmpfs "/home/unity:uid=$uid,gid=$gid,mode=700" \
+    --tmpfs "/home/unity/.config/unity3d:uid=$uid,gid=$gid,mode=700" \
     --mount type=bind,src=/etc/machine-id,dst=/etc/machine-id,readonly \
     --mount "type=bind,src=$unity_home,dst=/home/unity/.config/unity3d/Unity" \
     --mount "type=bind,src=$project,dst=/workspace" -w /workspace \
