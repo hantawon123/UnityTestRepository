@@ -2,6 +2,7 @@ using Game.Client.Character;
 using Game.Client.Settings;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Architecture.Tests
 {
@@ -26,7 +27,14 @@ namespace Game.Architecture.Tests
                     Is.EqualTo(SettingsStyle.Frame.Position));
 
                 Assert.That(Find(root, "Background"), Is.Null);
-                Assert.That(Find(root, "Glow"), Is.Not.Null);
+                Assert.That(Find(root, "Glow"), Is.Null);
+
+                var fill = frame.GetComponent<Image>();
+                Assert.That(fill.color, Is.EqualTo(CharacterClosetStyle.Overlay.PanelFill));
+
+                var stroke = Find(root, "Stroke").GetComponent<Image>();
+                Assert.That(stroke.color, Is.EqualTo(CharacterClosetStyle.Overlay.Border));
+                Assert.That(stroke.transform.parent, Is.EqualTo(frame));
 
                 var rail = Find(root, "CategoryRail");
                 Assert.That(rail, Is.Not.Null);

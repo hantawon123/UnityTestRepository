@@ -262,9 +262,11 @@ namespace Game.Client.Character
 
             public const int FrameRadius = SettingsStyle.Frame.Radius;
 
-            public const int GlowSpread = SettingsStyle.Frame.GlowSpread;
+            public const float BorderWidth = 1f;
 
-            public const int GlowBlur = SettingsStyle.Frame.GlowBlur;
+            public static readonly Color PanelFill = FromHex(0x0B1018, 0.8f);
+
+            public static readonly Color Border = Color.white;
 
             /// <summary>Left/right inset from the panel edge. Full screen uses 60.</summary>
             public const float InsetX = 48f;

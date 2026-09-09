@@ -194,37 +194,31 @@ namespace Game.Client.Character
         }
 
         /// <summary>
-        /// The glow and the panel on top of it, the same frame Home settings
-        /// uses so the two overlays share a size.
+        /// The panel the closet chrome sits on. No glow: a 1px white ring is
+        /// the edge, the same way play settings draws its modal.
         /// </summary>
         private void CreateFrame(RectTransform canvas)
         {
-            var margin = SettingsSprites.GlowMargin(
-                CharacterClosetStyle.Overlay.GlowSpread, CharacterClosetStyle.Overlay.GlowBlur);
-
-            var glow = CreateRect("Glow", canvas);
-            SetAnchor(glow, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f));
-            glow.anchoredPosition = CharacterClosetStyle.Overlay.FramePosition
-                                    + new Vector2(-margin, margin);
-            glow.sizeDelta = CharacterClosetStyle.Overlay.FrameSize
-                             + new Vector2(margin * 2f, margin * 2f);
-            AddImage(
-                glow,
-                SettingsStyle.Palette.Glow,
-                SettingsSprites.Glow(
-                    CharacterClosetStyle.Overlay.FrameRadius,
-                    CharacterClosetStyle.Overlay.GlowSpread,
-                    CharacterClosetStyle.Overlay.GlowBlur));
-
             panel = CreateRect("Panel", canvas);
             SetAnchor(panel, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f));
             panel.anchoredPosition = CharacterClosetStyle.Overlay.FramePosition;
             panel.sizeDelta = CharacterClosetStyle.Overlay.FrameSize;
             AddImage(
                 panel,
-                SettingsStyle.Palette.PanelFill,
+                CharacterClosetStyle.Overlay.PanelFill,
                 HomeUiFonts.Rounded(CharacterClosetStyle.Overlay.FrameRadius),
                 raycastTarget: true);
+
+            var stroke = CreateRect("Stroke", panel);
+            SetAnchor(stroke, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            stroke.offsetMin = Vector2.zero;
+            stroke.offsetMax = Vector2.zero;
+            AddImage(
+                stroke,
+                CharacterClosetStyle.Overlay.Border,
+                HomeUiFonts.Outline(
+                    CharacterClosetStyle.Overlay.FrameRadius,
+                    CharacterClosetStyle.Overlay.BorderWidth));
         }
 
         private void CreateDim(RectTransform canvas)
