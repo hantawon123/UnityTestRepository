@@ -8,7 +8,7 @@ EC2가 날아가면 같이 사라집니다.
 
 | 파일 | 배치 위치 | 역할 |
 | --- | --- | --- |
-| `nginx/d205.conf` | `/etc/nginx/sites-available/d205` | 443에서 받아 앱과 Jenkins로 프록시 |
+| `nginx/d205.conf` | `/etc/nginx/sites-available/d205` | 443에서 받아 앱(`/`, 알림 WebSocket `/ws/`)과 Jenkins(`/jenkins/`)로 프록시. 8443은 Basic Auth 뒤에 Metabase |
 | `install-jenkins.sh` | (서버에서 실행) | Jenkins 설치, docker 그룹 등록 |
 | `jenkins/override.conf` | `/etc/systemd/system/jenkins.service.d/` | Jenkins 포트·바인딩·프리픽스 |
 | `verify.sh` | (서버에서 실행) | 배포 상태 한 번에 확인 |
@@ -24,7 +24,8 @@ EC2가 날아가면 같이 사라집니다.
 ```
 인터넷 ─┬─ :22  ────────────────▶ sshd
         ├─ :80  ──▶ nginx ──▶ 443 리다이렉트 + 인증서 갱신 챌린지
-        └─ :443 ──▶ nginx ─┬─ /jenkins/ ─▶ 127.0.0.1:9090  Jenkins
+        ├─ :443 ──▶ nginx ─┬─ /jenkins/ ─▶ 127.0.0.1:9090  Jenkins
+                            ├─ /ws/      ─▶ 127.0.0.1:8080  앱 컨테이너 (WebSocket, 알림)
                             └─ /         ─▶ 127.0.0.1:8080  앱 컨테이너
                                                               └▶ d205-mysql (포트 미공개)
                                                                   ├─ d205            게임 (풀 10)
@@ -54,6 +55,13 @@ ssh d205 'sudo install -o root -g root -m 644 /tmp/d205.conf /etc/nginx/sites-av
 
 `nginx -t`가 실패하면 `&&`가 끊겨 reload까지 가지 않으므로 기존 설정이 유지됩니다.
 
+배포 상태 확인 (`verify.sh` 를 올린 뒤 실행합니다. 아래 다른 절의 `bash /tmp/verify.sh` 는 모두 이 위치를 가리킵니다):
+
+```
+scp backend/deploy/verify.sh d205:/tmp/verify.sh
+ssh d205 'bash /tmp/verify.sh'
+```
+
 분석 스키마 권한 (플레이 로그 수집을 처음 배포하기 전에 **한 번**):
 
 ```
@@ -62,7 +70,7 @@ ssh d205 "docker cp /tmp/01-analytics-grant.sh d205-mysql:/tmp/analytics-grant.s
 ```
 
 initdb 용 스크립트를 그대로 컨테이너 안에서 실행합니다. 컨테이너에는 compose 가 넘긴
-`MYSQL_USER` 와 `MYSQL_ROOT_PASSWORD` 가 있어서 스크립트가 그 값을 씁니다. 비밀번호를 명령줄에
+`MYSQL_USER`(`.env` 의 `DB_USERNAME` 과 같은 계정) 와 `MYSQL_ROOT_PASSWORD` 가 있어서 스크립트가 그 값을 씁니다. 비밀번호를 명령줄에
 적지 않는 이유이기도 합니다. 성공하면 `[analytics-grant] <계정> 에게 d205_analytics 권한을
 주었습니다.` 가 찍힙니다. 이 스크립트는 MySQL 이 데이터 볼륨을 처음 만들 때만 자동으로 돌아서,
 이미 초기화된 운영 볼륨에는 이렇게 손으로 한 번 실행해야 합니다. 스키마와 테이블은 앱이
@@ -73,6 +81,24 @@ GRANT 만 하는 스크립트라 두 번 실행해도 해가 없습니다.
 권한 없이 배포해도 앱은 뜹니다. 대신 이벤트가 전부 버려지고 로그에 30초마다
 `분석 DB 를 준비하지 못했습니다` ERROR 가 남습니다. 그 로그가 보이면 위 명령을 실행하면
 되고, 앱을 다시 띄울 필요는 없습니다.
+
+### `.env` 의 키
+
+`compose.prod.yml` 이 `:?` 로 요구하는 키는 다섯입니다. 하나라도 비면 compose 파싱 단계에서 멈춥니다.
+
+| 키 | 쓰는 곳 |
+| --- | --- |
+| `MYSQL_ROOT_PASSWORD` | mysql 컨테이너, `verify.sh` |
+| `DB_NAME` | mysql(`MYSQL_DATABASE`), app, `verify.sh` |
+| `DB_USERNAME` | mysql(`MYSQL_USER`), app. 컨테이너의 `MYSQL_USER` 와 앱의 `DB_USERNAME` 은 같은 계정입니다 |
+| `DB_PASSWORD` | mysql(`MYSQL_PASSWORD`), app |
+| `METABASE_DB_PASSWORD` | metabase(`MB_DB_PASS`), 아래 2번 계정 스크립트 |
+
+선택인 키는 `ADMIN_USERNAME`, `ADMIN_PASSWORD` 입니다. 없으면 관리 API 만 막히고 게임은 돌아가므로
+`:?` 를 붙이지 않았습니다. 그 밖에 compose 는 읽지 않지만 2번 계정 스크립트가 쓰는
+`ANALYTICS_READER_PASSWORD` 가 있습니다.
+
+같은 내용이 서버의 `/home/ubuntu/d205/.env` 와 Jenkins 의 비밀 파일 `d205-backend-env` 두 곳에 있어야 합니다.
 
 ### 대시보드 (Metabase) 처음 올리기
 
@@ -87,7 +113,8 @@ ANALYTICS_READER_PASSWORD=...
 METABASE_DB_PASSWORD=...
 ```
 
-- 서버의 `/home/ubuntu/d205/.env`: 아래 2번 계정 스크립트와 `verify.sh` 가 읽습니다.
+- 서버의 `/home/ubuntu/d205/.env`: 아래 2번 계정 스크립트가 이 두 줄을 읽습니다. `verify.sh` 도
+  이 파일을 읽지만 `MYSQL_ROOT_PASSWORD` 와 `DB_NAME` 만 씁니다.
 - **Jenkins 의 비밀 파일 `d205-backend-env`**: 배포의 compose 가 읽습니다. `Jenkins 관리 → Credentials
   → d205-backend-env → Update` 에서 두 줄을 더한 파일을 올립니다. 이걸 빠뜨리면 develop 빌드가
   `required variable METABASE_DB_PASSWORD is missing a value` 로 멈춥니다(2026-09-07 #79). 서비스는
@@ -111,11 +138,14 @@ ssh d205 "set -a; . /home/ubuntu/d205/.env; set +a; docker cp /tmp/02-analytics-
 **3. nginx 8443 과 Basic Auth**
 
 ```
-ssh d205 "sudo apt-get install -y apache2-utils && sudo htpasswd -c /etc/nginx/.htpasswd-analytics d205"
+ssh -t d205 "sudo apt-get install -y apache2-utils && sudo htpasswd -c /etc/nginx/.htpasswd-analytics d205"
 ssh d205 "sudo ufw allow 8443/tcp"
 scp backend/deploy/nginx/d205.conf d205:/tmp/d205.conf
-ssh d205 "sudo install -o root -g root -m 644 /tmp/d205.conf /etc/nginx/sites-available/d205 && sudo nginx -t && sudo systemctl reload nginx"
+ssh d205 "sudo install -o root -g root -m 644 /tmp/d205.conf /etc/nginx/sites-available/d205 && sudo ln -sfn /etc/nginx/sites-available/d205 /etc/nginx/sites-enabled/d205 && sudo rm -f /etc/nginx/sites-enabled/default && sudo nginx -t && sudo systemctl reload nginx"
 ```
+
+넷째 줄은 위 "nginx 설정" 과 같은 명령입니다. `sites-enabled/default` 를 내리는 부분을 빼면
+같은 `server_name` 의 443 블록이 둘이 되어 nginx 가 먼저 나온 쪽만 씁니다(`d205.conf` 머리 주석).
 
 첫 줄은 비밀번호를 물어봅니다. 프롬프트가 떠야 하므로 PowerShell 에서는 `ssh -t` 로 실행하고,
 명령은 한 번만 붙여 넣습니다(두 번 붙으면 htpasswd 가 인자를 잘못 받아 사용법만 출력합니다).
@@ -172,6 +202,29 @@ EC2 전체가 넘어갑니다. 그래서 9090을 루프백에만 바인딩하고
 **인증서는 certbot이 관리합니다.** `certbot.timer`가 자동 갱신하고 갱신에는
 80번이 열려 있어야 합니다. ufw에서 80을 닫으면 90일 뒤에 만료됩니다.
 
+### 알림 WebSocket 은 nginx 에 별도 블록이 필요합니다
+
+`d205.conf` 의 `/ws/` 블록이 `/ws/notifications` 를 앱(8080)으로 넘깁니다. `/` 블록과 목적지가 같은데
+따로 둔 이유가 둘입니다.
+
+- `proxy_http_version 1.1` 에 `Upgrade` 와 `Connection "upgrade"` 헤더를 넘겨야 합니다. 없으면 nginx 가
+  일반 HTTP 로 취급해 핸드셰이크가 400(`Can "Upgrade" only to "WebSocket".`)으로 끝납니다.
+- `proxy_read_timeout`/`proxy_send_timeout` 이 90초입니다. 서버가 `notifications.ping-interval-ms`
+  (`application.yml`, 30000) 마다 ping 을 보내므로 그보다 길어야 합니다. `/` 블록의 60초를 그대로 쓰면
+  조용한 연결을 nginx 가 먼저 끊어 클라이언트가 이유 없이 재연결을 반복합니다.
+
+**Jenkins 는 compose 의 컨테이너만 배포합니다.** nginx 설정은 파이프라인이 건드리지 않으므로 `d205.conf` 를
+고치면 위 "적용 방법" 의 nginx 설정 명령(scp 후 install, `nginx -t`, reload)을 손으로 실행해야 합니다.
+`/ws/` 블록이 없는 서버에 앱만 배포하면 알림 핸드셰이크는 400 으로 끝납니다.
+
+**동시 접속자 상한은 nginx 와 Tomcat 중 작은 쪽입니다.** 클라이언트마다 알림 연결 하나를 상시 붙들고
+있어서, 받을 수 있는 수는 nginx 의 `worker_connections` 와 앱의 `server.tomcat.max-connections`
+(`application.yml`, 8192) 중 작은 값입니다. 프록시라 접속자 하나가 연결 둘(클라이언트↔nginx, nginx↔앱)을
+쓰고, nginx 의 기본값은 768 입니다. nginx 전역 설정(`/etc/nginx/nginx.conf`)은 저장소에 없어
+`verify.sh` 의 "상시 연결 (알림 WebSocket)" 절이 서버의 `worker_connections` 와 지금 443, 8080 에 맺힌
+연결 수를 찍습니다. 거기 768 이 보이면 nginx 가 먼저 막히는 것이고, `/etc/nginx/nginx.conf` 의
+`events { worker_connections ... }` 를 올려야 합니다. 이것도 Jenkins 가 아니라 손으로 고치는 설정입니다.
+
 ### Jenkins 체크아웃이 10분 타임아웃으로 죽으면
 
 증상: 콘솔이 `git checkout -f <sha>` 에서 멈춰 `ERROR: Timeout after 10 minutes`,
@@ -181,7 +234,13 @@ EC2 전체가 넘어갑니다. 그래서 9090을 루프백에만 바인딩하고
 원인: `git checkout` 이 LFS 스머지 필터로 Unity 에셋 3천 개를 GitLab 에서 내려받는데, 백엔드
 파이프라인은 그 파일을 쓰지 않습니다. 내려받기가 느려지면 체크아웃 자체가 타임아웃입니다.
 
-해결은 스머지를 끄는 것입니다. 두 방법을 **둘 다** 합니다. 첫째는 지금 당장 듣고, 둘째는
+해결은 스머지를 끄는 것입니다. 지금은 **파이프라인이 스스로 합니다.** `Jenkinsfile` 의 `체크아웃`
+단계가 `git lfs install --skip-smudge --skip-repo` 로 jenkins 사용자의 전역 gitconfig 에 스머지 생략을
+쓰고, `GIT_LFS_SKIP_SMUDGE=1` 을 건 채 `checkout scm` 을 실행합니다. 매 빌드가 같은 설정을 다시 쓰므로
+Jenkins 를 다시 설치해도 따로 손볼 것이 없습니다.
+
+아래 두 서버 쪽 조치는 그 전에 쓰던 것으로, 지금은 **예비**입니다. 그 `체크아웃` 단계가 없는 머신이나
+`git lfs` 가 설치되지 않아 첫 줄이 건너뛰어지는 머신에서만 필요합니다. 첫째는 지금 당장 듣고, 둘째는
 재시작 뒤에도 남습니다.
 
 ```
@@ -215,7 +274,7 @@ Job 이름 `d205-backend`, 종류 **Multibranch Pipeline**.
 | Behaviours | Filter by name (with wildcards) → Include | **`develop MR-*`** |
 | Build Configuration | Mode | `by Jenkinsfile` |
 | Build Configuration | Script Path | `backend/Jenkinsfile` |
-| Scan Triggers | Periodically if not otherwise run | `1 day` (웹훅이 주 트리거) |
+| Scan Triggers | Periodically if not otherwise run | `1 day` (웹훅이 주 트리거. 웹훅이 죽었을 때의 안전망은 `Jenkinsfile` 의 `pollSCM('H/10 * * * *')`) |
 | Orphaned Item Strategy | Discard old items | 7일 / 20개 |
 
 두 값이 특히 중요합니다.
@@ -290,6 +349,7 @@ GitLab → Settings → Merge requests → Merge checks → `Pipelines must succ
 
 ```
                       develop            MR / 그 외
+  체크아웃              O                    O
   대상 확인             O                    O
   빌드                  O (compose)          -
   빌드 (검증)            -                   O (docker build, verify 태그)
@@ -299,6 +359,10 @@ GitLab → Settings → Merge requests → Merge checks → `Pipelines must succ
   배포                  O                    -
   헬스체크              O                    -
 ```
+
+**체크아웃**이 명시적 단계인 이유는 `skipDefaultCheckout(true)` 로 암묵적 체크아웃을 끄고
+LFS 스머지를 생략한 채 직접 받기 때문입니다. 자세한 것은 "Jenkins 체크아웃이 10분 타임아웃으로
+죽으면" 에 있습니다.
 
 `DEPLOY` 판정은 `BRANCH_NAME` 기준입니다. `when { branch 'develop' }` 는
 Multibranch에서만 동작하고 단독 Job에는 `BRANCH_NAME`이 없어 조건이 false가 되므로,
@@ -382,7 +446,8 @@ nginx upstream을 바꿔치는 블루-그린이 필요합니다.
 파이프라인 실패가 곧 서비스 다운은 아닙니다.
 
 ```
-ssh d205 'bash /var/lib/jenkins/workspace/d205-backend_develop/backend/deploy/verify.sh'
+scp backend/deploy/verify.sh d205:/tmp/verify.sh
+ssh d205 'bash /tmp/verify.sh'
 ```
 
 | 실패 단계 | 서비스 | 긴급도 |
