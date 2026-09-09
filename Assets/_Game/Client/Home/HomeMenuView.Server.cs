@@ -218,6 +218,7 @@ namespace Game.Client.Home
 
         public void SetServerSettingsVisible(bool visible)
         {
+            SetActionSelected(HomeMenuAction.ServerSettings, visible);
             if (serverSettingsRoot != null)
             {
                 serverSettingsRoot.SetActive(visible);

@@ -1053,7 +1053,9 @@ namespace Game.Client.Home
 
             if (string.IsNullOrEmpty(message))
             {
-                UpdateSearchEmptyHint(Array.Empty<FriendSearchHit>());
+                // The rows that are already up decide this, not an assumed
+                // empty result: clearing a failure must not overwrite a hit.
+                UpdateSearchEmptyHint(lastSearchResults);
                 return;
             }
 

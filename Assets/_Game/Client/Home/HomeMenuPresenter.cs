@@ -33,6 +33,12 @@ namespace Game.Client.Home
         /// </remarks>
         void CreateRoom(string title, bool isPublic, int maxPlayers);
 
+        /// <summary>
+        /// Enters the room a friend invited this player to, by its code, and
+        /// opens the lobby. Failures are said on screen, as room creation's are.
+        /// </summary>
+        void JoinRoom(string roomCode);
+
         void OpenLobby();
     }
 
@@ -102,6 +108,12 @@ namespace Game.Client.Home
         {
             Debug.LogWarning(
                 "[Home] Cannot create a room without the networked host.");
+        }
+
+        public void JoinRoom(string roomCode)
+        {
+            Debug.LogWarning(
+                "[Home] Cannot join a room without the networked host.");
         }
 
         public void OpenLobby()
