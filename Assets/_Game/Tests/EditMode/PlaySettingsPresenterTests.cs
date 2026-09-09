@@ -11,44 +11,6 @@ namespace Game.Tests.EditMode
 {
     public sealed class PlaySettingsPresenterTests
     {
-        [Test]
-        public void Host_SaveTitlePreservesUnsavedCapacity_AndAllowsRevertingTitle()
-        {
-            using var session = new HostSession();
-            session.SetLocalHost(true);
-            var view = new SettingsView();
-            var menu = new PauseView();
-            using var presenter = new PlaySettingsPresenter(session, view, menu);
-            presenter.Start();
-            menu.OpenSettings();
-            view.Draft = new PlaySettingsDraft("새 방", "CODE", false, null, 4, 3, "playground");
-            view.SaveTitle();
-            Assert.That(session.Settings.CurrentValue.Title, Is.EqualTo("새 방"));
-            Assert.That(session.Settings.CurrentValue.MaxPlayers, Is.EqualTo(6));
-            Assert.That(view.Draft.MaxPlayers, Is.EqualTo(4));
-            view.Draft = Draft(6);
-            view.RequestClose();
-            Assert.That(session.Settings.CurrentValue.Title, Is.EqualTo("방"));
-            Assert.That(session.ApplyCount, Is.EqualTo(2));
-        }
-
-        [TestCase(false, "새 방")]
-        [TestCase(true, "")]
-        [TestCase(true, "123456789012345678901")]
-        public void SaveTitle_WithoutAuthorityOrValidTitle_DoesNotApply(bool isHost, string title)
-        {
-            using var session = new HostSession();
-            session.SetLocalHost(isHost);
-            var view = new SettingsView();
-            var menu = new PauseView();
-            using var presenter = new PlaySettingsPresenter(session, view, menu);
-            presenter.Start();
-            menu.OpenSettings();
-            view.Draft = new PlaySettingsDraft(title, "CODE", false, null, 6, 3, "playground");
-            view.SaveTitle();
-            Assert.That(session.ApplyCount, Is.Zero);
-        }
-
         [TestCase(false)]
         [TestCase(true)]
         public void Host_UnchangedOrRevertedDraft_DoesNotOverwriteNewSessionSettings(bool revertEdit)
@@ -83,6 +45,38 @@ namespace Game.Tests.EditMode
             session.ReplaceSettings(Draft(4));
             view.RequestClose();
             Assert.That(session.ApplyCount, Is.Zero);
+        }
+
+        [Test]
+        public void Host_StartRequested_ClosesThenRequestsStart()
+        {
+            using var session = new HostSession();
+            session.SetLocalHost(true);
+            var view = new SettingsView();
+            var menu = new PauseView();
+            using var presenter = new PlaySettingsPresenter(session, view, menu);
+            presenter.Start();
+            menu.OpenSettings();
+            view.Draft = Draft(4);
+            view.RequestStart();
+            Assert.That(view.Visible, Is.False);
+            Assert.That(session.ApplyCount, Is.EqualTo(1));
+            Assert.That(session.StartCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Guest_StartRequested_ClosesWithoutStarting()
+        {
+            using var session = new HostSession();
+            session.SetLocalHost(false);
+            var view = new SettingsView();
+            var menu = new PauseView();
+            using var presenter = new PlaySettingsPresenter(session, view, menu);
+            presenter.Start();
+            menu.OpenSettings();
+            view.RequestStart();
+            Assert.That(view.Visible, Is.False);
+            Assert.That(session.StartCount, Is.Zero);
         }
 
         [Test]
@@ -169,26 +163,28 @@ namespace Game.Tests.EditMode
         public void RealView_ReadOnlyBlocksChanges_AndPreservesUnexposedRules()
         {
             var root = new GameObject("Settings view test");
+            var panel = new GameObject("PlaySettingsPanel", typeof(RectTransform));
+            panel.transform.SetParent(root.transform, false);
             root.SetActive(false);
             try
             {
                 var view = root.AddComponent<PlaySettingsView>();
-                var plus = new GameObject("Plus", typeof(RectTransform), typeof(Button));
-                plus.transform.SetParent(root.transform);
-                var button = plus.GetComponent<Button>();
                 var serialized = new SerializedObject(view);
-                serialized.FindProperty("maxPlayersPlusButton").objectReferenceValue = button;
+                serialized.FindProperty("panel").objectReferenceValue = panel;
                 serialized.ApplyModifiedPropertiesWithoutUndo();
                 root.SetActive(true);
-                // EditMode does not run lifecycle methods on this non-ExecuteAlways view.
                 typeof(PlaySettingsView).GetMethod("OnEnable",
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                     .Invoke(view, null);
+                var plusField = typeof(PlaySettingsView).GetField(
+                    "maxPlayersPlusButton",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                var button = (Button)plusField.GetValue(view);
                 MatchRuleSettings.TryCreate(60, 10, 1.5f, 5, "food", out var rules, out _);
                 view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 4, 3, "playground", rules));
                 view.SetEditable(false);
                 Assert.That(button.interactable, Is.False);
-                button.onClick.Invoke(); // Even an invoked callback cannot mutate a read-only draft.
+                button.onClick.Invoke();
                 Assert.That(view.ReadDraft().MaxPlayers, Is.EqualTo(4));
                 view.SetEditable(true);
                 Assert.That(button.interactable, Is.True);
@@ -203,10 +199,19 @@ namespace Game.Tests.EditMode
         public void RealView_RuleEditingEnforcesBoundsAndAuthority_AndKeepsCategory()
         {
             var root = new GameObject("Rule editing test");
+            var panel = new GameObject("PlaySettingsPanel", typeof(RectTransform));
+            panel.transform.SetParent(root.transform, false);
             root.SetActive(false);
             try
             {
                 var view = root.AddComponent<PlaySettingsView>();
+                var serialized = new SerializedObject(view);
+                serialized.FindProperty("panel").objectReferenceValue = panel;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                root.SetActive(true);
+                typeof(PlaySettingsView).GetMethod("OnEnable",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, null);
                 MatchRuleSettings.TryCreate(10, 1, 0.5f, 1, "fruit", out var rules, out _);
                 view.SetDraft(new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "playground", rules));
                 var change = typeof(PlaySettingsView).GetMethod("ChangeRule",
@@ -247,13 +252,22 @@ namespace Game.Tests.EditMode
             public ReadOnlyReactiveProperty<bool> IsLocalHost => host;
             public ReadOnlyReactiveProperty<PlaySettingsDraft> Settings => settings;
             public int ApplyCount;
+            public int StartCount;
             public event Action StartRequested { add { } remove { } }
             public event Action<string> KickRequested { add { } remove { } }
             public event Action<string> HostTransferRequested { add { } remove { } }
             public event Action<PlaySettingsDraft> SettingsApplyRequested { add { } remove { } }
             public void SetLocalHost(bool value) => host.Value = value;
             public void ReplaceSettings(PlaySettingsDraft value) => settings.Value = value;
-            public void RequestStart() { }
+            public void RequestStart()
+            {
+                if (!host.CurrentValue)
+                {
+                    return;
+                }
+
+                StartCount++;
+            }
             public void RequestKick(string id) { }
             public void RequestHostTransfer(string id) { }
             public void RequestApplySettings(PlaySettingsDraft value) { ApplyCount++; settings.Value = value; }
@@ -271,8 +285,8 @@ namespace Game.Tests.EditMode
             public event Action CopyRoomCodeRequested { add { } remove { } }
             public event Action InviteRequested { add { } remove { } }
             public event Action CopyPasswordRequested { add { } remove { } }
-            public event Action SaveTitleRequested;
-            public void SaveTitle() => SaveTitleRequested?.Invoke();
+            public event Action StartRequested;
+            public void RequestStart() => StartRequested?.Invoke();
             public void SetVisible(bool value) => Visible = value;
             public void SetEditable(bool value) => Editable = value;
             public void SetDraft(PlaySettingsDraft value) => Draft = value;

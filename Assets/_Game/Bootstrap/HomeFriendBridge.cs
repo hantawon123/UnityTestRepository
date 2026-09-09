@@ -547,6 +547,9 @@ namespace Game.Bootstrap
                 case BackendFailure.NotFriends:
                     return "친구가 아닙니다";
 
+                case BackendFailure.TargetInGame:
+                    return "게임 중인 친구입니다";
+
                 case BackendFailure.SelfRequest:
                     return "자기 자신에게는 보낼 수 없습니다";
 

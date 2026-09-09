@@ -120,6 +120,23 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Prompt_UsesDeskCenterAndBlackRoomSettingsLabel()
+        {
+            boardObject = new GameObject("LobbyPlanBoard");
+            boardObject.transform.position = new Vector3(-2.7f, 1.35f, -3f);
+            var box = boardObject.AddComponent<BoxCollider>();
+            box.size = new Vector3(0.8f, 1.08f, 1.7f);
+            var board = boardObject.AddComponent<LobbyPlanBoardInteractable>();
+
+            Assert.That(board.InteractionPrompt, Is.EqualTo("방 설정"));
+            Assert.That(board.InteractionPromptColor, Is.EqualTo(Color.black));
+            Assert.That(board.TryGetInteractionPromptWorldPosition(out var world), Is.True);
+            Assert.That(world.x, Is.EqualTo(box.bounds.center.x).Within(0.001f));
+            Assert.That(world.z, Is.EqualTo(box.bounds.center.z).Within(0.001f));
+            Assert.That(world.y, Is.EqualTo(box.bounds.min.y + InteractionPromptView.WorldLift).Within(0.001f));
+        }
+
+        [Test]
         public void WithoutOutline_BindStillWorks()
         {
             boardObject = new GameObject("LobbyPlanBoard");

@@ -639,6 +639,7 @@ namespace Game.Network.Session
 
         public int DestructionLimit => _destructionLimit;
         public MatchRuleSettings MatchRules => _matchRules;
+        public string AnalyticsMapId => _configuredMapId;
 
         /// <summary>
         /// Connects to the matchmaking lobby so the room list starts arriving
@@ -1041,7 +1042,7 @@ namespace Game.Network.Session
                 (destructionLimit != PlaySettingsDraft.UnlimitedDestructionLimit &&
                  (destructionLimit < PlaySettingsDraft.MinDestructionLimit ||
                   destructionLimit > PlaySettingsDraft.MaxDestructionLimit)) ||
-                !MapCatalog.Contains(mapId) ||
+                !MapCatalog.IsLobbyChoice(mapId) ||
                 !validMatchRules ||
                 (!normalizedMatchRules.UsesRandomCategory &&
                  ItemCatalog.DefinitionsInCategory(normalizedMatchRules.CategoryId).Count == 0))

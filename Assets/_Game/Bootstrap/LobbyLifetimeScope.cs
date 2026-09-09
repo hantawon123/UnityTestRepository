@@ -175,6 +175,7 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<LobbyPlayerListPresenter>();
             builder.RegisterEntryPoint<LobbyPauseMenuPresenter>();
             builder.RegisterEntryPoint<PlaySettingsPresenter>();
+            builder.RegisterEntryPoint<LobbyMatchInfoPresenter>();
             // The board in the room opens the same play settings screen; it
             // reaches the menu through IPlaySettingsOpener, which the pause
             // menu presenter implements.
@@ -574,7 +575,9 @@ namespace Game.Bootstrap
                 avatar.GetComponent<PlayerAnimationDriver>()?.ApplyNetworkState(
                     motor.AnimationSpeed,
                     motor.AnimationGrounded,
-                    motor.AttackSequence);
+                    motor.AttackSequence,
+                    new Vector2(motor.AnimationMoveX, motor.AnimationMoveZ),
+                    motor.AnimationCarrying);
             }
         }
     }

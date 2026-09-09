@@ -272,17 +272,19 @@ namespace Game.Bootstrap
             target.GetComponent<PlayerAnimationDriver>()?.ApplyNetworkState(
                 speed,
                 grounded: true,
-                attackSequence: motor != null ? motor.AttackSequence : 0);
+                attackSequence: motor != null ? motor.AttackSequence : 0,
+                planarDirectionLocal: new Vector2(0f, speed > 0.35f ? 1f : 0f),
+                carrying: false);
         }
 
         internal static string AnimationStateOf(HighlightPlayerAction action)
         {
             if ((action & HighlightPlayerAction.Stunned) != 0) return "Stunned";
             if ((action & HighlightPlayerAction.Punching) != 0) return "Punch";
-            if ((action & HighlightPlayerAction.Airborne) != 0) return "Airborne";
-            if ((action & HighlightPlayerAction.Prone) != 0) return "Crawl";
-            if ((action & HighlightPlayerAction.Crouching) != 0) return "CrouchMove";
-            return "Locomotion";
+            if ((action & HighlightPlayerAction.Airborne) != 0) return "Fall_Flutter";
+            if ((action & HighlightPlayerAction.Prone) != 0) return "Crawl_Forward";
+            if ((action & HighlightPlayerAction.Crouching) != 0) return "Crouch_Idle_KneesUp";
+            return "Idle_Breathing";
         }
     }
 }

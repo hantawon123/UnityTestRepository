@@ -108,9 +108,10 @@
 | 액션명 | 용도 |
 | --- | --- |
 | `Carry_Idle` | 물건 들고 대기 |
+| `Carry_Walk` / `Carry_Run` | 든 채 걷기·뛰기. 미리보기는 기존 이동에 오른팔 들기를 베이크 |
 | `Carry_Upper` | 서서 이동할 때 상체 들기 자세 |
-| `Carry_Crouch` | 웅크린 채 들기 |
-| `Carry_Prone` | 엎드린 채 들기 |
+| `Carry_Crouch` | 웅크린 채 들기. 오리걸음은 `Carry_Crouch_Walk_*` |
+| `Carry_Prone` | 엎드린 채 들기. 기어가기는 `Carry_Crawl_*` |
 | `Throw` | 던지기 |
 
 ### 물건 들기 연결 규칙

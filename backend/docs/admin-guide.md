@@ -3,6 +3,10 @@
 관리 화면을 만드는 사람을 위한 문서입니다. 게임 클라이언트 담당자는
 [client-guide.md](client-guide.md) 를 보세요.
 
+관리 화면은 이 서버가 `/admin` 에서 직접 서빙합니다
+(`src/main/resources/static/admin/index.html`, `global/web/AdminPageConfig`). 화면을 고치는
+사람은 그 파일을 수정하고, 화면이 부르는 API 는 아래를 따릅니다.
+
 ---
 
 ## 1. 이 API 는 다른 API 와 규칙이 다릅니다
@@ -99,7 +103,110 @@ X-XSRF-TOKEN: ...
 
 ---
 
-## 6. 알고 있어야 할 것
+## 6. 신고 검토
+
+로그인한 세션으로 부릅니다. 세션이 없으면 `401 UNAUTHORIZED` 이고, 상태를 바꾸는 PATCH 에는
+3절의 CSRF 헤더가 필요합니다(없으면 `403`).
+
+신고를 접수하는 `POST /api/v1/reports` 는 게임 클라이언트가 인증 없이 부르는 반대 성격의
+API 이고, 여기서 다루지 않습니다.
+
+### 신고당한 사람 목록
+
+```
+GET /api/v1/admin/reports?status=PENDING
+```
+
+`status` 는 생략하면 `PENDING` 입니다. `ACTIONED` 나 `DISMISSED` 를 주면 이미 검토한 것을
+봅니다. 지난 판단을 확인할 방법이 없으면 "그때 왜 기각했지"를 DB 를 열어야 알게 됩니다.
+
+신고 한 건씩이 아니라 **사람 단위로 묶어서** 옵니다. 한 건씩 나열하면 같은 사람에 대한
+다섯 건이 흩어져 나와, 그 사람이 문제인지 신고한 사람이 문제인지 구분되지 않습니다.
+
+```json
+{
+  "users": [
+    {
+      "userId": "...",
+      "nickname": "...",
+      "reportCount": 7,
+      "reporterCount": 5,
+      "fromDeletedAccounts": 0,
+      "reasons": { "ABUSE": 5, "SPAM": 2 },
+      "lastReportedAt": "20260909120000"
+    }
+  ]
+}
+```
+
+| 필드 | 뜻 |
+| --- | --- |
+| `userId` | 신고당한 사람의 공개 식별자. 상세 조회와 마무리에 씁니다 |
+| `nickname` | 지금 닉네임. 바뀔 수 있으니 표시에만 씁니다 |
+| `reportCount` / `reporterCount` | 건수와 신고한 사람 수. **함께 봐야 합니다.** "3건 1명"은 신고한 쪽이, "7건 5명"은 신고당한 쪽이 의심스럽습니다 |
+| `fromDeletedAccounts` | 신고자가 탈퇴해 누구인지 알 수 없는 건수. `reporterCount` 에 섞지 않습니다 |
+| `reasons` | 사유별 건수. 키는 `ABUSE`, `CHEATING`, `SPAM`, `INAPPROPRIATE_NAME`, `OTHER` |
+| `lastReportedAt` | 가장 최근 신고 시각. `yyyyMMddHHmmss`, UTC |
+
+없으면 `users` 가 빈 배열입니다.
+
+### 한 사람의 신고 상세
+
+```
+GET /api/v1/admin/reports/{userId}
+GET /api/v1/admin/reports/{userId}?status=PENDING
+```
+
+`status` 를 주면 그 상태만, 비우면 전부 봅니다. 목록의 사유 분포로 부족할 때 펼쳐 봅니다.
+최근 순입니다.
+
+```json
+{
+  "reports": [
+    { "reason": "ABUSE", "memo": "...", "createdAt": "20260909120000", "status": "PENDING" }
+  ]
+}
+```
+
+`memo` 는 신고자가 적은 한 줄이고 없으면 `null` 입니다. 신고가 없는 사람은 빈 배열이고,
+없는 계정은 `404 TARGET_NOT_FOUND` 입니다. 구분하지 않으면 오타로 부른 것과 정상 조회가
+같아 보입니다.
+
+### 마무리
+
+```
+PATCH /api/v1/admin/reports/{userId}
+Content-Type: application/json
+X-XSRF-TOKEN: ...
+
+{ "status": "ACTIONED" }
+```
+
+그 사람의 **미검토 신고를 한 번에** 마무리합니다. 경로가 신고 번호가 아니라 사용자인
+이유입니다 — 다섯 건 쌓인 사람을 다섯 번 누르게 할 이유가 없습니다.
+
+`status` 는 `ACTIONED`(실제 문제였음) 또는 `DISMISSED`(조치할 것 없음) 입니다. 이미 검토한
+신고는 그대로 두고, 검토 뒤에 새로 들어온 것만 미검토로 남아 다음 차례에 다시 올라옵니다.
+누가 마무리했는지는 로그인 아이디로 남습니다.
+
+```json
+{ "reviewed": 3 }
+```
+
+`reviewed` 는 이번 요청이 마무리한 건수입니다. 처리할 것이 없어도 `200` 이고 `reviewed` 가
+`0` 입니다. 두 사람이 같은 화면을 보다가 둘 다 눌렀을 때 뒤에 누른 쪽에 오류를 주면 무엇이
+잘못됐는지 알 수 없는데, 원하는 결과는 이미 이루어져 있습니다.
+
+| 응답 | 뜻 |
+| --- | --- |
+| `400 INVALID_REQUEST` | `status` 가 없거나, `PENDING` 이거나, 알 수 없는 값. `PENDING` 으로 되돌리는 것은 검토 취소라 막습니다 |
+| `401 UNAUTHORIZED` | 로그인 세션이 없음 |
+| `403` | CSRF 헤더가 없거나 쿠키와 다름 |
+| `404 TARGET_NOT_FOUND` | 그 `userId` 의 계정이 없음 |
+
+---
+
+## 7. 알고 있어야 할 것
 
 **계정이 하나이고 팀이 공유합니다.** 누가 무엇을 했는지 구분할 수 없습니다. 사람마다
 계정을 나눌 일이 생기면 그때 계정 테이블을 만들어야 합니다.
@@ -107,5 +214,6 @@ X-XSRF-TOKEN: ...
 **로그인 시도 횟수를 제한하지 않습니다.** 실패는 서버 로그에 남지만 막지는 않습니다.
 비밀번호를 길게 쓰세요.
 
-**관리 화면은 같은 도메인 아래 두는 것을 전제로 합니다.** 다른 곳에 배포하면 쿠키가
-교차 출처가 되어 CORS 와 `SameSite` 설정이 따로 필요합니다.
+**관리 화면은 같은 도메인 아래 두는 것을 전제로 합니다.** 지금은 이 서버가 `/admin` 으로
+직접 서빙하므로 이미 그렇습니다. 다른 곳에 배포하면 쿠키가 교차 출처가 되어 CORS 와
+`SameSite` 설정이 따로 필요합니다.

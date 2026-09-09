@@ -41,6 +41,19 @@ curl -sS --max-time 5 -o /dev/null -w '%{http_code}\n' https://j15d205.p.ssafy.i
 printf '분석 DB 준비 로그: '
 docker logs d205-app --tail 500 2>&1 | grep -E '분석 DB' | tail -1 || echo '없음'
 
+echo
+echo "=== 상시 연결 (알림 WebSocket) ==="
+# 클라이언트마다 연결 하나를 상시 붙들고 있습니다(883·890). 받을 수 있는 수는 nginx 의
+# worker_connections 와 앱의 server.tomcat.max-connections(application.yml, 8192) 중
+# 작은 쪽입니다. nginx 전역 설정은 저장소에 없어 여기서 읽습니다. 기본값 768 이면
+# 그쪽이 먼저 막히고, 프록시라 접속자 하나가 연결 둘(클라이언트↔nginx, nginx↔앱)을 씁니다.
+printf 'nginx worker_connections: '
+sudo nginx -T 2>/dev/null | grep -m1 -oE 'worker_connections\s+[0-9]+' | awk '{print $2}' || echo '읽기 실패 (sudo 필요)'
+printf '지금 443 에 맺힌 연결: '
+ss -Htan state established '( sport = :443 )' 2>/dev/null | wc -l
+printf '앱 8080 에 맺힌 연결: '
+ss -Htan state established '( sport = :8080 )' 2>/dev/null | wc -l
+
 if [ ! -r "$ENV_FILE" ]; then
     echo
     echo "(DB 확인 생략: $ENV_FILE 을 읽을 수 없습니다)"
