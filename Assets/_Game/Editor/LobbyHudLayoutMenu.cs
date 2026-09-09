@@ -60,7 +60,6 @@ namespace Game.Editor
             var root = hud.transform as RectTransform;
             var playerList = GetOrCreateSlot(root, "PlayerListRoot", new Color(0.15f, 0.16f, 0.2f, 0.75f));
             var chat = GetOrCreateSlot(root, "ChatRoot", new Color(0.15f, 0.16f, 0.2f, 0.75f));
-            var voice = GetOrCreateSlot(root, "VoiceButton", new Color(0.25f, 0.25f, 0.28f, 0.9f));
 
             // Sits under the always-on category/map card in the top-right.
             Place(
@@ -73,18 +72,9 @@ namespace Game.Editor
                 Anchor.BottomLeft,
                 new Vector2(MatchChatView.Margin, MatchChatView.Margin),
                 new Vector2(MatchChatView.InputWidth, 306f));
-            Place(
-                voice,
-                Anchor.BottomRight,
-                new Vector2(-LobbyShortcutGuideView.MarginRight, LobbyShortcutGuideView.VoiceBottom),
-                new Vector2(72f, 72f));
 
             SetLabel(playerList, string.Empty);
             SetLabel(chat, string.Empty);
-            SetLabel(voice, "MIC");
-            // The only always-on button left. Muting happens mid-sentence, which
-            // is too fast for a menu that has to be opened first.
-            EnsureButton(voice.gameObject);
             EnsurePlayerListContent(playerList);
             EnsureChatContent(chat);
 
@@ -98,6 +88,7 @@ namespace Game.Editor
             DestroyIfExists(root, "PlaySettingsButton");
             DestroyIfExists(root, "KeyGuideButton");
             DestroyIfExists(root, "KeyGuidePanel");
+            DestroyIfExists(root, "VoiceButton");
 
             var playerListView = playerList.GetComponent<LobbyPlayerListView>();
             if (playerListView == null)
@@ -135,12 +126,9 @@ namespace Game.Editor
             }
 
             var voiceSo = new SerializedObject(voiceView);
-            voiceSo.FindProperty("muteButton").objectReferenceValue =
-                voice.GetComponent<Button>();
-            voiceSo.FindProperty("background").objectReferenceValue =
-                voice.GetComponent<Image>();
-            voiceSo.FindProperty("label").objectReferenceValue =
-                voice.Find("Label")?.GetComponent<Text>();
+            voiceSo.FindProperty("muteButton").objectReferenceValue = null;
+            voiceSo.FindProperty("background").objectReferenceValue = null;
+            voiceSo.FindProperty("label").objectReferenceValue = null;
             voiceSo.ApplyModifiedPropertiesWithoutUndo();
 
             var chatBubbleView = EnsureChatBubbleWorld(scope.transform);
@@ -152,7 +140,6 @@ namespace Game.Editor
             var hudSo = new SerializedObject(hud);
             hudSo.FindProperty("playerListRoot").objectReferenceValue = playerList;
             hudSo.FindProperty("chatRoot").objectReferenceValue = chat;
-            hudSo.FindProperty("voiceButton").objectReferenceValue = voice;
             hudSo.ApplyModifiedPropertiesWithoutUndo();
 
             var playerListSo = new SerializedObject(playerListView);

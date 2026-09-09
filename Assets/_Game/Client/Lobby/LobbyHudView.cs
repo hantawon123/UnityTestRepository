@@ -27,9 +27,6 @@ namespace Game.Client.Lobby
 
         [SerializeField]
         private RectTransform chatRoot;
-
-        [SerializeField]
-        private RectTransform voiceButton;
         private TextMeshProUGUI countdown;
         private string lastCountdownText;
 
@@ -103,7 +100,7 @@ namespace Game.Client.Lobby
 
         public LobbyShortcutGuideView EnsureShortcutGuide()
         {
-            PlaceVoiceAboveShortcuts();
+            HideVoiceButton();
             return LobbyShortcutGuideView.Ensure(transform);
         }
 
@@ -124,18 +121,17 @@ namespace Game.Client.Lobby
             EnsureMatchInfo()?.SetInfo(categoryLabel, mapLabel);
         }
 
-        private void PlaceVoiceAboveShortcuts()
+        /// <summary>
+        /// The talk keys still run through <c>VoicePresenter</c>. The corner
+        /// button is gone because a captured cursor cannot reach it.
+        /// </summary>
+        private void HideVoiceButton()
         {
-            if (voiceButton == null)
+            var slot = transform.Find("VoiceButton");
+            if (slot != null)
             {
-                return;
+                slot.gameObject.SetActive(false);
             }
-
-            voiceButton.anchorMin = voiceButton.anchorMax = new Vector2(1f, 0f);
-            voiceButton.pivot = new Vector2(1f, 0f);
-            voiceButton.anchoredPosition = new Vector2(
-                -LobbyShortcutGuideView.MarginRight,
-                LobbyShortcutGuideView.VoiceBottom);
         }
 
         private void PlacePlayerListBelowMatchInfo()

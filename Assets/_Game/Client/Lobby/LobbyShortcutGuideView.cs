@@ -33,12 +33,6 @@ namespace Game.Client.Lobby
             "환경설정"
         };
 
-        /// <summary>
-        /// Bottom offset for HUD that must sit above this row (key box plus a
-        /// 16 px gap). Voice used the same corner before this row existed.
-        /// </summary>
-        public static float VoiceBottom => MarginBottom + KeyBoxSize + 16f;
-
         public static LobbyShortcutGuideView Create(Transform parent)
         {
             var root = new GameObject(RootName, typeof(RectTransform));
