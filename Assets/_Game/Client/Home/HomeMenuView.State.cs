@@ -62,6 +62,12 @@ namespace Game.Client.Home
         private RectTransform profileChip;
 
         private readonly List<Button> menuButtons = new List<Button>();
+
+        /// <summary>
+        /// The hairline of each bottom-bar button, by what it opens.
+        /// </summary>
+        private readonly Dictionary<HomeMenuAction, HomeHoverHighlight> actionHighlights =
+            new Dictionary<HomeMenuAction, HomeHoverHighlight>();
         private TMP_FontAsset koreanFont;
         private GameObject friendListRoot;
         private GameObject friendListBody;
@@ -174,6 +180,7 @@ namespace Game.Client.Home
         {
             ClearButtons(menuButtons);
             ClearRowButtons(requestRows);
+            actionHighlights.Clear();
 
             if (dismissButton != null)
             {
@@ -242,6 +249,7 @@ namespace Game.Client.Home
 
         public void SetProfileSettingsVisible(bool visible)
         {
+            SetActionSelected(HomeMenuAction.ProfileSettings, visible);
             if (profileSettingsRoot == null)
             {
                 return;
@@ -250,8 +258,26 @@ namespace Game.Client.Home
             profileSettingsRoot.SetActive(visible);
         }
 
+        /// <summary>
+        /// Marks the button that opens a panel while that panel is up.
+        /// </summary>
+        /// <remarks>
+        /// Driven from the same setters the presenter already calls, so the
+        /// mark cannot drift from what is on screen: there is no second flag
+        /// to keep in step, and a panel closed by any route clears its own.
+        /// </remarks>
+        private void SetActionSelected(HomeMenuAction action, bool selected)
+        {
+            if (actionHighlights.TryGetValue(action, out var highlight)
+                && highlight != null)
+            {
+                highlight.SetSelected(selected);
+            }
+        }
+
         public void SetFriendListVisible(bool visible)
         {
+            SetActionSelected(HomeMenuAction.Friends, visible);
             if (friendListRoot == null)
             {
                 return;

@@ -299,8 +299,12 @@ namespace Game.Client.Home
             button.onClick.AddListener(() => ActionClicked?.Invoke(action));
             menuButtons.Add(button);
 
-            rect.gameObject.AddComponent<HomeHoverHighlight>()
-                .Bind(fill, stroke, normal, HomeStyle.Palette.HoverFill);
+            var highlight = rect.gameObject.AddComponent<HomeHoverHighlight>();
+            highlight.Bind(fill, stroke, normal, HomeStyle.Palette.HoverFill);
+
+            // Kept so the panels can point back at the button that opens them.
+            // Rebuilding the layout re-registers over the same key.
+            actionHighlights[action] = highlight;
         }
 
         /// <summary>

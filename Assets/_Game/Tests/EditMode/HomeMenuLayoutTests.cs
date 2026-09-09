@@ -173,6 +173,57 @@ namespace Game.Tests.EditMode
         /// <summary>
         /// A Home screen assembled in memory, torn down with the test.
         /// </summary>
+        /// <summary>
+        /// An open panel marks the button that opened it, without the pointer.
+        /// </summary>
+        /// <remarks>
+        /// The outline used to mean "the pointer is here" and nothing else, so
+        /// a player with a panel open and the mouse anywhere else had no way to
+        /// tell which of the three buttons they were inside.
+        /// </remarks>
+        [Test]
+        public void OpeningAPanel_OutlinesTheButtonThatOpensIt()
+        {
+            using var home = new BuiltHome();
+
+            foreach (var pair in PanelButtons)
+            {
+                var stroke = home.Stroke(pair.Key);
+                Assert.That(stroke.enabled, Is.False, $"{pair.Key} starts outlined.");
+
+                pair.Value(home.View, true);
+                Assert.That(
+                    stroke.enabled, Is.True, $"{pair.Key} is not outlined while its panel is up.");
+
+                pair.Value(home.View, false);
+                Assert.That(
+                    stroke.enabled, Is.False, $"{pair.Key} stays outlined after its panel closes.");
+            }
+        }
+
+        /// <summary>
+        /// Opening one panel does not leave another button outlined.
+        /// </summary>
+        [Test]
+        public void OpeningAPanel_LeavesTheOtherButtonsUnmarked()
+        {
+            using var home = new BuiltHome();
+
+            home.View.SetFriendListVisible(true);
+
+            Assert.That(home.Stroke("FriendButton").enabled, Is.True);
+            Assert.That(home.Stroke("ProfileChip").enabled, Is.False);
+            Assert.That(home.Stroke("ServerButton").enabled, Is.False);
+        }
+
+        private static readonly Dictionary<string, Action<HomeMenuView, bool>> PanelButtons =
+            new Dictionary<string, Action<HomeMenuView, bool>>
+            {
+                { "FriendButton", (view, visible) => view.SetFriendListVisible(visible) },
+                { "ProfileChip", (view, visible) => view.SetProfileSettingsVisible(visible) },
+                { "ServerButton", (view, visible) => view.SetServerSettingsVisible(visible) }
+            };
+
         private sealed class BuiltHome : IDisposable
         {
             private readonly GameObject root;
@@ -225,6 +276,16 @@ namespace Game.Tests.EditMode
             public string Label(string name)
             {
                 return Rect(name).GetComponent<TMPro.TMP_Text>().text;
+            }
+
+            /// <summary>
+            /// The outline drawn under a bottom-bar button.
+            /// </summary>
+            public Image Stroke(string buttonName)
+            {
+                var stroke = Rect(buttonName).Find("Stroke");
+                Assert.That(stroke, Is.Not.Null, $"{buttonName} draws no Stroke.");
+                return stroke.GetComponent<Image>();
             }
 
             public void Dispose()
