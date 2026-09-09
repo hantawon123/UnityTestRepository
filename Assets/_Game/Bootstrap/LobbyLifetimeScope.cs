@@ -84,6 +84,10 @@ namespace Game.Bootstrap
         private bool[] stagingBehaviourStates = Array.Empty<bool>();
         private Behaviour[] outgoingBehaviours = Array.Empty<Behaviour>();
         private bool[] outgoingBehaviourStates = Array.Empty<bool>();
+        private Renderer[] outgoingRenderers = Array.Empty<Renderer>();
+        private bool[] outgoingRendererStates = Array.Empty<bool>();
+        private Collider[] outgoingColliders = Array.Empty<Collider>();
+        private bool[] outgoingColliderStates = Array.Empty<bool>();
         private bool highlightStaging;
         private bool stagingVisible;
 
@@ -361,8 +365,12 @@ namespace Game.Bootstrap
                 FindObjectsInactive.Include);
             if (playground == null) return;
             var outgoing = new List<Behaviour>();
+            var outgoingMeshes = new List<Renderer>();
+            var outgoingBodies = new List<Collider>();
             foreach (var root in playground.SceneRoots)
             {
+                outgoingMeshes.AddRange(root.GetComponentsInChildren<Renderer>(true));
+                outgoingBodies.AddRange(root.GetComponentsInChildren<Collider>(true));
                 foreach (var behaviour in root.GetComponentsInChildren<Behaviour>(true))
                 {
                     if (behaviour is Camera or Canvas or AudioListener or AudioSource or
@@ -374,6 +382,14 @@ namespace Game.Bootstrap
             outgoingBehaviourStates = new bool[outgoingBehaviours.Length];
             for (var index = 0; index < outgoingBehaviours.Length; index++)
                 outgoingBehaviourStates[index] = outgoingBehaviours[index].enabled;
+            outgoingRenderers = outgoingMeshes.ToArray();
+            outgoingRendererStates = new bool[outgoingRenderers.Length];
+            for (var index = 0; index < outgoingRenderers.Length; index++)
+                outgoingRendererStates[index] = outgoingRenderers[index].forceRenderingOff;
+            outgoingColliders = outgoingBodies.ToArray();
+            outgoingColliderStates = new bool[outgoingColliders.Length];
+            for (var index = 0; index < outgoingColliders.Length; index++)
+                outgoingColliderStates[index] = outgoingColliders[index].enabled;
         }
 
         private void SetStagingVisible(bool visible)
@@ -397,12 +413,29 @@ namespace Game.Bootstrap
                         !visible && outgoingBehaviourStates[index];
             if (visible && gameObject.scene.isLoaded)
             {
+                // The outgoing scene can stay loaded until every peer finishes.
+                // Hide its geometry and collisions before revealing the lobby.
+                for (var index = 0; index < outgoingRenderers.Length; index++)
+                    if (outgoingRenderers[index] != null)
+                        outgoingRenderers[index].forceRenderingOff = true;
+                for (var index = 0; index < outgoingColliders.Length; index++)
+                    if (outgoingColliders[index] != null)
+                        outgoingColliders[index].enabled = false;
                 SceneManager.SetActiveScene(gameObject.scene);
                 foreach (var cover in FindObjectsByType<HighlightTransitionView>(
                              FindObjectsInactive.Include,
                              FindObjectsSortMode.None))
                     if (cover.gameObject.name == "Highlight Transition")
                         cover.SetOpacity(0f);
+            }
+            else if (!visible)
+            {
+                for (var index = 0; index < outgoingRenderers.Length; index++)
+                    if (outgoingRenderers[index] != null)
+                        outgoingRenderers[index].forceRenderingOff = outgoingRendererStates[index];
+                for (var index = 0; index < outgoingColliders.Length; index++)
+                    if (outgoingColliders[index] != null)
+                        outgoingColliders[index].enabled = outgoingColliderStates[index];
             }
         }
 
