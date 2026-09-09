@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using Game.Core.Home;
 using Game.Core.Lobby;
+using Game.Core.Ports;
 using R3;
 using VContainer.Unity;
 
@@ -12,11 +15,13 @@ namespace Game.Client.Lobby
         private readonly ILobbyParticipantList participantList;
         private readonly ILobbyHostSession hostSession;
         private readonly FriendListSystem friends;
+        private readonly IInviteGateway invites;
         private readonly ILobbyPlayerListView view;
         private readonly ILobbyPlayerCountView countView;
         private readonly ILobbyConfirmView kickConfirmView;
         private readonly ILobbyConfirmView transferConfirmView;
 
+        private readonly CancellationTokenSource lifetime = new();
         private IDisposable refreshSubscription;
         private string pendingPlayerId;
         private bool pendingIsKick;
@@ -25,6 +30,7 @@ namespace Game.Client.Lobby
             ILobbyParticipantList participantList,
             ILobbyHostSession hostSession,
             FriendListSystem friends,
+            IInviteGateway invites,
             ILobbyPlayerListView view,
             ILobbyPlayerCountView countView,
             IKickConfirmView kickConfirmView,
@@ -34,6 +40,7 @@ namespace Game.Client.Lobby
                 ?? throw new ArgumentNullException(nameof(participantList));
             this.hostSession = hostSession ?? throw new ArgumentNullException(nameof(hostSession));
             this.friends = friends ?? throw new ArgumentNullException(nameof(friends));
+            this.invites = invites ?? throw new ArgumentNullException(nameof(invites));
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.countView = countView ?? throw new ArgumentNullException(nameof(countView));
             this.kickConfirmView = kickConfirmView
@@ -49,6 +56,7 @@ namespace Game.Client.Lobby
 
             view.KickClicked += OnKickClicked;
             view.TransferClicked += OnTransferClicked;
+            view.InviteClicked += OnInviteClicked;
             kickConfirmView.Confirmed += ConfirmPending;
             kickConfirmView.Cancelled += CancelPending;
             transferConfirmView.Confirmed += ConfirmPending;
@@ -77,6 +85,9 @@ namespace Game.Client.Lobby
         {
             view.KickClicked -= OnKickClicked;
             view.TransferClicked -= OnTransferClicked;
+            view.InviteClicked -= OnInviteClicked;
+            lifetime.Cancel();
+            lifetime.Dispose();
             kickConfirmView.Confirmed -= ConfirmPending;
             kickConfirmView.Cancelled -= CancelPending;
             transferConfirmView.Confirmed -= ConfirmPending;
@@ -93,6 +104,17 @@ namespace Game.Client.Lobby
             combined.AddRange(online);
             combined.AddRange(offline);
             view.SetFriends(combined);
+        }
+
+        private void OnInviteClicked(string playerId, string _)
+        {
+            var roomCode = hostSession.Settings.CurrentValue.RoomCode;
+            if (string.IsNullOrWhiteSpace(playerId) || string.IsNullOrWhiteSpace(roomCode))
+            {
+                return;
+            }
+
+            invites.SendAsync(playerId, roomCode, lifetime.Token).Forget();
         }
 
         private void OnKickClicked(string playerId, string displayName)

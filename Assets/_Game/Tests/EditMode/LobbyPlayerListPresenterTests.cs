@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using Game.Client.Lobby;
+using Game.Core.Backend;
 using Game.Core.Home;
 using Game.Core.Lobby;
+using Game.Core.Ports;
 using NUnit.Framework;
 using R3;
 
@@ -25,6 +29,7 @@ namespace Game.Tests.EditMode
                 list,
                 host,
                 new FriendListSystem(),
+                new FakeInviteGateway(),
                 view,
                 count,
                 new FakeConfirmView(),
@@ -55,6 +60,7 @@ namespace Game.Tests.EditMode
                 list,
                 host,
                 friends,
+                new FakeInviteGateway(),
                 view,
                 new FakeCountView(),
                 new FakeConfirmView(),
@@ -91,6 +97,7 @@ namespace Game.Tests.EditMode
                 list,
                 host,
                 new FriendListSystem(),
+                new FakeInviteGateway(),
                 view,
                 new FakeCountView(),
                 kickConfirm,
@@ -102,6 +109,29 @@ namespace Game.Tests.EditMode
 
             Assert.That(kicked, Is.EqualTo(new[] { "player-2" }));
             Assert.That(kickConfirm.IsVisible, Is.False);
+        }
+
+        [Test]
+        public void InviteClicked_SendsTheFriendTheCurrentRoomCode()
+        {
+            var list = new LobbyParticipantList(Array.Empty<LobbyParticipant>());
+            var host = CreateHostSession(true);
+            var invites = new FakeInviteGateway();
+            var view = new FakePlayerListView();
+            using var presenter = new LobbyPlayerListPresenter(
+                list,
+                host,
+                new FriendListSystem(),
+                invites,
+                view,
+                new FakeCountView(),
+                new FakeConfirmView(),
+                new FakeConfirmView());
+
+            presenter.Start();
+            view.RaiseInvite("friend-9", "친구닉");
+
+            Assert.That(invites.Sent, Is.EqualTo(new[] { ("friend-9", "CODE") }));
         }
 
         [Test]
@@ -172,6 +202,7 @@ namespace Game.Tests.EditMode
 
             public event Action<string, string> KickClicked;
             public event Action<string, string> TransferClicked;
+            public event Action<string, string> InviteClicked;
 
             public void SetParticipants(
                 IReadOnlyList<LobbyParticipant> participants,
@@ -189,6 +220,34 @@ namespace Game.Tests.EditMode
             }
 
             public void RaiseKick(string id, string name) => KickClicked?.Invoke(id, name);
+
+            public void RaiseInvite(string id, string name) => InviteClicked?.Invoke(id, name);
+        }
+
+        private sealed class FakeInviteGateway : IInviteGateway
+        {
+            public List<(string PlayerId, string RoomCode)> Sent { get; } = new();
+
+            public UniTask<BackendResult> SendAsync(
+                string playerId, string roomCode, CancellationToken cancellation)
+            {
+                Sent.Add((playerId, roomCode));
+                return UniTask.FromResult(BackendResult.Success());
+            }
+
+            public UniTask<BackendResult<IReadOnlyList<RoomInvitation>>> ListAsync(
+                CancellationToken cancellation)
+            {
+                return UniTask.FromResult(
+                    BackendResult<IReadOnlyList<RoomInvitation>>.Success(
+                        Array.Empty<RoomInvitation>()));
+            }
+
+            public UniTask<BackendResult> DeclineAsync(
+                string playerId, CancellationToken cancellation)
+            {
+                return UniTask.FromResult(BackendResult.Success());
+            }
         }
 
         private sealed class FakeCountView : ILobbyPlayerCountView

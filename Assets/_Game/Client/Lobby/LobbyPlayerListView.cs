@@ -54,6 +54,7 @@ namespace Game.Client.Lobby
 
         public event Action<string, string> KickClicked;
         public event Action<string, string> TransferClicked;
+        public event Action<string, string> InviteClicked;
 
         public string ParticipantsTitleText =>
             participantsTitle != null ? participantsTitle.text : string.Empty;
@@ -126,14 +127,24 @@ namespace Game.Client.Lobby
 
             for (var index = 0; index < friends.Count; index++)
             {
-                CreateRow(
+                var friend = friends[index];
+                var row = CreateRow(
                     friendRowRoot,
                     friendRows,
-                    $"Friend_{friends[index].PlayerId}",
-                    friends[index].Nickname,
+                    $"Friend_{friend.PlayerId}",
+                    friend.Nickname,
                     showLeader: false,
                     showKick: false,
                     showAdd: true);
+                var add = row.Find("Add")?.GetComponent<Button>();
+                if (add == null)
+                {
+                    continue;
+                }
+
+                var playerId = friend.PlayerId;
+                var nickname = friend.Nickname;
+                add.onClick.AddListener(() => InviteClicked?.Invoke(playerId, nickname));
             }
         }
 

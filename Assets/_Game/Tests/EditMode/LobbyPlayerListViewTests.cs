@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Client.Lobby;
 using Game.Core.Home;
@@ -181,6 +182,11 @@ namespace Game.Architecture.Tests
                     Assert.That(add.GetComponent<Button>(), Is.Not.Null);
                     Assert.That(add.GetComponent<Image>().sprite, Is.Not.Null);
                 }
+
+                var invited = new List<(string Id, string Name)>();
+                view.InviteClicked += (id, name) => invited.Add((id, name));
+                friends.Find("Friend_f-1/Add").GetComponent<Button>().onClick.Invoke();
+                Assert.That(invited, Is.EqualTo(new[] { ("f-1", "초대할까말까할까말까") }));
             }
             finally
             {
