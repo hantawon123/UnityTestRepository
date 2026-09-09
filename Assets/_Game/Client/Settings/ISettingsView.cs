@@ -186,6 +186,23 @@ namespace Game.Client.Settings
         void HideFeedback();
 
         /// <summary>
+        /// The send went through: the panel comes down and listeners hear the
+        /// same <see cref="FeedbackDismissed"/> as a panel closed by hand.
+        /// </summary>
+        /// <remarks>
+        /// One method rather than letting the sender call
+        /// <see cref="HideFeedback"/> itself. Hiding without the event leaves
+        /// the presenter believing the panel is still up, and while it believes
+        /// that, Escape closes a panel that is not there instead of the screen.
+        /// <para>
+        /// The box is not emptied here. <see cref="ShowFeedback"/> empties on
+        /// the way in, so the next visit starts blank whatever brought this one
+        /// down.
+        /// </para>
+        /// </remarks>
+        void FeedbackSent();
+
+        /// <summary>
         /// Turns 보내기 on or off, which is the panel's whole account of
         /// whether there is anything worth sending.
         /// </summary>

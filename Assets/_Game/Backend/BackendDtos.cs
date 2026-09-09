@@ -150,6 +150,25 @@ namespace Game.Backend
     }
 
     [Serializable]
+    internal sealed class SendFeedbackRequestDto
+    {
+        /// <summary>플레이어가 쓴 글. 500자까지. 화면의 입력 상한과 같은 값입니다.</summary>
+        public string message;
+
+        /// <summary>
+        /// 어느 빌드에서 왔나. 32자까지이고 선택입니다.
+        /// </summary>
+        /// <remarks>
+        /// JsonUtility 가 null 을 "" 로 쓰는 것이 여기서는 문제가 되지 않습니다. 서버가
+        /// 빈 문자열과 없음을 같게 보므로(client-guide 12절) 값이 없으면 저장에서 빠집니다.
+        /// </remarks>
+        public string buildVer;
+
+        /// <summary>실행 환경. 16자까지이고 선택입니다.</summary>
+        public string platform;
+    }
+
+    [Serializable]
     internal sealed class SendInviteRequestDto
     {
         public string userId;

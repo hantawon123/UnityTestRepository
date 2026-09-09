@@ -34,6 +34,11 @@ namespace Game.Bootstrap
                 .As<IHomeApplicationHost>();
             builder.RegisterComponent(settingsView).As<ISettingsView>();
             builder.RegisterEntryPoint<SettingsPresenter>();
+
+            // 피드백을 서버로 보내는 쪽. 화면과 같은 수명이라 여기 둡니다. 프로젝트
+            // 범위에 두면 설정 화면이 없을 때도 살아 있고, 그때 ISettingsView 를
+            // 해결할 수 없어 컨테이너가 기동에서 터집니다.
+            builder.RegisterEntryPoint<SettingsFeedbackBridge>();
         }
 
         /// <summary>

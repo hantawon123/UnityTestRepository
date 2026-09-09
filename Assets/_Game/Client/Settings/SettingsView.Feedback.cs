@@ -72,6 +72,12 @@ namespace Game.Client.Settings
             EndBackdrop();
         }
 
+        public void FeedbackSent()
+        {
+            HideFeedback();
+            RaiseFeedbackDismissed();
+        }
+
         /// <summary>
         /// Paints and arms 보내기. Both the colour and the interactable flag,
         /// and the hover with them: a plate that is merely grey still lights up
