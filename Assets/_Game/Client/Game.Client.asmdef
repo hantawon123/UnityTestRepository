@@ -9,6 +9,7 @@
         "Unity.TextMeshPro",
         "UnityEngine.UI",
         "Unity.Cinemachine",
+        "UniTask",
         "VContainer"
     ],
     "includePlatforms": [],

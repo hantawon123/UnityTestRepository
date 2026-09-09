@@ -1,5 +1,6 @@
 using System;
 using Game.Client.Home;
+using Game.Core.Ports;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,16 +11,11 @@ namespace Game.Client.Lobby
         event Action Confirmed;
         event Action Cancelled;
 
-        void Show(string message);
+        ReportReason SelectedReason { get; }
+
+        void Show(string message, string confirmLabel);
+        void Show(string message, string confirmLabel, bool chooseReason);
         void Hide();
-    }
-
-    public interface IKickConfirmView : ILobbyConfirmView
-    {
-    }
-
-    public interface IHostTransferConfirmView : ILobbyConfirmView
-    {
     }
 
     public class LobbyConfirmView : MonoBehaviour, ILobbyConfirmView
@@ -38,6 +34,8 @@ namespace Game.Client.Lobby
 
         public event Action Confirmed;
         public event Action Cancelled;
+
+        public ReportReason SelectedReason { get; private set; } = ReportReason.Other;
 
         public static LobbyConfirmView Create(Transform parent, bool showCancel = true)
         {
@@ -122,8 +120,15 @@ namespace Game.Client.Lobby
             }
         }
 
-        public void Show(string message)
+        public void Show(string message) => Show(message, null, false);
+
+        public void Show(string message, string confirmLabel) =>
+            Show(message, confirmLabel, false);
+
+        public void Show(string message, string confirmLabel, bool chooseReason)
         {
+            _ = confirmLabel;
+            _ = chooseReason;
             HomeUiFonts.ApplyLegacy(panel != null ? panel.transform : transform);
             if (messageText != null)
             {
@@ -147,13 +152,5 @@ namespace Game.Client.Lobby
         private void HandleConfirm() => Confirmed?.Invoke();
 
         private void HandleCancel() => Cancelled?.Invoke();
-    }
-
-    public sealed class KickConfirmView : LobbyConfirmView, IKickConfirmView
-    {
-    }
-
-    public sealed class HostTransferConfirmView : LobbyConfirmView, IHostTransferConfirmView
-    {
     }
 }
