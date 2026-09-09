@@ -33,7 +33,8 @@ namespace Game.Bootstrap
             builder.Register<SettingsApplicationHost>(Lifetime.Scoped)
                 .As<IHomeApplicationHost>();
             builder.RegisterComponent(settingsView).As<ISettingsView>();
-            builder.RegisterEntryPoint<SettingsPresenter>();
+            builder.RegisterEntryPoint<SettingsPresenter>()
+                .WithParameter<System.Action>((System.Action)null);
         }
 
         /// <summary>

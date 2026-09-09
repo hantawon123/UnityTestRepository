@@ -28,13 +28,22 @@ namespace Game.Client.Interactions
     public sealed class PlayerInteractor : MonoBehaviour, ICarriedItemDropper, ICarryingState
     {
         private const int MaxAimHits = 8;
-        public bool HudVisible { get; private set; } = true;
+        private bool hudVisible = true;
+        private bool interfaceHudVisible = true;
+        public bool HudVisible => hudVisible && interfaceHudVisible;
+        public bool PresentationHudVisible => hudVisible;
+        public void SetInterfaceHudVisible(bool visible)
+        {
+            if (interfaceHudVisible == visible) return;
+            interfaceHudVisible = visible;
+            RefreshInteractionCue();
+        }
 
         private bool interactionPromptVisible = true;
 
         public void SetHudVisible(bool visible)
         {
-            HudVisible = visible;
+            hudVisible = visible;
             RefreshInteractionCue();
         }
 

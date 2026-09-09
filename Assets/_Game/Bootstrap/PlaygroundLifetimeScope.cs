@@ -107,6 +107,12 @@ namespace Game.Bootstrap
             if (matchHudView != null)
             {
                 builder.RegisterComponent(matchHudView).As<INetworkMatchHudView>();
+                builder.RegisterBuildCallback(c =>
+                {
+                    var network = c.Resolve<NetworkRunnerService>();
+                    matchHudView.gameObject.AddComponent<Game.Client.Settings.InterfaceHudView>()
+                        .Bind(c.Resolve<Game.Core.Settings.InterfaceSettingsSystem>(), () => network.LocalPingMilliseconds);
+                });
                 builder.RegisterEntryPoint<NetworkMatchHudPresenter>();
             }
 
@@ -192,10 +198,12 @@ namespace Game.Bootstrap
     {
         private readonly NetworkRunnerService network;
         private readonly Dictionary<PlayerAvatar, PlayerNameplateView> views = new();
+        private readonly Game.Core.Settings.InterfacePresentation presentation;
 
-        public InGamePlayerNameplatePresenter(NetworkRunnerService network)
+        public InGamePlayerNameplatePresenter(NetworkRunnerService network, Game.Core.Settings.InterfacePresentation presentation)
         {
             this.network = network ?? throw new ArgumentNullException(nameof(network));
+            this.presentation = presentation;
         }
 
         public void Tick()
@@ -215,10 +223,7 @@ namespace Game.Bootstrap
                     views[avatar] = view;
                 }
 
-                if (!view.HasNickname)
-                {
-                    view.SetNickname(avatar.Nickname.ToString());
-                }
+                view.SetNickname(presentation.Name(avatar.PlayerId, avatar.Nickname.ToString()));
             }
         }
 
