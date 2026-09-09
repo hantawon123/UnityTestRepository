@@ -142,6 +142,7 @@ namespace Game.Server.Match
         private const double HighlightRecordingDelaySeconds = 1d;
         public const double HighlightPostRollSeconds = HighlightPresentationTiming.PostRollSeconds;
         private readonly Dictionary<int, double> lastHitAt = new();
+        private readonly int[] totalHitsReceived, totalStuns;
         private readonly Dictionary<int, double> lastPlacementAt = new();
         private readonly Dictionary<int, double> lastThrowAt = new();
 
@@ -198,6 +199,8 @@ namespace Game.Server.Match
                     nameof(participantIds));
             }
 
+            totalHitsReceived = new int[playerCount];
+            totalStuns = new int[playerCount];
             completedHidingTurns = new bool[playerCount];
             heldMapObjectIdsByPlayer = new string[playerCount];
             this.placementValidator = placementValidator ??
@@ -685,11 +688,17 @@ namespace Game.Server.Match
             // lobby punches do not build stun stacks or disable anyone.
             if (state.CurrentPhase.CurrentValue == MatchPhase.Hiding)
             {
+                totalHitsReceived[targetPlayerIndex]++;
                 return HitResult.Registered;
             }
 
             var hitResult = interactions.RegisterHit(targetPlayerIndex, now);
-            if (hitResult != HitResult.Ignored) lastHitAt[attackerPlayerIndex] = now;
+            if (hitResult != HitResult.Ignored)
+            {
+                lastHitAt[attackerPlayerIndex] = now;
+                totalHitsReceived[targetPlayerIndex]++;
+            }
+            if (hitResult == HitResult.Stunned) totalStuns[targetPlayerIndex]++;
             if (hitResult != HitResult.Stunned)
             {
                 return hitResult;
@@ -728,6 +737,11 @@ namespace Game.Server.Match
         {
             return interactions.GetRemainingDestructionUses(playerIndex);
         }
+
+        // Match totals are independent of the stun stack, which resets after each stun.
+        public (int HitsReceived, int Stuns) GetCombatTotals(int playerIndex) =>
+            playerIndex >= 0 && playerIndex < totalHitsReceived.Length
+                ? (totalHitsReceived[playerIndex], totalStuns[playerIndex]) : default;
 
         public int GetHitCount(int playerIndex)
         {

@@ -641,6 +641,9 @@ namespace Game.Network.Session
 
         public int DestructionLimit => _destructionLimit;
         public MatchRuleSettings MatchRules => _matchRules;
+        public (int HitsReceived, int Stuns) GetCombatTotals(int playerIndex) =>
+            _matchStarter?.GetCombatTotals(playerIndex) ?? default;
+
         public string AnalyticsMapId => _configuredMapId;
 
         /// <summary>

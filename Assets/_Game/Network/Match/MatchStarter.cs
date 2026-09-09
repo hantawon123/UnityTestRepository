@@ -846,6 +846,9 @@ namespace Game.Network.Match
             return _state.TrySetObjectReleased(objectId, pose, initialVelocity);
         }
 
+        public (int HitsReceived, int Stuns) GetCombatTotals(int playerIndex) =>
+            _session?.GetCombatTotals(playerIndex) ?? default;
+
         public bool TryConfirmObjectPhysicsPose(string objectId, Pose pose, Vector3 velocity,
             bool moving, int expectedVersion)
         {

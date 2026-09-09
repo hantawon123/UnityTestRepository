@@ -85,6 +85,7 @@ namespace Game.Bootstrap
             {
                 if (!network.TryGetPlayerPose(player.PlayerId, out var pose)) continue;
                 var data = new MatchAnalyticsParams { seat = player.PlayerIndex, rotation_y = pose.rotation.eulerAngles.y };
+                (data.total_hits_received, data.total_stuns) = network.GetCombatTotals(player.PlayerIndex);
                 if (network.TryGetPlayerReplayState(player.PlayerId, out var action))
                 {
                     data.posture = action.Posture.ToString();
@@ -141,7 +142,9 @@ namespace Game.Bootstrap
                 var won = false;
                 foreach (var winner in result.WinnerPlayerIndices) if (winner == player.PlayerIndex) won = true;
                 network.TryGetPlayerPose(player.PlayerId, out var pose);
-                Add("player_result", new MatchAnalyticsParams { seat = player.PlayerIndex, result = won ? "Winner" : "Loser" }, player, pose.position);
+                var data = new MatchAnalyticsParams { seat = player.PlayerIndex, result = won ? "Winner" : "Loser" };
+                (data.total_hits_received, data.total_stuns) = network.GetCombatTotals(player.PlayerIndex);
+                Add("player_result", data, player, pose.position);
             }
             Finish(result.EndReason.ToString(), partial);
         }
