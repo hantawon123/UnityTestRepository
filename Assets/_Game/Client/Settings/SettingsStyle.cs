@@ -21,6 +21,14 @@ namespace Game.Client.Settings
     {
         public static readonly Vector2 ReferenceResolution = new Vector2(1920f, 1080f);
 
+        /// <summary>
+        /// Same files the play-settings picker uses. The Settings scene wires
+        /// these on the component; a view built in code, as the lobby overlay
+        /// is, has to load them itself.
+        /// </summary>
+        public const string ArrowLeftIconResource = "UI/Icon_Left";
+        public const string ArrowRightIconResource = "UI/Icon_Right";
+
         public static class Palette
         {
             public static readonly Color TextPrimary = FromHex(0xF5F3F1);

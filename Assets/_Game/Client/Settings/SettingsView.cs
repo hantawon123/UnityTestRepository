@@ -189,6 +189,7 @@ namespace Game.Client.Settings
             font = HomeUiFonts.Apply(fontAsset);
             regularFont = HomeUiFonts.ApplyRegular(regularFontAsset);
             buttonFont = buttonFontAsset != null ? buttonFontAsset : font;
+            ResolveArrowIcons();
 
             canvasRoot = CreateCanvas();
             CreateBackground(canvasRoot);
@@ -217,6 +218,25 @@ namespace Game.Client.Settings
 
             ShowTab(SettingsTab.General);
             SetActionsEnabled(false);
+        }
+
+        /// <summary>
+        /// The Settings scene assigns these in the inspector. The lobby
+        /// overlay adds this component at runtime, so the fields stay empty
+        /// unless they are loaded here — and an Image with no sprite draws
+        /// nothing.
+        /// </summary>
+        private void ResolveArrowIcons()
+        {
+            if (leftIcon == null)
+            {
+                leftIcon = Resources.Load<Sprite>(SettingsStyle.ArrowLeftIconResource);
+            }
+
+            if (rightIcon == null)
+            {
+                rightIcon = Resources.Load<Sprite>(SettingsStyle.ArrowRightIconResource);
+            }
         }
 
         /// <summary>
