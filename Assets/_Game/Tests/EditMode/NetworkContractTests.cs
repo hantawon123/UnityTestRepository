@@ -502,7 +502,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void RoomStatePrefabs_EachFitTheLegacyHeapPage()
+        public void RoomStatePrefabs_EachFitTheConfiguredHeapPage()
         {
             var sessionPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
                 "Assets/_Game/Content/Prefabs/MatchSession.prefab");
@@ -523,10 +523,13 @@ namespace Game.Architecture.Tests
                     prefab.GetComponent<Fusion.NetworkObject>());
                 Assert.That(wordCount, Is.GreaterThan(Fusion.NetworkObjectHeader.WORDS));
                 Assert.DoesNotThrow(() =>
-                    PlayerSpawner.ValidateRoomObjectStateSize(wordCount, 15));
+                    PlayerSpawner.ValidateRoomObjectStateSize(
+                        wordCount, (int)Fusion.NetworkProjectConfig.Global.Heap.PageShift));
             }
         }
 
+        [TestCase(8259, 15, false)] // Current 33,036-byte state exceeds the legacy 32 KiB page.
+        [TestCase(8259, 16, true)]
         [TestCase(10499, 15, false)] // Observed 41,996-byte MatchSession vs the old 32 KiB page.
         [TestCase(10499, 16, true)]
         [TestCase(16384, 16, true)]
