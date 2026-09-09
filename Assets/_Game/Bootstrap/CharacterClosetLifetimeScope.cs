@@ -85,6 +85,8 @@ namespace Game.Bootstrap
             public void CreateRoom(string title, bool isPublic, int maxPlayers) =>
                 fallback.CreateRoom(title, isPublic, maxPlayers);
 
+            public void JoinRoom(string roomCode) => fallback.JoinRoom(roomCode);
+
             public void OpenLobby() => fallback.OpenLobby();
         }
     }

@@ -364,6 +364,8 @@ namespace Game.Architecture.Tests
             public event Action<string> FriendRequestCancelled;
             public event Action FriendListRefreshRequested;
             public event Action<string> FriendRemoved;
+            public event Action<string> RoomInviteAccepted;
+            public event Action<string> RoomInviteDeclined;
             public event Action ServerSettingsDismissed;
             public event Action<string> RegionSelected;
             public event Action<string, bool, int> RoomCreationRequested;
@@ -406,6 +408,7 @@ namespace Game.Architecture.Tests
             public void SetOutgoingRequests(IReadOnlyList<FriendRequestSummary> requests) { }
 
             public void SetNicknameSettled(bool settled) => NicknameSettled = settled;
+            public void SetRoomInvites(IReadOnlyList<RoomInvite> invites) { }
 
             public void SetServerSettingsVisible(bool visible) { }
 

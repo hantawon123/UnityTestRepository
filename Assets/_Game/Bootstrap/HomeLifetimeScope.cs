@@ -282,6 +282,37 @@ namespace Game.Bootstrap
                     .Forget(exception => Debug.LogException(exception));
             }
 
+            public void JoinRoom(string roomCode)
+            {
+                JoinThenOpenLobbyAsync(roomCode)
+                    .Forget(exception => Debug.LogException(exception));
+            }
+
+            /// <remarks>
+            /// The invite carries no password: a friend's room is entered as the
+            /// friend meant it to be. A locked room answers with the same notice
+            /// the code field gives, which is the honest one.
+            /// </remarks>
+            private async UniTask JoinThenOpenLobbyAsync(string roomCode)
+            {
+                var result = await rooms.EnterByCodeAsync(roomCode, null, CancellationToken.None);
+                if (!result.Ok)
+                {
+                    Debug.LogWarning($"[Home] Joining an invited room failed: {result.Failure}.");
+                    view.ShowConnectionError(
+                        RoomEntryMessages.Describe(result.Failure, RoomEntrySource.RoomCode));
+                    return;
+                }
+
+                if (appFlow.CurrentState != AppFlowState.Lobby &&
+                    !appFlow.TryTransitionTo(AppFlowState.Lobby))
+                {
+                    Debug.LogError($"[Home] Opened a room from {appFlow.CurrentState}.");
+                }
+
+                OpenLobby();
+            }
+
             private async UniTask CreateThenOpenLobbyAsync(RoomCreateRequest request)
             {
                 var result = await rooms.CreateAsync(request, CancellationToken.None);

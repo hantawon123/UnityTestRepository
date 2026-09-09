@@ -157,7 +157,8 @@ namespace Game.Architecture.Tests
                     new ServerRegionSystem(new ForgetfulRegionStore()));
                 presenter.Start();
 
-                bridge = new HomeFriendBridge(View, Commands, signIn, new SilentNotificationStream());
+                bridge = new HomeFriendBridge(
+                    View, Commands, signIn, new SilentNotificationStream(), new SilentHost(), new SilentInvites());
                 bridge.Start();
             }
 
@@ -303,6 +304,21 @@ namespace Game.Architecture.Tests
             public void Save(string code) { }
         }
 
+        private sealed class SilentInvites : IInviteGateway
+        {
+            public UniTask<BackendResult> SendAsync(
+                string playerId, string roomCode, CancellationToken cancellation) =>
+                UniTask.FromResult(BackendResult.Success());
+
+            public UniTask<BackendResult<IReadOnlyList<RoomInvitation>>> ListAsync(
+                CancellationToken cancellation) =>
+                UniTask.FromResult(
+                    BackendResult<IReadOnlyList<RoomInvitation>>.Success(Array.Empty<RoomInvitation>()));
+
+            public UniTask<BackendResult> DeclineAsync(string playerId, CancellationToken cancellation) =>
+                UniTask.FromResult(BackendResult.Success());
+        }
+
         private sealed class SilentHost : IHomeApplicationHost
         {
             public void Quit() { }
@@ -316,6 +332,7 @@ namespace Game.Architecture.Tests
             public void OpenSettings() { }
 
             public void CreateRoom(string title, bool isPublic, int maxPlayers) { }
+            public void JoinRoom(string roomCode) { }
 
             public void OpenLobby() { }
         }
@@ -340,6 +357,8 @@ namespace Game.Architecture.Tests
             public event Action<string> FriendRequestCancelled;
             public event Action FriendListRefreshRequested;
             public event Action<string> FriendRemoved;
+            public event Action<string> RoomInviteAccepted;
+            public event Action<string> RoomInviteDeclined;
             public event Action ServerSettingsDismissed;
             public event Action<string> RegionSelected;
             public event Action<string, bool, int> RoomCreationRequested;
@@ -379,6 +398,7 @@ namespace Game.Architecture.Tests
             public void SetOutgoingRequests(IReadOnlyList<FriendRequestSummary> requests) { }
 
             public void SetNicknameSettled(bool settled) { }
+            public void SetRoomInvites(IReadOnlyList<RoomInvite> invites) { }
 
             public void SetServerSettingsVisible(bool visible) { }
 

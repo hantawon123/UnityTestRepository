@@ -43,6 +43,9 @@ namespace Game.Client.Home
         [SerializeField]
         private Sprite closeIcon;
 
+        [SerializeField]
+        private Sprite alertIcon;
+
         [Header("Fonts")]
         [SerializeField]
         private TMP_FontAsset fontAsset;

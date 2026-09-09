@@ -315,6 +315,10 @@ namespace Game.Architecture.Tests
             {
             }
 
+            public void JoinRoom(string roomCode)
+            {
+            }
+
             public void OpenLobby() { }
         }
 

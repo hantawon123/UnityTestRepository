@@ -264,6 +264,94 @@ namespace Game.Tests.EditMode
             Assert.That(home.SearchEmpty().activeSelf, Is.True);
         }
 
+        /// <summary>
+        /// The invite stack is three cards at the top left, all hidden until
+        /// something arrives, spaced as the design draws them.
+        /// </summary>
+        [Test]
+        public void InviteStack_HasThreeHiddenCardsAtTheDesignedPitch()
+        {
+            using var home = new BuiltHome();
+
+            var stack = home.Rect("InviteStack");
+            Assert.That(
+                stack.anchoredPosition,
+                Is.EqualTo(new Vector2(HomeStyle.Toast.Left, -HomeStyle.Toast.Top)));
+
+            for (var slot = 0; slot < RoomInviteInbox.VisibleLimit; slot++)
+            {
+                var card = home.Rect($"Invite{slot}");
+                Assert.That(
+                    card.sizeDelta,
+                    Is.EqualTo(new Vector2(HomeStyle.Toast.Width, HomeStyle.Toast.Height)),
+                    $"card {slot} size");
+                Assert.That(
+                    card.anchoredPosition.y,
+                    Is.EqualTo(-slot * (HomeStyle.Toast.Height + HomeStyle.Toast.Gap)).Within(0.01f),
+                    $"card {slot} sits off the stack's pitch");
+                Assert.That(card.gameObject.activeSelf, Is.False, $"card {slot} starts shown");
+            }
+        }
+
+        /// <summary>
+        /// Cards fill from the top in the order given and say who is asking.
+        /// </summary>
+        [Test]
+        public void ShowingInvites_FillsCardsFromTheTopAndHidesTheRest()
+        {
+            using var home = new BuiltHome();
+
+            home.View.SetRoomInvites(
+                new[]
+                {
+                    new RoomInvite("a", "p1", "하나", "R1"),
+                    new RoomInvite("b", "p2", "둘", "R2")
+                });
+
+            Assert.That(home.Rect("Invite0").gameObject.activeSelf, Is.True);
+            Assert.That(home.Rect("Invite1").gameObject.activeSelf, Is.True);
+            Assert.That(home.Rect("Invite2").gameObject.activeSelf, Is.False);
+            Assert.That(
+                home.Rect("Invite0").Find("Body").GetComponent<TMPro.TMP_Text>().text,
+                Is.EqualTo("하나님이\n함께 플레이하자고 합니다!"));
+
+            home.View.SetRoomInvites(Array.Empty<RoomInvite>());
+
+            Assert.That(home.Rect("Invite0").gameObject.activeSelf, Is.False, "cleared");
+        }
+
+        /// <summary>
+        /// A card's buttons answer for the invite that card is showing, not for
+        /// whichever one was there when the card was built.
+        /// </summary>
+        [Test]
+        public void PressingACardsButtons_RaisesTheInviteItIsShowing()
+        {
+            using var home = new BuiltHome();
+            var accepted = new List<string>();
+            var declined = new List<string>();
+            home.View.RoomInviteAccepted += accepted.Add;
+            home.View.RoomInviteDeclined += declined.Add;
+
+            home.View.SetRoomInvites(
+                new[]
+                {
+                    new RoomInvite("a", "p1", "하나", "R1"),
+                    new RoomInvite("b", "p2", "둘", "R2")
+                });
+            home.Rect("Invite1").Find("Accept").GetComponent<Button>().onClick.Invoke();
+            home.Rect("Invite0").Find("Decline").GetComponent<Button>().onClick.Invoke();
+
+            Assert.That(accepted, Is.EqualTo(new[] { "b" }));
+            Assert.That(declined, Is.EqualTo(new[] { "a" }));
+
+            // The same card now shows a different invite and answers for it.
+            home.View.SetRoomInvites(new[] { new RoomInvite("c", "p3", "셋", "R3") });
+            home.Rect("Invite0").Find("Accept").GetComponent<Button>().onClick.Invoke();
+
+            Assert.That(accepted, Is.EqualTo(new[] { "b", "c" }));
+        }
+
         private static readonly Dictionary<string, Action<HomeMenuView, bool>> PanelButtons =
             new Dictionary<string, Action<HomeMenuView, bool>>
             {

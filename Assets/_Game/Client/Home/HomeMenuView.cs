@@ -65,6 +65,11 @@ namespace Game.Client.Home
             CreateFriendButton(canvas);
             CreateServerButton(canvas);
 
+            // After the panels for the same reason as the chip: the cards take
+            // presses, and a panel's dismiss area underneath must not get there
+            // first.
+            CreateInviteStack(canvas);
+
             // Last, so it draws over the panels. It never takes a click, so
             // being on top costs the controls underneath nothing.
             connectionToast = ConnectionToast.AttachTo(canvas);

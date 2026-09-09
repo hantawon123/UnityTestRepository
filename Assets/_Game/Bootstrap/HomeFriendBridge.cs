@@ -37,6 +37,15 @@ namespace Game.Bootstrap
         private readonly FriendUiCommands friends;
         private readonly BackendSignIn signIn;
         private readonly INotificationStream notifications;
+        private readonly IHomeApplicationHost host;
+        private readonly IInviteGateway invites;
+
+        /// <summary>
+        /// The room invitations waiting on this screen. Owned here because the
+        /// push that brings them arrives here, and the comment below the switch
+        /// always said the toast would.
+        /// </summary>
+        private readonly RoomInviteInbox inbox = new RoomInviteInbox();
         private bool refreshing;
         private bool refreshingRequests;
         private bool requestsChanged;
@@ -48,12 +57,16 @@ namespace Game.Bootstrap
             IHomeMenuView view,
             FriendUiCommands friends,
             BackendSignIn signIn,
-            INotificationStream notifications)
+            INotificationStream notifications,
+            IHomeApplicationHost host,
+            IInviteGateway invites)
         {
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.friends = friends ?? throw new ArgumentNullException(nameof(friends));
             this.signIn = signIn ?? throw new ArgumentNullException(nameof(signIn));
             this.notifications = notifications ?? throw new ArgumentNullException(nameof(notifications));
+            this.host = host ?? throw new ArgumentNullException(nameof(host));
+            this.invites = invites ?? throw new ArgumentNullException(nameof(invites));
         }
 
         public void Start()
@@ -67,6 +80,9 @@ namespace Game.Bootstrap
             view.FriendRequestCancelled += OnFriendRequestCancelled;
             view.FriendListRefreshRequested += OnRefreshRequested;
             view.FriendRemoved += OnFriendRemoved;
+            view.RoomInviteAccepted += OnRoomInviteAccepted;
+            view.RoomInviteDeclined += OnRoomInviteDeclined;
+            inbox.Changed += OnInvitesChanged;
 
             pushed = notifications.Notifications.Subscribe(OnPushed);
 
@@ -93,6 +109,9 @@ namespace Game.Bootstrap
             view.FriendRequestCancelled -= OnFriendRequestCancelled;
             view.FriendListRefreshRequested -= OnRefreshRequested;
             view.FriendRemoved -= OnFriendRemoved;
+            view.RoomInviteAccepted -= OnRoomInviteAccepted;
+            view.RoomInviteDeclined -= OnRoomInviteDeclined;
+            inbox.Changed -= OnInvitesChanged;
 
             pushed?.Dispose();
             relinked?.Dispose();
@@ -137,9 +156,61 @@ namespace Game.Bootstrap
                     break;
 
                 case ServerNotificationKind.RoomInviteReceived:
-                    // The toast owns invites. This panel shows none, so there is
-                    // nothing here to re-read.
+                    // Nothing to re-read: the push carries the whole invite. A
+                    // push without a room is malformed and shows nothing rather
+                    // than a card that could not be accepted.
+                    if (notification.RoomCode != null)
+                    {
+                        inbox.Receive(
+                            notification.FromPlayerId, notification.FromNickname, notification.RoomCode);
+                    }
+
                     break;
+            }
+        }
+
+        private void OnInvitesChanged()
+        {
+            view.SetRoomInvites(inbox.Visible);
+        }
+
+        /// <remarks>
+        /// The card goes first, then the room. Whether the room lets this player
+        /// in is the host's to say, on the same notice room creation uses; the
+        /// question the card asked has been answered either way.
+        /// </remarks>
+        private void OnRoomInviteAccepted(string inviteId)
+        {
+            if (!inbox.Take(inviteId, out var invite))
+            {
+                return;
+            }
+
+            ClearOnServerAsync(invite).Forget();
+            host.JoinRoom(invite.RoomCode);
+        }
+
+        private void OnRoomInviteDeclined(string inviteId)
+        {
+            if (inbox.Take(inviteId, out var invite))
+            {
+                ClearOnServerAsync(invite).Forget();
+            }
+        }
+
+        /// <remarks>
+        /// The server keeps an invite until it is declined, whichever way the
+        /// player answered; this is what stops it being listed again. Failures
+        /// are logged only: the card is already gone, and a stale entry on the
+        /// server is nothing the player could act on.
+        /// </remarks>
+        private async UniTaskVoid ClearOnServerAsync(RoomInvite invite)
+        {
+            var result = await invites.DeclineAsync(invite.FromPlayerId, lifetime.Token);
+            if (!result.Ok && result.Failure != BackendFailure.Cancelled)
+            {
+                Debug.LogWarning(
+                    $"[Friends] Clearing the invite from {invite.FromPlayerId} failed: {result.Failure}.");
             }
         }
 
