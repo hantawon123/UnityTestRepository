@@ -16,7 +16,7 @@ namespace Game.Client.Match
     }
 
     /// <summary>
-    /// Highlight playback HUD: centered title, scene/nickname, and clip bars.
+    /// Highlight playback HUD: centered title, scene/nickname, clip bars, and skip keys.
     /// Input wiring belongs to the playback controller; this view only paints.
     /// </summary>
     [DisallowMultipleComponent]
@@ -24,6 +24,10 @@ namespace Game.Client.Match
     {
         public const string RootName = "HighlightHud";
         public const string TitleText = "HIGHLIGHT";
+        public const string SkipAction = "건너뛰기";
+        public const string SkipKey = "Space";
+        public const string SkipAllAction = "전체 건너뛰기";
+        public const string SkipAllKey = "Tab";
         public const int BarCount = 3;
         public const float TitleFontSize = 45f;
         public const float SubtitleFontSize = 28f;
@@ -37,6 +41,10 @@ namespace Game.Client.Match
         public const float BarHeight = 10f;
         public const float BarGap = 8f;
         public const int BarCornerRadius = 5;
+        public const float MarginBottom = 48f;
+        public const float SkipPanelWidth = 280f;
+        public const float SkipPanelHeight = 112f;
+        public const float SkipRowHeight = 40f;
 
         public static readonly Color BarFillColor = new Color(1f, 0.54f, 0.24f, 1f);
         public static readonly Color BarTrackColor = new Color(1f, 1f, 1f, 0.28f);
@@ -50,6 +58,9 @@ namespace Game.Client.Match
 
         [SerializeField]
         private GameObject header;
+
+        [SerializeField]
+        private GameObject skipGuide;
 
         [SerializeField]
         private RectTransform[] barFills;
@@ -214,6 +225,11 @@ namespace Game.Client.Match
             {
                 header.SetActive(visible);
             }
+
+            if (skipGuide != null)
+            {
+                skipGuide.SetActive(visible);
+            }
         }
 
         private void EnsureLayout()
@@ -249,8 +265,14 @@ namespace Game.Client.Match
                 subtitleText = transform.Find("Header/Subtitle")?.GetComponent<TMP_Text>();
             }
 
+            if (skipGuide == null)
+            {
+                skipGuide = transform.Find("SkipGuide")?.gameObject;
+            }
+
             EnsureBars();
             ApplyHeaderLayout();
+            ApplySkipLayout();
         }
 
         private void BuildLayout()
@@ -259,7 +281,11 @@ namespace Game.Client.Match
             titleText = CreateText(header.transform, "Title", TitleText, TitleFontSize);
             subtitleText = CreateText(header.transform, "Subtitle", string.Empty, SubtitleFontSize);
             BuildBars(header.transform);
+            skipGuide = CreateRect(transform, "SkipGuide").gameObject;
+            BuildSkipRow(skipGuide.transform, 0, SkipAction, SkipKey);
+            BuildSkipRow(skipGuide.transform, 1, SkipAllAction, SkipAllKey);
             ApplyHeaderLayout();
+            ApplySkipLayout();
         }
 
         private void BuildBars(Transform parent)
@@ -390,6 +416,120 @@ namespace Game.Client.Match
             }
         }
 
+        private void BuildSkipRow(Transform parent, int index, string action, string key)
+        {
+            var row = CreateRect(parent, $"Row{index}");
+            var actionText = CreateText(
+                row,
+                "Action",
+                action,
+                KeySettingGuideView.ActionFontSize,
+                HomeUiFonts.ApplyLight());
+            actionText.alignment = TextAlignmentOptions.MidlineRight;
+            var chip = CreateImage(
+                row,
+                "Key",
+                HidingActiveHudView.KeyChipColor,
+                HidingActiveHudView.KeyChipSprite);
+            chip.type = Image.Type.Sliced;
+            var keyLabel = CreateText(
+                chip.transform,
+                "Label",
+                key,
+                HidingActiveHudView.KeyChipFontSize,
+                HomeUiFonts.ApplyLight());
+            Stretch(keyLabel.rectTransform);
+        }
+
+        private void ApplySkipLayout()
+        {
+            if (skipGuide == null)
+            {
+                return;
+            }
+
+            Place(
+                skipGuide.GetComponent<RectTransform>(),
+                new Vector2(1f, 0f),
+                new Vector2(-KeySettingGuideView.MarginRight, MarginBottom),
+                new Vector2(SkipPanelWidth, SkipPanelHeight),
+                new Vector2(1f, 0f));
+
+            ApplySkipRow(0, SkipAction, SkipKey);
+            ApplySkipRow(1, SkipAllAction, SkipAllKey);
+        }
+
+        private void ApplySkipRow(int index, string action, string key)
+        {
+            var row = skipGuide.transform.Find($"Row{index}") as RectTransform;
+            if (row == null)
+            {
+                return;
+            }
+
+            Place(
+                row,
+                new Vector2(1f, 1f),
+                new Vector2(-SkipPanelWidth * 0.5f, -24f - (index * KeySettingGuideView.RowStep)),
+                new Vector2(SkipPanelWidth, SkipRowHeight));
+
+            var chip = row.Find("Key") as RectTransform;
+            var keyLabel = row.Find("Key/Label")?.GetComponent<TMP_Text>();
+            if (keyLabel != null)
+            {
+                keyLabel.text = key;
+                keyLabel.font = HomeUiFonts.ApplyLight();
+                keyLabel.fontSize = HidingActiveHudView.KeyChipFontSize;
+                keyLabel.fontStyle = FontStyles.Normal;
+                keyLabel.color = Color.white;
+                keyLabel.textWrappingMode = TextWrappingModes.NoWrap;
+                keyLabel.overflowMode = TextOverflowModes.Overflow;
+                keyLabel.ForceMeshUpdate();
+            }
+
+            if (chip != null)
+            {
+                var chipImage = chip.GetComponent<Image>();
+                if (chipImage != null)
+                {
+                    chipImage.color = HidingActiveHudView.KeyChipColor;
+                    chipImage.sprite = HidingActiveHudView.KeyChipSprite;
+                    chipImage.type = Image.Type.Sliced;
+                    chipImage.pixelsPerUnitMultiplier = 1f;
+                }
+
+                var width = HidingActiveHudView.KeyChipWidth;
+                if (keyLabel != null)
+                {
+                    width = HidingActiveHudView.MeasureKeyChipWidth(keyLabel.text, keyLabel.preferredWidth);
+                }
+
+                Place(
+                    chip,
+                    new Vector2(1f, 0.5f),
+                    Vector2.zero,
+                    new Vector2(width, HidingActiveHudView.KeyChipHeight),
+                    new Vector2(1f, 0.5f));
+
+                var actionText = row.Find("Action")?.GetComponent<TMP_Text>();
+                if (actionText != null)
+                {
+                    actionText.text = action;
+                    actionText.font = HomeUiFonts.ApplyLight();
+                    actionText.fontSize = KeySettingGuideView.ActionFontSize;
+                    actionText.fontStyle = FontStyles.Normal;
+                    actionText.color = Color.white;
+                    actionText.alignment = TextAlignmentOptions.MidlineRight;
+                    Place(
+                        actionText.rectTransform,
+                        new Vector2(1f, 0.5f),
+                        new Vector2(-(width + 8f), 0f),
+                        new Vector2(220f, HidingActiveHudView.KeyChipHeight),
+                        new Vector2(1f, 0.5f));
+                }
+            }
+        }
+
         private void ApplyStyle()
         {
             var font = HomeUiFonts.Apply();
@@ -413,6 +553,7 @@ namespace Game.Client.Match
             }
 
             ApplyHeaderLayout();
+            ApplySkipLayout();
         }
 
         private static RectTransform CreateRect(Transform parent, string name)

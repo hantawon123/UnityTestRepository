@@ -42,6 +42,34 @@ namespace Game.Architecture.Tests
                 Assert.That(view.transform.Find("Header/Bars/Bar0").gameObject.activeSelf, Is.True);
                 Assert.That(view.transform.Find("Header/Bars/Bar1").gameObject.activeSelf, Is.True);
                 Assert.That(view.transform.Find("Header/Bars/Bar2").gameObject.activeSelf, Is.True);
+
+                var skip = view.transform.Find("SkipGuide/Row0/Action")?.GetComponent<TMPro.TMP_Text>();
+                Assert.That(skip, Is.Not.Null);
+                Assert.That(skip.text, Is.EqualTo(HighlightHudView.SkipAction));
+                Assert.That(skip.fontSize, Is.EqualTo(Game.Client.KeySettingGuideView.ActionFontSize));
+                var skipKey = view.transform.Find("SkipGuide/Row0/Key/Label")?.GetComponent<TMPro.TMP_Text>();
+                Assert.That(skipKey?.text, Is.EqualTo(HighlightHudView.SkipKey));
+                var skipChip = view.transform.Find("SkipGuide/Row0/Key") as RectTransform;
+                Assert.That(skipChip, Is.Not.Null);
+                Assert.That(
+                    skipChip.sizeDelta.x,
+                    Is.EqualTo(HidingActiveHudView.MeasureKeyChipWidth(
+                        skipKey.text,
+                        skipKey.preferredWidth)));
+                Assert.That(
+                    skipChip.sizeDelta.y,
+                    Is.EqualTo(HidingActiveHudView.KeyChipHeight));
+                Assert.That(
+                    skipChip.GetComponent<UnityEngine.UI.Image>().color,
+                    Is.EqualTo(HidingActiveHudView.KeyChipColor));
+
+                var skipAll = view.transform.Find("SkipGuide/Row1/Action")?.GetComponent<TMPro.TMP_Text>();
+                Assert.That(skipAll.text, Is.EqualTo(HighlightHudView.SkipAllAction));
+                var skipAllKey = view.transform.Find("SkipGuide/Row1/Key/Label")?.GetComponent<TMPro.TMP_Text>();
+                Assert.That(skipAllKey?.text, Is.EqualTo(HighlightHudView.SkipAllKey));
+                Assert.That(
+                    view.transform.Find("SkipGuide").GetComponent<RectTransform>().anchoredPosition,
+                    Is.EqualTo(new Vector2(-Game.Client.KeySettingGuideView.MarginRight, HighlightHudView.MarginBottom)));
             }
             finally
             {
@@ -103,7 +131,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void Hide_HidesHeader()
+        public void Hide_HidesHeaderAndSkipGuide()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
             try
@@ -112,6 +140,7 @@ namespace Game.Architecture.Tests
                 view.Show("FIRST BLOOD : 민수", new[] { 1f, 0.2f, 0f });
                 view.Hide();
                 Assert.That(view.transform.Find("Header").gameObject.activeSelf, Is.False);
+                Assert.That(view.transform.Find("SkipGuide").gameObject.activeSelf, Is.False);
             }
             finally
             {
