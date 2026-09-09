@@ -47,7 +47,16 @@ namespace Game.Core.Settings
             permissions[playerId] = allowed;
             Refresh();
         }
-        public void ClearPermissions() { permissions.Clear(); Refresh(); }
+        public void ClearPermissions() => ClearPermissions(notify: true);
+
+        public void ClearPermissions(bool notify)
+        {
+            permissions.Clear();
+            if (notify)
+            {
+                Refresh();
+            }
+        }
         private void OnSettingsChanged(InterfaceSettings value) => Refresh();
         private void Refresh() => Changed?.Invoke();
         public void Dispose()

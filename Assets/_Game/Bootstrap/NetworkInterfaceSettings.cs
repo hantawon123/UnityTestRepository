@@ -61,6 +61,6 @@ namespace Game.Bootstrap
                 presentation.SetPermission(avatar.PlayerId, allowed);
             }
         }
-        public void Dispose() => presentation.ClearPermissions();
+        public void Dispose() => presentation.ClearPermissions(notify: false);
     }
 }

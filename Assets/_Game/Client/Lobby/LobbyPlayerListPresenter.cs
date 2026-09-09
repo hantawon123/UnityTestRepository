@@ -104,15 +104,18 @@ namespace Game.Client.Lobby
             var inRoom = new HashSet<string>(StringComparer.Ordinal);
             for (var index = 0; index < people.Count; index++)
             {
-                inRoom.Add(people[index].Id);
+                var person = people[index];
+                inRoom.Add(person.Id);
+                if (!string.IsNullOrEmpty(person.UserId))
+                {
+                    inRoom.Add(person.UserId);
+                }
             }
 
             var online = friends.OnlineFriends;
-            var offline = friends.OfflineFriends;
-            var combined = new List<FriendSummary>(online.Count + offline.Count);
-            AppendInvitable(combined, online, inRoom);
-            AppendInvitable(combined, offline, inRoom);
-            view.SetFriends(combined);
+            var invitable = new List<FriendSummary>(online.Count);
+            AppendInvitable(invitable, online, inRoom);
+            view.SetFriends(invitable);
         }
 
         private static void AppendInvitable(

@@ -68,9 +68,8 @@ namespace Game.Tests.EditMode
 
             presenter.Start();
 
-            Assert.That(view.Friends.Count, Is.EqualTo(2));
+            Assert.That(view.Friends.Count, Is.EqualTo(1));
             Assert.That(view.Friends[0].Nickname, Is.EqualTo("온라인친구"));
-            Assert.That(view.Friends[1].Nickname, Is.EqualTo("오프라인친구"));
 
             friends.ReplaceFriends(new[]
             {
@@ -118,6 +117,35 @@ namespace Game.Tests.EditMode
                 new LobbyParticipant("f-2", "아직안옴", false),
             });
             Assert.That(PlayerIdsOf(view.Friends), Is.EqualTo(new[] { "f-1" }));
+        }
+
+        [Test]
+        public void Start_HidesFriendsWhoseAccountIsAlreadyInTheRoom()
+        {
+            var list = new LobbyParticipantList(new[]
+            {
+                new LobbyParticipant("seat-7", "이미참가", false, "account-1"),
+            });
+            var friends = new FriendListSystem();
+            friends.ReplaceFriends(new[]
+            {
+                new FriendSummary("account-1", "이미참가", FriendPresence.Online),
+                new FriendSummary("account-2", "아직안옴", FriendPresence.Online),
+            });
+            var view = new FakePlayerListView();
+            using var presenter = new LobbyPlayerListPresenter(
+                list,
+                CreateHostSession(true),
+                friends,
+                new FakeInviteGateway(),
+                new FakeReportGateway(),
+                view,
+                new FakeCountView(),
+                new FakeConfirmView());
+
+            presenter.Start();
+
+            Assert.That(PlayerIdsOf(view.Friends), Is.EqualTo(new[] { "account-2" }));
         }
 
         [Test]

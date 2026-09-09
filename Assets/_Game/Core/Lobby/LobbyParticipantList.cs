@@ -6,7 +6,7 @@ namespace Game.Core.Lobby
 {
     public readonly struct LobbyParticipant : IEquatable<LobbyParticipant>
     {
-        public LobbyParticipant(string id, string displayName, bool isHost)
+        public LobbyParticipant(string id, string displayName, bool isHost, string userId = null)
         {
             if (string.IsNullOrWhiteSpace(id))
             {
@@ -21,22 +21,30 @@ namespace Game.Core.Lobby
             Id = id.Trim();
             DisplayName = displayName.Trim();
             IsHost = isHost;
+            UserId = string.IsNullOrWhiteSpace(userId) ? string.Empty : userId.Trim();
         }
 
         public string Id { get; }
         public string DisplayName { get; }
         public bool IsHost { get; }
 
+        /// <summary>
+        /// Backend account id, when the room has one. Friends are keyed on
+        /// this, not on the per-room <see cref="Id"/>.
+        /// </summary>
+        public string UserId { get; }
+
         public bool Equals(LobbyParticipant other) =>
             string.Equals(Id, other.Id, StringComparison.Ordinal) &&
             string.Equals(DisplayName, other.DisplayName, StringComparison.Ordinal) &&
-            IsHost == other.IsHost;
+            IsHost == other.IsHost &&
+            string.Equals(UserId, other.UserId, StringComparison.Ordinal);
 
         public override bool Equals(object obj) =>
             obj is LobbyParticipant other && Equals(other);
 
         public override int GetHashCode() =>
-            HashCode.Combine(Id, DisplayName, IsHost);
+            HashCode.Combine(Id, DisplayName, IsHost, UserId);
     }
 
     public interface ILobbyParticipantList

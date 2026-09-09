@@ -72,24 +72,58 @@ namespace Game.Client.Lobby
         [VContainer.Inject]
         public void BindPresentation(Game.Core.Settings.InterfacePresentation value)
         {
-            if (presentation != null)
-            {
-                presentation.Changed -= RefreshPresentation;
-            }
-
+            UnsubscribePresentation();
             presentation = value;
-            presentation.Changed += RefreshPresentation;
+            if (isActiveAndEnabled)
+            {
+                SubscribePresentation();
+            }
         }
 
-        private void RefreshPresentation() =>
+        private void RefreshPresentation()
+        {
+            if (this == null)
+            {
+                return;
+            }
+
             SetParticipants(lastParticipants, lastHost, lastLocal);
+        }
+
+        private void OnEnable()
+        {
+            SubscribePresentation();
+        }
+
+        private void OnDisable()
+        {
+            UnsubscribePresentation();
+        }
 
         private void OnDestroy()
         {
-            if (presentation != null)
+            UnsubscribePresentation();
+        }
+
+        private void SubscribePresentation()
+        {
+            if (presentation == null)
             {
-                presentation.Changed -= RefreshPresentation;
+                return;
             }
+
+            presentation.Changed -= RefreshPresentation;
+            presentation.Changed += RefreshPresentation;
+        }
+
+        private void UnsubscribePresentation()
+        {
+            if (presentation == null)
+            {
+                return;
+            }
+
+            presentation.Changed -= RefreshPresentation;
         }
 
         public event Action<string, string> KickClicked;
@@ -120,6 +154,11 @@ namespace Game.Client.Lobby
             bool localIsHost,
             string localPlayerId)
         {
+            if (this == null)
+            {
+                return;
+            }
+
             lastParticipants = participants; lastHost = localIsHost; lastLocal = localPlayerId;
             EnsureLayout();
             ClearRows(participantRows);
@@ -215,6 +254,11 @@ namespace Game.Client.Lobby
 
         public void EnsureLayout()
         {
+            if (this == null)
+            {
+                return;
+            }
+
             HideLegacyChrome();
             ApplyPanelChrome();
             if (participantsTitle != null &&
