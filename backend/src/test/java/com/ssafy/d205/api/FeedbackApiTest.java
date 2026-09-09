@@ -86,6 +86,29 @@ class FeedbackApiTest extends IntegrationTest {
     }
 
     @Test
+    @DisplayName("Unity 가 실제로 보내는 모양을 그대로 받는다")
+    void acceptsTheShapeTheClientSends() throws Exception {
+        // 클라이언트는 JsonUtility 로 본문을 만듭니다. 그것은 <b>필드를 생략하지 않고
+        // null 문자열을 "" 로 씁니다</b>(ReportGateway 의 memo 주석). 그래서 화면이 빌드
+        // 정보를 채우지 않아도 빈 문자열이 옵니다. 빈 문자열을 없음과 같게 다루지 않으면
+        // 그 시점의 모든 피드백이 400 이 됩니다.
+        //
+        // Content-Type 은 UnityWebRequestTransport 가 application/json 으로 넣습니다.
+        String me = createUser();
+
+        mvc.perform(post(FEEDBACK)
+                        .header(USER_ID_HEADER, me)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"보내기를 눌렀습니다\",\"buildVer\":\"\",\"platform\":\"\"}"))
+                .andExpect(status().isCreated());
+
+        Map<String, Object> row = onlyFeedbackOf(me);
+        assertThat(row.get("message")).isEqualTo("보내기를 눌렀습니다");
+        assertThat(row.get("build_ver")).isNull();
+        assertThat(row.get("platform")).isNull();
+    }
+
+    @Test
     @DisplayName("500자는 받고 501자는 거절한다")
     void messageLimitMatchesTheScreen() throws Exception {
         String me = createUser();
