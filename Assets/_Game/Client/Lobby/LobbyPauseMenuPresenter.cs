@@ -57,6 +57,17 @@ namespace Game.Client.Lobby
         public event Action SettingsOpenRequested;
 
         /// <summary>
+        /// Opens the lobby's character-closet overlay from the 1 key. The
+        /// overlay listens and shows the Home closet inside the settings frame.
+        /// </summary>
+        public event Action CharacterOpenRequested;
+
+        /// <summary>
+        /// True while the character closet overlay owns Esc / the 1 key.
+        /// </summary>
+        private bool characterOverlayOpen;
+
+        /// <summary>
         /// Closes whichever screen the menu stepped aside for, or null while the
         /// menu itself is the thing on screen.
         /// </summary>
@@ -160,6 +171,12 @@ namespace Game.Client.Lobby
                 false,
                 view.IsOpen,
                 HasForeignScreen);
+            if (pressed == LobbyShortcutKind.Character && characterOverlayOpen)
+            {
+                closeOpenScreen?.Invoke();
+                return;
+            }
+
             if ((pressed == LobbyShortcutKind.Character ||
                  pressed == LobbyShortcutKind.Players) &&
                 (canOpenShortcut || (shortcuts.IsOpen && !HasForeignScreen)))
@@ -232,6 +249,7 @@ namespace Game.Client.Lobby
             var pending = closeOpenScreen;
             closeOpenScreen = null;
             openedFromWorld = false;
+            characterOverlayOpen = false;
             pending?.Invoke();
             view.SetVisible(false);
             SetCursorCaptured(true);
@@ -252,6 +270,16 @@ namespace Game.Client.Lobby
             view.SetVisible(false);
             SetCursorCaptured(false);
             LockMovement();
+        }
+
+        /// <summary>
+        /// Same hand-over as environment settings, tagged so 1 can close the
+        /// closet without treating it as a foreign screen that ignores the key.
+        /// </summary>
+        public void OpenCharacterScreen(Action close, bool fromWorld = false)
+        {
+            characterOverlayOpen = true;
+            OpenSettingsScreen(close, fromWorld);
         }
 
         public void OpenPlaySettingsFromWorld()
@@ -284,6 +312,17 @@ namespace Game.Client.Lobby
         {
             if (kind == LobbyShortcutKind.None || HasForeignScreen)
             {
+                return;
+            }
+
+            if (kind == LobbyShortcutKind.Character)
+            {
+                if (shortcuts.IsOpen)
+                {
+                    shortcutClose.Invoke();
+                }
+
+                CharacterOpenRequested?.Invoke();
                 return;
             }
 
@@ -332,6 +371,7 @@ namespace Game.Client.Lobby
         /// </remarks>
         public void OnScreenClosed()
         {
+            characterOverlayOpen = false;
             if (closeOpenScreen == null)
             {
                 return;

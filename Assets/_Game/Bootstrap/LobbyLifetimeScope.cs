@@ -8,6 +8,7 @@ using Game.Client.Match;
 using Game.Client.Players;
 using Game.Client.Voice;
 using Game.Client.Settings;
+using Game.Client.Character;
 using Game.Core.Settings;
 using Game.Core.Home;
 using Game.Core.Lobby;
@@ -65,6 +66,11 @@ namespace Game.Bootstrap
 
         [SerializeField]
         private MatchSceneConfiguration sceneConfiguration;
+
+        [SerializeField]
+        [Tooltip("The wardrobe the character overlay is filled from. The same " +
+                 "asset the Home closet scene uses.")]
+        private AvatarPartCatalog partCatalog;
 
         private NetworkRunnerService stagingNetwork;
         private GameObject[] sceneRoots = Array.Empty<GameObject>();
@@ -226,6 +232,27 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<SettingsPresenter>().AsSelf()
                 .WithParameter<Action>(() => settingsObject.SetActive(false));
             builder.RegisterEntryPoint<LobbySettingsOverlay>().WithParameter(chatView);
+            if (partCatalog == null)
+            {
+                Debug.LogError(
+                    "AvatarPartCatalog must be assigned on LobbyLifetimeScope.",
+                    this);
+            }
+            else
+            {
+                var closetObject = new GameObject("Lobby Character Closet");
+                closetObject.transform.SetParent(transform, false);
+                closetObject.SetActive(false);
+                var closetView = closetObject.AddComponent<CharacterClosetView>();
+                closetView.ConfigureAsLobbyOverlay();
+                builder.RegisterInstance(partCatalog);
+                builder.RegisterComponent(closetView).As<ICharacterClosetView>().AsSelf();
+                builder.RegisterEntryPoint<CharacterClosetPresenter>().AsSelf()
+                    .WithParameter<Action>(() => closetObject.SetActive(false));
+                builder.RegisterEntryPoint<ClosetAppearanceSaver>();
+                builder.RegisterEntryPoint<LobbyCharacterOverlay>().WithParameter(chatView);
+            }
+
             builder.RegisterEntryPoint<PlaySettingsPresenter>();
             builder.RegisterEntryPoint<LobbyMatchInfoPresenter>();
             // The board in the room opens the same play settings screen; it
