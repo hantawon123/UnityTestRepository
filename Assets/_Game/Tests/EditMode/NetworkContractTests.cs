@@ -147,6 +147,8 @@ namespace Game.Architecture.Tests
         [TestCase(true, true, 2, 6, 5, "missing", "food", false)]
         [TestCase(true, true, 2, 6, 5, "playground", "unsupported", false)]
         [TestCase(true, true, 2, 6, 5, "playground", "food", true)]
+        [TestCase(true, true, 2, 6, 5, "", "", true)]
+        [TestCase(true, true, 2, 6, 5, "playground", "", true)]
         public void LobbySettingsValidation_EnforcesAuthorityRangesAndCategory(
             bool hasAuthority,
             bool hasValidSession,

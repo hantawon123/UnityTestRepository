@@ -30,10 +30,21 @@ namespace Game.Client.Interactions
         private const int MaxAimHits = 8;
         public bool HudVisible { get; private set; } = true;
 
+        private bool interactionPromptVisible = true;
+
         public void SetHudVisible(bool visible)
         {
             HudVisible = visible;
             RefreshInteractionCue();
+        }
+
+        public void SetInteractionPromptVisible(bool visible)
+        {
+            interactionPromptVisible = visible;
+            if (!visible)
+            {
+                promptView?.Hide();
+            }
         }
 
         [SerializeField]
@@ -411,22 +422,30 @@ namespace Game.Client.Interactions
                 highlightedItem = nextHighlight;
             }
 
-            if (!TryGetPrompt(out var key, out var action, out var follow))
+            if (!TryGetPrompt(out var key, out var action, out var follow, out var actionColor, out var worldAnchor))
             {
                 promptView?.Hide();
                 return;
             }
 
-            PromptView.Show(key, action, follow);
+            PromptView.Show(key, action, follow, icon: null, actionColor, worldAnchor);
         }
 
-        private bool TryGetPrompt(out string key, out string action, out Transform follow)
+        private bool TryGetPrompt(
+            out string key,
+            out string action,
+            out Transform follow,
+            out Color actionColor,
+            out Vector3? worldAnchor)
         {
             key = null;
             action = null;
             follow = null;
+            actionColor = Color.white;
+            worldAnchor = null;
 
             if (!HudVisible ||
+                !interactionPromptVisible ||
                 placementController is { IsPlacing: true } ||
                 aimedTarget is not IInteractable interactable ||
                 !interactable.CanInteract(this) ||
@@ -438,6 +457,12 @@ namespace Game.Client.Interactions
             key = InteractKeyLabel();
             action = interactable.InteractionPrompt;
             follow = aimedTarget.transform;
+            actionColor = interactable.InteractionPromptColor;
+            if (interactable.TryGetInteractionPromptWorldPosition(out var promptWorld))
+            {
+                worldAnchor = promptWorld;
+            }
+
             return true;
         }
 

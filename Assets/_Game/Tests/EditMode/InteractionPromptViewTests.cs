@@ -56,6 +56,7 @@ namespace Game.Architecture.Tests
                 Assert.That(view.KeyIcon.gameObject.activeSelf, Is.False);
                 Assert.That(view.KeyLabel.text, Is.EqualTo("F"));
                 Assert.That(view.ActionLabel.text, Is.EqualTo("물건 잡기"));
+                Assert.That(view.ActionLabel.color, Is.EqualTo(Color.white));
                 Assert.That(view.ActionLabel.fontSize, Is.EqualTo(InteractionPromptView.LabelFontSize));
                 Assert.That(view.ActionLabel.fontSize, Is.EqualTo(18f));
                 Assert.That(view.ActionLabel.font, Is.EqualTo(HomeUiFonts.Apply()));
@@ -64,6 +65,14 @@ namespace Game.Architecture.Tests
 
                 view.Show("F", "파괴하기", follow.transform);
                 Assert.That(view.ActionLabel.text, Is.EqualTo("파괴하기"));
+                Assert.That(view.ActionLabel.color, Is.EqualTo(Color.white));
+
+                view.Show("F", "방 설정", follow.transform, actionColor: Color.black);
+                Assert.That(view.ActionLabel.text, Is.EqualTo("방 설정"));
+                Assert.That(view.ActionLabel.color, Is.EqualTo(Color.black));
+
+                view.Show("F", "파괴하기", follow.transform);
+                Assert.That(view.ActionLabel.color, Is.EqualTo(Color.white));
 
                 var clickIcon = InteractionPromptView.LoadLeftClickIcon();
                 view.Show(string.Empty, ItemPlacementController.PlaceActionLabel, follow.transform, clickIcon);
@@ -84,6 +93,26 @@ namespace Game.Architecture.Tests
                     Object.DestroyImmediate(view.gameObject);
                 }
             }
+        }
+
+        [Test]
+        public void Prompt_ScalesWithCameraDistance()
+        {
+            Assert.That(
+                InteractionPromptView.ScaleFromDistance(InteractionPromptView.ScaleReferenceDistance),
+                Is.EqualTo(1f).Within(0.001f));
+            Assert.That(
+                InteractionPromptView.ScaleFromDistance(InteractionPromptView.ScaleReferenceDistance * 0.5f),
+                Is.GreaterThan(1f));
+            Assert.That(
+                InteractionPromptView.ScaleFromDistance(InteractionPromptView.ScaleReferenceDistance * 2f),
+                Is.EqualTo(1f));
+            Assert.That(
+                InteractionPromptView.ScaleFromDistance(0.01f),
+                Is.EqualTo(InteractionPromptView.MaxDistanceScale));
+            Assert.That(
+                InteractionPromptView.ScaleFromDistance(100f),
+                Is.EqualTo(1f));
         }
     }
 }

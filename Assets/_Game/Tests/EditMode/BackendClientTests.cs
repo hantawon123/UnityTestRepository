@@ -345,6 +345,24 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public async Task InvitingAFriendWhoIsInARoom_ReadsAsTargetInGame()
+        {
+            var transport = new FakeTransport();
+            var client = SignedIn(transport, out _);
+            transport.Answer(409,
+                "{\"code\":\"TARGET_IN_GAME\",\"message\":\"게임 중인 친구에게는 초대를 보낼 수 없습니다.\"}");
+
+            var result = await new InviteGateway(client)
+                .SendAsync("other-1", "7K2M9P", CancellationToken.None);
+
+            // The server has refused this since the presence work; until now the
+            // client read it as Unknown and told the player "처리하지 못했습니다".
+            // Classified by code, not by the 409, which Conflict also uses.
+            Assert.That(result.Ok, Is.False);
+            Assert.That(result.Failure, Is.EqualTo(BackendFailure.TargetInGame));
+        }
+
+        [Test]
         public async Task ALobbyPresenceIsReadAsInLobby()
         {
             var transport = new FakeTransport();

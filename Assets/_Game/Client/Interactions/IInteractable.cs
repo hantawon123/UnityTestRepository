@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace Game.Client.Interactions
 {
     /// <summary>
@@ -8,6 +10,14 @@ namespace Game.Client.Interactions
     {
         /// <summary>조준 시 키 아래에 표시할 동작 문구. 예: "물건 잡기", "파괴하기"</summary>
         string InteractionPrompt { get; }
+
+        Color InteractionPromptColor => Color.white;
+
+        bool TryGetInteractionPromptWorldPosition(out Vector3 worldPosition)
+        {
+            worldPosition = default;
+            return false;
+        }
 
         bool CanInteract(PlayerInteractor interactor);
 

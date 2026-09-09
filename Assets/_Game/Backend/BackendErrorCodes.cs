@@ -30,6 +30,7 @@ namespace Game.Backend
                 case "TARGET_NOT_FOUND": return BackendFailure.TargetNotFound;
                 case "FRIEND_REQUEST_NOT_FOUND": return BackendFailure.RequestNotFound;
                 case "NOT_FRIENDS": return BackendFailure.NotFriends;
+                case "TARGET_IN_GAME": return BackendFailure.TargetInGame;
                 case "NICKNAME_TAKEN": return BackendFailure.NicknameTaken;
                 case "ALREADY_FRIENDS": return BackendFailure.AlreadyFriends;
                 case "REQUEST_ALREADY_SENT": return BackendFailure.RequestAlreadySent;
