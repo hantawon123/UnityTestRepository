@@ -201,13 +201,19 @@ namespace Game.Client.Settings
 
         private void CreateGeneralPage(RectTransform window)
         {
-            var page = CreatePage(window, SettingsTab.General, 2);
+            var page = CreatePage(window, SettingsTab.General, lobbyOverlay ? 1 : 2);
 
             var language = CreateRow(page, "LanguageRow", 0, SettingsStyle.LanguageRow.Label);
             languageStepper = CreateStepper(
                 language, steps => LanguageStepRequested?.Invoke(steps));
 
+            if (lobbyOverlay)
+            {
+                return;
+            }
+
             var feedback = CreateRow(page, "FeedbackRow", 1, SettingsStyle.FeedbackRow.Label);
+            feedbackRow = feedback.gameObject;
             CreateFeedbackButton(feedback);
         }
 

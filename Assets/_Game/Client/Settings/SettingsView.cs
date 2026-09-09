@@ -86,6 +86,8 @@ namespace Game.Client.Settings
         private Image resetIconImage;
         private Image applyFill;
         private TMP_Text applyLabel;
+        private GameObject feedbackRow;
+        private bool lobbyOverlay;
 
         public event Action Opened;
         private void OnEnable() => Opened?.Invoke();
@@ -116,6 +118,20 @@ namespace Game.Client.Settings
         public event Action ResetRequested;
 
         public event Action ApplyRequested;
+
+        /// <summary>
+        /// Lobby overlay: no feedback row. Call before the first activation
+        /// when this view is built in code rather than placed in the Settings
+        /// scene.
+        /// </summary>
+        public void ConfigureAsLobbyOverlay()
+        {
+            lobbyOverlay = true;
+            if (canvasRoot != null)
+            {
+                ApplyLobbyChrome();
+            }
+        }
 
         public void ShowTab(SettingsTab tab)
         {
@@ -200,6 +216,7 @@ namespace Game.Client.Settings
             CreateDivider(panel);
             CreateContent(panel);
             CreateActionBar(panel);
+            ApplyLobbyChrome();
 
             // Over every control on the panel, and off until a key plate is
             // waiting for a press.
@@ -213,11 +230,28 @@ namespace Game.Client.Settings
             // confirmations go on top of the writing panel, which is the order
             // the two are asked for in: leaving with something typed asks
             // about the settings, not about the feedback.
-            CreateFeedback(canvasRoot);
+            if (!lobbyOverlay)
+            {
+                CreateFeedback(canvasRoot);
+            }
+
             CreateConfirm(canvasRoot);
 
             ShowTab(SettingsTab.General);
             SetActionsEnabled(false);
+        }
+
+        private void ApplyLobbyChrome()
+        {
+            if (!lobbyOverlay)
+            {
+                return;
+            }
+
+            if (feedbackRow != null)
+            {
+                feedbackRow.SetActive(false);
+            }
         }
 
         /// <summary>
