@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: dda84423d6eff874098dcbde1118f254
+guid: 986ac1899c7d440a8a21fb3a0c46ed55
 ModelImporter:
   serializedVersion: 24300
   internalIDToNameTable: []
@@ -32,7 +32,7 @@ ModelImporter:
     extraUserProperties: []
     clipAnimations:
     - serializedVersion: 16
-      name: Run_SideArms
+      name: Run_Left
       takeName: Scene
       internalID: -623603649343465320
       firstFrame: 0
