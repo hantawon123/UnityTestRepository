@@ -11,6 +11,7 @@ using Game.Core.Flow;
 using Game.Core.Home;
 using Game.Core.Players;
 using Game.Core.Ports;
+using Game.Core.Settings;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -158,7 +159,13 @@ namespace Game.Architecture.Tests
                 presenter.Start();
 
                 bridge = new HomeFriendBridge(
-                    View, Commands, signIn, new SilentNotificationStream(), new SilentHost(), new SilentInvites());
+                    View,
+                    Commands,
+                    signIn,
+                    new SilentNotificationStream(),
+                    new SilentHost(),
+                    new SilentInvites(),
+                    new NotificationSettingsSystem(new InMemoryNotificationSettingsStore()));
                 bridge.Start();
             }
 

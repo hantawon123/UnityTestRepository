@@ -9,6 +9,7 @@ using Game.Core.Backend;
 using Game.Core.Home;
 using Game.Core.Players;
 using Game.Core.Ports;
+using Game.Core.Settings;
 using NUnit.Framework;
 using R3;
 
@@ -92,6 +93,35 @@ namespace Game.Architecture.Tests
             Assert.That(wiring.View.Invites[0].RoomCode, Is.EqualTo("7K2M9P"));
             Assert.That(wiring.Gateway.FriendReads, Is.EqualTo(0));
             Assert.That(wiring.Gateway.IncomingReads, Is.EqualTo(0));
+        }
+
+        [Test]
+        public async Task WithTheInviteNoticeOff_NoCardIsShownAndTheInviteIsLeftAlone()
+        {
+            using var wiring = await Wiring.StartAsync();
+            wiring.SilenceInvites();
+
+            wiring.Push(ServerNotificationKind.RoomInviteReceived, roomCode: "7K2M9P");
+            await wiring.Settle();
+
+            Assert.That(wiring.View.Invites, Is.Empty);
+
+            // Silencing a notice is not declining it: the friend is not told.
+            Assert.That(wiring.Invites.DeclinedPlayers, Is.Empty);
+        }
+
+        [Test]
+        public async Task TurningTheNoticeOff_LeavesCardsThatAreAlreadyUp()
+        {
+            using var wiring = await Wiring.StartAsync();
+            wiring.Push(ServerNotificationKind.RoomInviteReceived, roomCode: "7K2M9P");
+            await wiring.Settle();
+
+            wiring.SilenceInvites();
+            await wiring.Settle();
+
+            // A friend is waiting on an answer to this one.
+            Assert.That(wiring.View.Invites.Count, Is.EqualTo(1));
         }
 
         [Test]
@@ -211,7 +241,8 @@ namespace Game.Architecture.Tests
             private Wiring(BackendSignIn signIn)
             {
                 var commands = new FriendUiCommands(Gateway, new FriendListSystem(), new FriendSearchSystem());
-                bridge = new HomeFriendBridge(View, commands, signIn, Link, Host, Invites);
+                bridge = new HomeFriendBridge(
+                    View, commands, signIn, Link, Host, Invites, NotificationSettings);
                 bridge.Start();
             }
 
@@ -222,6 +253,15 @@ namespace Game.Architecture.Tests
             public RecordingHost Host { get; } = new RecordingHost();
 
             public RecordingInvites Invites { get; } = new RecordingInvites();
+
+            public NotificationSettingsSystem NotificationSettings { get; } =
+                new NotificationSettingsSystem(new InMemoryNotificationSettingsStore());
+
+            /// <summary>Turns the game-invite notice off, as the settings screen would.</summary>
+            public void SilenceInvites() =>
+                NotificationSettings.Apply(
+                    NotificationSettings.Current.With(
+                        NotificationOption.GameInvite, InterfaceCatalog.Off));
 
             public FakeNotificationStream Link { get; } = new FakeNotificationStream();
 

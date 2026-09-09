@@ -6,6 +6,7 @@ using Game.Client.Home;
 using Game.Core.Backend;
 using Game.Core.Home;
 using Game.Core.Ports;
+using Game.Core.Settings;
 using R3;
 using UnityEngine;
 using VContainer.Unity;
@@ -39,6 +40,7 @@ namespace Game.Bootstrap
         private readonly INotificationStream notifications;
         private readonly IHomeApplicationHost host;
         private readonly IInviteGateway invites;
+        private readonly NotificationSettingsSystem notificationSettings;
 
         /// <summary>
         /// The room invitations waiting on this screen. Owned here because the
@@ -59,7 +61,8 @@ namespace Game.Bootstrap
             BackendSignIn signIn,
             INotificationStream notifications,
             IHomeApplicationHost host,
-            IInviteGateway invites)
+            IInviteGateway invites,
+            NotificationSettingsSystem notificationSettings)
         {
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.friends = friends ?? throw new ArgumentNullException(nameof(friends));
@@ -67,6 +70,8 @@ namespace Game.Bootstrap
             this.notifications = notifications ?? throw new ArgumentNullException(nameof(notifications));
             this.host = host ?? throw new ArgumentNullException(nameof(host));
             this.invites = invites ?? throw new ArgumentNullException(nameof(invites));
+            this.notificationSettings = notificationSettings
+                ?? throw new ArgumentNullException(nameof(notificationSettings));
         }
 
         public void Start()
@@ -159,7 +164,7 @@ namespace Game.Bootstrap
                     // Nothing to re-read: the push carries the whole invite. A
                     // push without a room is malformed and shows nothing rather
                     // than a card that could not be accepted.
-                    if (notification.RoomCode != null)
+                    if (notification.RoomCode != null && WantsInviteCards)
                     {
                         inbox.Receive(
                             notification.FromPlayerId, notification.FromNickname, notification.RoomCode);
@@ -168,6 +173,23 @@ namespace Game.Bootstrap
                     break;
             }
         }
+
+        /// <summary>
+        /// Whether this player still wants to be told about invitations.
+        /// </summary>
+        /// <remarks>
+        /// Read at the moment one arrives rather than subscribed to, so turning
+        /// the setting off does not sweep away cards that are already up: those
+        /// are questions a friend asked and is waiting on, and the setting says
+        /// what to do about the next one.
+        /// <para>
+        /// The invitation itself is left on the server. Declining it here would
+        /// tell the friend they were turned down, which is not what silencing a
+        /// notice means.
+        /// </para>
+        /// </remarks>
+        private bool WantsInviteCards =>
+            notificationSettings.Current.IsOn(NotificationOption.GameInvite);
 
         private void OnInvitesChanged()
         {
