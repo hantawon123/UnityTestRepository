@@ -216,6 +216,54 @@ namespace Game.Tests.EditMode
             Assert.That(home.Stroke("ServerButton").enabled, Is.False);
         }
 
+        /// <summary>
+        /// A search that found somebody never also says nobody was found.
+        /// </summary>
+        /// <remarks>
+        /// The two arrive separately: the rows come from the search, and the
+        /// success then clears the last failure. That clear used to assume an
+        /// empty result and put the message back over a player who was already
+        /// on screen, which is what the panel showed.
+        /// </remarks>
+        [Test]
+        public void ClearingAnErrorAfterAHit_DoesNotSayNobodyWasFound()
+        {
+            using var home = new BuiltHome();
+            home.View.SetFriendSearchVisible(true);
+            home.Typed("가짜크런키더블크런치바");
+
+            home.View.SetFriendSearchResults(
+                new[]
+                {
+                    new FriendSearchHit("p1", "가짜크런키더블크런치바", FriendRequestState.None)
+                });
+            Assert.That(
+                home.SearchEmpty().activeSelf, Is.False, "The hit alone already reads as empty.");
+
+            home.View.SetFriendActionError(string.Empty);
+
+            Assert.That(
+                home.SearchEmpty().activeSelf,
+                Is.False,
+                "Clearing the failure put the not-found line back over a player who was found.");
+        }
+
+        /// <summary>
+        /// A search that found nobody still says so once the error clears.
+        /// </summary>
+        [Test]
+        public void ClearingAnErrorWithNoHits_StillSaysNobodyWasFound()
+        {
+            using var home = new BuiltHome();
+            home.View.SetFriendSearchVisible(true);
+            home.Typed("없는사람");
+
+            home.View.SetFriendSearchResults(Array.Empty<FriendSearchHit>());
+            home.View.SetFriendActionError(string.Empty);
+
+            Assert.That(home.SearchEmpty().activeSelf, Is.True);
+        }
+
         private static readonly Dictionary<string, Action<HomeMenuView, bool>> PanelButtons =
             new Dictionary<string, Action<HomeMenuView, bool>>
             {
@@ -286,6 +334,33 @@ namespace Game.Tests.EditMode
                 var stroke = Rect(buttonName).Find("Stroke");
                 Assert.That(stroke, Is.Not.Null, $"{buttonName} draws no Stroke.");
                 return stroke.GetComponent<Image>();
+            }
+
+            /// <summary>
+            /// The line that says a search found nobody.
+            /// </summary>
+            public GameObject SearchEmpty()
+            {
+                return Private<TMPro.TMP_Text>("searchEmptyText").gameObject;
+            }
+
+            /// <summary>
+            /// Puts a query in the search box, which is what tells the panel a
+            /// search was asked for at all.
+            /// </summary>
+            public void Typed(string query)
+            {
+                Private<TMPro.TMP_InputField>("friendSearchInput").text = query;
+            }
+
+            private T Private<T>(string name) where T : class
+            {
+                var field = typeof(HomeMenuView).GetField(
+                    name, BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(field, Is.Not.Null, $"HomeMenuView.{name} is gone.");
+                var value = field.GetValue(View) as T;
+                Assert.That(value, Is.Not.Null, $"HomeMenuView.{name} was never built.");
+                return value;
             }
 
             public void Dispose()

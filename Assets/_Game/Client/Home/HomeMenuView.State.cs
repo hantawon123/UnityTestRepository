@@ -96,6 +96,19 @@ namespace Game.Client.Home
         /// </summary>
         private string composingText = string.Empty;
         private TMP_InputField friendSearchInput;
+
+        /// <summary>
+        /// What the last search came back with, kept so that clearing an error
+        /// can tell an empty result from a result nobody has looked at yet.
+        /// </summary>
+        /// <remarks>
+        /// Without it a successful search told the panel twice: the rows
+        /// arrived, and then the success cleared the last failure, which had no
+        /// way to know the rows were there and put "찾을 수 없습니다" back over
+        /// a player who had just been found.
+        /// </remarks>
+        private IReadOnlyList<FriendSearchHit> lastSearchResults =
+            Array.Empty<FriendSearchHit>();
         private TMP_Text searchEmptyText;
         private TMP_Text onlineEmptyText;
         private TMP_Text offlineEmptyText;
@@ -326,7 +339,8 @@ namespace Game.Client.Home
             ClearFriendSearch();
             WatchComposition(true);
 
-            UpdateSearchEmptyHint(Array.Empty<FriendSearchHit>());
+            lastSearchResults = Array.Empty<FriendSearchHit>();
+            UpdateSearchEmptyHint(lastSearchResults);
         }
 
         public void SetFriendSearchResults(IReadOnlyList<FriendSearchHit> results)
@@ -336,6 +350,7 @@ namespace Game.Client.Home
                 throw new ArgumentNullException(nameof(results));
             }
 
+            lastSearchResults = results;
             BindSearchRows(results);
             UpdateSearchEmptyHint(results);
         }
