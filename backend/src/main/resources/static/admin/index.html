@@ -423,7 +423,10 @@
     el('feedbackView').hidden = reports;
     el('tabReports').classList.toggle('on', reports);
     el('tabFeedback').classList.toggle('on', !reports);
-    el('pageTitle').textContent = reports ? '신고 검토' : '피드백';
+    const name = reports ? '신고 검토' : '피드백';
+    el('pageTitle').textContent = name;
+    // 브라우저 탭 제목도 같이 바꿉니다. 창을 두 개 띄워 두면 제목이 유일한 구분입니다.
+    document.title = name + ' · D205';
     say('');
   }
 
