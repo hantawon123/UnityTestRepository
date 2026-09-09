@@ -1,3 +1,4 @@
+using Game.Client.Settings;
 using Game.Core.Players;
 using UnityEngine;
 
@@ -246,6 +247,45 @@ namespace Game.Client.Character
             public const string Subtitle = "지금까지의 변경 내용은 모두 사라집니다.";
             public const string DeclineLabel = "아니오";
             public const string AcceptLabel = "예";
+        }
+
+        /// <summary>
+        /// Lobby overlay: the Home closet chrome inside the settings panel.
+        /// Insets are tighter than the full-screen page so the same rail,
+        /// locker and buttons fit the 1600×876 frame.
+        /// </summary>
+        public static class Overlay
+        {
+            public static readonly Vector2 FramePosition = SettingsStyle.Frame.Position;
+
+            public static readonly Vector2 FrameSize = SettingsStyle.Frame.Size;
+
+            public const int FrameRadius = SettingsStyle.Frame.Radius;
+
+            public const float BorderWidth = 1f;
+
+            public static readonly Color PanelFill = FromHex(0x0B1018, 0.8f);
+
+            public static readonly Color Border = Color.white;
+
+            /// <summary>Left/right inset from the panel edge. Full screen uses 60.</summary>
+            public const float InsetX = 48f;
+
+            /// <summary>
+            /// Top inset. Full screen starts the rail at 281 because the
+            /// character owns the middle of a 1080 page; the panel is 876.
+            /// </summary>
+            public const float InsetY = 72f;
+
+            public static readonly Vector2 TabsOrigin = new Vector2(InsetX, -InsetY);
+
+            public static readonly Vector2 LockerMargin = new Vector2(InsetX, InsetY);
+
+            /// <summary>Full screen uses 60; the panel is shorter.</summary>
+            public const float ButtonsBottom = 40f;
+
+            /// <summary>Same dim the other lobby overlays sit on.</summary>
+            public static readonly Color Scrim = new Color(0f, 0f, 0f, 200f / 255f);
         }
 
         private static Color FromHex(uint rgb, float alpha = 1f) =>

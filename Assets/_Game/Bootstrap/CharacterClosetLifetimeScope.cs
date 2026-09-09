@@ -47,7 +47,8 @@ namespace Game.Bootstrap
                 .As<IHomeApplicationHost>();
             builder.RegisterComponent(closetView).As<ICharacterClosetView>();
             builder.RegisterInstance(partCatalog);
-            builder.RegisterEntryPoint<CharacterClosetPresenter>();
+            builder.RegisterEntryPoint<CharacterClosetPresenter>()
+                .WithParameter<System.Action>((System.Action)null);
 
             // Stores what the player applies. Kept out of the presenter so the
             // screen's rules stay free of the network.

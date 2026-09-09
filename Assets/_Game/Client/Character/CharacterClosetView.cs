@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Client.Common;
 using Game.Client.Home;
+using Game.Client.Settings;
 using Game.Core.Players;
 using TMPro;
 using UnityEngine;
@@ -65,6 +66,8 @@ namespace Game.Client.Character
 
         private TMP_FontAsset font;
         private RectTransform controlsRoot;
+        private RectTransform panel;
+        private bool lobbyOverlay;
         private Image resetFill;
         private TMP_Text resetLabel;
         private Image applyFill;
@@ -75,7 +78,17 @@ namespace Game.Client.Character
         private ConnectionToast toast;
         private readonly List<Button> buttons = new List<Button>();
 
+        public event Action Opened;
+
+        public event Action Closed;
+
         public event Action BackRequested;
+
+        public void RequestBack() => BackRequested?.Invoke();
+
+        private void OnEnable() => Opened?.Invoke();
+
+        private void OnDisable() => Closed?.Invoke();
 
         public event Action<AvatarPartCategory> CategorySelected;
 
@@ -101,6 +114,30 @@ namespace Game.Client.Character
         {
             toast?.Show(CharacterClosetStyle.SaveErrorTitle, message);
         }
+
+        /// <summary>
+        /// Lobby overlay: Home closet chrome inside the settings-sized panel.
+        /// Call before the first activation when this view is built in code.
+        /// </summary>
+        public void ConfigureAsLobbyOverlay()
+        {
+            lobbyOverlay = true;
+        }
+
+        private Vector2 TabsOrigin =>
+            lobbyOverlay
+                ? CharacterClosetStyle.Overlay.TabsOrigin
+                : CharacterClosetStyle.Tabs.Origin;
+
+        private Vector2 LockerMargin =>
+            lobbyOverlay
+                ? CharacterClosetStyle.Overlay.LockerMargin
+                : CharacterClosetStyle.Locker.Margin;
+
+        private float ButtonsBottom =>
+            lobbyOverlay
+                ? CharacterClosetStyle.Overlay.ButtonsBottom
+                : CharacterClosetStyle.Buttons.BottomMargin;
 
         private void Awake()
         {
@@ -130,11 +167,23 @@ namespace Game.Client.Character
         {
             font = HomeUiFonts.Apply(fontAsset);
             controlsRoot = CreateControlsCanvas();
-            CreateBackground(controlsRoot);
-            CreateBackButton(controlsRoot);
-            CreateTabRail(controlsRoot);
-            CreateLocker(controlsRoot);
-            CreateActionBar(controlsRoot);
+            if (lobbyOverlay)
+            {
+                CreateDim(controlsRoot);
+                CreateFrame(controlsRoot);
+                CreateBackButton(controlsRoot);
+                CreateTabRail(panel);
+                CreateLocker(panel);
+                CreateActionBar(panel);
+            }
+            else
+            {
+                CreateBackground(controlsRoot);
+                CreateBackButton(controlsRoot);
+                CreateTabRail(controlsRoot);
+                CreateLocker(controlsRoot);
+                CreateActionBar(controlsRoot);
+            }
 
             // Over the screen but under the confirmations, and it never takes a
             // click, so being on top costs the controls beneath it nothing.
@@ -142,6 +191,43 @@ namespace Game.Client.Character
 
             // Last, so it draws over everything it is asked about.
             CreateConfirm(controlsRoot);
+        }
+
+        /// <summary>
+        /// The panel the closet chrome sits on. No glow: a 1px white ring is
+        /// the edge, the same way play settings draws its modal.
+        /// </summary>
+        private void CreateFrame(RectTransform canvas)
+        {
+            panel = CreateRect("Panel", canvas);
+            SetAnchor(panel, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f));
+            panel.anchoredPosition = CharacterClosetStyle.Overlay.FramePosition;
+            panel.sizeDelta = CharacterClosetStyle.Overlay.FrameSize;
+            AddImage(
+                panel,
+                CharacterClosetStyle.Overlay.PanelFill,
+                HomeUiFonts.Rounded(CharacterClosetStyle.Overlay.FrameRadius),
+                raycastTarget: true);
+
+            var stroke = CreateRect("Stroke", panel);
+            SetAnchor(stroke, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            stroke.offsetMin = Vector2.zero;
+            stroke.offsetMax = Vector2.zero;
+            AddImage(
+                stroke,
+                CharacterClosetStyle.Overlay.Border,
+                HomeUiFonts.Outline(
+                    CharacterClosetStyle.Overlay.FrameRadius,
+                    CharacterClosetStyle.Overlay.BorderWidth));
+        }
+
+        private void CreateDim(RectTransform canvas)
+        {
+            var dim = CreateRect("Dim", canvas);
+            SetAnchor(dim, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            dim.offsetMin = Vector2.zero;
+            dim.offsetMax = Vector2.zero;
+            AddImage(dim, CharacterClosetStyle.Overlay.Scrim, raycastTarget: true);
         }
 
         /// <summary>
@@ -262,8 +348,12 @@ namespace Game.Client.Character
         {
             var rect = CreateRect("BackButton", canvas);
             SetAnchor(rect, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f));
-            rect.anchoredPosition = CharacterClosetStyle.Back.Position;
-            rect.sizeDelta = CharacterClosetStyle.Back.Size;
+            rect.anchoredPosition = lobbyOverlay
+                ? SettingsStyle.Back.Position
+                : CharacterClosetStyle.Back.Position;
+            rect.sizeDelta = lobbyOverlay
+                ? SettingsStyle.Back.Size
+                : CharacterClosetStyle.Back.Size;
 
             // A barely-there graphic takes the click; the arrow and the word
             // are drawn by the label, which takes none.
@@ -303,7 +393,7 @@ namespace Game.Client.Character
             var reset = CreateButtonPlate(
                 "ResetButton",
                 canvas,
-                new Vector2(-half, CharacterClosetStyle.Buttons.BottomMargin),
+                new Vector2(-half, ButtonsBottom),
                 CharacterClosetStyle.Buttons.ResetLabel,
                 CharacterClosetStyle.Palette.ResetFill,
                 CharacterClosetStyle.Palette.ResetLabel,
@@ -316,7 +406,7 @@ namespace Game.Client.Character
             var apply = CreateButtonPlate(
                 "ApplyButton",
                 canvas,
-                new Vector2(half, CharacterClosetStyle.Buttons.BottomMargin),
+                new Vector2(half, ButtonsBottom),
                 CharacterClosetStyle.Buttons.ApplyLabel,
                 CharacterClosetStyle.Palette.ApplyOffFill,
                 CharacterClosetStyle.Palette.ApplyOffLabel,

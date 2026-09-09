@@ -16,9 +16,9 @@ namespace Game.Client.Lobby
     /// The lobby is a place the player walks around, so the cursor stays
     /// captured for looking: movement is camera-relative and the character
     /// faces where the camera faces, which leaves a freed cursor with no way to
-    /// turn. Esc currently leaves the room; 1 and 2 open the overlays the
-    /// bottom-right guide names. A released cursor with nothing to press is
-    /// just a stuck screen.
+    /// turn. Esc frees the pointer and opens environment settings; 1 and 2
+    /// open the other two overlays the bottom-right guide names. A released
+    /// cursor with nothing to press is just a stuck screen.
     /// <para>
     /// Cursor and movement are set here rather than once while the scene loads.
     /// The one-shot call this replaces ran before the avatar had replicated in,
@@ -49,6 +49,23 @@ namespace Game.Client.Lobby
         /// rather than from this menu, so closing them goes back to the room.
         /// </summary>
         private bool openedFromWorld;
+
+        /// <summary>
+        /// Opens the lobby's environment-settings overlay from the room. The
+        /// overlay listens and shows the same panel Home uses.
+        /// </summary>
+        public event Action SettingsOpenRequested;
+
+        /// <summary>
+        /// Opens the lobby's character-closet overlay from the 1 key. The
+        /// overlay listens and shows the Home closet inside the settings frame.
+        /// </summary>
+        public event Action CharacterOpenRequested;
+
+        /// <summary>
+        /// True while the character closet overlay owns Esc / the 1 key.
+        /// </summary>
+        private bool characterOverlayOpen;
 
         /// <summary>
         /// Closes whichever screen the menu stepped aside for, or null while the
@@ -85,7 +102,6 @@ namespace Game.Client.Lobby
             view.LeaveClicked += OnLeaveClicked;
             view.ResumeClicked += Close;
             view.PlaySettingsClicked += OnPlaySettingsClicked;
-            view.SettingsClicked += OnSettingsClicked;
 
             // Play settings is opened by its own presenter, which listens to
             // the same button. Coming back is what is left over, and it is the
@@ -107,7 +123,6 @@ namespace Game.Client.Lobby
             view.LeaveClicked -= OnLeaveClicked;
             view.ResumeClicked -= Close;
             view.PlaySettingsClicked -= OnPlaySettingsClicked;
-            view.SettingsClicked -= OnSettingsClicked;
             playSettings.CloseRequested -= OnScreenClosed;
             shortcuts.CloseRequested -= OnScreenClosed;
             hostSession.StartRequested -= DismissForMatchStart;
@@ -149,12 +164,19 @@ namespace Game.Client.Lobby
                 WasPressed(keyboard.digit2Key) || WasPressed(keyboard.numpad2Key),
                 false);
 
-            // Esc always backs out of whatever is already up. 1 and 2 switch
-            // between their overlays, and only open a new one from the room.
+            // Esc always backs out of whatever is already up. From the room it
+            // opens environment settings. 1 and 2 switch between their overlays,
+            // and only open a new one from the room.
             var canOpenShortcut = LobbyShortcutBindings.CanHandle(
                 false,
                 view.IsOpen,
                 HasForeignScreen);
+            if (pressed == LobbyShortcutKind.Character && characterOverlayOpen)
+            {
+                closeOpenScreen?.Invoke();
+                return;
+            }
+
             if ((pressed == LobbyShortcutKind.Character ||
                  pressed == LobbyShortcutKind.Players) &&
                 (canOpenShortcut || (shortcuts.IsOpen && !HasForeignScreen)))
@@ -170,8 +192,8 @@ namespace Game.Client.Lobby
         }
 
         /// <summary>
-        /// Temporary: Esc backs out of an open screen, then leaves the room.
-        /// Settings will take this key again later.
+        /// Esc backs out of an open screen, then opens environment settings.
+        /// Leaving the room is 게임 나가기 on that overlay, not this key.
         /// </summary>
         public void HandleEscape()
         {
@@ -190,7 +212,7 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            Leave();
+            SettingsOpenRequested?.Invoke();
         }
 
         private void ApplyHostControls(bool isHost)
@@ -227,6 +249,7 @@ namespace Game.Client.Lobby
             var pending = closeOpenScreen;
             closeOpenScreen = null;
             openedFromWorld = false;
+            characterOverlayOpen = false;
             pending?.Invoke();
             view.SetVisible(false);
             SetCursorCaptured(true);
@@ -240,13 +263,23 @@ namespace Game.Client.Lobby
         /// screen that is already up wins; opening a second one on top of it
         /// would leave two things claiming Esc.
         /// </remarks>
-        public void OpenSettingsScreen(Action close)
+        public void OpenSettingsScreen(Action close, bool fromWorld = false)
         {
-            openedFromWorld = false;
+            openedFromWorld = fromWorld;
             closeOpenScreen = close;
             view.SetVisible(false);
             SetCursorCaptured(false);
             LockMovement();
+        }
+
+        /// <summary>
+        /// Same hand-over as environment settings, tagged so 1 can close the
+        /// closet without treating it as a foreign screen that ignores the key.
+        /// </summary>
+        public void OpenCharacterScreen(Action close, bool fromWorld = false)
+        {
+            characterOverlayOpen = true;
+            OpenSettingsScreen(close, fromWorld);
         }
 
         public void OpenPlaySettingsFromWorld()
@@ -270,15 +303,8 @@ namespace Game.Client.Lobby
         /// </remarks>
         private void OnPlaySettingsClicked() => StepAsideFor(playSettings.RequestClose);
 
-        private void OnSettingsClicked()
-        {
-            openedFromWorld = false;
-            StepAsideFor(shortcutClose);
-            shortcuts.Show(LobbyShortcutKind.Settings);
-        }
-
         /// <summary>
-        /// Opens a 1 / 2 / Esc overlay from the room. Closing it returns to
+        /// Opens a 1 / 2 overlay from the room. Closing it returns to
         /// walking rather than to the pause menu, the same as opening play
         /// settings from the plan board.
         /// </summary>
@@ -286,6 +312,17 @@ namespace Game.Client.Lobby
         {
             if (kind == LobbyShortcutKind.None || HasForeignScreen)
             {
+                return;
+            }
+
+            if (kind == LobbyShortcutKind.Character)
+            {
+                if (shortcuts.IsOpen)
+                {
+                    shortcutClose.Invoke();
+                }
+
+                CharacterOpenRequested?.Invoke();
                 return;
             }
 
@@ -334,6 +371,7 @@ namespace Game.Client.Lobby
         /// </remarks>
         public void OnScreenClosed()
         {
+            characterOverlayOpen = false;
             if (closeOpenScreen == null)
             {
                 return;
@@ -368,6 +406,12 @@ namespace Game.Client.Lobby
         /// with a captured cursor leaves nothing on it clickable.
         /// </remarks>
         private void OnLeaveClicked() => Leave();
+
+        /// <summary>
+        /// Leaves the room from another screen that offers the same way out,
+        /// such as the lobby settings overlay.
+        /// </summary>
+        public void LeaveRoom() => Leave();
 
         private void Leave()
         {

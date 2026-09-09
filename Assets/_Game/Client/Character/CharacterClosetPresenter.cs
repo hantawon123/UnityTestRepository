@@ -30,6 +30,7 @@ namespace Game.Client.Character
         private readonly AvatarAppearanceState appearance;
         private readonly IHomeApplicationHost applicationHost;
         private readonly AppFlowSystem appFlow;
+        private readonly Action closeCloset;
 
         private AvatarAppearance draft;
         private AvatarAppearance applied;
@@ -42,7 +43,8 @@ namespace Game.Client.Character
             AvatarPartCatalog catalog,
             AvatarAppearanceState appearance,
             IHomeApplicationHost applicationHost,
-            AppFlowSystem appFlow)
+            AppFlowSystem appFlow,
+            Action closeCloset = null)
         {
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
@@ -50,6 +52,7 @@ namespace Game.Client.Character
             this.applicationHost = applicationHost
                                    ?? throw new ArgumentNullException(nameof(applicationHost));
             this.appFlow = appFlow ?? throw new ArgumentNullException(nameof(appFlow));
+            this.closeCloset = closeCloset;
         }
 
         /// <summary>What has been picked but not applied. For tests.</summary>
@@ -57,6 +60,7 @@ namespace Game.Client.Character
 
         public void Start()
         {
+            view.Opened += Open;
             view.BackRequested += OnBackRequested;
             view.CategorySelected += OnCategorySelected;
             view.PartSelected += OnPartSelected;
@@ -66,12 +70,19 @@ namespace Game.Client.Character
             view.ConfirmDismissed += OnConfirmDismissed;
             appearance.Changed += OnAppliedChanged;
 
+            Open();
+        }
+
+        /// <summary>Starts a fresh draft, including when a cached overlay is reopened.</summary>
+        public void Open()
+        {
             applied = Worn();
             draft = applied;
             view.ShowCategories(catalog.Groups);
             view.ShowPreview(draft);
             view.HideConfirm();
             view.SetActionsEnabled(false);
+            pending = null;
 
             if (catalog.Groups.Count > 0 && catalog.Groups[0] != null)
             {
@@ -86,6 +97,7 @@ namespace Game.Client.Character
 
         public void Dispose()
         {
+            view.Opened -= Open;
             view.BackRequested -= OnBackRequested;
             view.CategorySelected -= OnCategorySelected;
             view.PartSelected -= OnPartSelected;
@@ -255,6 +267,13 @@ namespace Game.Client.Character
         /// </remarks>
         private void Leave()
         {
+            Open();
+            if (closeCloset != null)
+            {
+                closeCloset();
+                return;
+            }
+
             if (appFlow.CurrentState != AppFlowState.Home &&
                 !appFlow.TryTransitionTo(AppFlowState.Home))
             {

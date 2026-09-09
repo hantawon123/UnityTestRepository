@@ -7,7 +7,8 @@ using UnityEngine.UI;
 namespace Game.Client.Lobby
 {
     /// <summary>
-    /// 1 / Esc stay placeholder titles. 2 hosts the two-column player modal.
+    /// 2 hosts the two-column player modal. 1 opens the character closet
+    /// overlay and Esc opens environment settings, both outside this view.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class LobbyShortcutOverlayView : MonoBehaviour, ILobbyShortcutOverlay

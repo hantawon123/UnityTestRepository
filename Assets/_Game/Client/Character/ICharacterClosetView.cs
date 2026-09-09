@@ -10,6 +10,11 @@ namespace Game.Client.Character
     /// </summary>
     public interface ICharacterClosetView
     {
+        /// <summary>
+        /// The screen became visible, including a cached overlay reopening.
+        /// </summary>
+        event Action Opened;
+
         /// <summary>The arrow at the top left.</summary>
         event Action BackRequested;
 

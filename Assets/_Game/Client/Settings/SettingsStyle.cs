@@ -21,6 +21,14 @@ namespace Game.Client.Settings
     {
         public static readonly Vector2 ReferenceResolution = new Vector2(1920f, 1080f);
 
+        /// <summary>
+        /// Same files the play-settings picker uses. The Settings scene wires
+        /// these on the component; a view built in code, as the lobby overlay
+        /// is, has to load them itself.
+        /// </summary>
+        public const string ArrowLeftIconResource = "UI/Icon_Left";
+        public const string ArrowRightIconResource = "UI/Icon_Right";
+
         public static class Palette
         {
             public static readonly Color TextPrimary = FromHex(0xF5F3F1);
@@ -153,6 +161,12 @@ namespace Game.Client.Settings
             public static readonly Color ResetOnLabel = FromHex(0x0B1018);
             public static readonly Color ApplyOnFill = FromHex(0xFF7032);
             public static readonly Color ApplyOnLabel = FromHex(0xF5F3F1);
+
+            /// <summary>Lobby-only 게임 나가기, left of the gradient.</summary>
+            public static readonly Color LeaveGameStart = FromHex(0xFF9A6A);
+
+            /// <summary>Lobby-only 게임 나가기, right of the gradient.</summary>
+            public static readonly Color LeaveGameEnd = FromHex(0xFF7032);
         }
 
         /// <summary>The panel everything sits on, and the glow around it.</summary>
@@ -710,6 +724,13 @@ namespace Game.Client.Settings
             public const float IconGap = 14f;
             public const string ResetLabel = "초기화";
             public const string ApplyLabel = "적용하기";
+
+            /// <summary>
+            /// Lobby overlay only: same size as 적용하기, under the tabs at
+            /// the panel's bottom left.
+            /// </summary>
+            public const float LeaveLeft = 30f;
+            public const string LeaveLabel = "게임 나가기";
         }
 
         /// <summary>

@@ -78,7 +78,7 @@ SELECT p.map_id, p.phase, FLOOR(p.pos_x / 2) * 2 AS 구역X,
 FROM d205_analytics.match_analysis_positions p
 JOIN d205_analytics.match_analysis_summary s ON s.match_id = p.match_id
 WHERE s.upload_complete = 1 AND s.dropped_samples = 0
-GROUP BY p.map_id, p.phase, FLOOR(p.pos_x / 2), FLOOR(p.pos_z / 2);
+GROUP BY p.map_id, p.phase, FLOOR(p.pos_x / 2) * 2, FLOOR(p.pos_z / 2) * 2;
 ```
 
 샘플 수는 대략적인 체류 지표이며 프레임 지연·이탈 때문에 정확한 초 단위 시간과 일치하지 않습니다.
@@ -100,7 +100,10 @@ GROUP BY p.map_id, p.phase, FLOOR(p.pos_x / 2), FLOOR(p.pos_z / 2);
 빗나간 공격과 로비 펀치는 집계하지 않습니다. 새 경기에서 0부터 시작합니다.
 마지막 1초 사이 발생한 횟수를 놓치지 않도록 `player_result`에도 종료 시 누적값을 담습니다.
 기존 `game_event.params` JSON으로 저장하므로 API/테이블 마이그레이션은 필요하지 않습니다.
-과거 기록에는 필드가 없으며 NULL은 미수집을 의미합니다. 기존 위치 뷰에는 새 열이 없으므로 원본에서 조회합니다.
+과거 기록에는 필드가 없으며 NULL은 미수집을 의미합니다.
+V3 마이그레이션(S15P21D205-895)이 위치 뷰에 `total_hits_received`·`total_stuns` 열을 열었고,
+사람·경기 단위 합계는 `match_analysis_combat` 뷰가 종료 기록을 우선해 정리합니다. 아래 원본 조회는
+초 단위 추이를 볼 때만 씁니다.
 
 ```sql
 SELECT match_id, match_time_ms, params->>'$.seat' AS player_seat,

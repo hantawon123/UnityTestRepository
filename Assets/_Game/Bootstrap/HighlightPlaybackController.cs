@@ -163,6 +163,8 @@ namespace Game.Bootstrap
         private HighlightReplayPlayer replayPlayer;
         private HighlightCameraDirector cameraDirector;
         private INetworkMatchHudView hud;
+        private float[] highlightBarFills = Array.Empty<float>();
+        private double[] highlightClipDurations = Array.Empty<double>();
         private PlayerCameraController cameraRig;
         private GameObject fallbackObject;
         private MatchPhase phase = MatchPhase.Waiting;
@@ -243,11 +245,12 @@ namespace Game.Bootstrap
             if (!clock.IsRuntimeReady) return;
             if (network is INetworkResultNavigation { IsResultSceneLoaded: true })
             {
-                hud?.SetHighlightTitle(null);
+                HideHighlightHud();
                 return;
             }
             if (clock.ServerTime < gameEndNoticeEndsAt)
             {
+                HideHighlightHud();
                 var fadeElapsed = double.IsNaN(matchEndedAt)
                     ? 0d
                     : clock.ServerTime - matchEndedAt;
@@ -261,6 +264,7 @@ namespace Game.Bootstrap
             if (acceptsShortcut && keyboard.tabKey.wasPressedThisFrame) SkipAll();
             if (skippedAll)
             {
+                HideHighlightHud();
                 if (!readinessConfirmed && network is INetworkHighlightReady skippedReady)
                     readinessConfirmed = skippedReady.TryConfirmHighlightReady();
                 TryFinishLocalViewing();
@@ -276,6 +280,7 @@ namespace Game.Bootstrap
                                      emptyReady.TryConfirmHighlightReady();
                 PlaybackSourceTime = null;
                 transition.SetOpacity(1f);
+                PublishHighlightHud(-1, 0d);
                 return;
             }
             if (!readinessConfirmed && replay.Count > 0)
@@ -290,6 +295,7 @@ namespace Game.Bootstrap
                         lastWarnedIndex = 0;
                     }
                     transition.SetOpacity(1f);
+                    PublishHighlightHud(0, 0d);
                     return;
                 }
                 readinessConfirmed = network is INetworkHighlightReady ready && ready.TryConfirmHighlightReady();
@@ -301,6 +307,7 @@ namespace Game.Bootstrap
             {
                 PlaybackSourceTime = null;
                 transition.SetOpacity(1f);
+                PublishHighlightHud(-1, 0d);
                 return;
             }
             elapsed = Math.Max(0d, elapsed);
@@ -333,12 +340,14 @@ namespace Game.Bootstrap
                         lastWarnedIndex = index;
                     }
                     transition.SetOpacity(1f);
+                    PublishHighlightHud(index, elapsed);
                     return;
                 }
                 if (changedHighlight)
                 {
                     PlaybackSourceTime = null;
                     transition.SetOpacity(1f);
+                    PublishHighlightHud(index, elapsed);
                     return;
                 }
             }
@@ -353,12 +362,7 @@ namespace Game.Bootstrap
             replayPlayer.Advance(Math.Max(0d, playbackTime - appliedBodyTime));
             appliedBodyTime = playbackTime;
             PlaybackSourceTime = playbackTime > 0d ? replayPlayer.SourceTime : null;
-            hud?.SetHighlightTitle(PlaybackSourceTime.HasValue
-                ? TitleOf(
-                    replay[index].Candidate,
-                    room.MatchParticipants.CurrentValue,
-                    room.Participants.CurrentValue, presentation)
-                : null);
+            PublishHighlightHud(index, elapsed);
             cameraDirector.SetPlaybackTime(playbackTime);
             cameraDirector.Tick(Time.unscaledDeltaTime);
             transition.SetOpacity(Mathf.Max(
@@ -418,7 +422,7 @@ namespace Game.Bootstrap
             replayPlayer = null;
             cameraDirector?.Dispose();
             cameraDirector = null;
-            hud?.SetHighlightTitle(null);
+            HideHighlightHud();
         }
 
         private double TotalDuration()
@@ -582,7 +586,7 @@ namespace Game.Bootstrap
                     ? participant.PlayerId
                     : participant.Nickname;
                 if (presentation != null) displayName = presentation.Name(participant.PlayerId, displayName);
-                return string.IsNullOrEmpty(displayName) ? title : $"{title} · {displayName}";
+                return string.IsNullOrEmpty(displayName) ? title : $"{title} : {displayName}";
             }
 
             return title;
@@ -634,6 +638,55 @@ namespace Game.Bootstrap
             }
         }
 
+        private void HideHighlightHud()
+        {
+            hud?.SetHighlightHud(false, null, Array.Empty<float>());
+        }
+
+        private void PublishHighlightHud(int index, double clipElapsed)
+        {
+            if (hud == null)
+            {
+                return;
+            }
+
+            if (highlightClipDurations.Length != replay.Count)
+            {
+                highlightClipDurations = replay.Count == 0
+                    ? Array.Empty<double>()
+                    : new double[replay.Count];
+            }
+
+            for (var clipIndex = 0; clipIndex < replay.Count; clipIndex++)
+            {
+                highlightClipDurations[clipIndex] =
+                    replay[clipIndex].Candidate.PlaybackDurationSeconds +
+                    HighlightPresentationTiming.OverheadSeconds;
+            }
+
+            var visibleCount = HighlightHudView.VisibleBarCount(replay.Count);
+            if (highlightBarFills.Length != visibleCount)
+            {
+                highlightBarFills = visibleCount == 0
+                    ? Array.Empty<float>()
+                    : new float[visibleCount];
+            }
+
+            HighlightHudView.WriteFills(
+                highlightBarFills,
+                highlightClipDurations,
+                index,
+                clipElapsed);
+            var subtitle = index >= 0 && index < replay.Count
+                ? TitleOf(
+                    replay[index].Candidate,
+                    room.MatchParticipants.CurrentValue,
+                    room.Participants.CurrentValue,
+                    presentation)
+                : null;
+            hud.SetHighlightHud(true, subtitle, highlightBarFills);
+        }
+
         private static int GetRecordedPlayerCount(
             IReadOnlyList<HighlightReplayClip> clips)
         {
@@ -656,7 +709,7 @@ namespace Game.Bootstrap
             replayPlayer = null;
             cameraDirector?.Dispose();
             cameraDirector = null;
-            hud?.SetHighlightTitle(null);
+            HideHighlightHud();
             foreach (var visual in playerVisuals.Values) visual.SetPlaying(false);
             foreach (var visual in itemVisuals.Values) visual.SetPlaying(false);
             cameraRig?.EndReplay();
