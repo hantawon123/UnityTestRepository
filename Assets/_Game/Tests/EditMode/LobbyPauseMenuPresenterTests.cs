@@ -110,12 +110,30 @@ namespace Game.Tests.EditMode
         public void ToggleShortcut_OpensCharacterFromTheRoom()
         {
             using var fixture = new Fixture();
+            var requested = 0;
+            fixture.Presenter.CharacterOpenRequested += () => requested++;
             fixture.Presenter.Start();
 
             fixture.Presenter.ToggleShortcut(LobbyShortcutKind.Character);
 
-            Assert.That(fixture.Shortcuts.OpenKind, Is.EqualTo(LobbyShortcutKind.Character));
+            Assert.That(requested, Is.EqualTo(1));
+            Assert.That(fixture.Shortcuts.IsOpen, Is.False);
             Assert.That(fixture.Menu.IsOpen, Is.False);
+        }
+
+        [Test]
+        public void ToggleShortcut_Character_ClosesThePlayerOverlayFirst()
+        {
+            using var fixture = new Fixture();
+            var requested = 0;
+            fixture.Presenter.CharacterOpenRequested += () => requested++;
+            fixture.Presenter.Start();
+            fixture.Presenter.ToggleShortcut(LobbyShortcutKind.Players);
+
+            fixture.Presenter.ToggleShortcut(LobbyShortcutKind.Character);
+
+            Assert.That(requested, Is.EqualTo(1));
+            Assert.That(fixture.Shortcuts.IsOpen, Is.False);
         }
 
         [Test]
@@ -133,15 +151,30 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void ToggleShortcut_SwitchesBetweenOverlays()
+        public void ToggleShortcut_WhileCharacterOverlayOpen_DoesNotOpenPlayers()
         {
             using var fixture = new Fixture();
             fixture.Presenter.Start();
-            fixture.Presenter.ToggleShortcut(LobbyShortcutKind.Character);
+            fixture.Presenter.OpenCharacterScreen(() => { }, fromWorld: true);
 
             fixture.Presenter.ToggleShortcut(LobbyShortcutKind.Players);
 
-            Assert.That(fixture.Shortcuts.OpenKind, Is.EqualTo(LobbyShortcutKind.Players));
+            Assert.That(fixture.Shortcuts.IsOpen, Is.False);
+        }
+
+        [Test]
+        public void Escape_WhileCharacterOpenFromWorld_ClosesWithoutLeaving()
+        {
+            using var fixture = new Fixture();
+            var closed = false;
+            fixture.Presenter.Start();
+            fixture.Presenter.OpenCharacterScreen(() => closed = true, fromWorld: true);
+            fixture.Menu.VisibleCalls.Clear();
+
+            fixture.Presenter.HandleEscape();
+
+            Assert.That(closed, Is.True);
+            Assert.That(fixture.Left, Is.False);
         }
 
         [Test]

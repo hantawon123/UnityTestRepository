@@ -198,6 +198,25 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void OverlayClose_HidesWithoutOpeningHome()
+        {
+            var closed = 0;
+            var presenter = new CharacterClosetPresenter(
+                view, catalog, new AvatarAppearanceState(), host, flow, () => closed++);
+            presenter.Start();
+
+            view.PressBack();
+
+            Assert.That(closed, Is.EqualTo(1));
+            Assert.That(host.HomeOpenCount, Is.Zero);
+            Assert.That(
+                flow.CurrentState,
+                Is.EqualTo(AppFlowState.CharacterCloset),
+                "The lobby overlay must not move the frontend flow.");
+            presenter.Dispose();
+        }
+
+        [Test]
         public void Disposing_StopsListeningToTheScreen()
         {
             var presenter = Presenter(new AvatarAppearanceState());
@@ -428,6 +447,8 @@ namespace Game.Architecture.Tests
 
         private sealed class FakeClosetView : ICharacterClosetView
         {
+            public event Action Opened;
+
             public event Action BackRequested;
 
             public event Action<AvatarPartCategory> CategorySelected;
