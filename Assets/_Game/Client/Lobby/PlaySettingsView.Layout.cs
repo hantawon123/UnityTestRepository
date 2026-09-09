@@ -606,6 +606,12 @@ namespace Game.Client.Lobby
         private void BuildMapSection(RectTransform parent)
         {
             ConfigureVerticalGroup(parent, TextAnchor.UpperCenter, PlaySettingsStyle.Layout.MapColumnSpacing);
+            var mapLayout = parent.GetComponent<VerticalLayoutGroup>();
+            mapLayout.padding = new RectOffset(
+                0,
+                0,
+                0,
+                (int)PlaySettingsStyle.Layout.MapSectionBottomSpacing);
 
             var titleRow = CreateSplitRow(parent, "SectionTitles", PlaySettingsStyle.Layout.SectionTitleHeight);
             CreateCenteredLabel(
