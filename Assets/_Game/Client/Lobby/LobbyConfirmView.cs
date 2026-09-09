@@ -13,7 +13,6 @@ namespace Game.Client.Lobby
 
         ReportReason SelectedReason { get; }
 
-        void Show(string message);
         void Show(string message, string confirmLabel);
         void Show(string message, string confirmLabel, bool chooseReason);
         void Hide();

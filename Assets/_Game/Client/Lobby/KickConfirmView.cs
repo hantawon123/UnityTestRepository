@@ -19,7 +19,6 @@ namespace Game.Client.Lobby
         public const string RootName = "KickConfirm";
         public const string CancelLabel = "취소";
         public const string ConfirmLabel = "강퇴하기";
-        public const string ReasonFieldLabel = "신고사유";
         public const float ReasonHeight = 48f;
         public const float ReasonGap = 20f;
         public const float ReasonWidth = 490f;

@@ -51,8 +51,6 @@ namespace Game.Client.Lobby
         public static readonly Color ReportTooltipLabel = new Color(1f, 0f, 0f, 1f);
         public static readonly Color AvatarColor = new Color(0.62f, 0.62f, 0.62f, 1f);
 
-        public static float ColumnWidth => ModalWidth * ColumnWidthRatio;
-
         public static readonly Vector2 ModalSize = new Vector2(ModalWidth, ModalHeight);
 
         private RectTransform participantRowRoot;
@@ -78,11 +76,6 @@ namespace Game.Client.Lobby
         private void Awake()
         {
             EnsureLayout();
-        }
-
-        public void SetVisible(bool visible)
-        {
-            gameObject.SetActive(visible);
         }
 
         public void SetParticipants(

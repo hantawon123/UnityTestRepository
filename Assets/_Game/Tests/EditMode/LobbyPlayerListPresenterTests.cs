@@ -380,8 +380,6 @@ namespace Game.Tests.EditMode
             public event Action Confirmed;
             public event Action Cancelled;
 
-            public void Show(string message) => Show(message, null, false);
-
             public void Show(string message, string confirmLabel) =>
                 Show(message, confirmLabel, false);
 
