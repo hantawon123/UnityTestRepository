@@ -14,6 +14,7 @@ EC2가 날아가면 같이 사라집니다.
 | `verify.sh` | (서버에서 실행) | 배포 상태 한 번에 확인 |
 | `mysql/init/01-analytics-grant.sh` | (compose.local 이 마운트, 테스트가 복사) | 앱 계정에 분석 스키마 권한 |
 | `mysql/init/02-analytics-accounts.sh` | (같음) | Metabase 용 읽기 계정 `d205_reader` 와 설정 저장용 `metabase` 계정 |
+| `metabase/provision_dashboards.py` | (서버에서 실행) | `docs/analytics-dashboards.md` 의 쿼리로 Metabase 질문·대시보드 생성 |
 
 파이프라인 정의는 이 디렉터리가 아니라 `../Jenkinsfile`에 있습니다.
 
@@ -175,6 +176,18 @@ Metabase 는 원인 예외를 로그에 남기지 않아 이 셋을 순서대로
 - 같은 계정으로 데이터베이스 `d205` 를 하나 더 추가합니다. 이름은 "게임". `users` 와 조인할 때 씁니다.
 - 앱 계정(`DB_USERNAME`)을 넣지 마세요. 그 계정은 쓸 수 있는 계정이라 Metabase 의 SQL 창이
   게임 데이터를 지우는 창이 됩니다.
+
+**6. 기본 대시보드.** 데이터베이스를 등록했으면 화면은 스크립트가 만듭니다. 문서의 쿼리를 읽어
+질문 다섯 개와 대시보드 하나를 만들고, 여러 번 돌려도 이름으로 찾아 갱신합니다.
+
+```
+scp backend/docs/analytics-dashboards.md backend/deploy/metabase/provision_dashboards.py d205:/tmp/
+ssh -t d205 "MB_USER=<Metabase 관리자 이메일> python3 /tmp/provision_dashboards.py --doc /tmp/analytics-dashboards.md"
+```
+
+비밀번호는 물어봅니다. 8443 이 아니라 컨테이너 옆 `127.0.0.1:3000` 으로 붙으므로 Basic Auth 는
+지나지 않습니다. 무엇을 만들지 먼저 보려면 `--dry-run`, 화면을 읽는 법은
+`docs/analytics-dashboards.md` 입니다.
 
 Jenkins 설치:
 
