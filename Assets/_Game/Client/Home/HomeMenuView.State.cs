@@ -43,6 +43,9 @@ namespace Game.Client.Home
         [SerializeField]
         private Sprite closeIcon;
 
+        [SerializeField]
+        private Sprite alertIcon;
+
         [Header("Fonts")]
         [SerializeField]
         private TMP_FontAsset fontAsset;
@@ -62,6 +65,12 @@ namespace Game.Client.Home
         private RectTransform profileChip;
 
         private readonly List<Button> menuButtons = new List<Button>();
+
+        /// <summary>
+        /// The hairline of each bottom-bar button, by what it opens.
+        /// </summary>
+        private readonly Dictionary<HomeMenuAction, HomeHoverHighlight> actionHighlights =
+            new Dictionary<HomeMenuAction, HomeHoverHighlight>();
         private TMP_FontAsset koreanFont;
         private GameObject friendListRoot;
         private GameObject friendListBody;
@@ -90,6 +99,19 @@ namespace Game.Client.Home
         /// </summary>
         private string composingText = string.Empty;
         private TMP_InputField friendSearchInput;
+
+        /// <summary>
+        /// What the last search came back with, kept so that clearing an error
+        /// can tell an empty result from a result nobody has looked at yet.
+        /// </summary>
+        /// <remarks>
+        /// Without it a successful search told the panel twice: the rows
+        /// arrived, and then the success cleared the last failure, which had no
+        /// way to know the rows were there and put "찾을 수 없습니다" back over
+        /// a player who had just been found.
+        /// </remarks>
+        private IReadOnlyList<FriendSearchHit> lastSearchResults =
+            Array.Empty<FriendSearchHit>();
         private TMP_Text searchEmptyText;
         private TMP_Text onlineEmptyText;
         private TMP_Text offlineEmptyText;
@@ -174,6 +196,15 @@ namespace Game.Client.Home
         {
             ClearButtons(menuButtons);
             ClearRowButtons(requestRows);
+            actionHighlights.Clear();
+
+            // A root of its own is not a child, so it does not go with this
+            // object. It is taken down by hand rather than left behind.
+            if (inviteRoot != null)
+            {
+                Destroy(inviteRoot);
+                inviteRoot = null;
+            }
 
             if (dismissButton != null)
             {
@@ -242,6 +273,7 @@ namespace Game.Client.Home
 
         public void SetProfileSettingsVisible(bool visible)
         {
+            SetActionSelected(HomeMenuAction.ProfileSettings, visible);
             if (profileSettingsRoot == null)
             {
                 return;
@@ -250,8 +282,26 @@ namespace Game.Client.Home
             profileSettingsRoot.SetActive(visible);
         }
 
+        /// <summary>
+        /// Marks the button that opens a panel while that panel is up.
+        /// </summary>
+        /// <remarks>
+        /// Driven from the same setters the presenter already calls, so the
+        /// mark cannot drift from what is on screen: there is no second flag
+        /// to keep in step, and a panel closed by any route clears its own.
+        /// </remarks>
+        private void SetActionSelected(HomeMenuAction action, bool selected)
+        {
+            if (actionHighlights.TryGetValue(action, out var highlight)
+                && highlight != null)
+            {
+                highlight.SetSelected(selected);
+            }
+        }
+
         public void SetFriendListVisible(bool visible)
         {
+            SetActionSelected(HomeMenuAction.Friends, visible);
             if (friendListRoot == null)
             {
                 return;
@@ -300,7 +350,8 @@ namespace Game.Client.Home
             ClearFriendSearch();
             WatchComposition(true);
 
-            UpdateSearchEmptyHint(Array.Empty<FriendSearchHit>());
+            lastSearchResults = Array.Empty<FriendSearchHit>();
+            UpdateSearchEmptyHint(lastSearchResults);
         }
 
         public void SetFriendSearchResults(IReadOnlyList<FriendSearchHit> results)
@@ -310,6 +361,7 @@ namespace Game.Client.Home
                 throw new ArgumentNullException(nameof(results));
             }
 
+            lastSearchResults = results;
             BindSearchRows(results);
             UpdateSearchEmptyHint(results);
         }

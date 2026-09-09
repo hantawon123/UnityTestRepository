@@ -95,6 +95,7 @@ namespace Game.Tests.PlayMode
             public void OpenCharacterCloset() => Assert.Fail("Unexpected navigation");
             public void OpenSettings() => Assert.Fail("Unexpected navigation");
             public void OpenLobby() => Assert.Fail("Unexpected navigation");
+            public void JoinRoom(string roomCode) => Assert.Fail("Unexpected navigation");
             public void CreateRoom(string title, bool isPublic, int maxPlayers) => Assert.Fail("Unexpected navigation");
         }
     }

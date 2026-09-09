@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Game.Client.Common;
 using Game.Client.Home;
 using Game.Core.Home;
 using NUnit.Framework;
@@ -173,6 +174,315 @@ namespace Game.Tests.EditMode
         /// <summary>
         /// A Home screen assembled in memory, torn down with the test.
         /// </summary>
+        /// <summary>
+        /// An open panel marks the button that opened it, without the pointer.
+        /// </summary>
+        /// <remarks>
+        /// The outline used to mean "the pointer is here" and nothing else, so
+        /// a player with a panel open and the mouse anywhere else had no way to
+        /// tell which of the three buttons they were inside.
+        /// </remarks>
+        [Test]
+        public void OpeningAPanel_OutlinesTheButtonThatOpensIt()
+        {
+            using var home = new BuiltHome();
+
+            foreach (var pair in PanelButtons)
+            {
+                var stroke = home.Stroke(pair.Key);
+                Assert.That(stroke.enabled, Is.False, $"{pair.Key} starts outlined.");
+
+                pair.Value(home.View, true);
+                Assert.That(
+                    stroke.enabled, Is.True, $"{pair.Key} is not outlined while its panel is up.");
+
+                pair.Value(home.View, false);
+                Assert.That(
+                    stroke.enabled, Is.False, $"{pair.Key} stays outlined after its panel closes.");
+            }
+        }
+
+        /// <summary>
+        /// Opening one panel does not leave another button outlined.
+        /// </summary>
+        [Test]
+        public void OpeningAPanel_LeavesTheOtherButtonsUnmarked()
+        {
+            using var home = new BuiltHome();
+
+            home.View.SetFriendListVisible(true);
+
+            Assert.That(home.Stroke("FriendButton").enabled, Is.True);
+            Assert.That(home.Stroke("ProfileChip").enabled, Is.False);
+            Assert.That(home.Stroke("ServerButton").enabled, Is.False);
+        }
+
+        /// <summary>
+        /// A search that found somebody never also says nobody was found.
+        /// </summary>
+        /// <remarks>
+        /// The two arrive separately: the rows come from the search, and the
+        /// success then clears the last failure. That clear used to assume an
+        /// empty result and put the message back over a player who was already
+        /// on screen, which is what the panel showed.
+        /// </remarks>
+        [Test]
+        public void ClearingAnErrorAfterAHit_DoesNotSayNobodyWasFound()
+        {
+            using var home = new BuiltHome();
+            home.View.SetFriendSearchVisible(true);
+            home.Typed("가짜크런키더블크런치바");
+
+            home.View.SetFriendSearchResults(
+                new[]
+                {
+                    new FriendSearchHit("p1", "가짜크런키더블크런치바", FriendRequestState.None)
+                });
+            Assert.That(
+                home.SearchEmpty().activeSelf, Is.False, "The hit alone already reads as empty.");
+
+            home.View.SetFriendActionError(string.Empty);
+
+            Assert.That(
+                home.SearchEmpty().activeSelf,
+                Is.False,
+                "Clearing the failure put the not-found line back over a player who was found.");
+        }
+
+        /// <summary>
+        /// A search that found nobody still says so once the error clears.
+        /// </summary>
+        [Test]
+        public void ClearingAnErrorWithNoHits_StillSaysNobodyWasFound()
+        {
+            using var home = new BuiltHome();
+            home.View.SetFriendSearchVisible(true);
+            home.Typed("없는사람");
+
+            home.View.SetFriendSearchResults(Array.Empty<FriendSearchHit>());
+            home.View.SetFriendActionError(string.Empty);
+
+            Assert.That(home.SearchEmpty().activeSelf, Is.True);
+        }
+
+        /// <summary>
+        /// Every menu line grows under the pointer and settles back after it.
+        /// </summary>
+        [Test]
+        public void HoveringAMenuLine_GrowsItAndLettingGoSettlesItBack()
+        {
+            using var home = new BuiltHome();
+
+            foreach (var action in MenuOrder)
+            {
+                var line = home.Rect(action.ToString());
+                var pop = line.GetComponent<HomeLabelPop>();
+                Assert.That(pop, Is.Not.Null, $"{action} does not answer the pointer.");
+                Assert.That(line.localScale.x, Is.EqualTo(1f).Within(0.001f), $"{action} starts grown");
+
+                pop.OnPointerEnter(null);
+                pop.Advance(HomeStyle.Layout.MenuHoverSeconds);
+                Assert.That(
+                    line.localScale.x,
+                    Is.EqualTo(HomeStyle.Layout.MenuHoverScale).Within(0.001f),
+                    $"{action} did not grow");
+
+                pop.OnPointerExit(null);
+                pop.Advance(HomeStyle.Layout.MenuHoverSeconds);
+                Assert.That(
+                    line.localScale.x,
+                    Is.EqualTo(1f).Within(0.001f),
+                    $"{action} stayed grown after the pointer left");
+            }
+        }
+
+        /// <summary>
+        /// The growth stops at the hover size rather than running past it, and
+        /// a line abandoned part-grown still arrives.
+        /// </summary>
+        [Test]
+        public void TheGrowth_StopsAtTheHoverSizeAndSurvivesAHurriedPass()
+        {
+            using var home = new BuiltHome();
+            var line = home.Rect(HomeMenuAction.CreateRoom.ToString());
+            var pop = line.GetComponent<HomeLabelPop>();
+
+            pop.OnPointerEnter(null);
+            pop.Advance(HomeStyle.Layout.MenuHoverSeconds * 10f);
+
+            Assert.That(
+                line.localScale.x,
+                Is.EqualTo(HomeStyle.Layout.MenuHoverScale).Within(0.001f),
+                "it grew past the hover size");
+
+            // The pointer crossed the line and left before the growth finished.
+            pop.OnPointerExit(null);
+            pop.Advance(HomeStyle.Layout.MenuHoverSeconds * 0.25f);
+            Assert.That(line.localScale.x, Is.LessThan(HomeStyle.Layout.MenuHoverScale));
+
+            pop.Advance(HomeStyle.Layout.MenuHoverSeconds);
+            Assert.That(line.localScale.x, Is.EqualTo(1f).Within(0.001f), "left part-grown");
+        }
+
+        /// <summary>
+        /// A line let go of while the pointer is on it comes back its own size
+        /// at once, rather than easing back from under a pointer that is no
+        /// longer going to leave.
+        /// </summary>
+        /// <remarks>
+        /// Driven through <c>Release</c> rather than by hiding the line, which
+        /// is what calls it in the game: edit mode runs no lifecycle callbacks,
+        /// so switching the object off here would raise no <c>OnDisable</c>.
+        /// </remarks>
+        [Test]
+        public void ALineLetGoOfWhileHovered_ComesBackItsOwnSizeAtOnce()
+        {
+            using var home = new BuiltHome();
+            var line = home.Rect(HomeMenuAction.Character.ToString());
+            var pop = line.GetComponent<HomeLabelPop>();
+
+            pop.OnPointerEnter(null);
+            pop.Advance(HomeStyle.Layout.MenuHoverSeconds);
+            Assert.That(line.localScale.x, Is.EqualTo(HomeStyle.Layout.MenuHoverScale).Within(0.001f));
+
+            pop.Release();
+
+            Assert.That(line.localScale.x, Is.EqualTo(1f).Within(0.001f));
+
+            // The pointer is forgotten too, so it does not grow back on the
+            // next frame without the pointer ever returning.
+            pop.Advance(HomeStyle.Layout.MenuHoverSeconds);
+            Assert.That(line.localScale.x, Is.EqualTo(1f).Within(0.001f));
+        }
+
+        /// <summary>
+        /// The cards live on a root the screen switching leaves alone, so an
+        /// invitation can be answered from the room browser or the closet.
+        /// </summary>
+        [Test]
+        public void TheInviteStack_SitsOnARootThatSurvivesScreenSwitching()
+        {
+            using var home = new BuiltHome();
+
+            var invites = home.InviteRoot;
+            Assert.That(invites, Is.Not.Null, "the cards were not given a root of their own.");
+            Assert.That(
+                invites.transform.parent,
+                Is.Null,
+                "the cards hang off the home screen and would be switched off with it.");
+            Assert.That(
+                invites.GetComponent<FrontendPersistentRoot>(),
+                Is.Not.Null,
+                "nothing tells the screen switching to leave this root alone.");
+
+            var canvas = invites.GetComponent<Canvas>();
+            Assert.That(canvas, Is.Not.Null, "the cards have no canvas to draw on.");
+            Assert.That(
+                canvas.sortingOrder,
+                Is.GreaterThan(100),
+                "a card would draw behind the home screen's own panels.");
+            Assert.That(
+                invites.GetComponent<GraphicRaycaster>(),
+                Is.Not.Null,
+                "the accept and decline buttons would take no clicks.");
+        }
+
+        /// <summary>
+        /// The invite stack is three cards at the top left, all hidden until
+        /// something arrives, spaced as the design draws them.
+        /// </summary>
+        [Test]
+        public void InviteStack_HasThreeHiddenCardsAtTheDesignedPitch()
+        {
+            using var home = new BuiltHome();
+
+            var stack = home.Rect("InviteStack");
+            Assert.That(
+                stack.anchoredPosition,
+                Is.EqualTo(new Vector2(HomeStyle.Toast.Left, -HomeStyle.Toast.Top)));
+
+            for (var slot = 0; slot < RoomInviteInbox.VisibleLimit; slot++)
+            {
+                var card = home.Rect($"Invite{slot}");
+                Assert.That(
+                    card.sizeDelta,
+                    Is.EqualTo(new Vector2(HomeStyle.Toast.Width, HomeStyle.Toast.Height)),
+                    $"card {slot} size");
+                Assert.That(
+                    card.anchoredPosition.y,
+                    Is.EqualTo(-slot * (HomeStyle.Toast.Height + HomeStyle.Toast.Gap)).Within(0.01f),
+                    $"card {slot} sits off the stack's pitch");
+                Assert.That(card.gameObject.activeSelf, Is.False, $"card {slot} starts shown");
+            }
+        }
+
+        /// <summary>
+        /// Cards fill from the top in the order given and say who is asking.
+        /// </summary>
+        [Test]
+        public void ShowingInvites_FillsCardsFromTheTopAndHidesTheRest()
+        {
+            using var home = new BuiltHome();
+
+            home.View.SetRoomInvites(
+                new[]
+                {
+                    new RoomInvite("a", "p1", "하나", "R1"),
+                    new RoomInvite("b", "p2", "둘", "R2")
+                });
+
+            Assert.That(home.Rect("Invite0").gameObject.activeSelf, Is.True);
+            Assert.That(home.Rect("Invite1").gameObject.activeSelf, Is.True);
+            Assert.That(home.Rect("Invite2").gameObject.activeSelf, Is.False);
+            Assert.That(
+                home.Rect("Invite0").Find("Body").GetComponent<TMPro.TMP_Text>().text,
+                Is.EqualTo("하나님이\n함께 플레이하자고 합니다!"));
+
+            home.View.SetRoomInvites(Array.Empty<RoomInvite>());
+
+            Assert.That(home.Rect("Invite0").gameObject.activeSelf, Is.False, "cleared");
+        }
+
+        /// <summary>
+        /// A card's buttons answer for the invite that card is showing, not for
+        /// whichever one was there when the card was built.
+        /// </summary>
+        [Test]
+        public void PressingACardsButtons_RaisesTheInviteItIsShowing()
+        {
+            using var home = new BuiltHome();
+            var accepted = new List<string>();
+            var declined = new List<string>();
+            home.View.RoomInviteAccepted += accepted.Add;
+            home.View.RoomInviteDeclined += declined.Add;
+
+            home.View.SetRoomInvites(
+                new[]
+                {
+                    new RoomInvite("a", "p1", "하나", "R1"),
+                    new RoomInvite("b", "p2", "둘", "R2")
+                });
+            home.Rect("Invite1").Find("Accept").GetComponent<Button>().onClick.Invoke();
+            home.Rect("Invite0").Find("Decline").GetComponent<Button>().onClick.Invoke();
+
+            Assert.That(accepted, Is.EqualTo(new[] { "b" }));
+            Assert.That(declined, Is.EqualTo(new[] { "a" }));
+
+            // The same card now shows a different invite and answers for it.
+            home.View.SetRoomInvites(new[] { new RoomInvite("c", "p3", "셋", "R3") });
+            home.Rect("Invite0").Find("Accept").GetComponent<Button>().onClick.Invoke();
+
+            Assert.That(accepted, Is.EqualTo(new[] { "b", "c" }));
+        }
+
+        private static readonly Dictionary<string, Action<HomeMenuView, bool>> PanelButtons =
+            new Dictionary<string, Action<HomeMenuView, bool>>
+            {
+                { "FriendButton", (view, visible) => view.SetFriendListVisible(visible) },
+                { "ProfileChip", (view, visible) => view.SetProfileSettingsVisible(visible) },
+                { "ServerButton", (view, visible) => view.SetServerSettingsVisible(visible) }
+            };
+
         private sealed class BuiltHome : IDisposable
         {
             private readonly GameObject root;
@@ -190,6 +500,11 @@ namespace Game.Tests.EditMode
 
             public HomeMenuView View { get; }
 
+            /// <remarks>
+            /// Both roots are searched. The invite cards sit on a scene root of
+            /// their own so that browsing rooms does not switch them off with
+            /// the home screen, which puts them outside this object.
+            /// </remarks>
             public RectTransform Rect(string name)
             {
                 foreach (var candidate in root.GetComponentsInChildren<RectTransform>(true))
@@ -200,8 +515,32 @@ namespace Game.Tests.EditMode
                     }
                 }
 
+                var invites = InviteRoot;
+                if (invites != null)
+                {
+                    foreach (var candidate in invites.GetComponentsInChildren<RectTransform>(true))
+                    {
+                        if (candidate.name == name)
+                        {
+                            return candidate;
+                        }
+                    }
+                }
+
                 Assert.Fail($"Home does not draw anything named {name}.");
                 return null;
+            }
+
+            /// <summary>The cards' own scene root, or null before it is built.</summary>
+            public GameObject InviteRoot
+            {
+                get
+                {
+                    var field = typeof(HomeMenuView).GetField(
+                        "inviteRoot", BindingFlags.Instance | BindingFlags.NonPublic);
+                    Assert.That(field, Is.Not.Null, "HomeMenuView.inviteRoot is gone.");
+                    return (GameObject)field.GetValue(View);
+                }
             }
 
             /// <summary>
@@ -227,8 +566,56 @@ namespace Game.Tests.EditMode
                 return Rect(name).GetComponent<TMPro.TMP_Text>().text;
             }
 
+            /// <summary>
+            /// The outline drawn under a bottom-bar button.
+            /// </summary>
+            public Image Stroke(string buttonName)
+            {
+                var stroke = Rect(buttonName).Find("Stroke");
+                Assert.That(stroke, Is.Not.Null, $"{buttonName} draws no Stroke.");
+                return stroke.GetComponent<Image>();
+            }
+
+            /// <summary>
+            /// The line that says a search found nobody.
+            /// </summary>
+            public GameObject SearchEmpty()
+            {
+                return Private<TMPro.TMP_Text>("searchEmptyText").gameObject;
+            }
+
+            /// <summary>
+            /// Puts a query in the search box, which is what tells the panel a
+            /// search was asked for at all.
+            /// </summary>
+            public void Typed(string query)
+            {
+                Private<TMPro.TMP_InputField>("friendSearchInput").text = query;
+            }
+
+            private T Private<T>(string name) where T : class
+            {
+                var field = typeof(HomeMenuView).GetField(
+                    name, BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(field, Is.Not.Null, $"HomeMenuView.{name} is gone.");
+                var value = field.GetValue(View) as T;
+                Assert.That(value, Is.Not.Null, $"HomeMenuView.{name} was never built.");
+                return value;
+            }
+
+            /// <remarks>
+            /// The invite root is destroyed here rather than left to the view's
+            /// own <c>OnDestroy</c>: edit mode runs no lifecycle callbacks, so
+            /// it would outlive the test and be found by the next one.
+            /// </remarks>
             public void Dispose()
             {
+                var invites = InviteRoot;
+                if (invites != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(invites);
+                }
+
                 UnityEngine.Object.DestroyImmediate(root);
             }
         }

@@ -755,6 +755,8 @@ namespace Game.Tests.EditMode
             public event Action<string> FriendRequestCancelled;
 
             public event Action<string> FriendRemoved;
+            public event Action<string> RoomInviteAccepted;
+            public event Action<string> RoomInviteDeclined;
 
             public void SetNickname(string nickname)
             {
@@ -776,6 +778,10 @@ namespace Game.Tests.EditMode
             /// rename that worked, it just shows the new name.
             /// </remarks>
             public void SetNicknameAppliedFeedbackVisible(bool visible)
+            {
+            }
+
+            public void SetRoomInvites(IReadOnlyList<RoomInvite> invites)
             {
             }
 
@@ -983,6 +989,10 @@ namespace Game.Tests.EditMode
             public int CreatedMaxPlayers { get; private set; }
 
             public int CreateCount { get; private set; }
+
+            public void JoinRoom(string roomCode)
+            {
+            }
 
             public void CreateRoom(string title, bool isPublic, int maxPlayers)
             {

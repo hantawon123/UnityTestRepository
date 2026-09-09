@@ -9,6 +9,7 @@ using Game.Core.Backend;
 using Game.Core.Home;
 using Game.Core.Players;
 using Game.Core.Ports;
+using Game.Core.Settings;
 using NUnit.Framework;
 using R3;
 
@@ -79,16 +80,105 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public async Task ARoomInvite_ReadsNothingHere()
+        public async Task ARoomInvite_ShowsACardAndReadsNothing()
         {
             using var wiring = await Wiring.StartAsync();
 
-            // The toast owns invites. This panel shows none.
+            // The push carries the whole invite, so there is nothing to re-read.
             wiring.Push(ServerNotificationKind.RoomInviteReceived, roomCode: "7K2M9P");
             await wiring.Settle();
 
+            Assert.That(wiring.View.Invites.Count, Is.EqualTo(1));
+            Assert.That(wiring.View.Invites[0].FromNickname, Is.EqualTo("상대"));
+            Assert.That(wiring.View.Invites[0].RoomCode, Is.EqualTo("7K2M9P"));
             Assert.That(wiring.Gateway.FriendReads, Is.EqualTo(0));
             Assert.That(wiring.Gateway.IncomingReads, Is.EqualTo(0));
+        }
+
+        [Test]
+        public async Task WithTheInviteNoticeOff_NoCardIsShownAndTheInviteIsLeftAlone()
+        {
+            using var wiring = await Wiring.StartAsync();
+            wiring.SilenceInvites();
+
+            wiring.Push(ServerNotificationKind.RoomInviteReceived, roomCode: "7K2M9P");
+            await wiring.Settle();
+
+            Assert.That(wiring.View.Invites, Is.Empty);
+
+            // Silencing a notice is not declining it: the friend is not told.
+            Assert.That(wiring.Invites.DeclinedPlayers, Is.Empty);
+        }
+
+        [Test]
+        public async Task TurningTheNoticeOff_LeavesCardsThatAreAlreadyUp()
+        {
+            using var wiring = await Wiring.StartAsync();
+            wiring.Push(ServerNotificationKind.RoomInviteReceived, roomCode: "7K2M9P");
+            await wiring.Settle();
+
+            wiring.SilenceInvites();
+            await wiring.Settle();
+
+            // A friend is waiting on an answer to this one.
+            Assert.That(wiring.View.Invites.Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public async Task ARoomInviteWithoutARoom_ShowsNothing()
+        {
+            using var wiring = await Wiring.StartAsync();
+
+            wiring.Push(ServerNotificationKind.RoomInviteReceived);
+            await wiring.Settle();
+
+            Assert.That(wiring.View.Invites, Is.Empty);
+        }
+
+        [Test]
+        public async Task AcceptingAnInvite_EntersThatRoomAndClearsItOnTheServer()
+        {
+            using var wiring = await Wiring.StartAsync();
+            wiring.Push(ServerNotificationKind.RoomInviteReceived, roomCode: "7K2M9P");
+            await wiring.Settle();
+
+            wiring.View.Accept(wiring.View.Invites[0].Id);
+            await wiring.Settle();
+
+            Assert.That(wiring.Host.JoinedRoom, Is.EqualTo("7K2M9P"));
+            Assert.That(wiring.Invites.DeclinedPlayers, Is.EqualTo(new[] { "other" }));
+            Assert.That(wiring.View.Invites, Is.Empty, "the card is gone");
+        }
+
+        [Test]
+        public async Task DecliningAnInvite_OnlyClearsItOnTheServer()
+        {
+            using var wiring = await Wiring.StartAsync();
+            wiring.Push(ServerNotificationKind.RoomInviteReceived, roomCode: "7K2M9P");
+            await wiring.Settle();
+
+            wiring.View.Decline(wiring.View.Invites[0].Id);
+            await wiring.Settle();
+
+            Assert.That(wiring.Host.JoinedRoom, Is.Null);
+            Assert.That(wiring.Invites.DeclinedPlayers, Is.EqualTo(new[] { "other" }));
+            Assert.That(wiring.View.Invites, Is.Empty);
+        }
+
+        [Test]
+        public async Task AnsweringACardTwice_ActsOnce()
+        {
+            using var wiring = await Wiring.StartAsync();
+            wiring.Push(ServerNotificationKind.RoomInviteReceived, roomCode: "7K2M9P");
+            await wiring.Settle();
+            var id = wiring.View.Invites[0].Id;
+
+            wiring.View.Accept(id);
+            wiring.View.Accept(id);
+            await wiring.Settle();
+
+            Assert.That(wiring.Host.Joins, Is.EqualTo(1));
+            Assert.That(wiring.Invites.DeclinedPlayers.Count, Is.EqualTo(1));
         }
 
         [Test]
@@ -151,11 +241,27 @@ namespace Game.Architecture.Tests
             private Wiring(BackendSignIn signIn)
             {
                 var commands = new FriendUiCommands(Gateway, new FriendListSystem(), new FriendSearchSystem());
-                bridge = new HomeFriendBridge(new SilentView(), commands, signIn, Link);
+                bridge = new HomeFriendBridge(
+                    View, commands, signIn, Link, Host, Invites, NotificationSettings);
                 bridge.Start();
             }
 
             public CountingGateway Gateway { get; } = new CountingGateway();
+
+            public SilentView View { get; } = new SilentView();
+
+            public RecordingHost Host { get; } = new RecordingHost();
+
+            public RecordingInvites Invites { get; } = new RecordingInvites();
+
+            public NotificationSettingsSystem NotificationSettings { get; } =
+                new NotificationSettingsSystem(new InMemoryNotificationSettingsStore());
+
+            /// <summary>Turns the game-invite notice off, as the settings screen would.</summary>
+            public void SilenceInvites() =>
+                NotificationSettings.Apply(
+                    NotificationSettings.Current.With(
+                        NotificationOption.GameInvite, InterfaceCatalog.Off));
 
             public FakeNotificationStream Link { get; } = new FakeNotificationStream();
 
@@ -310,9 +416,70 @@ namespace Game.Architecture.Tests
                     BackendResult<AccountSnapshot>.Success(new AccountSnapshot("me", "나", true, true)));
         }
 
-        /// <summary>A home screen that shows nothing and raises nothing.</summary>
+        /// <summary>Remembers the one thing an invite can ask of the host.</summary>
+        private sealed class RecordingHost : IHomeApplicationHost
+        {
+            public string JoinedRoom { get; private set; }
+
+            public int Joins { get; private set; }
+
+            public void JoinRoom(string roomCode)
+            {
+                JoinedRoom = roomCode;
+                Joins++;
+            }
+
+            public void Quit() { }
+            public void OpenHome() { }
+            public void OpenRoomBrowser() { }
+            public void OpenCharacterCloset() { }
+            public void OpenSettings() { }
+            public void CreateRoom(string title, bool isPublic, int maxPlayers) { }
+            public void OpenLobby() { }
+        }
+
+        /// <summary>Counts the invites the bridge clears on the server.</summary>
+        private sealed class RecordingInvites : IInviteGateway
+        {
+            public List<string> DeclinedPlayers { get; } = new List<string>();
+
+            public UniTask<BackendResult> SendAsync(
+                string playerId, string roomCode, CancellationToken cancellation) =>
+                UniTask.FromResult(BackendResult.Success());
+
+            public UniTask<BackendResult<IReadOnlyList<RoomInvitation>>> ListAsync(
+                CancellationToken cancellation) =>
+                UniTask.FromResult(
+                    BackendResult<IReadOnlyList<RoomInvitation>>.Success(Array.Empty<RoomInvitation>()));
+
+            public UniTask<BackendResult> DeclineAsync(string playerId, CancellationToken cancellation)
+            {
+                DeclinedPlayers.Add(playerId);
+                return UniTask.FromResult(BackendResult.Success());
+            }
+        }
+
+        /// <summary>
+        /// A home screen that shows nothing and raises nothing, except that it
+        /// keeps the invite cards it is handed and can press their buttons.
+        /// </summary>
         private sealed class SilentView : IHomeMenuView
         {
+            public List<RoomInvite> Invites { get; } = new List<RoomInvite>();
+
+            public void Accept(string id) => RoomInviteAccepted?.Invoke(id);
+
+            public void Decline(string id) => RoomInviteDeclined?.Invoke(id);
+
+            public event Action<string> RoomInviteAccepted;
+            public event Action<string> RoomInviteDeclined;
+
+            public void SetRoomInvites(IReadOnlyList<RoomInvite> invites)
+            {
+                Invites.Clear();
+                Invites.AddRange(invites);
+            }
+
             public event Action<HomeMenuAction> ActionClicked { add { } remove { } }
             public event Action FriendListDismissed { add { } remove { } }
             public event Action ProfileSettingsDismissed { add { } remove { } }

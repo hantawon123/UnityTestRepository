@@ -62,6 +62,15 @@ namespace Game.Client.Home
         /// </summary>
         event Action<string> FriendRemoved;
 
+        /// <summary>
+        /// The player took up a room invitation, by the id the card was shown
+        /// under.
+        /// </summary>
+        event Action<string> RoomInviteAccepted;
+
+        /// <summary>The player turned a room invitation down, by its id.</summary>
+        event Action<string> RoomInviteDeclined;
+
         void SetNickname(string nickname);
 
         void SetProfileSettingsVisible(bool visible);
@@ -133,5 +142,11 @@ namespace Game.Client.Home
 
         /// <summary>Whether the one nickname change has been spent.</summary>
         void SetNicknameSettled(bool settled);
+
+        /// <summary>
+        /// The room invitations to show, oldest first. Never more than the
+        /// stack has cards for; the caller holds the rest back.
+        /// </summary>
+        void SetRoomInvites(IReadOnlyList<RoomInvite> invites);
     }
 }
