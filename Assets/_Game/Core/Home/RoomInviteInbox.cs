@@ -46,22 +46,47 @@ namespace Game.Core.Home
     /// The room invitations waiting for an answer, and which of them are on screen.
     /// </summary>
     /// <remarks>
-    /// Pure, so the stacking rules are tested without a canvas. The screen shows
-    /// at most <see cref="VisibleLimit"/> cards; anything past that waits its
-    /// turn rather than pushing an older, unanswered invite off the screen. An
-    /// invite nobody saw is one nobody could answer. Cards leave only when the
-    /// player answers them, because an invite is a question, not a notice.
+    /// Pure, so the rules are tested without a canvas or a clock: the seconds
+    /// are handed in by whoever owns the frame.
     /// <para>
-    /// Two invites from the same person to the same room are two cards. The
-    /// server sent two, and folding them would hide that the friend asked
-    /// twice, which is itself the message.
+    /// The rules follow the server's own model of an invitation. It keeps one
+    /// per friend, and a friend asking again restarts its life rather than
+    /// adding a second invitation, so a repeat refreshes the card that is
+    /// already up instead of stacking beside it.
+    /// <para>
+    /// A card leaves after <see cref="Seconds"/> whether or not it was
+    /// answered. That is the card's own life, not the invitation's, which the
+    /// server holds for longer: the corner of the screen is given back, and a
+    /// friend still waiting can ask again.
+    /// </para>
     /// </para>
     /// </remarks>
     public sealed class RoomInviteInbox
     {
         public const int VisibleLimit = 3;
 
-        private readonly List<RoomInvite> pending = new List<RoomInvite>();
+        /// <summary>
+        /// How long a card stays up.
+        /// </summary>
+        /// <remarks>
+        /// Shorter than the three minutes the invitation itself lives, so a card
+        /// leaving does not mean the invitation is gone: it means the corner has
+        /// been given back to the screen. Long enough to notice and answer,
+        /// short enough that three of them do not sit over the menu.
+        /// <para>
+        /// Never longer than the invitation, which would leave a button that
+        /// cannot work.
+        /// </para>
+        /// </remarks>
+        public const float Seconds = 30f;
+
+        private sealed class Waiting
+        {
+            public RoomInvite Invite;
+            public float SecondsLeft;
+        }
+
+        private readonly List<Waiting> pending = new List<Waiting>();
         private readonly List<RoomInvite> visible = new List<RoomInvite>(VisibleLimit);
         private int nextId;
 
@@ -76,13 +101,74 @@ namespace Game.Core.Home
         /// <summary>Everything waiting, on screen or not.</summary>
         public int PendingCount => pending.Count;
 
+        /// <summary>
+        /// Takes an invitation from a friend. One from a friend who already has
+        /// a card refreshes that card where it stands; otherwise the newest
+        /// arrival pushes out the oldest once the screen is full.
+        /// </summary>
+        /// <remarks>
+        /// The oldest goes because it is the one closest to expiring anyway, and
+        /// a friend who asked a moment ago is the one still waiting by their
+        /// screen.
+        /// </remarks>
         public RoomInvite Receive(string fromPlayerId, string fromNickname, string roomCode)
         {
+            for (var index = 0; index < pending.Count; index++)
+            {
+                if (!string.Equals(pending[index].Invite.FromPlayerId, fromPlayerId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                // The same invitation, asked again. It keeps its id so a press
+                // already on its way still lands, and its place so the column
+                // does not reshuffle under the pointer.
+                var refreshed = new RoomInvite(
+                    pending[index].Invite.Id, fromPlayerId, fromNickname, roomCode);
+                pending[index].Invite = refreshed;
+                pending[index].SecondsLeft = Seconds;
+                Refresh();
+                return refreshed;
+            }
+
             var invite = new RoomInvite(
                 (++nextId).ToString(), fromPlayerId, fromNickname, roomCode);
-            pending.Add(invite);
+            pending.Add(new Waiting { Invite = invite, SecondsLeft = Seconds });
+
+            while (pending.Count > VisibleLimit)
+            {
+                pending.RemoveAt(0);
+            }
+
             Refresh();
             return invite;
+        }
+
+        /// <summary>
+        /// Lets the given seconds pass, dropping whatever ran out.
+        /// </summary>
+        public void Advance(float deltaSeconds)
+        {
+            if (deltaSeconds <= 0f || pending.Count == 0)
+            {
+                return;
+            }
+
+            var dropped = false;
+            for (var index = pending.Count - 1; index >= 0; index--)
+            {
+                pending[index].SecondsLeft -= deltaSeconds;
+                if (pending[index].SecondsLeft <= 0f)
+                {
+                    pending.RemoveAt(index);
+                    dropped = true;
+                }
+            }
+
+            if (dropped)
+            {
+                Refresh();
+            }
         }
 
         /// <summary>
@@ -94,9 +180,9 @@ namespace Game.Core.Home
         {
             for (var index = 0; index < pending.Count; index++)
             {
-                if (pending[index].Id == id)
+                if (pending[index].Invite.Id == id)
                 {
-                    invite = pending[index];
+                    invite = pending[index].Invite;
                     pending.RemoveAt(index);
                     Refresh();
                     return true;
@@ -123,7 +209,7 @@ namespace Game.Core.Home
             visible.Clear();
             for (var index = 0; index < pending.Count && index < VisibleLimit; index++)
             {
-                visible.Add(pending[index]);
+                visible.Add(pending[index].Invite);
             }
 
             Changed?.Invoke();

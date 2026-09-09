@@ -32,7 +32,7 @@ namespace Game.Bootstrap
     /// repair.
     /// </para>
     /// </remarks>
-    public sealed class HomeFriendBridge : IStartable, IDisposable
+    public sealed class HomeFriendBridge : IStartable, ITickable, IDisposable
     {
         private readonly IHomeMenuView view;
         private readonly FriendUiCommands friends;
@@ -190,6 +190,15 @@ namespace Game.Bootstrap
         /// </remarks>
         private bool WantsInviteCards =>
             notificationSettings.Current.IsOn(NotificationOption.GameInvite);
+
+        /// <summary>
+        /// Runs the invite cards' clock down.
+        /// </summary>
+        /// <remarks>
+        /// Unscaled, because a card is about something happening on a friend's
+        /// screen rather than in this one's simulation.
+        /// </remarks>
+        public void Tick() => inbox.Advance(Time.unscaledDeltaTime);
 
         private void OnInvitesChanged()
         {

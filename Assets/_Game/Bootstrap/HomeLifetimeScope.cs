@@ -316,7 +316,7 @@ namespace Game.Bootstrap
                 {
                     Debug.LogWarning($"[Home] Joining an invited room failed: {result.Failure}.");
                     view.ShowConnectionError(
-                        RoomEntryMessages.Describe(result.Failure, RoomEntrySource.RoomCode));
+                        RoomEntryMessages.Describe(result.Failure, RoomEntrySource.Invite));
                     return;
                 }
 
