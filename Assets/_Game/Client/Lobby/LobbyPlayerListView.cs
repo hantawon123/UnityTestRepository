@@ -19,6 +19,19 @@ namespace Game.Client.Lobby
         private Font uiFont;
 
         private readonly List<GameObject> rowObjects = new();
+        private Game.Core.Settings.InterfacePresentation presentation;
+        private IReadOnlyList<LobbyParticipant> lastParticipants;
+        private bool lastHost;
+        private string lastLocal;
+        [VContainer.Inject]
+        public void BindPresentation(Game.Core.Settings.InterfacePresentation value)
+        {
+            if (presentation != null) presentation.Changed -= RefreshPresentation;
+            presentation = value;
+            presentation.Changed += RefreshPresentation;
+        }
+        private void RefreshPresentation() => SetParticipants(lastParticipants, lastHost, lastLocal);
+        private void OnDestroy() { if (presentation != null) presentation.Changed -= RefreshPresentation; }
 
         public event Action<string, string> KickClicked;
         public event Action<string, string> TransferClicked;
@@ -38,6 +51,7 @@ namespace Game.Client.Lobby
             bool localIsHost,
             string localPlayerId)
         {
+            lastParticipants = participants; lastHost = localIsHost; lastLocal = localPlayerId;
             EnsureLayout();
             ClearRows();
 
@@ -127,9 +141,8 @@ namespace Game.Client.Lobby
             var canManage = localIsHost &&
                 !string.Equals(participant.Id, localPlayerId, StringComparison.Ordinal);
 
-            var label = participant.IsHost
-                ? $"★ {participant.DisplayName}"
-                : participant.DisplayName;
+            var displayName = presentation == null ? participant.DisplayName : presentation.Name(participant.Id, participant.DisplayName);
+            var label = participant.IsHost ? $"★ {displayName}" : displayName;
 
             // Reserve a fixed right column for actions; nickname clips instead of overlapping.
             var nameRight = canManage ? -120f : -8f;
@@ -145,7 +158,6 @@ namespace Game.Client.Lobby
             var kick = CreateActionButton(row, "Kick", "강퇴", new Vector2(-64f, 0f));
             var transfer = CreateActionButton(row, "Transfer", "위임", new Vector2(-8f, 0f));
             var playerId = participant.Id;
-            var displayName = participant.DisplayName;
             kick.onClick.AddListener(() => KickClicked?.Invoke(playerId, displayName));
             transfer.onClick.AddListener(() => TransferClicked?.Invoke(playerId, displayName));
         }

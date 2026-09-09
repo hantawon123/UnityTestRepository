@@ -386,6 +386,10 @@ namespace Game.Client.Match
                     keyboard.numpadEnterKey.wasPressedThisFrame);
         }
 
+        private Game.Core.Settings.InterfacePresentation presentation;
+        [VContainer.Inject]
+        public void BindPresentation(Game.Core.Settings.InterfacePresentation value) => presentation = value;
+
         public void SetMessages(IReadOnlyList<LobbyChatMessage> messages)
         {
             EnsureLayout();
@@ -417,7 +421,7 @@ namespace Game.Client.Match
                 }
 
                 var message = list[first + index];
-                ApplyLine(nameTexts[index], message.SenderName, font, NameFontSize, NameColor);
+                ApplyLine(nameTexts[index], presentation == null ? message.SenderName : presentation.Name(message.SenderId, message.SenderName), font, NameFontSize, NameColor);
                 ApplyLine(bodyTexts[index], message.Text, font, BodyFontSize, Color.white);
                 bodyTexts[index]?.ForceMeshUpdate();
             }

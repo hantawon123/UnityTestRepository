@@ -138,6 +138,9 @@ namespace Game.Bootstrap
         ITickable,
         IDisposable
     {
+        private Game.Core.Settings.InterfacePresentation presentation;
+        [VContainer.Inject]
+        public void BindPresentation(Game.Core.Settings.InterfacePresentation value) => presentation = value;
         private const double TimelineEpsilonSeconds = 0.000001d;
 
         private readonly INetworkMatchEvents network;
@@ -354,7 +357,7 @@ namespace Game.Bootstrap
                 ? TitleOf(
                     replay[index].Candidate,
                     room.MatchParticipants.CurrentValue,
-                    room.Participants.CurrentValue)
+                    room.Participants.CurrentValue, presentation)
                 : null);
             cameraDirector.SetPlaybackTime(playbackTime);
             cameraDirector.Tick(Time.unscaledDeltaTime);
@@ -552,7 +555,7 @@ namespace Game.Bootstrap
         internal static string TitleOf(
             HighlightCandidate candidate,
             IReadOnlyList<MatchParticipant> matchParticipants,
-            IReadOnlyList<RoomParticipant> roomParticipants)
+            IReadOnlyList<RoomParticipant> roomParticipants, Game.Core.Settings.InterfacePresentation presentation = null)
         {
             var title = TitleOf(candidate.Type);
             if (candidate.ActorPlayerIndex < 0 ||
@@ -578,7 +581,8 @@ namespace Game.Bootstrap
                 var displayName = string.IsNullOrWhiteSpace(participant.Nickname)
                     ? participant.PlayerId
                     : participant.Nickname;
-                return $"{title} · {displayName}";
+                if (presentation != null) displayName = presentation.Name(participant.PlayerId, displayName);
+                return string.IsNullOrEmpty(displayName) ? title : $"{title} · {displayName}";
             }
 
             return title;

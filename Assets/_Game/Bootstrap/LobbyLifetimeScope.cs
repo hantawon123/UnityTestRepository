@@ -142,6 +142,12 @@ namespace Game.Bootstrap
 
             builder.Register<UnityHomeApplicationHost>(Lifetime.Scoped).As<IHomeApplicationHost>();
             builder.RegisterComponent(hudView);
+            builder.RegisterBuildCallback(c =>
+            {
+                var network = c.Resolve<NetworkRunnerService>();
+                hudView.gameObject.AddComponent<Game.Client.Settings.InterfaceHudView>()
+                    .Bind(c.Resolve<InterfaceSettingsSystem>(), () => network.LocalPingMilliseconds);
+            });
             builder.RegisterEntryPoint<LobbyStartCountdown>();
             builder.RegisterComponent(pauseMenuView).As<ILobbyPauseMenuView>();
             builder.RegisterComponent(playerListView).As<ILobbyPlayerListView>();

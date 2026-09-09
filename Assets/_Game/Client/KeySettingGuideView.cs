@@ -123,6 +123,7 @@ namespace Game.Client
         private Mode mode;
 
         public static bool UserVisible { get; private set; } = true;
+        public bool AlwaysVisible { get; set; }
         public bool IsCarrying => mode == Mode.Carrying;
         public bool IsPlacing => mode == Mode.Placing;
         public Mode CurrentMode => mode;
@@ -326,7 +327,7 @@ namespace Game.Client
                 fade.interactable = false;
             }
 
-            fade.alpha = UserVisible ? 1f : 0f;
+            fade.alpha = (AlwaysVisible || UserVisible) ? 1f : 0f;
         }
 
         private static bool WasTogglePressed()

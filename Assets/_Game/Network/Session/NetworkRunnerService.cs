@@ -391,6 +391,8 @@ namespace Game.Network.Session
         }
 
         public bool IsRunning => _runner != null && _runner.IsRunning;
+        public double? LocalPingMilliseconds => !IsRunning || _runner.LocalPlayer == PlayerRef.None
+            ? null : _runner.GetPlayerRtt(_runner.LocalPlayer) * 1000d;
 
         /// <summary>
         /// The local microphone for the session that is running, or null on a

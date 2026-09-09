@@ -101,6 +101,7 @@ namespace Game.Bootstrap
             // resize; a test container must not touch one.
             builder.RegisterEntryPoint<GraphicsSettingsStartup>();
             builder.RegisterEntryPoint<CameraSettingsBinder>();
+            builder.RegisterEntryPoint<NetworkInterfaceSettings>();
 
             // Built here rather than in RegisterServices: the device identifier
             // is this machine's saved credential, and a test container must not
@@ -295,6 +296,7 @@ namespace Game.Bootstrap
             builder.Register<AppFlowSystem>(Lifetime.Singleton);
             builder.Register<HomeMenuSystem>(Lifetime.Singleton);
             builder.Register<FriendListSystem>(Lifetime.Singleton);
+            builder.Register<InterfacePresentation>(Lifetime.Singleton);
             builder.Register<FriendSearchSystem>(Lifetime.Singleton);
 
             // Registered here so every container has one, with a store that
