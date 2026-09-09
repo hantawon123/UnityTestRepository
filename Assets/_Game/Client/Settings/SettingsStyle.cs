@@ -736,13 +736,45 @@ namespace Game.Client.Settings
         }
 
         /// <summary>
-        /// Said when what was written cannot be delivered. There is no endpoint
-        /// to send feedback to yet, and a send button that silently swallows
-        /// what somebody took the trouble to write reads as broken.
+        /// What the passing message over the screen is called, whether the send
+        /// went through or not.
         /// </summary>
         public const string FeedbackNoticeTitle = "피드백 보내기";
 
-        public const string FeedbackNoticeMessage = "피드백 전송은 준비 중입니다. 작성한 내용은 그대로 있어요";
+        /// <summary>
+        /// Said when the server wrote it down.
+        /// </summary>
+        /// <remarks>
+        /// Thanks and nothing else. <b>No reply is promised</b> — there is no
+        /// path to send one, so "답변을 드립니다" would be a lie the player only
+        /// finds out about by waiting.
+        /// </remarks>
+        public const string FeedbackSentMessage = "보냈습니다. 고맙습니다";
+
+        /// <summary>
+        /// Added to every refusal.
+        /// </summary>
+        /// <remarks>
+        /// The reassurance matters more than the reason. Somebody who just wrote
+        /// five hundred characters fears they are gone, and the panel does keep
+        /// them — saying so is what makes trying again feel worth it.
+        /// </remarks>
+        public const string FeedbackKeptMessage = "작성한 내용은 그대로 있어요";
+
+        /// <summary>Refused because nothing is signed in yet.</summary>
+        public const string FeedbackNotSignedInMessage = "서버에 연결되어 있지 않습니다";
+
+        /// <summary>Refused because the server could not be reached.</summary>
+        public const string FeedbackOfflineMessage = "서버에 연결할 수 없습니다";
+
+        /// <summary>
+        /// Refused as malformed. In practice that means too long, since the box
+        /// itself will not take more than the limit and blank never gets sent.
+        /// </summary>
+        public const string FeedbackTooLongMessage = "글이 너무 길어 보내지 못했습니다";
+
+        /// <summary>Refused for a reason the screen cannot explain.</summary>
+        public const string FeedbackFailedMessage = "보내지 못했습니다";
 
         /// <summary>
         /// The name each 그래픽 row goes by. Kept beside the tab names rather

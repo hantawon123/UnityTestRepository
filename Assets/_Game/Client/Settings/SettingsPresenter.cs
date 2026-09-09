@@ -597,11 +597,20 @@ namespace Game.Client.Settings
         }
 
         /// <summary>
-        /// Says what happened rather than pretending. There is no endpoint to
-        /// send feedback to yet, so the panel is left open with what was
-        /// written still in it — closing it here would throw away the one
-        /// thing the player took the trouble to produce.
+        /// Hands the press on and waits.
         /// </summary>
+        /// <remarks>
+        /// The sending happens outside this screen — SettingsFeedbackBridge
+        /// listens for the same event — so all this does is darken 보내기 so a
+        /// second press cannot start a second send.
+        /// <para>
+        /// <b>Nothing is said and nothing is closed here.</b> Whether the panel
+        /// comes down depends on the answer, and this presenter is not the one
+        /// that gets it. Closing the panel now would throw away what the player
+        /// wrote in the case where the send fails, and that is the one thing
+        /// they took the trouble to produce.
+        /// </para>
+        /// </remarks>
         private void OnFeedbackSubmitted(string message)
         {
             if (!isWritingFeedback || string.IsNullOrWhiteSpace(message))
@@ -609,7 +618,7 @@ namespace Game.Client.Settings
                 return;
             }
 
-            view.ShowNotice(SettingsStyle.FeedbackNoticeTitle, SettingsStyle.FeedbackNoticeMessage);
+            view.SetFeedbackSubmitEnabled(false);
         }
 
         private void OnFeedbackDismissed()

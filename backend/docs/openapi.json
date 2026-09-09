@@ -52,6 +52,40 @@
         },
         "type" : "object"
       },
+      "FeedbackItem" : {
+        "properties" : {
+          "buildVer" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "platform" : {
+            "type" : "string"
+          },
+          "userId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "FeedbackListResponse" : {
+        "properties" : {
+          "feedback" : {
+            "items" : {
+              "$ref" : "#/components/schemas/FeedbackItem"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
       "FriendListResponse" : {
         "properties" : {
           "friends" : {
@@ -421,6 +455,29 @@
             "type" : "integer"
           }
         },
+        "type" : "object"
+      },
+      "SendFeedbackRequest" : {
+        "properties" : {
+          "buildVer" : {
+            "maxLength" : 32,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "message" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "platform" : {
+            "maxLength" : 16,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "message"
+        ],
         "type" : "object"
       },
       "SendFriendRequestRequest" : {
@@ -834,6 +891,37 @@
         ]
       }
     },
+    "/api/v1/admin/feedback" : {
+      "get" : {
+        "operationId" : "list_3",
+        "parameters" : [
+          {
+            "in" : "query",
+            "name" : "limit",
+            "required" : false,
+            "schema" : {
+              "format" : "int32",
+              "type" : "integer"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FeedbackListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-feedback-controller"
+        ]
+      }
+    },
     "/api/v1/admin/reports" : {
       "get" : {
         "operationId" : "list_2",
@@ -994,6 +1082,39 @@
         },
         "tags" : [
           "game-event-controller"
+        ]
+      }
+    },
+    "/api/v1/feedback" : {
+      "post" : {
+        "operationId" : "submit",
+        "parameters" : [
+          {
+            "in" : "header",
+            "name" : "X-User-Id",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SendFeedbackRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created"
+          }
+        },
+        "tags" : [
+          "feedback-controller"
         ]
       }
     },
