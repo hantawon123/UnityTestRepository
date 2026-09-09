@@ -35,9 +35,6 @@ namespace Game.Bootstrap
         private readonly Dictionary<int, PlayerCombatant> combatants = new();
         private readonly Dictionary<string, int> appliedVersions =
             new(StringComparer.Ordinal);
-        private readonly Dictionary<string, int> settlingVersions =
-            new(StringComparer.Ordinal);
-        private readonly List<string> settledObjectIds = new();
 
         private MatchObjectStateSnapshot[] objectStates =
             Array.Empty<MatchObjectStateSnapshot>();
@@ -64,6 +61,9 @@ namespace Game.Bootstrap
             this.lobbyMode = lobbyMode;
             this.scene = scene;
         }
+
+        private IReadOnlyCollection<CarryableItem> sceneItems;
+        public void BindSceneItems(IReadOnlyCollection<CarryableItem> value) => sceneItems = value;
 
         public void Start()
         {
@@ -109,9 +109,11 @@ namespace Game.Bootstrap
                 }
                 RefreshPlayers();
                 ApplyObjectStates();
-                ConfirmSettledObjects();
+                PublishPhysicsObjects();
                 return;
             }
+
+            if (network.IsWaitingForMatch) return;
 
             // Request after scene subscribers are installed; retry until an assignment actually arrives.
             // The host only resends assignments already published for this sender's current match.
@@ -125,7 +127,7 @@ namespace Game.Bootstrap
             RefreshPlayers();
             ApplyAssignmentOwner();
             ApplyObjectStates();
-            ConfirmSettledObjects();
+            PublishPhysicsObjects();
             ApplyPlayerStates();
         }
 
@@ -146,11 +148,11 @@ namespace Game.Bootstrap
         private void RefreshItems()
         {
             items.Clear();
-            foreach (var item in UnityEngine.Object.FindObjectsByType<CarryableItem>(
-                         FindObjectsInactive.Include,
-                         FindObjectsSortMode.None))
+            var candidates = sceneItems ?? UnityEngine.Object.FindObjectsByType<CarryableItem>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach (var item in candidates)
             {
-                if (item.gameObject.scene != scene) continue;
+                if (item == null || (sceneItems == null && item.gameObject.scene != scene)) continue;
                 if (!items.TryAdd(item.ObjectId, item))
                 {
                     Debug.LogError(
@@ -320,7 +322,6 @@ namespace Game.Bootstrap
 
                 if (state.IsPendingEjection)
                 {
-                    settlingVersions.Remove(state.ObjectId);
                     ForgetItem(item);
                     item.OnStored(state.Pose);
                     appliedVersions[state.ObjectId] = state.Version;
@@ -328,7 +329,6 @@ namespace Game.Bootstrap
                 }
                 else if (state.IsDestroyed)
                 {
-                    settlingVersions.Remove(state.ObjectId);
                     ForgetItem(item);
                     if (ReferenceEquals(highlightedAssignment, item))
                     {
@@ -343,7 +343,6 @@ namespace Game.Bootstrap
 
                 if (state.HolderPlayerIndex >= 0)
                 {
-                    settlingVersions.Remove(state.ObjectId);
                     if (!interactors.TryGetValue(
                             state.HolderPlayerIndex,
                             out var holder))
@@ -360,18 +359,17 @@ namespace Game.Bootstrap
                 else
                 {
                     ForgetItem(item);
-                    if (state.IsPhysicsActive)
+                    if (!network.IsServer)
+                    {
+                        item.OnNetworkPose(state.Pose);
+                    }
+                    else if (state.IsPhysicsActive)
                     {
                         item.OnReleased(state.Pose, state.InitialVelocity);
-                        if (network.IsServer)
-                        {
-                            settlingVersions[state.ObjectId] = state.Version;
-                        }
                     }
                     else
                     {
-                        settlingVersions.Remove(state.ObjectId);
-                        item.OnSettled(state.Pose, network.IsServer);
+                        item.OnSettled(state.Pose, true);
                     }
                 }
 
@@ -391,34 +389,21 @@ namespace Game.Bootstrap
             return state.HolderPlayerIndex >= 0 ? held && item.IsCarried : !held && !item.IsCarried;
         }
 
-        private void ConfirmSettledObjects()
+        private double nextPhysicsPublishAt;
+        private void PublishPhysicsObjects()
         {
-            if (!network.IsServer || settlingVersions.Count == 0)
+            if (!network.IsServer || Time.unscaledTimeAsDouble < nextPhysicsPublishAt) return;
+            nextPhysicsPublishAt = Time.unscaledTimeAsDouble + 0.1d;
+            foreach (var state in objectStates)
             {
-                return;
-            }
-
-            settledObjectIds.Clear();
-            foreach (var pair in settlingVersions)
-            {
-                if (!items.TryGetValue(pair.Key, out var item) || item == null)
-                {
-                    settledObjectIds.Add(pair.Key);
-                    continue;
-                }
-
-                if (!item.TryGetSettledPose(out var pose))
-                {
-                    continue;
-                }
-
-                network.TryConfirmObjectSettled(pair.Key, pose, pair.Value);
-                settledObjectIds.Add(pair.Key);
-            }
-
-            foreach (var objectId in settledObjectIds)
-            {
-                settlingVersions.Remove(objectId);
+                if (state.HolderPlayerIndex >= 0 || state.IsDestroyed || state.IsPendingEjection ||
+                    !items.TryGetValue(state.ObjectId, out var item) || item == null ||
+                    !item.TryGetPhysicsPose(out var pose, out var velocity, out var moving)) continue;
+                if (!moving && !state.IsPhysicsActive &&
+                    Vector3.SqrMagnitude(pose.position - state.Pose.position) < 0.000001f &&
+                    Quaternion.Angle(pose.rotation, state.Pose.rotation) < 0.1f) continue;
+                if (network.TryConfirmObjectPhysicsPose(state.ObjectId, pose, velocity, moving, state.Version))
+                    appliedVersions[state.ObjectId] = state.Version + 1;
             }
         }
 

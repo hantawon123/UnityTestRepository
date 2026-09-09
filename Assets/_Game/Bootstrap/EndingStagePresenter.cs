@@ -72,6 +72,7 @@ namespace Game.Bootstrap
             LockLocalInteraction();
             ShowLocalBody();
             TryStage();
+            HideCarriedItems();
         }
 
         public void Tick()
@@ -82,7 +83,7 @@ namespace Game.Bootstrap
             if (!staged) TryStage();
             if (lockedInteractor == null) LockLocalInteraction();
             if (bodyShownRig == null) ShowLocalBody();
-            HideArrestedItems();
+            HideCarriedItems();
         }
 
         /// <remarks>
@@ -113,13 +114,14 @@ namespace Game.Bootstrap
         }
 
         /// <remarks>
-        /// 승자는 훔친 물건을 든 채 서 있는 것이 승리의 증거이므로 그대로 둔다.
-        /// 패자가 마지막에 들고 있던 물건은 무대에서 보이지 않게 한다. 실제로 내려놓는
-        /// 처리는 권한자의 매치 규칙이 결과 단계에서 거절하므로, 각 클라이언트가
-        /// 렌더러만 숨기고 결과가 끝나면 되돌린다(하이라이트·로비 전환에서 물건 상태는 초기화된다).
+        /// 결과 무대에서는 승패와 관계없이 소지 물건을 숨긴다. 매치의 소유권은 유지하고
+        /// 표시만 복원하므로 결과·하이라이트 전환이 게임 판정을 변경하지 않는다.
+        /// 하이라이트 복원이 늦게 도착해도 매 틱 숨김 상태를 유지한다.
         /// </remarks>
-        private void HideArrestedItems()
+        private void HideCarriedItems()
         {
+            foreach (var renderer in hiddenItemRenderers)
+                if (renderer != null) renderer.forceRenderingOff = true;
             if (!result.HasMatchResult) return;
             var participants = room.MatchParticipants.CurrentValue;
             if (participants == null || participants.Count == 0) return;
@@ -135,12 +137,6 @@ namespace Game.Bootstrap
             foreach (var placement in placements)
             {
                 if (itemHiddenFor.Contains(placement.PlayerIndex)) continue;
-                if (placement.Escaped)
-                {
-                    itemHiddenFor.Add(placement.PlayerIndex);
-                    continue;
-                }
-
                 avatars ??= FindAvatars();
                 if (!avatars.TryGetValue(placement.PlayerId, out var avatar)) continue;
                 var interactor = avatar.GetComponent<PlayerInteractor>();

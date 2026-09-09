@@ -24,7 +24,10 @@ namespace Game.Client.Players
             Target = CopyHierarchy(source, parent, transforms);
             Target.SetPositionAndRotation(source.position, source.rotation);
             Target.localScale = source.lossyScale;
-            originals = source.GetComponentsInChildren<Renderer>(true);
+            var ownedRenderers = new List<Renderer>();
+            foreach (var renderer in source.GetComponentsInChildren<Renderer>(true))
+                if (transforms.ContainsKey(renderer.transform)) ownedRenderers.Add(renderer);
+            originals = ownedRenderers.ToArray();
             originalVisibility = new bool[originals.Length];
             foreach (var original in originals)
             {

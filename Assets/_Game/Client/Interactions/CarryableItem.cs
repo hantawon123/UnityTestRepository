@@ -58,6 +58,60 @@ namespace Game.Client.Interactions
         public string InteractionPrompt => "물건 잡기";
 
         private Rigidbody body;
+        private bool remoteDriven;
+        private Pose remoteFrom, remoteTo;
+        private float remoteProgress;
+
+        public void OnNetworkPose(Pose pose)
+        {
+            var snap = !remoteDriven;
+            remoteFrom = new Pose(body.position, body.rotation);
+            remoteTo = pose;
+            remoteProgress = 0f;
+            remoteDriven = true;
+            gameObject.SetActive(true);
+            transform.SetParent(null, true);
+            RestoreOwningScene();
+            body.isKinematic = true;
+            body.interpolation = RigidbodyInterpolation.Interpolate;
+            SetCollidersEnabled(true);
+            IsCarried = false;
+            if (snap)
+            {
+                body.position = pose.position;
+                body.rotation = pose.rotation;
+                remoteFrom = pose;
+            }
+        }
+
+        private void FixedUpdate()
+        {
+            if (!remoteDriven || IsCarried || remoteProgress >= 1f) return;
+            remoteProgress = Mathf.Min(1f, remoteProgress + Time.fixedDeltaTime / 0.1f);
+            body.MovePosition(Vector3.Lerp(remoteFrom.position, remoteTo.position, remoteProgress));
+            body.MoveRotation(Quaternion.Slerp(remoteFrom.rotation, remoteTo.rotation, remoteProgress));
+        }
+
+        public bool TryGetPhysicsPose(out Pose pose, out Vector3 velocity, out bool moving)
+        {
+            pose = new Pose(body.position, body.rotation);
+            velocity = body.linearVelocity;
+            moving = !body.IsSleeping();
+            return gameObject.activeInHierarchy && !IsCarried && !body.isKinematic;
+        }
+
+        private void WakeNeighbours()
+        {
+            EnsurePlacementVolume();
+            var center = transform.position + transform.rotation * placementCenterOffset;
+            foreach (var hit in Physics.OverlapBox(center, placementHalfExtents + Vector3.one * 0.05f,
+                         transform.rotation, ~0, QueryTriggerInteraction.Ignore))
+            {
+                var other = hit.attachedRigidbody;
+                if (other != null && other != body && !other.isKinematic) other.WakeUp();
+            }
+        }
+
         private Collider[] colliders;
         private AssignedItemOutline assignedOutline;
         private InteractableFocusOutline focusOutline;
@@ -92,6 +146,8 @@ namespace Game.Client.Interactions
         // Photon 도입 시 서버 확정 결과를 받아 호출하는 구조로 바뀐다.
         public void OnPickedUp(Transform holdPoint)
         {
+            WakeNeighbours();
+            remoteDriven = false;
             gameObject.SetActive(true);
             IsCarried = true;
             SetAimed(false, 1f);
@@ -105,6 +161,7 @@ namespace Game.Client.Interactions
 
         public void OnDropped()
         {
+            remoteDriven = false;
             transform.SetParent(null, worldPositionStays: true);
             RestoreOwningScene();
 
@@ -116,6 +173,8 @@ namespace Game.Client.Interactions
 
         public void OnStored(Pose pose)
         {
+            remoteDriven = false;
+            WakeNeighbours();
             transform.SetParent(null, worldPositionStays: true);
             RestoreOwningScene();
             transform.SetPositionAndRotation(pose.position, pose.rotation);
@@ -133,6 +192,7 @@ namespace Game.Client.Interactions
         /// </summary>
         public void OnPlaced(Vector3 position, Quaternion rotation)
         {
+            remoteDriven = false;
             gameObject.SetActive(true);
             transform.SetParent(null, worldPositionStays: true);
             RestoreOwningScene();
@@ -165,6 +225,7 @@ namespace Game.Client.Interactions
 
         public void OnSettled(Pose pose, bool keepDynamic)
         {
+            remoteDriven = false;
             transform.SetParent(null, worldPositionStays: true);
             RestoreOwningScene();
             transform.SetPositionAndRotation(pose.position, pose.rotation);

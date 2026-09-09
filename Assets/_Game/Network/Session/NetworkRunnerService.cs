@@ -250,7 +250,7 @@ namespace Game.Network.Session
         /// </summary>
         private bool _exitReported = true;
         private bool _isClientSession;
-        private bool _hostLossShutdownPending;
+        private bool _exitShutdownPending;
         private NetworkRunner _departingRunner;
         // Do not load a local scene while Fusion is still unloading its network scene.
         public bool IsRoomExitPending => _departingRunner != null;
@@ -1326,6 +1326,11 @@ namespace Game.Network.Session
             _matchStarter != null &&
             _matchStarter.RequestThrowHeldObject(pose, initialVelocity);
 
+        public bool TryConfirmObjectPhysicsPose(string objectId, Pose pose, Vector3 velocity,
+            bool moving, int expectedVersion) =>
+            IsServer && _matchStarter != null && _matchStarter.TryConfirmObjectPhysicsPose(
+                objectId, pose, velocity, moving, expectedVersion);
+
         public bool TryConfirmObjectSettled(
             string objectId,
             Pose pose,
@@ -1520,7 +1525,7 @@ namespace Game.Network.Session
         /// </param>
         private INetworkSceneManager CreateRunner(bool provideInput)
         {
-            _hostLossShutdownPending = false;
+            _exitShutdownPending = false;
             _isClientSession = false;
             GetPhotonSettings();
 
