@@ -51,6 +51,9 @@ namespace Game.Architecture.Tests
                 Assert.That(listGo.activeSelf, Is.True);
                 Assert.That(listGo.transform.parent.name, Is.EqualTo(LobbyShortcutOverlayView.RootName));
                 Assert.That(
+                    listGo.GetComponent<RectTransform>().sizeDelta,
+                    Is.EqualTo(LobbyPlayerListView.ModalSize));
+                Assert.That(
                     canvas.transform.Find("ShortcutOverlay/Title").gameObject.activeSelf,
                     Is.False);
 

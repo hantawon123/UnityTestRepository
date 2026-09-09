@@ -7,8 +7,7 @@ using UnityEngine.UI;
 namespace Game.Client.Lobby
 {
     /// <summary>
-    /// Placeholder shells for the lobby's 1 / 2 / Esc overlays. The chrome
-    /// arrives later; this only names the open screen so the keys can be wired.
+    /// 1 / Esc stay placeholder titles. 2 hosts the two-column player modal.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class LobbyShortcutOverlayView : MonoBehaviour, ILobbyShortcutOverlay
@@ -114,7 +113,7 @@ namespace Game.Client.Lobby
                 playerListRoot.anchorMin = playerListRoot.anchorMax = new Vector2(0.5f, 0.5f);
                 playerListRoot.pivot = new Vector2(0.5f, 0.5f);
                 playerListRoot.anchoredPosition = Vector2.zero;
-                playerListRoot.sizeDelta = new Vector2(300f, 420f);
+                playerListRoot.sizeDelta = LobbyPlayerListView.ModalSize;
                 playerListRoot.SetAsLastSibling();
             }
 

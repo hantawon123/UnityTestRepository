@@ -66,7 +66,7 @@ namespace Game.Editor
                 playerList,
                 Anchor.Center,
                 Vector2.zero,
-                new Vector2(300f, 420f));
+                LobbyPlayerListView.ModalSize);
             playerList.gameObject.SetActive(false);
             Place(
                 chat,
@@ -146,19 +146,7 @@ namespace Game.Editor
             hudSo.FindProperty("chatRoot").objectReferenceValue = chat;
             hudSo.ApplyModifiedPropertiesWithoutUndo();
 
-            var playerListSo = new SerializedObject(playerListView);
-            playerListSo.FindProperty("titleText").objectReferenceValue =
-                playerList.Find("Title")?.GetComponent<Text>();
-            playerListSo.FindProperty("rowRoot").objectReferenceValue =
-                playerList.Find("RowRoot");
-            playerListSo.FindProperty("uiFont").objectReferenceValue = ResolveLobbyFont();
-            playerListSo.ApplyModifiedPropertiesWithoutUndo();
-
-            var title = playerList.Find("Title")?.GetComponent<Text>();
-            if (title != null)
-            {
-                ApplyText(title, "참가자 목록", 22, TextAnchor.UpperCenter);
-            }
+            playerListView.EnsureLayout();
 
             var scopeSo = new SerializedObject(scope);
             scopeSo.FindProperty("hudView").objectReferenceValue = hud;
@@ -770,48 +758,16 @@ namespace Game.Editor
                 leftoverLabel.gameObject.SetActive(false);
             }
 
-            var title = playerList.Find("Title");
-            if (title == null)
+            var leftoverTitle = playerList.Find("Title");
+            if (leftoverTitle != null)
             {
-                var titleGo = CreateTextChild(playerList, "Title", "참가자 목록", 22, TextAnchor.UpperCenter);
-                var titleRect = titleGo.GetComponent<RectTransform>();
-                titleRect.anchorMin = new Vector2(0f, 1f);
-                titleRect.anchorMax = new Vector2(1f, 1f);
-                titleRect.pivot = new Vector2(0.5f, 1f);
-                titleRect.sizeDelta = new Vector2(-16f, 36f);
-                titleRect.anchoredPosition = new Vector2(0f, -10f);
-            }
-            else
-            {
-                ApplyText(title.GetComponent<Text>(), "참가자 목록", 22, TextAnchor.UpperCenter);
+                leftoverTitle.gameObject.SetActive(false);
             }
 
-            if (playerList.Find("BodyText") == null)
+            var leftoverBody = playerList.Find("BodyText");
+            if (leftoverBody != null)
             {
-                var bodyGo = CreateTextChild(playerList, "BodyText", string.Empty, 20, TextAnchor.UpperLeft);
-                var bodyRect = bodyGo.GetComponent<RectTransform>();
-                bodyRect.anchorMin = Vector2.zero;
-                bodyRect.anchorMax = Vector2.one;
-                bodyRect.offsetMin = new Vector2(16f, 16f);
-                bodyRect.offsetMax = new Vector2(-16f, -48f);
-                var bodyText = bodyGo.GetComponent<Text>();
-                bodyText.alignment = TextAnchor.UpperLeft;
-                bodyText.horizontalOverflow = HorizontalWrapMode.Wrap;
-                bodyText.verticalOverflow = VerticalWrapMode.Overflow;
-                bodyText.lineSpacing = 1.2f;
-                bodyGo.SetActive(false);
-            }
-
-            if (playerList.Find("RowRoot") == null)
-            {
-                var rowRootGo = new GameObject("RowRoot", typeof(RectTransform));
-                Undo.RegisterCreatedObjectUndo(rowRootGo, "Create RowRoot");
-                rowRootGo.transform.SetParent(playerList, false);
-                var rowRoot = rowRootGo.GetComponent<RectTransform>();
-                rowRoot.anchorMin = Vector2.zero;
-                rowRoot.anchorMax = Vector2.one;
-                rowRoot.offsetMin = new Vector2(12f, 12f);
-                rowRoot.offsetMax = new Vector2(-12f, -48f);
+                leftoverBody.gameObject.SetActive(false);
             }
         }
 
