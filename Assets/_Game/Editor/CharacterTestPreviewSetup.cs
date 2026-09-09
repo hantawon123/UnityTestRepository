@@ -19,7 +19,13 @@ namespace Game.Editor
         private static readonly MotionDefinition[] MotionDefinitions =
         {
             new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Walk_Wide_Clean.fbx", "Walk_Wide_Clean", 24, true),
-            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Run_SideArms.fbx", "Run_SideArms", 20, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Walk_Back.fbx", "Walk_Back", 24, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Walk_Left.fbx", "Walk_Left", 24, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Walk_Right.fbx", "Walk_Right", 24, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Run_SideArms.fbx", "Run_SideArms", 19, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Run_Back.fbx", "Run_Back", 19, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Run_Left.fbx", "Run_Left", 19, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Run_Right.fbx", "Run_Right", 19, true),
             new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Jump_Cute.fbx", "Jump_Cute", 41, false),
             new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Fall_Flutter.fbx", "Fall_Flutter", 48, true),
             new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Land_Matched.fbx", "Land_Matched", 20, false),
@@ -32,14 +38,35 @@ namespace Game.Editor
             new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Crouch_Walk_Back_KneesUp.fbx", "Crouch_Walk_Back_KneesUp", 36, true, true),
             new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Pickup_Low.fbx", "Pickup_Low", 60, false, true),
             new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Idle.fbx", "Carry_Idle", 60, true, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Walk.fbx", "Carry_Walk", 24, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Walk_Back.fbx", "Carry_Walk_Back", 24, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Walk_Left.fbx", "Carry_Walk_Left", 24, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Walk_Right.fbx", "Carry_Walk_Right", 24, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Run.fbx", "Carry_Run", 19, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Run_Back.fbx", "Carry_Run_Back", 19, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Run_Left.fbx", "Carry_Run_Left", 19, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Run_Right.fbx", "Carry_Run_Right", 19, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Crouch.fbx", "Carry_Crouch", 60, true, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Crouch_Walk_Forward.fbx", "Carry_Crouch_Walk_Forward", 36, true, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Crouch_Walk_Back.fbx", "Carry_Crouch_Walk_Back", 36, true, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Crouch_Walk_Left.fbx", "Carry_Crouch_Walk_Left", 36, true, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Crouch_Walk_Right.fbx", "Carry_Crouch_Walk_Right", 36, true, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Prone.fbx", "Carry_Prone", 60, true, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Crawl_Forward.fbx", "Carry_Crawl_Forward", 36, true, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Crawl_Back.fbx", "Carry_Crawl_Back", 36, true, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Crawl_Left.fbx", "Carry_Crawl_Left", 36, true, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Crawl_Right.fbx", "Carry_Crawl_Right", 36, true, true),
             new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_PutDown_Low.fbx", "PutDown_Low", 60, false, true),
-            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Prone_Start.fbx", "Prone_Start", 24, false),
-            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Prone_Idle.fbx", "Prone_Idle", 60, true),
-            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Crawl_Forward.fbx", "Crawl_Forward", 36, true),
-            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Crawl_Back.fbx", "Crawl_Back", 36, true),
-            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Crawl_Left.fbx", "Crawl_Left", 36, true),
-            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Crawl_Right.fbx", "Crawl_Right", 36, true),
-            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Prone_End.fbx", "Prone_End", 24, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Throw.fbx", "Throw", 41, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Prone_Start.fbx", "Prone_Start", 24, false, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Prone_Idle.fbx", "Prone_Idle", 60, true, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Crawl_Forward.fbx", "Crawl_Forward", 36, true, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Crawl_Back.fbx", "Crawl_Back", 36, true, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Crawl_Left.fbx", "Crawl_Left", 36, true, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Crawl_Right.fbx", "Crawl_Right", 36, true, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Prone_End.fbx", "Prone_End", 24, false, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Crouch_To_Prone.fbx", "Crouch_To_Prone", 36, false, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Prone_To_Crouch.fbx", "Prone_To_Crouch", 36, false, true),
         };
 
         [InitializeOnLoadMethod]
@@ -194,7 +221,10 @@ namespace Game.Editor
             var bellyBinding = AnimationUtility.GetCurveBindings(clip)
                 .FirstOrDefault(b => b.propertyName == "blendShape.Belly_Breath");
             var bellyCurve = AnimationUtility.GetEditorCurve(clip, bellyBinding);
-            if (bellyCurve == null || bellyCurve.Evaluate(0.8f) - bellyCurve.Evaluate(0f) < 90f)
+            var bellyRange = bellyCurve == null || bellyCurve.keys.Length == 0
+                ? 0f
+                : bellyCurve.keys.Max(key => key.value) - bellyCurve.keys.Min(key => key.value);
+            if (bellyRange < 90f)
             {
                 throw new System.InvalidOperationException("First idle FBX must contain animated belly expansion (0 to 100).");
             }

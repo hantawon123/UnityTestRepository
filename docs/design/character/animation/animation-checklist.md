@@ -28,6 +28,24 @@
   - 반복: O
   - 재생 구간: 1~24 / 30fps
   - 비고: 25프레임 클로저. 보폭 넓힘
+- [x] 제자리 후진
+  - 파일명: `PlayerCapsule_Walk_Wide_Clean.blend`
+  - 액션명: `Walk_Back`
+  - 반복: O
+  - 재생 구간: 1~24 / 30fps
+  - 비고: `Walk_Wide_Clean` 발 스윙을 뒤로 재배치. `Tools/make_first_walk_directions.py`
+- [x] 제자리 좌측 걷기
+  - 파일명: `PlayerCapsule_Walk_Wide_Clean.blend`
+  - 액션명: `Walk_Left`
+  - 반복: O
+  - 재생 구간: 1~24 / 30fps
+  - 비고: 얼굴은 정면. Left = +localX. 발끝은 전방
+- [x] 제자리 우측 걷기
+  - 파일명: `PlayerCapsule_Walk_Wide_Clean.blend`
+  - 액션명: `Walk_Right`
+  - 반복: O
+  - 재생 구간: 1~24 / 30fps
+  - 비고: 얼굴은 정면. 발끝은 전방
 - [x] 전진 걷기
   - 파일명: `PlayerCapsule_Walk_Wide_Clean.blend`
   - 액션명: `Walk_Wide_Clean_Forward`
@@ -39,7 +57,25 @@
   - 액션명: `Run_SideArms`
   - 반복: O
   - 재생 구간: 1~20 / 30fps
-  - 비고: 21프레임 클로저. 팔을 옆으로 벌린 달리기
+  - 비고: 21프레임 클로저. Unity는 중복 끝 프레임을 빼고 0~19로 루프한다
+- [x] 제자리 후진 달리기
+  - 파일명: `PlayerCapsule_Run_SideArms.blend`
+  - 액션명: `Run_Back`
+  - 반복: O
+  - 재생 구간: 1~20 / 30fps
+  - 비고: `Run_SideArms` 발 스윙을 뒤로 재배치. `Tools/make_first_run_directions.py`
+- [x] 제자리 좌측 달리기
+  - 파일명: `PlayerCapsule_Run_SideArms.blend`
+  - 액션명: `Run_Left`
+  - 반복: O
+  - 재생 구간: 1~20 / 30fps
+  - 비고: 얼굴은 정면. Left = +localX. 무릎은 앞으로만 접힘
+- [x] 제자리 우측 달리기
+  - 파일명: `PlayerCapsule_Run_SideArms.blend`
+  - 액션명: `Run_Right`
+  - 반복: O
+  - 재생 구간: 1~20 / 30fps
+  - 비고: 얼굴은 정면. 무릎은 앞으로만 접힘
 - [x] 전진 달리기
   - 파일명: `PlayerCapsule_Run_SideArms.blend`
   - 액션명: `Run_SideArms_Forward`
@@ -216,38 +252,47 @@
 - [ ] 물건 집기
   - 파일명:
   - 액션명: `Pickup`
-- [ ] 물건 들고 대기
-  - 파일명:
+- [x] 물건 들고 대기
+  - 파일명: `FirstPlayerCapsule_Carry_Idle.fbx`
   - 액션명: `Carry_Idle`
   - 반복: O
-- [ ] 물건 들고 걷기
-  - 파일명:
-  - 액션명 / 조합:
+- [x] 물건 들고 걷기
+  - 파일명: `FirstPlayerCapsule_Carry_Walk.fbx`
+  - 액션명: `Carry_Walk`, `Carry_Walk_Back`, `Carry_Walk_Left`, `Carry_Walk_Right`
   - 반복: O
-- [ ] 물건 들고 뛰기
-  - 파일명:
-  - 액션명 / 조합:
+  - 비고: 기존 걷기 + `Carry_Idle` 오른팔. `Tools/make_first_carry_locomotion.py`
+- [x] 물건 들고 뛰기
+  - 파일명: `FirstPlayerCapsule_Carry_Run.fbx`
+  - 액션명: `Carry_Run`, `Carry_Run_Back`, `Carry_Run_Left`, `Carry_Run_Right`
   - 반복: O
+  - 비고: 기존 달리기 + `Carry_Idle` 오른팔
 - [ ] 물건 들고 점프
   - 파일명:
   - 액션명 / 조합:
-- [ ] 물건 들고 웅크리기
-  - 파일명:
-  - 액션명 / 조합:
-- [ ] 물건 들고 엎드리기
-  - 파일명:
-  - 액션명 / 조합:
-  - 비고: 물건 위치·충돌 확인 필요
-- [ ] 물건 잡고 기어가기
-  - 파일명:
-  - 액션명 / 조합:
-  - 비고: 끌기 / 한 손으로 들기 / 행동 불가 중 규칙 결정
+- [x] 물건 들고 웅크리기
+  - 파일명: `FirstPlayerCapsule_Carry_Crouch.fbx`
+  - 액션명: `Carry_Crouch`, `Carry_Crouch_Walk_Forward`, `Carry_Crouch_Walk_Back`, `Carry_Crouch_Walk_Left`, `Carry_Crouch_Walk_Right`
+  - 반복: O
+  - 비고: 기본 웅크리기 팔보다 오른팔을 위로. `Tools/make_first_carry_postures.py`
+- [x] 물건 들고 엎드리기
+  - 파일명: `FirstPlayerCapsule_Carry_Prone.fbx`
+  - 액션명: `Carry_Prone`
+  - 반복: O
+  - 비고: 왼손은 바닥, 오른팔은 기본 포복보다 살짝 들고 손은 옆으로 세움
+- [x] 물건 잡고 기어가기
+  - 파일명: `FirstPlayerCapsule_Carry_Crawl_Forward.fbx`
+  - 액션명: `Carry_Crawl_Forward`, `Carry_Crawl_Back`, `Carry_Crawl_Left`, `Carry_Crawl_Right`
+  - 반복: O
+  - 비고: 한 손 들기. 왼손·하체는 기존 포복
 - [ ] 물건 내려놓기
   - 파일명:
   - 액션명: `PutDown`
-- [ ] 물건 던지기 — 기능이 있을 때
-  - 파일명:
+- [x] 물건 던지기
+  - 파일명: `FirstPlayerCapsule_Throw.fbx`
   - 액션명: `Throw`
+  - 반복: X
+  - 재생 구간: 1~41 / 30fps
+  - 비고: 들기→상완 옆열기→팔 올리기→직선으로 던짐. 26프레임에서 놓음. `Tools/make_first_throw.py`
 
 
 

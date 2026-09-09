@@ -191,9 +191,11 @@ for side in ("L", "R"):
         plant_end(f"Leg.{side}", f"Foot.{side}", floor_y)
 
 prone_bind = {bone.name: bone.matrix_basis.copy() for bone in rig.pose.bones}
+prone_heads = {bone.name: bone.head.copy() for bone in rig.pose.bones}
 leg_bones = [
     name for name in prone_bind
     if name.startswith("UpperLeg") or name.startswith("Leg.")
+    or name.startswith("Foot.") or name.startswith("FootToe")
 ]
 
 
@@ -211,31 +213,158 @@ def crawl_delta(frame, last, reverse=False):
 
 
 def apply_crawl(frame, last, reverse=False, sway=0.0):
-    low, high, t = crawl_delta(frame, last, reverse)
     for bone in ordered:
-        bind = prone_bind[bone.name]
-        if bone.name in leg_bones and bone.name in crawl_ref:
-            delta = crawl_ref[bone.name].inverted() @ lerp_matrix(
-                crawl_samples[low][bone.name], crawl_samples[high][bone.name], t
-            )
-            bone.matrix_basis = bind @ lerp_matrix(Matrix.Identity(4), delta, 0.40)
-        else:
-            bone.matrix_basis = bind
+        bone.matrix_basis = prone_bind[bone.name]
     bpy.context.view_layer.update()
-    phase = math.sin((frame - 1) / max(1, last - 1) * math.pi * 2.0)
+    # Both legs extended -> right folds outward and forward -> extended ->
+    # left folds outward and forward -> extended, following the illustration.
+    cycle = math.sin((frame - 1) / last * math.pi * 2.0) * (-1 if reverse else 1)
+    for side in ("L", "R"):
+        sign = 1.0 if side == "L" else -1.0
+        fold = smooth(max(0.0, cycle * (-sign)))
+        # A single bending plane travels with the hip. The thigh opens to
+        # 85 degrees; the shin returns behind it, making a real knee hinge.
+        hip_angle = math.radians(12 + 73 * fold)
+        knee_angle = math.radians(2 + 93 * fold)
+        upper = Vector((sign * math.sin(hip_angle), -0.16, -math.cos(hip_angle))).normalized()
+        lower_angle = hip_angle - knee_angle
+        lower = Vector((sign * math.sin(lower_angle), -0.16, -math.cos(lower_angle))).normalized()
+        aim_bone(rig.pose.bones[f"UpperLeg.{side}"], upper)
+        bpy.context.view_layer.update()
+        # The reference FBX flexes the knee around local -X. Rotate the
+        # thigh at the hip so that this hinge follows the outward leg plane;
+        # otherwise aiming the shin alone bends the knee sideways around Z.
+        thigh = rig.pose.bones[f"UpperLeg.{side}"]
+        shin = rig.pose.bones[f"Leg.{side}"]
+        shin.matrix_basis = Matrix.Identity(4)
+        bpy.context.view_layer.update()
+        hinge = -upper.cross(lower).normalized()
+        current_axis = shin.matrix.to_3x3().col[0].normalized()
+        current_axis = (current_axis - upper * current_axis.dot(upper)).normalized()
+        twist = math.atan2(upper.dot(current_axis.cross(hinge)), current_axis.dot(hinge))
+        apply_world_rotation(thigh, Matrix.Rotation(twist * fold, 4, upper).to_quaternion())
+        bpy.context.view_layer.update()
+        shin.matrix_basis = Matrix.Rotation(-knee_angle, 4, 'X')
+        bpy.context.view_layer.update()
+        rig.pose.bones[f"Foot.{side}"].matrix_basis = idle_basis[f"Foot.{side}"]
+        rig.pose.bones[f"FootToe1.{side}"].matrix_basis = idle_basis[f"FootToe1.{side}"]
+        bpy.context.view_layer.update()
+        aim_bone(rig.pose.bones[f"Foot.{side}"], Vector((sign * 0.45, -0.25, -0.86)))
+        bpy.context.view_layer.update()
+    bpy.context.view_layer.update()
+    phase = math.sin((frame - 1) / last * math.pi * 2.0)
     if reverse:
         phase = -phase
+
+    # Baby crawl: diagonal hand and knee pairs alternate.  The chest stays
+    # low, each reaching arm stretches forward, and the opposite knee folds
+    # under the hip before pushing back.  No imported humanoid crawl motion is
+    # mixed in, which keeps First's short capsule limbs soft and readable.
     for side, sign in (("L", 1.0), ("R", -1.0)):
-        apply_world_rotation(
+        reach = phase * sign
+        tuck = -reach
+        aim_bone(
             rig.pose.bones[f"UpperArm.{side}"],
-            Matrix.Rotation(phase * sign * 0.18, 4, "X").to_quaternion(),
+            Vector((0.30 * sign, -0.62 + 0.16 * reach, 0.72 + 0.16 * reach)),
+        )
+        bpy.context.view_layer.update()
+        aim_bone(
+            rig.pose.bones[f"Arm.{side}"],
+            Vector((0.10 * sign, -0.04 - 0.08 * reach, 0.995)),
         )
         bpy.context.view_layer.update()
         plant_end(f"Arm.{side}", f"Hand.{side}", floor_y)
+    bpy.context.view_layer.update()
     if sway:
         hips = rig.pose.bones["Hips"]
         hips.location.x += phase * sway
         bpy.context.view_layer.update()
+
+
+# Use the same neutral pose for entering, idling, crawling and leaving prone.
+apply_crawl(1, 36)
+prone_bind = {bone.name: bone.matrix_basis.copy() for bone in rig.pose.bones}
+
+
+def make_crawl_correctives():
+    """Bake pose-space thigh volume and a broad upward flank follow-through.
+
+    Invert the actual linear skinning transform so FBX/Unity reproduces the
+    correction without requiring Blender's preserve-volume skinning mode.
+    """
+    keys = body.data.shape_keys
+    idle_action = rig.animation_data.action
+    for k in keys.key_blocks[1:]: k.value = 0
+    basis = keys.key_blocks[0]
+    mesh_to_rig = rig.matrix_world.inverted() @ body.matrix_world
+    rig_to_mesh = mesh_to_rig.inverted()
+    for side, frame in (('R', 10), ('L', 28)):
+        for k in keys.key_blocks[1:]: k.value = 0
+        apply_crawl(frame, 36)
+        bpy.context.view_layer.update()
+        transforms = {g.index: rig_to_mesh @ rig.pose.bones[g.name].matrix @ rig.data.bones[g.name].matrix_local.inverted() @ mesh_to_rig
+                      for g in body.vertex_groups if g.name in rig.pose.bones}
+        key = keys.key_blocks.get('Crawl_Follow_'+side) or body.shape_key_add(name='Crawl_Follow_'+side)
+        thigh = rig.pose.bones['UpperLeg.'+side]
+        rest = thigh.bone
+        rest_axis = (rest.tail_local-rest.head_local).normalized()
+        axis = (thigh.tail-thigh.head).normalized()
+        sign = 1 if side=='L' else -1
+        largest = 0.0
+        for v, base, point in zip(body.data.vertices, basis.data, key.data):
+            weights = [(g.weight, transforms[g.group]) for g in v.groups if g.group in transforms]
+            total = sum(w for w,m in weights)
+            point.co = base.co
+            if total < 1e-8: continue
+            skin = Matrix(tuple(tuple(sum(w*m[i][j] for w,m in weights)/total for j in range(4)) for i in range(4)))
+            p = mesh_to_rig @ base.co
+            posed = mesh_to_rig @ (skin @ base.co)
+            correction = Vector((0,0,0))
+            # Cross sections of the thigh keep their original radius. Fade
+            # continuously into knee and pelvis instead of making a hard cuff.
+            along = (p-rest.head_local).dot(rest_axis)/rest.length
+            radial = p-rest.head_local-rest_axis*((p-rest.head_local).dot(rest_axis))
+            mask = smooth((along-0.08)/0.35) * smooth((1.10-along)/0.35)
+            mask *= smooth((sign*p.x-0.025)/0.10)
+            mask *= smooth((0.23-radial.length)/0.10)
+            if mask>0 and radial.length<0.21:
+                now = posed-thigh.head-axis*((posed-thigh.head).dot(axis))
+                if now.length>1e-5:
+                    amount = max(0.0, min(0.065, radial.length*0.98-now.length))
+                    correction += now.normalized()*amount*mask
+            # Broad flank displacement follows the pulling thigh upwards;
+            # the centre of the belly follows more softly, with no folding.
+            side_mask = smooth((sign*p.x+0.10)/0.32)
+            belt = smooth((p.y-0.43)/0.20)*smooth((1.08-p.y)/0.30)
+            correction += Vector((sign*0.008,0.035,0.012))*side_mask*belt
+            corrected = posed+correction
+            point.co = skin.inverted_safe() @ (rig_to_mesh @ corrected)
+            largest=max(largest,correction.length)
+        # Smooth the displacement field (not the base mesh) across the
+        # continuous thigh/flank surface, avoiding a visible correction seam.
+        neighbors=[set() for v in body.data.vertices]
+        for e in body.data.edges:
+            a,b=e.vertices
+            neighbors[a].add(b); neighbors[b].add(a)
+        offsets=[p.co-b.co for p,b in zip(key.data,basis.data)]
+        for iteration in range(8):
+            offsets=[d.lerp(sum((offsets[j] for j in neighbors[i]),Vector())/len(neighbors[i]),0.5) if neighbors[i] else d for i,d in enumerate(offsets)]
+        for p,b,d in zip(key.data,basis.data,offsets): p.co=b.co+d
+        key.value=0
+        key.slider_max=1
+        print('CORRECTIVE',side,'max posed displacement',largest)
+    # The common Unity character mesh must contain these same shape keys.
+    rig.animation_data.action=idle_action
+    first,last=(int(v) for v in idle_action.frame_range)
+    for name in ('Crawl_Follow_L','Crawl_Follow_R'):
+        key=keys.key_blocks[name]
+        for f in (first,last):
+            key.value=0
+            key.keyframe_insert('value',frame=f)
+    export_fbx(rig,out_dir/'FirstPlayerCapsule_Idle_Breathing_2s.fbx',first,last)
+
+
+make_crawl_correctives()
 
 
 def write_action(name, last, filler):
@@ -250,6 +379,10 @@ def write_action(name, last, filler):
         if body and body.data.shape_keys:
             for key in body.data.shape_keys.key_blocks[1:]:
                 key.value = 0.0
+                if name.startswith('Crawl_') and key.name.startswith('Crawl_Follow_'):
+                    phase=math.sin((frame-1)/last*math.pi*2)
+                    if name=='Crawl_Back': phase=-phase
+                    key.value=smooth(max(0,phase*(1 if key.name.endswith('_R') else -1)))
                 key.keyframe_insert("value", frame=frame)
     return action
 
@@ -290,6 +423,8 @@ clips = [
 
 for name, last, filler in clips:
     write_action(name, last, filler)
-    export_fbx(rig, out_dir / f"FirstPlayerCapsule_{name}.fbx", 1, last)
+    export_fbx(rig, out_dir / f"FirstPlayerCapsule_{name}.fbx", 1, last + 1)
+    if name == "Crawl_Forward":
+        bpy.ops.wm.save_as_mainfile(filepath=str(out_dir / "Crawl_Forward.blend"))
 
 print("PRONE_CLIPS", out_dir)

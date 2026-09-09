@@ -13,7 +13,13 @@ namespace Game.Client
         {
             "Idle_Breathing",
             "Walk_Wide_Clean",
+            "Walk_Back",
+            "Walk_Left",
+            "Walk_Right",
             "Run_SideArms",
+            "Run_Back",
+            "Run_Left",
+            "Run_Right",
             "Jump_Cute",
             "Fall_Flutter",
             "Land_Matched",
@@ -26,7 +32,26 @@ namespace Game.Client
             "Crouch_Walk_Back_KneesUp",
             "Pickup_Low",
             "Carry_Idle",
+            "Carry_Walk",
+            "Carry_Walk_Back",
+            "Carry_Walk_Left",
+            "Carry_Walk_Right",
+            "Carry_Run",
+            "Carry_Run_Back",
+            "Carry_Run_Left",
+            "Carry_Run_Right",
+            "Carry_Crouch",
+            "Carry_Crouch_Walk_Forward",
+            "Carry_Crouch_Walk_Back",
+            "Carry_Crouch_Walk_Left",
+            "Carry_Crouch_Walk_Right",
+            "Carry_Prone",
+            "Carry_Crawl_Forward",
+            "Carry_Crawl_Back",
+            "Carry_Crawl_Left",
+            "Carry_Crawl_Right",
             "PutDown_Low",
+            "Throw",
             "Prone_Start",
             "Prone_Idle",
             "Crawl_Forward",
@@ -34,6 +59,8 @@ namespace Game.Client
             "Crawl_Left",
             "Crawl_Right",
             "Prone_End",
+            "Crouch_To_Prone",
+            "Prone_To_Crouch",
         };
 
         private Vector2 listScroll;
@@ -91,13 +118,19 @@ namespace Game.Client
 
             CacheFeet(transform);
             CacheCrouchGroin();
-            if (stateNames == null || stateNames.Length < 23)
+            if (stateNames == null || stateNames.Length < 50)
             {
                 stateNames = new[]
                 {
                     "Idle_Breathing",
                     "Walk_Wide_Clean",
+                    "Walk_Back",
+                    "Walk_Left",
+                    "Walk_Right",
                     "Run_SideArms",
+                    "Run_Back",
+                    "Run_Left",
+                    "Run_Right",
                     "Jump_Cute",
                     "Fall_Flutter",
                     "Land_Matched",
@@ -110,7 +143,26 @@ namespace Game.Client
                     "Crouch_Walk_Back_KneesUp",
                     "Pickup_Low",
                     "Carry_Idle",
+                    "Carry_Walk",
+                    "Carry_Walk_Back",
+                    "Carry_Walk_Left",
+                    "Carry_Walk_Right",
+                    "Carry_Run",
+                    "Carry_Run_Back",
+                    "Carry_Run_Left",
+                    "Carry_Run_Right",
+                    "Carry_Crouch",
+                    "Carry_Crouch_Walk_Forward",
+                    "Carry_Crouch_Walk_Back",
+                    "Carry_Crouch_Walk_Left",
+                    "Carry_Crouch_Walk_Right",
+                    "Carry_Prone",
+                    "Carry_Crawl_Forward",
+                    "Carry_Crawl_Back",
+                    "Carry_Crawl_Left",
+                    "Carry_Crawl_Right",
                     "PutDown_Low",
+                    "Throw",
                     "Prone_Start",
                     "Prone_Idle",
                     "Crawl_Forward",
@@ -118,6 +170,8 @@ namespace Game.Client
                     "Crawl_Left",
                     "Crawl_Right",
                     "Prone_End",
+                    "Crouch_To_Prone",
+                    "Prone_To_Crouch",
                 };
             }
             standRotation = transform.rotation;
