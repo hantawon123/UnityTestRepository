@@ -100,6 +100,7 @@ namespace Game.Bootstrap
             // RegisterServices because only the application has a window to
             // resize; a test container must not touch one.
             builder.RegisterEntryPoint<GraphicsSettingsStartup>();
+            builder.RegisterEntryPoint<CameraSettingsBinder>();
 
             // Built here rather than in RegisterServices: the device identifier
             // is this machine's saved credential, and a test container must not

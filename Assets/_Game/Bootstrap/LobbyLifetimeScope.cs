@@ -6,6 +6,8 @@ using Game.Client.Lobby;
 using Game.Client.Match;
 using Game.Client.Players;
 using Game.Client.Voice;
+using Game.Client.Settings;
+using Game.Core.Settings;
 using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Maps;
@@ -173,7 +175,15 @@ namespace Game.Bootstrap
                     Lifetime.Scoped)
                 .As<ILobbyChatLog>();
             builder.RegisterEntryPoint<LobbyPlayerListPresenter>();
-            builder.RegisterEntryPoint<LobbyPauseMenuPresenter>();
+            builder.RegisterEntryPoint<LobbyPauseMenuPresenter>().AsSelf();
+            var settingsObject = new GameObject("Lobby Settings");
+            settingsObject.transform.SetParent(transform, false);
+            var settingsView = settingsObject.AddComponent<SettingsView>();
+            settingsObject.SetActive(false);
+            builder.RegisterComponent(settingsView).As<ISettingsView>().AsSelf();
+            builder.RegisterEntryPoint<SettingsPresenter>().AsSelf()
+                .WithParameter<Action>(() => settingsObject.SetActive(false));
+            builder.RegisterEntryPoint<LobbySettingsOverlay>().WithParameter(chatView);
             builder.RegisterEntryPoint<PlaySettingsPresenter>();
             builder.RegisterEntryPoint<LobbyMatchInfoPresenter>();
             // The board in the room opens the same play settings screen; it
@@ -213,7 +223,7 @@ namespace Game.Bootstrap
                 network.RepositionPlayers(sceneConfiguration.CaptureSpawnPoses());
                 if (network.IsHighlightInProgress)
                     PrepareHighlightStaging(network);
-                EnsurePlayerCameraRig();
+                EnsurePlayerCameraRig(container.Resolve<ControlSettingsSystem>());
                 if (highlightStaging)
                 {
                     CaptureStagingPresentation();
@@ -342,13 +352,14 @@ namespace Game.Bootstrap
         /// <see cref="LobbyPlayerCameraBinder"/> waits for it instead.
         /// </para>
         /// </remarks>
-        private void EnsurePlayerCameraRig()
+        private void EnsurePlayerCameraRig(ControlSettingsSystem settings)
         {
             var rig = FindFirstObjectByType<PlayerCameraController>(FindObjectsInactive.Include);
             if (rig == null) rig = Instantiate(cameraRigPrefab);
             if (highlightStaging && rig.gameObject.scene != gameObject.scene &&
                 rig.transform.parent == null)
                 SceneManager.MoveGameObjectToScene(rig.gameObject, gameObject.scene);
+            rig.BindSettings(settings);
             rig.RequireExplicitFollowTarget();
         }
 

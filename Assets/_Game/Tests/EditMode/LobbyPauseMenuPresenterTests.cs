@@ -15,6 +15,17 @@ namespace Game.Tests.EditMode
     public sealed class LobbyPauseMenuPresenterTests
     {
         [Test]
+        public void SettingsOverlay_ReturnsToPauseMenuWithoutLeavingRoom()
+        {
+            using var fixture = new Fixture();
+            fixture.Presenter.Start();
+            fixture.Presenter.OpenSettingsScreen(() => { });
+            Assert.That(fixture.Menu.IsOpen, Is.False);
+            fixture.Presenter.OnScreenClosed();
+            Assert.That(fixture.Menu.IsOpen, Is.True);
+        }
+
+        [Test]
         public void OpenFromWorld_RequestsSettingsOpen_WithoutShowingTheMenu()
         {
             using var fixture = new Fixture();
