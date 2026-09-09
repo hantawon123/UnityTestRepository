@@ -6,9 +6,9 @@ Metabase 의 "플레이 로그"(`d205_analytics`)를 읽는 여덟 화면의 SQL
 
 **전부 v2 수집(매초 기록) 위에 서 있습니다.** 클라이언트가 실제로 보내는 것은 다섯 종류
 (`match_start`, `phase_change`, `position_sample`, `player_result`, `match_end`)이고, 그 구조는
-[`match-analytics.md`](match-analytics.md)에 있습니다. 쿼리는 원본 테이블이 아니라 거기서 만든 두 뷰
-(`match_analysis_summary`, `match_analysis_positions`)를 읽습니다. JSON 을 꺼내는 일을 여덟 곳에
-복사해 두면 필드 이름이 바뀔 때 여덟 곳이 어긋납니다.
+[`match-analytics.md`](match-analytics.md)에 있습니다. 쿼리는 원본 테이블이 아니라 거기서 만든 세 뷰
+(`match_analysis_summary`, `match_analysis_positions`, `match_analysis_combat`)를 읽습니다. JSON 을
+꺼내는 일을 여덟 곳에 복사해 두면 필드 이름이 바뀔 때 여덟 곳이 어긋납니다.
 
 **v1 쿼리는 지웠습니다.** 이 문서에는 예전에 `item_hidden`·`item_picked_up`·`client_quit` 을 읽는
 다섯 쿼리가 있었습니다. v2 는 그 이벤트를 보내지 않으므로 그 화면들은 영구히 비어 있었습니다.
@@ -247,31 +247,23 @@ ORDER BY 1
 
 ## 6. 전투 적정성 (질문 5)
 
-기절까지 필요한 명중 수(`stun_hits`, 기본 3)가 맞는지 봅니다. 매초 기록의 세 누적값을
-**최대 − 최소**로 세어 사람·경기 단위 합계를 만듭니다.
+기절까지 필요한 명중 수(`stun_hits`, 기본 3)가 맞는지 봅니다. 사람·경기 단위 합계는
+`match_analysis_combat` 뷰가 이미 정리해 둡니다 — 누적값이라 MAX 를 쓰고, 마지막 1초의 피격을
+놓치지 않게 종료 기록(`player_result`)의 최종값을 우선합니다.
 
 ```sql
 WITH good AS (
     SELECT match_id, stun_hits
     FROM match_analysis_summary
     WHERE upload_complete = 1
-),
-per_seat AS (
-    SELECT p.match_id, p.player_seat,
-           MAX(p.attack_sequence) - MIN(p.attack_sequence) AS swings,
-           MAX(p.hits_taken)      - MIN(p.hits_taken)      AS hits,
-           MAX(p.stun_count)      - MIN(p.stun_count)      AS stuns
-    FROM match_analysis_positions p
-    JOIN good USING (match_id)
-    GROUP BY p.match_id, p.player_seat
 )
-SELECT g.stun_hits                                             AS `설정된 기절 펀치`,
-       COUNT(*)                                                AS `사람-경기 수`,
-       ROUND(AVG(s.swings), 1)                                 AS `평균 휘두름`,
-       ROUND(AVG(s.hits), 1)                                   AS `평균 피격`,
-       ROUND(AVG(s.stuns), 2)                                  AS `평균 기절`,
-       ROUND(100 * SUM(s.hits) / NULLIF(SUM(s.swings), 0), 1)  AS `명중률 %`
-FROM per_seat s
+SELECT g.stun_hits                                                     AS `설정된 기절 펀치`,
+       COUNT(*)                                                        AS `사람-경기 수`,
+       ROUND(AVG(c.swings), 1)                                         AS `평균 휘두름`,
+       ROUND(AVG(c.hits_received), 1)                                  AS `평균 피격`,
+       ROUND(AVG(c.stuns), 2)                                          AS `평균 기절`,
+       ROUND(100 * SUM(c.hits_received) / NULLIF(SUM(c.swings), 0), 1) AS `명중률 %`
+FROM match_analysis_combat c
 JOIN good g USING (match_id)
 GROUP BY g.stun_hits
 ORDER BY 1
@@ -283,11 +275,14 @@ ORDER BY 1
 
 - **명중률은 경기 전체의 비율입니다.** 누가 누구를 때렸는지는 수집하지 않으므로 개인별 명중률을
   낼 수 없습니다. 분자는 모두의 피격 합, 분모는 모두의 휘두름 합입니다.
-- **누적값이라 최대 − 최소로 셉니다.** 샘플 하나가 빠져도 다음 샘플이 사실을 복원합니다.
+- **분모와 분자가 다른 것을 셉니다.** `휘두름` 은 공격 시도이고 `피격` 은 서버가 인정한 명중입니다.
+  무적·기절 중 거절된 공격과 빗나간 공격은 피격에 안 들어갑니다. 그래서 명중률이 100% 를 넘는
+  일은 없지만, 로비 펀치처럼 집계에서 빠지는 것이 있어 절대값보다 설정별 비교로 읽어야 합니다.
+- **숨기기 중의 명중은 피격에 들어가고 기절은 늘지 않습니다**(`match-analytics.md`). 그래서
+  `평균 피격` 을 `stun_hits` 로 나눈 값이 `평균 기절` 보다 큰 것이 정상입니다.
 - `평균 기절` 이 0 에 가까우면 3회가 너무 많은 것이고, `평균 휘두름` 대비 `평균 기절` 이 크면
   전투가 너무 빨리 끝나는 것입니다.
-- **피격·기절 누적은 아직 클라이언트가 보내지 않습니다**(S15P21D205-898). 그때까지 이 화면의
-  `평균 피격`·`평균 기절`·`명중률` 은 비어 있고 `평균 휘두름` 만 값이 있습니다.
+- 새 빌드(S15P21D205-575) 이전에 쌓인 경기에는 피격·기절 필드가 없어 그 줄만 비어 있습니다.
 
 ---
 

@@ -4,10 +4,9 @@
 -- 시도라서 그렇습니다. "몇 번 맞았나, 몇 번 기절했나"가 없어 핵심 질문 5번(기절 펀치
 -- 3회가 맞나)에 답할 수 없습니다.
 --
--- 클라이언트가 그 둘을 매초 기록에 붙이는 것은 S15P21D205-898 입니다. 그 필드가 오기
--- 전에 뷰를 미리 넓혀 두는 이유는, 화면(대시보드)과 수집을 따로 배포할 수 있어야
--- 하기 때문입니다. 지금 붙이면 값이 NULL 로 나오고 전투 화면만 비어 있습니다.
--- JSON 에 없는 키를 params->>'$.x' 로 꺼내면 오류가 아니라 NULL 입니다.
+-- 클라이언트는 S15P21D205-575 에서 그 둘을 매초 기록에 붙였습니다. 이름은
+-- total_hits_received 와 total_stuns 이고 경기 시작부터의 누적값입니다. 새 빌드 이전의
+-- 기록에는 그 키가 없고, 없는 키를 params->>'$.x' 로 꺼내면 오류가 아니라 NULL 입니다.
 --
 -- 설정값 stun_hits 를 요약 뷰에 더하는 것도 같은 이유입니다. 전투 화면의 비교 축이
 -- "설정이 3회일 때 vs 5회일 때" 이고, 그 값은 match_start 의 params 에만 있습니다.
@@ -41,11 +40,10 @@ SELECT match_id, map_id, phase, match_time_ms / 1000.0 AS elapsed_seconds,
        user_public_id, CAST(params->>'$.seat' AS SIGNED) AS player_seat,
        pos_x, pos_y, pos_z, params->>'$.posture' AS posture,
        CAST(params->>'$.attack_sequence' AS UNSIGNED) AS attack_sequence,
-       -- 아래 둘은 누적값입니다. 구간 증가분이 아니라 누적이어야 하는 이유는 898 에
-       -- 있습니다. 한 줄로 요약하면, 프레임이 밀려 샘플 하나가 빠져도 다음 샘플이
-       -- 사실을 복원해야 하기 때문입니다. 그래서 쿼리는 MAX - MIN 으로 셉니다.
-       CAST(params->>'$.hits_taken' AS UNSIGNED) AS hits_taken,
-       CAST(params->>'$.stun_count' AS UNSIGNED) AS stun_count,
+       -- 아래 둘은 경기 시작부터의 누적값입니다(S15P21D205-575). 매초 값을 SUM 하면
+       -- 중복 집계되므로 쿼리는 MAX 를 씁니다. 과거 기록에는 필드가 없어 NULL 입니다.
+       CAST(params->>'$.total_hits_received' AS UNSIGNED) AS total_hits_received,
+       CAST(params->>'$.total_stuns' AS UNSIGNED) AS total_stuns,
        params->>'$.item_id' AS assigned_item_id,
        params->>'$.item_known' = 'true' AS item_known,
        params->>'$.item_destroyed' = 'true' AS item_destroyed,
@@ -67,3 +65,31 @@ SELECT match_id, map_id, phase, match_time_ms / 1000.0 AS elapsed_seconds,
        CAST(params->>'$.item_z' AS DECIMAL(12,4)) AS item_last_z
 FROM game_event
 WHERE event_name = 'position_sample' AND from_host = 1 AND schema_ver = 2;
+
+-- 사람·경기 단위 전투 합계. 세 화면이 아니라 한 곳에서 "최종값이 무엇인가"를 정합니다.
+--
+-- 위치 샘플의 MAX 만 쓰면 마지막 1초 사이의 피격을 놓칩니다. 그래서 클라이언트가
+-- player_result 에도 종료 시점의 누적값을 담습니다(match-analytics.md). 둘 다 있으면
+-- 종료 기록이 진실이고, 종료 기록이 없는 옛 데이터에서는 샘플의 MAX 로 물러섭니다.
+--
+-- 이 판단을 쿼리마다 반복하면 어느 화면은 종료 기록을 잊습니다. 뷰가 한 번 정합니다.
+CREATE OR REPLACE SQL SECURITY INVOKER VIEW match_analysis_combat AS
+SELECT match_id,
+       CAST(params->>'$.seat' AS SIGNED) AS player_seat,
+       -- 휘두른 횟수는 위치 샘플에만 있습니다. 이것도 누적이라 MAX 입니다.
+       MAX(CASE WHEN event_name = 'position_sample'
+                THEN CAST(params->>'$.attack_sequence' AS UNSIGNED) END) AS swings,
+       COALESCE(
+           MAX(CASE WHEN event_name = 'player_result'
+                    THEN CAST(params->>'$.total_hits_received' AS UNSIGNED) END),
+           MAX(CASE WHEN event_name = 'position_sample'
+                    THEN CAST(params->>'$.total_hits_received' AS UNSIGNED) END)) AS hits_received,
+       COALESCE(
+           MAX(CASE WHEN event_name = 'player_result'
+                    THEN CAST(params->>'$.total_stuns' AS UNSIGNED) END),
+           MAX(CASE WHEN event_name = 'position_sample'
+                    THEN CAST(params->>'$.total_stuns' AS UNSIGNED) END)) AS stuns
+FROM game_event
+WHERE match_id IS NOT NULL AND from_host = 1 AND schema_ver = 2
+  AND event_name IN ('position_sample', 'player_result')
+GROUP BY match_id, CAST(params->>'$.seat' AS SIGNED);
