@@ -1,9 +1,13 @@
 # D205 Backend
 
-Unity 클라이언트의 계정·프로필·친구 데이터를 담당하는 서버입니다.
+Unity 클라이언트의 계정·프로필·친구·방 초대·접속 상태·신고 데이터와 실시간 알림,
+운영자용 신고 검토 API 와 관리 화면, 플레이 로그 수집을 담당하는 서버입니다.
 
-실시간 동기화는 Photon Fusion이 처리하므로 이 서버는 관여하지 않습니다. 여기서 다루는 것은
-세션이 끝나도 남아야 하는 데이터뿐입니다.
+경기 상태 동기화는 Photon Fusion 만 담당하고 이 서버는 관여하지 않습니다. 이 서버가 맡는
+것은 세션이 끝나도 남아야 하는 계정·친구·초대 같은 영속 데이터와, 알림 WebSocket
+(`/ws/notifications`) 을 통한 실시간 알림·접속 상태입니다. 로그인한 클라이언트마다 이 연결
+하나를 유지하고, 서버는 그 연결로 친구·초대 알림을 밀어 주며 접속 상태는 연결이 살아
+있는지에서 얻습니다.
 
 ## 개발 환경
 
@@ -16,10 +20,14 @@ Unity 클라이언트의 계정·프로필·친구 데이터를 담당하는 서
 
 ## 실행
 
-DB를 먼저 띄웁니다. Docker Desktop이 실행 중이어야 합니다.
+DB를 먼저 띄웁니다. Docker Desktop이 실행 중이어야 합니다. `compose.local.yml` 에는 MySQL 과
+Metabase 대시보드가 함께 있습니다. DB 만 필요하면 `mysql` 서비스만 띄우고, 대시보드
+(<http://localhost:3000>)까지 보려면 전체를 띄웁니다. Metabase 는 첫 기동에 1분쯤 걸리고
+메모리를 1GB 가까이 씁니다.
 
 ```bash
-docker compose -f compose.local.yml up -d
+docker compose -f compose.local.yml up -d mysql   # DB 만
+docker compose -f compose.local.yml up -d         # DB + Metabase
 ```
 
 애플리케이션을 실행합니다.
@@ -43,6 +51,19 @@ DB를 내릴 때는 다음과 같이 합니다. 데이터까지 지우려면 `-v
 ```bash
 docker compose -f compose.local.yml down
 ```
+
+### 테스트
+
+```bash
+./gradlew test
+```
+
+통합 테스트가 Testcontainers 로 MySQL 컨테이너를 직접 띄우므로 Docker 데몬이 떠 있어야
+합니다. `compose.local.yml` 의 컨테이너와는 별개라, 그쪽이 떠 있지 않아도 되고 떠 있어도
+공유하지 않습니다.
+
+`docs/` 도 테스트 입력으로 선언되어 있습니다(`build.gradle` 의 `inputs.dir('docs')`). 문서만
+고쳐도 테스트가 다시 돌고, 가이드 문서가 코드와 어긋나면 그 테스트가 실패합니다.
 
 ## 프로필
 
@@ -69,11 +90,20 @@ docker compose -f compose.local.yml down
 ```
 com.ssafy.d205
 ├─ global/
-│  ├─ common/      Timestamps 같은 공통 유틸
-│  └─ exception/   전역 예외 처리, 공통 응답, 여러 도메인이 쓰는 예외
+│  ├─ common/        TimeProvider, Timestamps 같은 공통 유틸
+│  ├─ config/        시계, 스케줄링, OpenAPI, 알림 WebSocket 설정
+│  ├─ exception/     전역 예외 처리, 공통 응답, 여러 도메인이 쓰는 예외
+│  ├─ security/      관리자 세션 인증과 CSRF
+│  └─ web/           /admin 관리 화면 정적 파일 연결
 └─ domain/
-   ├─ user/        계정 발급·조회, 닉네임, 유저 검색
-   └─ friend/      친구 요청과 친구 관계
+   ├─ admin/         운영자 세션 조회와 신고 검토 API
+   ├─ analytics/     플레이 로그 수집, 버퍼링, 분석 DB 적재
+   ├─ friend/        친구 요청과 친구 관계
+   ├─ invite/        친구에게 방 코드 전달, 만료 정리
+   ├─ notification/  알림 WebSocket 연결과 커밋 뒤 실시간 발송
+   ├─ presence/      접속 상태와 현재 세션 추적
+   ├─ report/        신고 접수와 운영자 검토 기록
+   └─ user/          계정 발급·조회, 닉네임, 외형, 유저 검색
 ```
 
 **폴더 경계는 데이터와 규칙을 따릅니다. API 표면을 따르지 않습니다.**
@@ -82,7 +112,7 @@ com.ssafy.d205
 리포지토리도 없이 `user`의 것을 열세 번 가져다 쓰고 있었고, 그건 도메인이 아니라
 `user` 위에 얹힌 유스케이스 묶음이었습니다.
 
-각 도메인은 같은 계층 폴더를 씁니다. 없는 계층은 만들지 않습니다.
+각 도메인은 같은 계층 폴더를 씁니다. 필요 없는 계층은 만들지 않습니다.
 
 ```
 domain/friend/
@@ -90,8 +120,13 @@ domain/friend/
 ├─ service/      비즈니스 로직과 트랜잭션
 ├─ repository/   DB 접근. 네이티브 쿼리의 투영 인터페이스도 여기 둡니다
 ├─ entity/       JPA 엔티티와 그 도메인의 enum, 규칙
-└─ dto/          요청·응답 객체
+├─ dto/          요청·응답 객체
+└─ event/        다른 도메인이 커밋 뒤에 받을 애플리케이션 이벤트 (필요한 도메인만)
 ```
+
+`event/`는 지금 `user`(`AccountDeletedEvent`)와 `notification`(`UserNotificationEvent` 등)에만
+있습니다. 도메인이 다른 도메인의 서비스를 직접 부르지 않고 이벤트로 알릴 때 둡니다.
+`analytics/config/`는 분석 DB 가 별도 데이터소스여서 그 바인딩을 두는 허용된 예외입니다.
 
 의존 방향은 `controller → service → repository → entity` 한쪽입니다.
 `entity`는 다른 계층을 참조하지 않습니다.
@@ -105,9 +140,11 @@ domain/friend/
 어긋나는 일이 생기지 않습니다. 새 예외를 추가할 때 기존 코드와 겹치는지 바로
 확인할 수 있습니다.
 
-`global/config/`는 넣을 것이 생길 때 만듭니다. 지금은 설정 클래스가 없습니다.
-Photon Custom Authentication처럼 아직 만들지 않은 것은 그때 `domain/` 아래에
-도메인으로 추가합니다.
+`global/config/`에는 `ClockConfig`, `SchedulingConfig`, `OpenApiConfig`,
+`NotificationProperties`, `WebSocketConfig`가 있습니다. 관리자 인증은
+`global/security/`(`SecurityConfig`, `LoginAttempt`), 관리 화면 정적 파일 연결은
+`global/web/`(`AdminPageConfig`)에 둡니다. Photon Custom Authentication처럼 아직 만들지
+않은 것은 그때 `domain/` 아래에 도메인으로 추가합니다.
 
 ## 협업 규칙
 

@@ -6,8 +6,8 @@
 - `release`: 배포 준비 브랜치. `develop`에서 완성된 내용을 모아 검증한 뒤 `main`으로 보냅니다.
 - `develop`: 통합 브랜치. 모든 작업이 모이는 기본 브랜치이며, Merge Request로만 병합합니다.
 - `feature/*`: 실제 작업 브랜치. `develop`에서 분기해서 작업하고 `develop`으로 Merge Request를 보냅니다.
-  - **이름 규칙**: `feature/파트/작업내용` (파트는 `client` 또는 `server` 소문자)
-  - 예시: `feature/client/login`, `feature/client/room-lobby`, `feature/server/match-sync`
+  - **이름 규칙**: `feature/파트/작업내용` (파트는 `client`, `server` 또는 `backend` 소문자)
+  - 예시: `feature/client/login`, `feature/client/room-lobby`, `feature/server/match-sync`, `feature/backend/friend-list`
 - `hotfix/*`: 배포 후 긴급 수정 브랜치. `main`에서 분기하고 `main`과 `develop` 양쪽에 병합합니다.
 
 ### 작업 순서
@@ -33,7 +33,7 @@ git push origin feature/client/login
 
 - **포맷**: `이슈번호 [파트] 태그: 제목` (예: `S15P21D205-91 [SV] feat: 로그인 기능 구현`)
 - **이슈 번호**: Jira 이슈 키 필수 작성 (예: `S15P21D205-91`)
-- **파트 구분**: `[SV]`, `[CL]` (대문자)
+- **파트 구분**: `[SV]`, `[CL]`, `[BE]` (대문자). `[SV]`는 Unity의 `Game.Server` 어셈블리, `[BE]`는 Spring 백엔드입니다
 - **태그**: 소문자 작성 (`feat`, `fix`, `docs`, `refactor` 등)
 - **제목**: 한글 명령조, 50자 이내 작성
 
@@ -55,6 +55,7 @@ git push origin feature/client/login
 S15P21D205-91 [SV] feat: 로그인 기능 구현
 S15P21D205-104 [CL] fix: 카메라 회전 시 캐릭터 떨림 수정
 S15P21D205-112 [CL] docs: 협업 규칙 문서 추가
+S15P21D205-120 [BE] feat: 친구 목록 조회 구현
 ```
 
 ### 📌 Jira 이슈 자동 완료 (Merge Request 시)
@@ -84,3 +85,5 @@ S15P21D205-112 [CL] docs: 협업 규칙 문서 추가
 feature/* -> develop -> release -> main
 hotfix/*  -> main (develop에도 함께 병합)
 ```
+
+Spring 백엔드(`backend/`)도 같은 흐름을 따릅니다. 브랜치는 `feature/backend/...`, 커밋 태그는 `[BE]`입니다. 자세한 것은 `backend/README.md`의 협업 규칙을 봅니다.
