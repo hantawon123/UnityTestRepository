@@ -157,6 +157,19 @@ namespace Game.Client.Home
             public const float QuitBottom = 40f;
 
             /// <summary>
+            /// How much a menu line grows under the pointer. Small on purpose:
+            /// enough to feel the line answer, not so much that the column
+            /// appears to shift.
+            /// </summary>
+            public const float MenuHoverScale = 1.06f;
+
+            /// <summary>
+            /// How long that growth takes, matched to the colour tint's own fade
+            /// so the two read as one response.
+            /// </summary>
+            public const float MenuHoverSeconds = 0.08f;
+
+            /// <summary>
             /// The chip grows with the name it holds, between these two. Twelve
             /// characters is the longest a nickname gets and the wider number is
             /// what that measures.

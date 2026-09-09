@@ -265,6 +265,82 @@ namespace Game.Tests.EditMode
         }
 
         /// <summary>
+        /// Every menu line grows under the pointer and settles back after it.
+        /// </summary>
+        [Test]
+        public void HoveringAMenuLine_GrowsItAndLettingGoSettlesItBack()
+        {
+            using var home = new BuiltHome();
+
+            foreach (var action in MenuOrder)
+            {
+                var line = home.Rect(action.ToString());
+                var pop = line.GetComponent<HomeLabelPop>();
+                Assert.That(pop, Is.Not.Null, $"{action} does not answer the pointer.");
+                Assert.That(line.localScale.x, Is.EqualTo(1f).Within(0.001f), $"{action} starts grown");
+
+                pop.OnPointerEnter(null);
+                pop.Advance(HomeStyle.Layout.MenuHoverSeconds);
+                Assert.That(
+                    line.localScale.x,
+                    Is.EqualTo(HomeStyle.Layout.MenuHoverScale).Within(0.001f),
+                    $"{action} did not grow");
+
+                pop.OnPointerExit(null);
+                pop.Advance(HomeStyle.Layout.MenuHoverSeconds);
+                Assert.That(
+                    line.localScale.x,
+                    Is.EqualTo(1f).Within(0.001f),
+                    $"{action} stayed grown after the pointer left");
+            }
+        }
+
+        /// <summary>
+        /// The growth stops at the hover size rather than running past it, and
+        /// a line abandoned part-grown still arrives.
+        /// </summary>
+        [Test]
+        public void TheGrowth_StopsAtTheHoverSizeAndSurvivesAHurriedPass()
+        {
+            using var home = new BuiltHome();
+            var line = home.Rect(HomeMenuAction.CreateRoom.ToString());
+            var pop = line.GetComponent<HomeLabelPop>();
+
+            pop.OnPointerEnter(null);
+            pop.Advance(HomeStyle.Layout.MenuHoverSeconds * 10f);
+
+            Assert.That(
+                line.localScale.x,
+                Is.EqualTo(HomeStyle.Layout.MenuHoverScale).Within(0.001f),
+                "it grew past the hover size");
+
+            // The pointer crossed the line and left before the growth finished.
+            pop.OnPointerExit(null);
+            pop.Advance(HomeStyle.Layout.MenuHoverSeconds * 0.25f);
+            Assert.That(line.localScale.x, Is.LessThan(HomeStyle.Layout.MenuHoverScale));
+
+            pop.Advance(HomeStyle.Layout.MenuHoverSeconds);
+            Assert.That(line.localScale.x, Is.EqualTo(1f).Within(0.001f), "left part-grown");
+        }
+
+        /// <summary>
+        /// A line hidden while the pointer is on it comes back its own size.
+        /// </summary>
+        [Test]
+        public void ALineHiddenWhileHovered_ComesBackItsOwnSize()
+        {
+            using var home = new BuiltHome();
+            var line = home.Rect(HomeMenuAction.Character.ToString());
+            var pop = line.GetComponent<HomeLabelPop>();
+
+            pop.OnPointerEnter(null);
+            pop.Advance(HomeStyle.Layout.MenuHoverSeconds);
+            line.gameObject.SetActive(false);
+
+            Assert.That(line.localScale.x, Is.EqualTo(1f).Within(0.001f));
+        }
+
+        /// <summary>
         /// The invite stack is three cards at the top left, all hidden until
         /// something arrives, spaced as the design draws them.
         /// </summary>
