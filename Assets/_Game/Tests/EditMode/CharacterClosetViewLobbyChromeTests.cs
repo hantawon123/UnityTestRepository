@@ -1,0 +1,106 @@
+using Game.Client.Character;
+using Game.Client.Settings;
+using NUnit.Framework;
+using UnityEngine;
+
+namespace Game.Architecture.Tests
+{
+    public sealed class CharacterClosetViewLobbyChromeTests
+    {
+        [Test]
+        public void ConfigureAsLobbyOverlay_UsesTheSettingsFrameAndInsetChrome()
+        {
+            var root = new GameObject("Lobby Character Closet");
+            try
+            {
+                root.SetActive(false);
+                var view = root.AddComponent<CharacterClosetView>();
+                view.ConfigureAsLobbyOverlay();
+                root.SetActive(true);
+
+                var frame = FindPanel(root, SettingsStyle.Frame.Size);
+                Assert.That(frame, Is.Not.Null);
+                Assert.That(frame.sizeDelta, Is.EqualTo(SettingsStyle.Frame.Size));
+                Assert.That(
+                    frame.anchoredPosition,
+                    Is.EqualTo(SettingsStyle.Frame.Position));
+
+                Assert.That(Find(root, "Background"), Is.Null);
+                Assert.That(Find(root, "Glow"), Is.Not.Null);
+
+                var rail = Find(root, "CategoryRail");
+                Assert.That(rail, Is.Not.Null);
+                Assert.That(rail.parent.name, Is.EqualTo("Panel"));
+
+                var locker = Find(root, "Locker").GetComponent<RectTransform>();
+                Assert.That(locker.parent.name, Is.EqualTo("Panel"));
+                Assert.That(
+                    locker.anchoredPosition,
+                    Is.EqualTo(new Vector2(
+                        -CharacterClosetStyle.Overlay.LockerMargin.x,
+                        -CharacterClosetStyle.Overlay.LockerMargin.y)));
+
+                var reset = Find(root, "ResetButton").GetComponent<RectTransform>();
+                Assert.That(reset.parent.name, Is.EqualTo("Panel"));
+                Assert.That(
+                    reset.anchoredPosition.y,
+                    Is.EqualTo(CharacterClosetStyle.Overlay.ButtonsBottom));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void HomeLayout_FillsTheScreenWithoutASettingsPanel()
+        {
+            var root = new GameObject("Home Closet");
+            try
+            {
+                root.AddComponent<CharacterClosetView>();
+
+                Assert.That(FindPanel(root, SettingsStyle.Frame.Size), Is.Null);
+                Assert.That(Find(root, "Glow"), Is.Null);
+                Assert.That(Find(root, "Background"), Is.Not.Null);
+                Assert.That(Find(root, "CategoryRail").parent.name, Is.EqualTo("ClosetCanvas"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        private static RectTransform FindPanel(GameObject root, Vector2 size)
+        {
+            foreach (var transform in root.GetComponentsInChildren<Transform>(true))
+            {
+                if (transform.name != "Panel")
+                {
+                    continue;
+                }
+
+                var rect = transform.GetComponent<RectTransform>();
+                if (rect != null && rect.sizeDelta == size)
+                {
+                    return rect;
+                }
+            }
+
+            return null;
+        }
+
+        private static Transform Find(GameObject root, string name)
+        {
+            foreach (var transform in root.GetComponentsInChildren<Transform>(true))
+            {
+                if (transform.name == name)
+                {
+                    return transform;
+                }
+            }
+
+            return null;
+        }
+    }
+}

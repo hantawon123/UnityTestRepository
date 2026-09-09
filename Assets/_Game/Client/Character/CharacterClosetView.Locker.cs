@@ -29,13 +29,18 @@ namespace Game.Client.Character
 
         public void ShowCategories(IReadOnlyList<AvatarPartGroup> groups)
         {
+            if (tabRail == null)
+            {
+                return;
+            }
+
             ClearTabs();
             if (groups == null)
             {
                 return;
             }
 
-            var origin = CharacterClosetStyle.Tabs.Origin;
+            var origin = TabsOrigin;
             var step = CharacterClosetStyle.Tabs.Size.y + CharacterClosetStyle.Tabs.Gap;
             for (var index = 0; index < groups.Count; index++)
             {
@@ -57,6 +62,11 @@ namespace Game.Client.Character
 
         public void ShowParts(AvatarPartGroup group, string selectedPartId)
         {
+            if (lockerContent == null)
+            {
+                return;
+            }
+
             ClearCells();
             if (group == null)
             {
@@ -198,8 +208,7 @@ namespace Game.Client.Character
         {
             var panel = CreateRect("Locker", canvas);
             SetAnchor(panel, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f));
-            panel.anchoredPosition = new Vector2(
-                -CharacterClosetStyle.Locker.Margin.x, -CharacterClosetStyle.Locker.Margin.y);
+            panel.anchoredPosition = new Vector2(-LockerMargin.x, -LockerMargin.y);
             panel.sizeDelta = CharacterClosetStyle.Locker.Size;
             AddImage(
                 panel,
