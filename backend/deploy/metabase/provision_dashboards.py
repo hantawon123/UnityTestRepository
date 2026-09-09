@@ -1,6 +1,6 @@
-"""플레이 로그 기본 대시보드를 Metabase 에 만듭니다 (S15P21D205-812).
+"""플레이 로그 기본 대시보드를 Metabase 에 만듭니다 (S15P21D205-812·895).
 
-`docs/analytics-dashboards.md` 의 다섯 절에서 SQL 을 읽어 Metabase 질문 5개와 그것을 묶은
+`docs/analytics-dashboards.md` 의 번호 붙은 절에서 SQL 을 읽어 Metabase 질문과 그것을 묶은
 대시보드 하나를 만듭니다. SQL 을 스크립트에 복사해 두지 않고 문서에서 읽는 이유는, 두 곳에
 같은 쿼리가 있으면 반드시 한쪽만 고쳐지기 때문입니다. 문서가 원본이고 스크립트는 시각화
 종류와 대시보드 배치만 압니다.
@@ -17,7 +17,7 @@
 여러 번 돌려도 안전합니다. 컬렉션·질문·대시보드를 이름으로 찾아 있으면 내용을 갱신하고 없으면
 만듭니다. 사람이 Metabase 화면에서 고친 시각화 설정은 스크립트가 가진 값으로 되돌아갑니다.
 
-데이터가 없어도 화면은 만들어집니다. 클라이언트 발행(797·799)이 붙기 전에는 결과가 빈 것이
+데이터가 없어도 화면은 만들어집니다. 경기가 한 판도 올라오지 않았으면 결과가 빈 것이
 정상이고, 그 상태로 화면을 먼저 두는 것이 이 작업의 목적입니다.
 """
 import argparse
@@ -31,37 +31,58 @@ import urllib.request
 
 DASHBOARD_NAME = "플레이 로그 기본 대시보드"
 DASHBOARD_DESCRIPTION = (
-    "플레이테스트가 답해야 하는 질문 다섯 개. 쿼리와 읽는 법은 backend/docs/analytics-dashboards.md 에 있습니다."
+    "플레이테스트가 답해야 하는 질문들. 쿼리와 읽는 법은 backend/docs/analytics-dashboards.md 에 있습니다."
 )
 
 # 문서의 절 번호 -> 시각화. 컬럼 이름은 문서의 SQL 이 붙인 별칭과 같아야 합니다.
+# 절을 늘리면 여기에도 한 칸을 넣어야 합니다. 문서에만 있고 여기 없는 절은 만들어지지
+# 않고, 여기 있고 문서에 없으면 스크립트가 시작에서 멈춥니다.
 # 대시보드 배치(row, col, size_x, size_y)의 가로 눈금은 24 칸입니다.
 VIEWS = {
+    # 값이 아니라 "이 데이터를 믿을 수 있나" 를 보는 화면이라 맨 위에 둡니다.
     "1": {
-        "display": "bar",
-        "settings": {"graph.dimensions": ["숨는 시간(초)"], "graph.metrics": ["못 숨긴 인원 %"]},
-        "layout": {"row": 6, "col": 0, "size_x": 12, "size_y": 7},
+        "display": "table",
+        "settings": {},
+        "layout": {"row": 0, "col": 0, "size_x": 24, "size_y": 8},
     },
     "2": {
         "display": "bar",
-        "settings": {"graph.dimensions": ["찾기 시작 후(초)"], "graph.metrics": ["발견 건수"]},
-        "layout": {"row": 6, "col": 12, "size_x": 12, "size_y": 7},
+        "settings": {"graph.dimensions": ["숨는 시간(초)"], "graph.metrics": ["못 숨긴 인원 %"]},
+        "layout": {"row": 8, "col": 0, "size_x": 12, "size_y": 7},
     },
     "3": {
         "display": "table",
         "settings": {},
-        "layout": {"row": 13, "col": 0, "size_x": 24, "size_y": 10},
+        "layout": {"row": 15, "col": 0, "size_x": 24, "size_y": 9},
     },
     "4": {
-        "display": "bar",
-        "settings": {"graph.dimensions": ["어디서", "이유"], "graph.metrics": ["건수"]},
-        "layout": {"row": 23, "col": 0, "size_x": 24, "size_y": 7},
+        "display": "table",
+        "settings": {},
+        "layout": {"row": 24, "col": 0, "size_x": 24, "size_y": 9},
     },
-    # 값이 아니라 끊김을 보는 화면이라 맨 위에 둡니다.
+    # 숨는 시간과 나란히 둡니다. 둘 다 "단계 길이가 맞나" 를 답합니다.
     "5": {
-        "display": "line",
-        "settings": {"graph.dimensions": ["시각(UTC)"], "graph.metrics": ["이벤트", "그 외"]},
-        "layout": {"row": 0, "col": 0, "size_x": 24, "size_y": 6},
+        "display": "bar",
+        "settings": {"graph.dimensions": ["찾기 시작 후(초)"], "graph.metrics": ["발견 건수"]},
+        "layout": {"row": 8, "col": 12, "size_x": 12, "size_y": 7},
+    },
+    "6": {
+        "display": "bar",
+        "settings": {
+            "graph.dimensions": ["설정된 기절 펀치"],
+            "graph.metrics": ["평균 휘두름", "평균 피격", "평균 기절"],
+        },
+        "layout": {"row": 33, "col": 0, "size_x": 12, "size_y": 7},
+    },
+    "7": {
+        "display": "bar",
+        "settings": {"graph.dimensions": ["결말"], "graph.metrics": ["물건 수"]},
+        "layout": {"row": 33, "col": 12, "size_x": 12, "size_y": 7},
+    },
+    "8": {
+        "display": "bar",
+        "settings": {"graph.dimensions": ["마지막 단계"], "graph.metrics": ["이탈 인원"]},
+        "layout": {"row": 40, "col": 0, "size_x": 24, "size_y": 7},
     },
 }
 
@@ -108,13 +129,13 @@ def login(base, user, password):
 
 
 def parse_doc(path):
-    """문서에서 `## 1.` ~ `## 5.` 절의 제목·설명·SQL 을 뽑습니다."""
+    """문서에서 번호 붙은 절(`## 1.` ~ `## 9.`)의 제목·설명·SQL 을 뽑습니다."""
     with open(path, encoding="utf-8") as f:
         text = f.read()
     sections = {}
     # 절의 시작(## 1. 제목)부터 다음 ## 앞까지.
     # re.S 를 켜므로 제목은 `.` 대신 `[^\n]` 로 잡습니다. 아니면 첫 절이 문서 끝까지 삼킵니다.
-    for match in re.finditer(r"^## (([1-5])\.[^\n]*)\n(.*?)(?=^## |\Z)", text, re.M | re.S):
+    for match in re.finditer(r"^## (([1-9])\.[^\n]*)\n(.*?)(?=^## |\Z)", text, re.M | re.S):
         title, number, rest = match.group(1).strip(), match.group(2), match.group(3)
         sql = re.search(r"```sql\n(.*?)```", rest, re.S)
         if not sql:

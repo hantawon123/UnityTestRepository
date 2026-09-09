@@ -78,7 +78,7 @@ SELECT p.map_id, p.phase, FLOOR(p.pos_x / 2) * 2 AS 구역X,
 FROM d205_analytics.match_analysis_positions p
 JOIN d205_analytics.match_analysis_summary s ON s.match_id = p.match_id
 WHERE s.upload_complete = 1 AND s.dropped_samples = 0
-GROUP BY p.map_id, p.phase, FLOOR(p.pos_x / 2), FLOOR(p.pos_z / 2);
+GROUP BY p.map_id, p.phase, FLOOR(p.pos_x / 2) * 2, FLOOR(p.pos_z / 2) * 2;
 ```
 
 샘플 수는 대략적인 체류 지표이며 프레임 지연·이탈 때문에 정확한 초 단위 시간과 일치하지 않습니다.
