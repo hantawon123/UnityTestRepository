@@ -42,6 +42,11 @@ WHERE upload_complete = 1
 샘플 상한(경기당 약 20,000건)까지 따지려면 `dropped_samples = 0` 도 봅니다. 1번 화면이 그 둘을
 같이 보여 주는 이유입니다.
 
+**기간 제한이 없습니다.** 아래 쿼리는 쌓인 전체를 봅니다. 경기가 수십 판인 동안은 그게
+맞습니다 - 표본이 적은데 기간을 자르면 볼 것이 없습니다. 경기가 수백 판을 넘어 화면이 느려지면
+`good` 절에 `started_at_utc >= NOW() - INTERVAL 14 DAY` 같은 조건을 넣으세요. 그 순간 화면의
+뜻이 "전체"에서 "최근"으로 바뀌므로, 넣을 때 이 문서에도 적어야 합니다.
+
 호스트가 바뀐 경기는 **다른 경기 UUID 의 부분 구간**으로 들어옵니다. v2 는 그것들을 하나로 합치지
 않으므로, 한 판이 두 행으로 보이는 것이 정상입니다.
 
@@ -143,14 +148,21 @@ placed AS (
 ),
 spot AS (
     -- 그 순간의 물건 좌표. 사람 좌표가 아니라 item_last_* 입니다.
-    SELECT pl.match_id, pl.player_seat, pl.hidden_at_sec, p.map_id,
-           FLOOR(p.item_last_x / 2) * 2 AS gx,
-           FLOOR(p.item_last_z / 2) * 2 AS gz
+    --
+    -- GROUP BY 로 한 자리에 한 줄을 보장합니다. 같은 초에 같은 자리의 샘플이 두 번
+    -- 들어오면(중복 업로드) 이 조인이 두 줄을 내고 숨긴 횟수가 부풀기 때문입니다.
+    -- 중복 업로드는 upload_complete 가 걸러 주지만, 세는 쿼리가 그 필터에만 기대지
+    -- 않게 둡니다 - 이 화면에서 이미 같은 모양의 오류를 두 번 냈습니다.
+    SELECT pl.match_id, pl.player_seat, pl.hidden_at_sec,
+           MIN(p.map_id)                       AS map_id,
+           MIN(FLOOR(p.item_last_x / 2) * 2)   AS gx,
+           MIN(FLOOR(p.item_last_z / 2) * 2)   AS gz
     FROM placed pl
     JOIN match_analysis_positions p
       ON p.match_id = pl.match_id
      AND p.player_seat = pl.player_seat
      AND p.elapsed_seconds = pl.hidden_at_sec
+    GROUP BY pl.match_id, pl.player_seat, pl.hidden_at_sec
 ),
 taken AS (
     SELECT match_id, player_seat, MIN(elapsed_seconds) AS taken_at_sec
@@ -248,8 +260,13 @@ ORDER BY 1
 ## 6. 전투 적정성 (질문 5)
 
 기절까지 필요한 명중 수(`stun_hits`, 기본 3)가 맞는지 봅니다. 사람·경기 단위 합계는
-`match_analysis_combat` 뷰가 이미 정리해 둡니다 — 누적값이라 MAX 를 쓰고, 마지막 1초의 피격을
-놓치지 않게 종료 기록(`player_result`)의 최종값을 우선합니다.
+`match_analysis_combat` 뷰가 이미 정리해 둡니다. 그 뷰가 감추는 것이 둘입니다.
+
+- **휘두름은 `MAX - MIN`, 피격·기절은 `MAX`.** 셋 다 누적값인데 리셋 시점이 다릅니다. 피격·기절은
+  경기마다 새로 만드는 배열이라 0 에서 시작하지만, `attack_sequence` 는 플레이어 오브젝트의
+  `[Networked]` 카운터라 **같은 방에서 두 번째 경기를 하면 지난 경기 값에서 이어집니다.**
+- **마지막 1초의 피격은 종료 기록에서 옵니다.** 위치 샘플의 마지막과 경기 종료 사이의 피격은
+  샘플에 안 남으므로 `player_result` 의 최종값을 먼저 씁니다.
 
 ```sql
 WITH good AS (
@@ -275,6 +292,8 @@ ORDER BY 1
 
 - **명중률은 경기 전체의 비율입니다.** 누가 누구를 때렸는지는 수집하지 않으므로 개인별 명중률을
   낼 수 없습니다. 분자는 모두의 피격 합, 분모는 모두의 휘두름 합입니다.
+- **휘두름 수는 그 경기의 증가분입니다.** 뷰가 `MAX - MIN` 으로 세는 이유는 위에 있습니다.
+  그래서 경기 시작 1초 안의 공격은 빠집니다(숨기기 시작 직후라 실질적으로 없습니다).
 - **분모와 분자가 다른 것을 셉니다.** `휘두름` 은 공격 시도이고 `피격` 은 서버가 인정한 명중입니다.
   무적·기절 중 거절된 공격과 빗나간 공격은 피격에 안 들어갑니다. 그래서 명중률이 100% 를 넘는
   일은 없지만, 로비 펀치처럼 집계에서 빠지는 것이 있어 절대값보다 설정별 비교로 읽어야 합니다.
