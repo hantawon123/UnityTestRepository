@@ -25,6 +25,13 @@ namespace Game.Bootstrap
     /// server confirmed closes the panel.
     /// </para>
     /// <para>
+    /// <b>A send outlives the screen.</b> Pressing 보내기 and leaving immediately
+    /// still reaches the server; only the answer is dropped, because by then there is
+    /// no panel to close and no notice to show. Cancelling the request instead would
+    /// throw away what the player wrote at the exact moment they believed they had
+    /// sent it.
+    /// </para>
+    /// <para>
     /// Sign-in is not a dependency here, unlike the profile bridge. That one
     /// runs at startup and would race sign-in; this one runs when a player
     /// presses a button on a screen two navigations deep. If somehow nothing is
@@ -84,7 +91,15 @@ namespace Game.Bootstrap
 
             try
             {
-                var result = await feedback.SendAsync(message, lifetime.Token);
+                // 화면 수명을 걸지 않습니다. CancellationToken.None 입니다.
+                //
+                // lifetime.Token 을 넘기면 보내기를 누른 직후 화면을 나가는 순간 요청이
+                // 취소되고, 플레이어가 쓴 글은 아무 데도 남지 않습니다. 화면이 사라져도
+                // 서버에 적히는 것이 이 기능의 목적입니다.
+                //
+                // lifetime 은 그 뒤에도 씁니다. 다만 "요청을 끊을까" 가 아니라 "화면을
+                // 건드려도 되는가" 를 정하는 데만 씁니다 - 바로 아래 검사가 그것입니다.
+                var result = await feedback.SendAsync(message, CancellationToken.None);
 
                 if (lifetime.IsCancellationRequested)
                 {
@@ -99,7 +114,8 @@ namespace Game.Bootstrap
                     return;
                 }
 
-                // The screen is going away or already gone; there is nobody to tell.
+                // 우리가 끊는 일은 없지만(위의 None) 앱이 닫히는 중이면 전송 계층이
+                // 취소를 돌려줍니다. 그때는 알릴 화면도 없습니다.
                 if (result.Failure == BackendFailure.Cancelled)
                 {
                     return;
