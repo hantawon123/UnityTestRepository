@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Game.Client.Home;
+using Game.Client.Players;
 using Game.Client.Rooms;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
@@ -153,6 +154,14 @@ namespace Game.Client.Lobby
             }
 
             if (Time.frameCount <= openedOnFrame)
+            {
+                return;
+            }
+
+            // F closes the board the same way looking at it opens it. The
+            // title field needs that key as a letter, so it keeps the press
+            // while the cursor is in the box.
+            if (PlayerMovement.IsTextInputFocused())
             {
                 return;
             }
