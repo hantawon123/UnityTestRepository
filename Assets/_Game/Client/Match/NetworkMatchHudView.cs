@@ -17,7 +17,7 @@ namespace Game.Client.Match
         void SetRemainingSeconds(double remainingSeconds);
         void SetEndCountdown(double remainingSeconds);
         void SetEndResult(string headline, string subtitle);
-        void SetHighlightTitle(string title);
+        void SetHighlightHud(bool visible, string subtitle, IReadOnlyList<float> barFills);
         void SetAssignedItem(string displayName);
         void SetPlayerItemStatuses(IReadOnlyList<PlayerItemStatusSnapshot> statuses);
         void SetDestroyedItems(int playerCount, IReadOnlyList<PlayerItemStatusSnapshot> statuses);
@@ -67,7 +67,7 @@ namespace Game.Client.Match
         private MatchTimerView timerView;
 
         [SerializeField]
-        private TMP_Text highlightTitleText;
+        private HighlightHudView highlightHudView;
 
         [SerializeField]
         private TMP_Text assignedItemText;
@@ -132,7 +132,7 @@ namespace Game.Client.Match
 
             HideDestructionNotice();
             SetShredderMarker(default, false);
-            SetHighlightTitle(null);
+            SetHighlightHud(false, null, Array.Empty<float>());
             SetAssignedItem(null);
             SetPlayerItemStatuses(Array.Empty<PlayerItemStatusSnapshot>());
             EnsureHidingIntro();
@@ -150,7 +150,7 @@ namespace Game.Client.Match
             EnsureDestroyedItemsHud();
             destroyedItemsHudView?.Hide();
             EnsureDestructionUsesText();
-            ApplyHighlightFonts();
+            EnsureHighlightHud();
             HideVoiceButton();
             RefreshKeyGuide(MatchPhase.Waiting);
         }
@@ -158,6 +158,11 @@ namespace Game.Client.Match
         public void SetPhase(MatchPhase phase, string hidingPlayerName)
         {
             SetHighlightOnly(phase == MatchPhase.Highlight);
+            if (phase != MatchPhase.Highlight)
+            {
+                SetHighlightHud(false, null, Array.Empty<float>());
+            }
+
             phaseView?.SetPhase(phase, hidingPlayerName);
             RefreshKeyGuide(phase);
         }
@@ -176,7 +181,7 @@ namespace Game.Client.Match
             foreach (var graphic in FindObjectsByType<Graphic>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
                 if (graphic.gameObject.scene != gameObject.scene ||
-                    (highlightTitleText != null && graphic.transform.IsChildOf(highlightTitleText.transform)) ||
+                    (highlightHudView != null && graphic.transform.IsChildOf(highlightHudView.transform)) ||
                     (destructionNoticeRoot != null && graphic.transform.IsChildOf(destructionNoticeRoot.transform)) ||
                     (hidingIntroView != null && graphic.transform.IsChildOf(hidingIntroView.transform)) ||
                     (searchingIntroView != null && graphic.transform.IsChildOf(searchingIntroView.transform)) ||
@@ -245,17 +250,21 @@ namespace Game.Client.Match
             timerView?.SetRemainingSeconds(remainingSeconds);
         }
 
-        public void SetHighlightTitle(string title)
+        public void SetHighlightHud(bool visible, string subtitle, IReadOnlyList<float> barFills)
         {
-            if (highlightTitleText == null)
+            EnsureHighlightHud();
+            if (highlightHudView == null)
             {
                 return;
             }
 
-            ApplyPaperlogy(highlightTitleText);
-            var visible = !string.IsNullOrWhiteSpace(title);
-            highlightTitleText.text = visible ? title.Trim() : string.Empty;
-            highlightTitleText.gameObject.SetActive(visible);
+            if (!visible)
+            {
+                highlightHudView.Hide();
+                return;
+            }
+
+            highlightHudView.Show(subtitle, barFills ?? Array.Empty<float>());
         }
 
         public void SetAssignedItem(string displayName)
@@ -638,10 +647,27 @@ namespace Game.Client.Match
             ApplyDestructionUsesStyle(assignedItemText);
         }
 
-        private void ApplyHighlightFonts()
+        private void EnsureHighlightHud()
         {
-            ApplyPaperlogy(highlightTitleText);
-            ApplyPaperlogy(destructionNoticeText);
+            StripLegacyHighlightTitle();
+            if (highlightHudView == null)
+            {
+                highlightHudView = GetComponentInChildren<HighlightHudView>(true);
+            }
+
+            if (highlightHudView == null)
+            {
+                highlightHudView = HighlightHudView.Create(transform);
+            }
+        }
+
+        private void StripLegacyHighlightTitle()
+        {
+            var leftover = transform.Find("HighlightTitleText");
+            if (leftover != null)
+            {
+                leftover.gameObject.SetActive(false);
+            }
         }
 
         private static void ApplyPaperlogy(TMP_Text text)
