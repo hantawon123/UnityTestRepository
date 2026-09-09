@@ -81,6 +81,46 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Start_HidesFriendsWhoAreAlreadyInTheRoom()
+        {
+            var list = new LobbyParticipantList(new[]
+            {
+                new LobbyParticipant("host-1", "방장", true),
+                new LobbyParticipant("f-1", "이미참가", false),
+            });
+            var friends = new FriendListSystem();
+            friends.ReplaceFriends(new[]
+            {
+                new FriendSummary("f-1", "이미참가", FriendPresence.InLobby),
+                new FriendSummary("f-2", "아직안옴", FriendPresence.Online),
+            });
+            var view = new FakePlayerListView();
+            using var presenter = new LobbyPlayerListPresenter(
+                list,
+                CreateHostSession(true),
+                friends,
+                new FakeInviteGateway(),
+                view,
+                new FakeCountView(),
+                new FakeConfirmView(),
+                new FakeConfirmView());
+
+            presenter.Start();
+
+            Assert.That(PlayerIdsOf(view.Friends), Is.EqualTo(new[] { "f-2" }));
+
+            list.Replace(new[] { new LobbyParticipant("host-1", "방장", true) });
+            Assert.That(PlayerIdsOf(view.Friends), Is.EquivalentTo(new[] { "f-1", "f-2" }));
+
+            list.Replace(new[]
+            {
+                new LobbyParticipant("host-1", "방장", true),
+                new LobbyParticipant("f-2", "아직안옴", false),
+            });
+            Assert.That(PlayerIdsOf(view.Friends), Is.EqualTo(new[] { "f-1" }));
+        }
+
+        [Test]
         public void KickConfirm_RequestsKickOnHostSession()
         {
             var list = new LobbyParticipantList(new[]
@@ -143,6 +183,17 @@ namespace Game.Tests.EditMode
             Assert.That(
                 () => new LobbyParticipant("id", " ", false),
                 Throws.ArgumentException);
+        }
+
+        private static string[] PlayerIdsOf(IReadOnlyList<FriendSummary> friends)
+        {
+            var ids = new string[friends.Count];
+            for (var index = 0; index < friends.Count; index++)
+            {
+                ids[index] = friends[index].PlayerId;
+            }
+
+            return ids;
         }
 
         private static FakeHostSession CreateHostSession(bool isHost)

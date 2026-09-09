@@ -62,7 +62,6 @@ namespace Game.Client.Lobby
             transferConfirmView.Confirmed += ConfirmPending;
             transferConfirmView.Cancelled += CancelPending;
             friends.FriendsChanged += BindFriends;
-            BindFriends();
 
             refreshSubscription = Observable.CombineLatest(
                     participantList.Participants,
@@ -78,6 +77,7 @@ namespace Game.Client.Lobby
                         state.IsLocalHost,
                         hostSession.LocalPlayerId);
                     countView.SetCount(people.Count, state.Settings.MaxPlayers);
+                    BindFriends();
                 });
         }
 
@@ -98,12 +98,37 @@ namespace Game.Client.Lobby
 
         private void BindFriends()
         {
+            var people = participantList.Participants.CurrentValue
+                ?? Array.Empty<LobbyParticipant>();
+            var inRoom = new HashSet<string>(StringComparer.Ordinal);
+            for (var index = 0; index < people.Count; index++)
+            {
+                inRoom.Add(people[index].Id);
+            }
+
             var online = friends.OnlineFriends;
             var offline = friends.OfflineFriends;
             var combined = new List<FriendSummary>(online.Count + offline.Count);
-            combined.AddRange(online);
-            combined.AddRange(offline);
+            AppendInvitable(combined, online, inRoom);
+            AppendInvitable(combined, offline, inRoom);
             view.SetFriends(combined);
+        }
+
+        private static void AppendInvitable(
+            List<FriendSummary> destination,
+            IReadOnlyList<FriendSummary> source,
+            HashSet<string> inRoom)
+        {
+            for (var index = 0; index < source.Count; index++)
+            {
+                var friend = source[index];
+                if (inRoom.Contains(friend.PlayerId))
+                {
+                    continue;
+                }
+
+                destination.Add(friend);
+            }
         }
 
         private void OnInviteClicked(string playerId, string _)
