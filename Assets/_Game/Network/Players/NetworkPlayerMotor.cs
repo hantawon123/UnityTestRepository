@@ -58,6 +58,15 @@ namespace Game.Network.Players
         public NetworkBool AnimationGrounded { get; private set; }
 
         [Networked]
+        public float AnimationMoveX { get; private set; }
+
+        [Networked]
+        public float AnimationMoveZ { get; private set; }
+
+        [Networked]
+        public NetworkBool AnimationCarrying { get; private set; }
+
+        [Networked]
         public int AttackSequence { get; private set; }
 
         [Networked]
@@ -227,6 +236,10 @@ namespace Game.Network.Players
 
             AnimationSpeed = direction.magnitude * DesiredMoveSpeed;
             AnimationGrounded = grounded;
+            AnimationMoveX = -input.Move.x;
+            AnimationMoveZ = input.Move.y;
+            var held = GetComponent<ICarryingState>();
+            AnimationCarrying = held != null && held.IsCarrying;
 
             if (Posture != PlayerPosture.Prone &&
                 input.WasPressed(NetworkPlayerButton.Attack, PreviousButtons) &&
