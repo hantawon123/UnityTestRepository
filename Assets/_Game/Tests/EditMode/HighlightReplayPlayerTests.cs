@@ -103,6 +103,29 @@ namespace Game.Tests.EditMode
             Assert.That(HighlightReplayPlayer.CutOpacity(clips, 1.2d), Is.Zero);
         }
 
+        [Test]
+        public void AnimationStateOf_UsesFirstClipNames()
+        {
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.None),
+                Is.EqualTo("Idle_Breathing"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Crouching),
+                Is.EqualTo("Crouch_Idle_KneesUp"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Prone),
+                Is.EqualTo("Crawl_Forward"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Airborne),
+                Is.EqualTo("Fall_Flutter"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Punching),
+                Is.EqualTo("Punch"));
+            Assert.That(
+                HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Stunned),
+                Is.EqualTo("Stunned"));
+        }
+
         private HighlightReplayFrame Frame(
             double recordedAt,
             Vector3 playerPosition,
