@@ -20,6 +20,7 @@ namespace Game.Client.Lobby
         public const float TitleFontSize = 20f;
         public const float NicknameFontSize = 16f;
         public const float KickFontSize = 16f;
+        public const float ReportFontSize = 18f;
         public const float RowHeight = 40f;
         public const float AvatarSize = 30f;
         public const float AvatarLeft = 10f;
@@ -37,8 +38,17 @@ namespace Game.Client.Lobby
         public const float ColumnWidthRatio = 0.4f;
         public const int PanelRadius = 30;
         public const int ColumnRadius = 16;
+        public const int ReportTooltipRadius = 10;
+        public const float ReportTooltipGap = 8f;
+        public const float ReportTooltipOverlap = 8f;
+        public const string ReportLabel = "신고하기";
+        public const string ReportBridgeName = "Bridge";
+        public const string ReportConfirmLabel = "확인";
 
         public static readonly Color KickColor = new Color(177f / 255f, 177f / 255f, 177f / 255f, 1f);
+        public static readonly Color RowHoverFill = new Color(1f, 1f, 1f, 0.12f);
+        public static readonly Color ReportTooltipFill = Color.white;
+        public static readonly Color ReportTooltipLabel = new Color(1f, 0f, 0f, 1f);
         public static readonly Color AvatarColor = new Color(0.62f, 0.62f, 0.62f, 1f);
 
         public static float ColumnWidth => ModalWidth * ColumnWidthRatio;
@@ -54,6 +64,10 @@ namespace Game.Client.Lobby
 
         public event Action<string, string> KickClicked;
         public event Action<string, string> InviteClicked;
+        public event Action<string, string> ReportClicked;
+
+        public static string FormatReportTitle(string displayName) =>
+            $"{displayName}님을 신고하시겠습니까?";
 
         public string ParticipantsTitleText =>
             participantsTitle != null ? participantsTitle.text : string.Empty;
@@ -88,8 +102,8 @@ namespace Game.Client.Lobby
             for (var index = 0; index < participants.Count; index++)
             {
                 var participant = participants[index];
-                var canKick = localIsHost &&
-                    !string.Equals(participant.Id, localPlayerId, StringComparison.Ordinal);
+                var isSelf = string.Equals(participant.Id, localPlayerId, StringComparison.Ordinal);
+                var canKick = localIsHost && !isSelf;
                 var row = CreateRow(
                     participantRowRoot,
                     participantRows,
@@ -98,13 +112,13 @@ namespace Game.Client.Lobby
                     participant.IsHost,
                     canKick,
                     showAdd: false);
-                if (!canKick)
-                {
-                    continue;
-                }
-
                 var playerId = participant.Id;
                 var displayName = participant.DisplayName;
+                if (!isSelf)
+                {
+                    BindReport(row, playerId, displayName);
+                }
+
                 var kick = row.Find("Kick")?.GetComponent<Button>();
                 if (kick != null)
                 {
@@ -437,6 +451,103 @@ namespace Game.Client.Lobby
             scrollbar.targetGraphic = grab;
             scrollbar.transition = Selectable.Transition.None;
             return scrollbar;
+        }
+
+        private void BindReport(RectTransform row, string playerId, string displayName)
+        {
+            var fill = row.GetComponent<Image>();
+            if (fill == null)
+            {
+                fill = row.gameObject.AddComponent<Image>();
+            }
+
+            fill.sprite = HomeUiFonts.Rounded(ColumnRadius);
+            fill.type = Image.Type.Sliced;
+            fill.pixelsPerUnitMultiplier = 1f;
+            fill.color = Color.clear;
+            fill.raycastTarget = true;
+
+            var tooltip = CreateReportTooltip(row);
+            var hover = row.gameObject.AddComponent<LobbyReportHover>();
+            hover.Bind(fill, tooltip.gameObject, RowHoverFill);
+
+            var button = tooltip.GetComponent<Button>();
+            button.onClick.AddListener(() =>
+            {
+                hover.HideTooltip();
+                ReportClicked?.Invoke(playerId, displayName);
+            });
+        }
+
+        private static RectTransform CreateReportTooltip(RectTransform parent)
+        {
+            var tooltip = new GameObject(
+                    "Report",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image),
+                    typeof(Button))
+                .GetComponent<RectTransform>();
+            tooltip.SetParent(parent, false);
+
+            var label = CreateLabel(
+                tooltip, "Label", ReportLabel, HomeUiFonts.ApplyRegular(), ReportFontSize);
+            label.alignment = TextAlignmentOptions.Center;
+            label.color = ReportTooltipLabel;
+            label.raycastTarget = false;
+            label.ForceMeshUpdate();
+
+            const float padX = 14f;
+            const float padY = 6f;
+            var size = new Vector2(
+                Mathf.Max(label.preferredWidth + (padX * 2f), 1f),
+                Mathf.Max(label.preferredHeight + (padY * 2f), ReportFontSize + (padY * 2f)));
+
+            tooltip.anchorMin = tooltip.anchorMax = new Vector2(0.5f, 1f);
+            tooltip.pivot = new Vector2(0.5f, 0f);
+            tooltip.anchoredPosition = new Vector2(0f, ReportTooltipGap);
+            tooltip.sizeDelta = size;
+            Stretch(label.rectTransform, 0f, 0f, 0f, 0f);
+
+            var fill = tooltip.GetComponent<Image>();
+            fill.sprite = HomeUiFonts.Rounded(ReportTooltipRadius);
+            fill.type = Image.Type.Sliced;
+            fill.pixelsPerUnitMultiplier = 1f;
+            fill.color = ReportTooltipFill;
+            fill.raycastTarget = true;
+
+            var canvas = tooltip.gameObject.AddComponent<Canvas>();
+            canvas.overrideSorting = true;
+            var parentCanvas = parent.GetComponentInParent<Canvas>();
+            canvas.sortingOrder = (parentCanvas != null ? parentCanvas.sortingOrder : 0) + 1;
+            tooltip.gameObject.AddComponent<GraphicRaycaster>();
+
+            var button = tooltip.GetComponent<Button>();
+            button.targetGraphic = fill;
+            button.transition = Selectable.Transition.None;
+            CreateReportBridge(tooltip);
+            tooltip.gameObject.SetActive(false);
+            return tooltip;
+        }
+
+        private static void CreateReportBridge(RectTransform tooltip)
+        {
+            var bridge = new GameObject(
+                    ReportBridgeName,
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image))
+                .GetComponent<RectTransform>();
+            bridge.SetParent(tooltip, false);
+            bridge.anchorMin = new Vector2(0f, 0f);
+            bridge.anchorMax = new Vector2(1f, 0f);
+            bridge.pivot = new Vector2(0.5f, 1f);
+            bridge.anchoredPosition = Vector2.zero;
+            bridge.sizeDelta = new Vector2(0f, ReportTooltipGap + ReportTooltipOverlap);
+
+            var hit = bridge.GetComponent<Image>();
+            hit.color = Color.clear;
+            hit.raycastTarget = true;
         }
 
         private RectTransform CreateRow(

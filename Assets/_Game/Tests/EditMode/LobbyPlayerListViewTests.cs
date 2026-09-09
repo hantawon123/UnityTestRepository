@@ -150,6 +150,66 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void SetParticipants_OthersGetAReportTooltipAndSelfDoesNot()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.SetParticipants(
+                    new[]
+                    {
+                        new LobbyParticipant("host-1", "방장닉", true),
+                        new LobbyParticipant("player-2", "게스트닉", false),
+                    },
+                    localIsHost: false,
+                    localPlayerId: "player-2");
+
+                var hostRow = canvas.transform.Find("Columns/Participants/Scroll/RowRoot/Row_host-1");
+                var selfRow = canvas.transform.Find("Columns/Participants/Scroll/RowRoot/Row_player-2");
+                Assert.That(hostRow.GetComponent<LobbyReportHover>(), Is.Not.Null);
+                Assert.That(selfRow.GetComponent<LobbyReportHover>(), Is.Null);
+                Assert.That(selfRow.Find("Report"), Is.Null);
+
+                var tooltip = hostRow.Find("Report") as RectTransform;
+                Assert.That(tooltip, Is.Not.Null);
+                Assert.That(tooltip.gameObject.activeSelf, Is.False);
+                Assert.That(tooltip.anchorMin, Is.EqualTo(new Vector2(0.5f, 1f)));
+                Assert.That(tooltip.pivot, Is.EqualTo(new Vector2(0.5f, 0f)));
+                Assert.That(tooltip.anchoredPosition.y, Is.EqualTo(LobbyPlayerListView.ReportTooltipGap));
+                var bridge = tooltip.Find(LobbyPlayerListView.ReportBridgeName) as RectTransform;
+                Assert.That(bridge, Is.Not.Null);
+                Assert.That(
+                    bridge.sizeDelta.y,
+                    Is.EqualTo(
+                        LobbyPlayerListView.ReportTooltipGap
+                        + LobbyPlayerListView.ReportTooltipOverlap));
+                Assert.That(bridge.GetComponent<Image>().raycastTarget, Is.True);
+                var label = tooltip.Find("Label").GetComponent<TMP_Text>();
+                Assert.That(label.text, Is.EqualTo(LobbyPlayerListView.ReportLabel));
+                Assert.That(label.fontSize, Is.EqualTo(18f));
+                Assert.That(label.font, Is.EqualTo(HomeUiFonts.ApplyRegular()));
+                Assert.That(label.color, Is.EqualTo(LobbyPlayerListView.ReportTooltipLabel));
+                Assert.That(
+                    tooltip.GetComponent<Image>().color,
+                    Is.EqualTo(LobbyPlayerListView.ReportTooltipFill));
+
+                hostRow.GetComponent<LobbyReportHover>().ShowTooltip();
+                Assert.That(tooltip.gameObject.activeSelf, Is.True);
+
+                var reported = new List<(string Id, string Name)>();
+                view.ReportClicked += (id, name) => reported.Add((id, name));
+                tooltip.GetComponent<Button>().onClick.Invoke();
+                Assert.That(reported, Is.EqualTo(new[] { ("host-1", "방장닉") }));
+                Assert.That(tooltip.gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
         public void SetFriends_ShowsNicknamesAndPlusButtons()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));

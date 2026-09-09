@@ -30,6 +30,7 @@ namespace Game.Tests.EditMode
                 host,
                 new FriendListSystem(),
                 new FakeInviteGateway(),
+                new FakeReportGateway(),
                 view,
                 count,
                 new FakeConfirmView());
@@ -60,6 +61,7 @@ namespace Game.Tests.EditMode
                 host,
                 friends,
                 new FakeInviteGateway(),
+                new FakeReportGateway(),
                 view,
                 new FakeCountView(),
                 new FakeConfirmView());
@@ -98,6 +100,7 @@ namespace Game.Tests.EditMode
                 CreateHostSession(true),
                 friends,
                 new FakeInviteGateway(),
+                new FakeReportGateway(),
                 view,
                 new FakeCountView(),
                 new FakeConfirmView());
@@ -135,6 +138,7 @@ namespace Game.Tests.EditMode
                 host,
                 new FriendListSystem(),
                 new FakeInviteGateway(),
+                new FakeReportGateway(),
                 view,
                 new FakeCountView(),
                 kickConfirm);
@@ -143,6 +147,7 @@ namespace Game.Tests.EditMode
             view.RaiseKick("player-2", "게스트");
 
             Assert.That(kickConfirm.Message, Is.EqualTo(KickConfirmView.FormatTitle("게스트")));
+            Assert.That(kickConfirm.ChooseReason, Is.False);
 
             kickConfirm.RaiseConfirm();
 
@@ -162,6 +167,7 @@ namespace Game.Tests.EditMode
                 host,
                 new FriendListSystem(),
                 invites,
+                new FakeReportGateway(),
                 view,
                 new FakeCountView(),
                 new FakeConfirmView());
@@ -170,6 +176,42 @@ namespace Game.Tests.EditMode
             view.RaiseInvite("friend-9", "친구닉");
 
             Assert.That(invites.Sent, Is.EqualTo(new[] { ("friend-9", "CODE") }));
+        }
+
+        [Test]
+        public void ReportClicked_AsksThenSendsTheReport()
+        {
+            var list = new LobbyParticipantList(new[]
+            {
+                new LobbyParticipant("host-1", "방장", true),
+                new LobbyParticipant("player-2", "게스트", false),
+            });
+            var reports = new FakeReportGateway();
+            var view = new FakePlayerListView();
+            var confirm = new FakeConfirmView();
+            using var presenter = new LobbyPlayerListPresenter(
+                list,
+                CreateHostSession(true),
+                new FriendListSystem(),
+                new FakeInviteGateway(),
+                reports,
+                view,
+                new FakeCountView(),
+                confirm);
+
+            presenter.Start();
+            view.RaiseReport("player-2", "게스트");
+
+            Assert.That(confirm.Message, Is.EqualTo(LobbyPlayerListView.FormatReportTitle("게스트")));
+            Assert.That(confirm.ConfirmLabel, Is.EqualTo(LobbyPlayerListView.ReportConfirmLabel));
+            Assert.That(confirm.ChooseReason, Is.True);
+            Assert.That(reports.Sent, Is.Empty);
+
+            confirm.SelectedReason = ReportReason.Cheating;
+            confirm.RaiseConfirm();
+
+            Assert.That(reports.Sent, Is.EqualTo(new[] { ("player-2", ReportReason.Cheating) }));
+            Assert.That(confirm.IsVisible, Is.False);
         }
 
         [Test]
@@ -251,6 +293,7 @@ namespace Game.Tests.EditMode
 
             public event Action<string, string> KickClicked;
             public event Action<string, string> InviteClicked;
+            public event Action<string, string> ReportClicked;
 
             public void SetParticipants(
                 IReadOnlyList<LobbyParticipant> participants,
@@ -270,6 +313,8 @@ namespace Game.Tests.EditMode
             public void RaiseKick(string id, string name) => KickClicked?.Invoke(id, name);
 
             public void RaiseInvite(string id, string name) => InviteClicked?.Invoke(id, name);
+
+            public void RaiseReport(string id, string name) => ReportClicked?.Invoke(id, name);
         }
 
         private sealed class FakeInviteGateway : IInviteGateway
@@ -298,6 +343,21 @@ namespace Game.Tests.EditMode
             }
         }
 
+        private sealed class FakeReportGateway : IReportGateway
+        {
+            public List<(string PlayerId, ReportReason Reason)> Sent { get; } = new();
+
+            public UniTask<BackendResult> ReportAsync(
+                string playerId,
+                ReportReason reason,
+                string note,
+                CancellationToken cancellation)
+            {
+                Sent.Add((playerId, reason));
+                return UniTask.FromResult(BackendResult.Success());
+            }
+        }
+
         private sealed class FakeCountView : ILobbyPlayerCountView
         {
             public int Current { get; private set; }
@@ -313,13 +373,24 @@ namespace Game.Tests.EditMode
         private sealed class FakeConfirmView : ILobbyConfirmView
         {
             public bool IsVisible { get; private set; }
+            public bool ChooseReason { get; private set; }
             public string Message { get; private set; }
+            public string ConfirmLabel { get; private set; }
+            public ReportReason SelectedReason { get; set; } = ReportReason.Other;
             public event Action Confirmed;
             public event Action Cancelled;
 
-            public void Show(string message)
+            public void Show(string message) => Show(message, null, false);
+
+            public void Show(string message, string confirmLabel) =>
+                Show(message, confirmLabel, false);
+
+            public void Show(string message, string confirmLabel, bool chooseReason)
             {
                 Message = message;
+                ConfirmLabel = confirmLabel;
+                ChooseReason = chooseReason;
+                SelectedReason = chooseReason ? ReportReason.Abuse : ReportReason.Other;
                 IsVisible = true;
             }
 

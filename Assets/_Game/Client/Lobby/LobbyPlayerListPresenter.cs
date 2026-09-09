@@ -16,42 +16,47 @@ namespace Game.Client.Lobby
         private readonly ILobbyHostSession hostSession;
         private readonly FriendListSystem friends;
         private readonly IInviteGateway invites;
+        private readonly IReportGateway reports;
         private readonly ILobbyPlayerListView view;
         private readonly ILobbyPlayerCountView countView;
-        private readonly ILobbyConfirmView kickConfirmView;
+        private readonly ILobbyConfirmView confirmView;
 
         private readonly CancellationTokenSource lifetime = new();
         private IDisposable refreshSubscription;
         private string pendingPlayerId;
+        private PendingConfirm pending;
 
         public LobbyPlayerListPresenter(
             ILobbyParticipantList participantList,
             ILobbyHostSession hostSession,
             FriendListSystem friends,
             IInviteGateway invites,
+            IReportGateway reports,
             ILobbyPlayerListView view,
             ILobbyPlayerCountView countView,
-            ILobbyConfirmView kickConfirmView)
+            ILobbyConfirmView confirmView)
         {
             this.participantList = participantList
                 ?? throw new ArgumentNullException(nameof(participantList));
             this.hostSession = hostSession ?? throw new ArgumentNullException(nameof(hostSession));
             this.friends = friends ?? throw new ArgumentNullException(nameof(friends));
             this.invites = invites ?? throw new ArgumentNullException(nameof(invites));
+            this.reports = reports ?? throw new ArgumentNullException(nameof(reports));
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.countView = countView ?? throw new ArgumentNullException(nameof(countView));
-            this.kickConfirmView = kickConfirmView
-                ?? throw new ArgumentNullException(nameof(kickConfirmView));
+            this.confirmView = confirmView
+                ?? throw new ArgumentNullException(nameof(confirmView));
         }
 
         public void Start()
         {
-            kickConfirmView.Hide();
+            confirmView.Hide();
 
             view.KickClicked += OnKickClicked;
             view.InviteClicked += OnInviteClicked;
-            kickConfirmView.Confirmed += ConfirmPending;
-            kickConfirmView.Cancelled += CancelPending;
+            view.ReportClicked += OnReportClicked;
+            confirmView.Confirmed += ConfirmPending;
+            confirmView.Cancelled += CancelPending;
             friends.FriendsChanged += BindFriends;
 
             refreshSubscription = Observable.CombineLatest(
@@ -76,10 +81,11 @@ namespace Game.Client.Lobby
         {
             view.KickClicked -= OnKickClicked;
             view.InviteClicked -= OnInviteClicked;
+            view.ReportClicked -= OnReportClicked;
             lifetime.Cancel();
             lifetime.Dispose();
-            kickConfirmView.Confirmed -= ConfirmPending;
-            kickConfirmView.Cancelled -= CancelPending;
+            confirmView.Confirmed -= ConfirmPending;
+            confirmView.Cancelled -= CancelPending;
             friends.FriendsChanged -= BindFriends;
             refreshSubscription?.Dispose();
         }
@@ -137,8 +143,25 @@ namespace Game.Client.Lobby
                 return;
             }
 
+            pending = PendingConfirm.Kick;
             pendingPlayerId = playerId;
-            kickConfirmView.Show(KickConfirmView.FormatTitle(displayName));
+            confirmView.Show(KickConfirmView.FormatTitle(displayName), KickConfirmView.ConfirmLabel);
+        }
+
+        private void OnReportClicked(string playerId, string displayName)
+        {
+            if (string.IsNullOrWhiteSpace(playerId)
+                || string.Equals(playerId, hostSession.LocalPlayerId, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            pending = PendingConfirm.Report;
+            pendingPlayerId = playerId;
+            confirmView.Show(
+                LobbyPlayerListView.FormatReportTitle(displayName),
+                LobbyPlayerListView.ReportConfirmLabel,
+                chooseReason: true);
         }
 
         private void ConfirmPending()
@@ -149,14 +172,34 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            hostSession.RequestKick(pendingPlayerId);
+            if (pending == PendingConfirm.Kick)
+            {
+                hostSession.RequestKick(pendingPlayerId);
+            }
+            else if (pending == PendingConfirm.Report)
+            {
+                reports.ReportAsync(
+                    pendingPlayerId,
+                    confirmView.SelectedReason,
+                    null,
+                    lifetime.Token).Forget();
+            }
+
             CancelPending();
         }
 
         private void CancelPending()
         {
+            pending = PendingConfirm.None;
             pendingPlayerId = null;
-            kickConfirmView.Hide();
+            confirmView.Hide();
+        }
+
+        private enum PendingConfirm
+        {
+            None,
+            Kick,
+            Report
         }
     }
 }

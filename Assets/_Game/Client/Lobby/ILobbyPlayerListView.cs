@@ -9,6 +9,7 @@ namespace Game.Client.Lobby
     {
         event Action<string, string> KickClicked;
         event Action<string, string> InviteClicked;
+        event Action<string, string> ReportClicked;
 
         void SetParticipants(
             IReadOnlyList<LobbyParticipant> participants,

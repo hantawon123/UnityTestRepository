@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using Game.Client.Character;
 using Game.Client.Home;
+using Game.Core.Ports;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -18,28 +19,98 @@ namespace Game.Client.Lobby
         public const string RootName = "KickConfirm";
         public const string CancelLabel = "취소";
         public const string ConfirmLabel = "강퇴하기";
+        public const string ReasonFieldLabel = "신고사유";
+        public const float ReasonHeight = 48f;
+        public const float ReasonGap = 20f;
+        public const float ReasonWidth = 490f;
+        public const int ReasonRadius = 10;
+        public const float ReasonOptionHeight = 40f;
+        public const float ReasonFontSize = 20f;
+        public const string ReasonRootName = "Reason";
+        public const string ReasonFieldName = "Field";
+        public const string ReasonOptionsName = "Options";
         public const int SortingOrder = PlaySettingsStyle.Overlay.SortingOrder + 20;
+
+        public static readonly ReportReason[] Reasons =
+        {
+            ReportReason.Abuse,
+            ReportReason.Cheating,
+            ReportReason.Spam,
+            ReportReason.InappropriateName,
+            ReportReason.Other
+        };
+
+        public static readonly Vector2 ReportPanelSize = new Vector2(
+            CharacterClosetStyle.Modal.PanelSize.x,
+            CharacterClosetStyle.Modal.PanelSize.y + ReasonGap + ReasonHeight);
 
         public static string FormatTitle(string displayName) =>
             $"{displayName} 님을\n강퇴하시겠습니까?";
 
+        public static string ReasonLabel(ReportReason reason)
+        {
+            switch (reason)
+            {
+                case ReportReason.Abuse:
+                    return "욕설/비하";
+                case ReportReason.Cheating:
+                    return "치팅";
+                case ReportReason.Spam:
+                    return "도배/광고";
+                case ReportReason.InappropriateName:
+                    return "부적절한 닉네임";
+                default:
+                    return "기타";
+            }
+        }
+
         private GameObject root;
         private KickConfirmEscape driver;
         private RawImage backdropImage;
+        private RectTransform plate;
+        private RectTransform declineButton;
+        private RectTransform acceptButton;
+        private GameObject reasonRoot;
+        private GameObject reasonOptions;
         private TMP_Text title;
+        private TMP_Text acceptLabel;
+        private TMP_Text reasonValue;
         private RenderTexture backdrop;
         private Coroutine backdropRoutine;
 
         public event Action Confirmed;
         public event Action Cancelled;
 
+        public ReportReason SelectedReason { get; private set; } = ReportReason.Abuse;
+
         public void Show(string message)
+        {
+            Show(message, ConfirmLabel, false);
+        }
+
+        public void Show(string message, string confirmLabel)
+        {
+            Show(message, confirmLabel, false);
+        }
+
+        public void Show(string message, string confirmLabel, bool chooseReason)
         {
             EnsureLayout();
             if (title != null)
             {
                 title.text = message ?? string.Empty;
             }
+
+            if (acceptLabel != null)
+            {
+                acceptLabel.text = string.IsNullOrWhiteSpace(confirmLabel)
+                    ? ConfirmLabel
+                    : confirmLabel;
+            }
+
+            SelectedReason = ReportReason.Abuse;
+            ApplyReason(SelectedReason);
+            ApplyLayout(chooseReason);
 
             if (root != null)
             {
@@ -51,6 +122,7 @@ namespace Game.Client.Lobby
 
         public void Hide()
         {
+            SetReasonOpen(false);
             if (root != null)
             {
                 root.SetActive(false);
@@ -96,6 +168,7 @@ namespace Game.Client.Lobby
             AddImage(dimRect, CharacterClosetStyle.Palette.Dim, raycastTarget: true);
 
             CreatePanel(rect);
+            ApplyLayout(false);
 
             overlay.SetActive(false);
             root = overlay;
@@ -105,7 +178,7 @@ namespace Game.Client.Lobby
 
         private void CreatePanel(RectTransform overlay)
         {
-            var plate = CreateRect("Panel", overlay);
+            plate = CreateRect("Panel", overlay);
             SetAnchor(plate, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
             plate.anchoredPosition = Vector2.zero;
             plate.sizeDelta = CharacterClosetStyle.Modal.PanelSize;
@@ -128,9 +201,9 @@ namespace Game.Client.Lobby
             titleRect.anchoredPosition = new Vector2(0f, -CharacterClosetStyle.Modal.TitleTop);
             titleRect.sizeDelta = new Vector2(0f, titleHeight);
 
-            var buttonTop = CharacterClosetStyle.Modal.TitleTop
-                            + titleHeight
-                            + CharacterClosetStyle.Modal.ButtonGapAbove;
+            CreateReasonPicker(plate, titleHeight);
+
+            var buttonTop = KickButtonTop(titleHeight);
             var half = (CharacterClosetStyle.Modal.ButtonSize.x
                         + CharacterClosetStyle.Modal.ButtonGap) * 0.5f;
 
@@ -143,8 +216,9 @@ namespace Game.Client.Lobby
                 CharacterClosetStyle.Palette.DeclineHoverFill,
                 CharacterClosetStyle.Palette.DeclineLabel,
                 () => Cancelled?.Invoke());
+            declineButton = plate.Find("DeclineButton") as RectTransform;
 
-            CreateButton(
+            acceptLabel = CreateButton(
                 plate,
                 "AcceptButton",
                 new Vector2(half, -buttonTop),
@@ -153,11 +227,198 @@ namespace Game.Client.Lobby
                 CharacterClosetStyle.Palette.AcceptHoverFill,
                 CharacterClosetStyle.Palette.AcceptLabel,
                 () => Confirmed?.Invoke());
+            acceptButton = plate.Find("AcceptButton") as RectTransform;
 
             CreateCloseButton(plate);
         }
 
-        private void CreateButton(
+        private void CreateReasonPicker(RectTransform host, float titleHeight)
+        {
+            var rootRect = CreateRect(ReasonRootName, host);
+            SetAnchor(rootRect, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f));
+            rootRect.anchoredPosition = new Vector2(
+                0f,
+                -(CharacterClosetStyle.Modal.TitleTop + titleHeight + ReasonGap));
+            rootRect.sizeDelta = new Vector2(ReasonWidth, ReasonHeight);
+            reasonRoot = rootRect.gameObject;
+
+            var field = CreateRect(ReasonFieldName, rootRect);
+            Stretch(field);
+            var fieldFill = AddImage(
+                field,
+                CharacterClosetStyle.Palette.DeclineFill,
+                HomeUiFonts.Rounded(ReasonRadius),
+                raycastTarget: true);
+
+            reasonValue = CreateText(
+                "Value",
+                field,
+                ReasonLabel(ReportReason.Abuse),
+                ReasonFontSize,
+                CharacterClosetStyle.Palette.ModalTitle,
+                TextAlignmentOptions.MidlineLeft);
+            SetAnchor(reasonValue.rectTransform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            reasonValue.rectTransform.offsetMin = new Vector2(16f, 0f);
+            reasonValue.rectTransform.offsetMax = new Vector2(-36f, 0f);
+
+            var chevron = CreateText(
+                "Chevron",
+                field,
+                "▾",
+                ReasonFontSize,
+                CharacterClosetStyle.Palette.ModalTitle,
+                TextAlignmentOptions.MidlineRight);
+            SetAnchor(chevron.rectTransform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            chevron.rectTransform.offsetMin = new Vector2(0f, 0f);
+            chevron.rectTransform.offsetMax = new Vector2(-16f, 0f);
+
+            var fieldHover = field.gameObject.AddComponent<HomeHoverHighlight>();
+            fieldHover.Bind(
+                fieldFill,
+                null,
+                CharacterClosetStyle.Palette.DeclineFill,
+                CharacterClosetStyle.Palette.DeclineHoverFill);
+
+            var fieldButton = field.gameObject.AddComponent<Button>();
+            fieldButton.targetGraphic = fieldFill;
+            fieldButton.transition = Selectable.Transition.None;
+            fieldButton.onClick.AddListener(ToggleReasonOptions);
+
+            var optionsRect = CreateRect(ReasonOptionsName, rootRect);
+            SetAnchor(optionsRect, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 1f));
+            optionsRect.anchoredPosition = Vector2.zero;
+            optionsRect.sizeDelta = new Vector2(0f, ReasonOptionHeight * Reasons.Length);
+            AddImage(
+                optionsRect,
+                CharacterClosetStyle.Palette.ModalFill,
+                HomeUiFonts.Rounded(ReasonRadius),
+                raycastTarget: true);
+            reasonOptions = optionsRect.gameObject;
+
+            for (var index = 0; index < Reasons.Length; index++)
+            {
+                var reason = Reasons[index];
+                var option = CreateRect(reason.ToString(), optionsRect);
+                SetAnchor(option, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f));
+                option.anchoredPosition = new Vector2(0f, -index * ReasonOptionHeight);
+                option.sizeDelta = new Vector2(0f, ReasonOptionHeight);
+
+                var optionFill = AddImage(
+                    option,
+                    Color.clear,
+                    raycastTarget: true);
+
+                var label = CreateText(
+                    "Label",
+                    option,
+                    ReasonLabel(reason),
+                    ReasonFontSize,
+                    CharacterClosetStyle.Palette.ModalTitle,
+                    TextAlignmentOptions.MidlineLeft);
+                SetAnchor(label.rectTransform, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+                label.rectTransform.offsetMin = new Vector2(16f, 0f);
+                label.rectTransform.offsetMax = new Vector2(-16f, 0f);
+
+                var optionHover = option.gameObject.AddComponent<HomeHoverHighlight>();
+                optionHover.Bind(
+                    optionFill,
+                    null,
+                    Color.clear,
+                    CharacterClosetStyle.Palette.DeclineHoverFill);
+
+                var optionButton = option.gameObject.AddComponent<Button>();
+                optionButton.targetGraphic = optionFill;
+                optionButton.transition = Selectable.Transition.None;
+                optionButton.onClick.AddListener(() => PickReason(reason));
+            }
+
+            reasonOptions.SetActive(false);
+            reasonRoot.SetActive(false);
+        }
+
+        private void ApplyLayout(bool chooseReason)
+        {
+            SetReasonOpen(false);
+            if (reasonRoot != null)
+            {
+                reasonRoot.SetActive(chooseReason);
+            }
+
+            if (plate != null)
+            {
+                plate.sizeDelta = chooseReason
+                    ? ReportPanelSize
+                    : CharacterClosetStyle.Modal.PanelSize;
+            }
+
+            var titleHeight = CharacterClosetStyle.Modal.TitleFontSize * 1.4f * 2f;
+            var buttonTop = chooseReason
+                ? ReportButtonTop(titleHeight)
+                : KickButtonTop(titleHeight);
+            var half = (CharacterClosetStyle.Modal.ButtonSize.x
+                        + CharacterClosetStyle.Modal.ButtonGap) * 0.5f;
+            if (declineButton != null)
+            {
+                declineButton.anchoredPosition = new Vector2(-half, -buttonTop);
+            }
+
+            if (acceptButton != null)
+            {
+                acceptButton.anchoredPosition = new Vector2(half, -buttonTop);
+            }
+        }
+
+        private void ApplyReason(ReportReason reason)
+        {
+            SelectedReason = reason;
+            if (reasonValue != null)
+            {
+                reasonValue.text = ReasonLabel(reason);
+            }
+        }
+
+        private void PickReason(ReportReason reason)
+        {
+            ApplyReason(reason);
+            SetReasonOpen(false);
+        }
+
+        private void ToggleReasonOptions()
+        {
+            if (reasonOptions == null)
+            {
+                return;
+            }
+
+            SetReasonOpen(!reasonOptions.activeSelf);
+        }
+
+        private void SetReasonOpen(bool open)
+        {
+            if (reasonOptions != null)
+            {
+                reasonOptions.SetActive(open);
+            }
+
+            if (open && reasonRoot != null)
+            {
+                reasonRoot.transform.SetAsLastSibling();
+            }
+        }
+
+        private static float KickButtonTop(float titleHeight) =>
+            CharacterClosetStyle.Modal.TitleTop
+            + titleHeight
+            + CharacterClosetStyle.Modal.ButtonGapAbove;
+
+        private static float ReportButtonTop(float titleHeight) =>
+            CharacterClosetStyle.Modal.TitleTop
+            + titleHeight
+            + ReasonGap
+            + ReasonHeight
+            + CharacterClosetStyle.Modal.ButtonGapAbove;
+
+        private TMP_Text CreateButton(
             RectTransform plate,
             string name,
             Vector2 position,
@@ -194,6 +455,7 @@ namespace Game.Client.Lobby
             button.targetGraphic = fill;
             button.transition = Selectable.Transition.None;
             button.onClick.AddListener(() => clicked());
+            return text;
         }
 
         private void CreateCloseButton(RectTransform plate)
