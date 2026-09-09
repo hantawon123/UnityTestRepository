@@ -157,15 +157,52 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Escape_FromTheRoom_LeavesTheGame()
+        public void Escape_FromTheRoom_OpensSettingsWithoutLeaving()
         {
             using var fixture = new Fixture();
+            var requested = 0;
+            fixture.Presenter.SettingsOpenRequested += () =>
+            {
+                requested++;
+                fixture.Presenter.OpenSettingsScreen(() => { }, fromWorld: true);
+            };
             fixture.Presenter.Start();
 
             fixture.Presenter.HandleEscape();
 
-            Assert.That(fixture.Left, Is.True);
+            Assert.That(requested, Is.EqualTo(1));
+            Assert.That(fixture.Left, Is.False);
+            Assert.That(fixture.Menu.IsOpen, Is.False);
             Assert.That(fixture.Shortcuts.IsOpen, Is.False);
+        }
+
+        [Test]
+        public void Escape_WhileSettingsOpenFromWorld_ClosesWithoutLeaving()
+        {
+            using var fixture = new Fixture();
+            var closed = false;
+            fixture.Presenter.Start();
+            fixture.Presenter.OpenSettingsScreen(() => closed = true, fromWorld: true);
+            fixture.Menu.VisibleCalls.Clear();
+
+            fixture.Presenter.HandleEscape();
+
+            Assert.That(closed, Is.True);
+            Assert.That(fixture.Left, Is.False);
+        }
+
+        [Test]
+        public void SettingsFromWorld_ThenClose_ReturnsToRoomNotMenu()
+        {
+            using var fixture = new Fixture();
+            fixture.Presenter.Start();
+            fixture.Presenter.OpenSettingsScreen(() => { }, fromWorld: true);
+            fixture.Menu.VisibleCalls.Clear();
+
+            fixture.Presenter.OnScreenClosed();
+
+            Assert.That(fixture.Menu.IsOpen, Is.False);
+            Assert.That(fixture.Menu.VisibleCalls, Has.No.Member(true));
         }
 
         [Test]
@@ -179,21 +216,6 @@ namespace Game.Tests.EditMode
 
             Assert.That(fixture.Shortcuts.IsOpen, Is.False);
             Assert.That(fixture.Left, Is.False);
-        }
-
-        [Test]
-        public void SettingsClicked_OpensEnvironmentSettings_ThenCloseReturnsToMenu()
-        {
-            using var fixture = new Fixture();
-            fixture.Presenter.Start();
-            fixture.Menu.SetVisible(true);
-            fixture.Menu.ClickSettings();
-            fixture.Menu.VisibleCalls.Clear();
-
-            Assert.That(fixture.Shortcuts.OpenKind, Is.EqualTo(LobbyShortcutKind.Settings));
-            fixture.Shortcuts.RequestClose();
-
-            Assert.That(fixture.Menu.VisibleCalls, Has.Member(true));
         }
 
         [Test]

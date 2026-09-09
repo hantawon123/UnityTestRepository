@@ -27,18 +27,23 @@ namespace Game.Bootstrap
 
         public void Start()
         {
-            menu.SettingsClicked += Open;
+            menu.SettingsClicked += OpenFromMenu;
+            pause.SettingsOpenRequested += OpenFromWorld;
             view.Closed += OnClosed;
         }
 
-        private void Open()
+        private void OpenFromMenu() => Open(fromWorld: false);
+
+        private void OpenFromWorld() => Open(fromWorld: true);
+
+        private void Open(bool fromWorld)
         {
             if (opened || (network.HasRoomSession && !network.IsWaitingForMatch)) return;
             opened = true;
             chatWasEnabled = chat.enabled;
             chat.enabled = false;
             view.gameObject.SetActive(true);
-            pause.OpenSettingsScreen(view.RequestBack);
+            pause.OpenSettingsScreen(view.RequestBack, fromWorld);
         }
 
         private void OnClosed()
@@ -59,7 +64,8 @@ namespace Game.Bootstrap
 
         public void Dispose()
         {
-            menu.SettingsClicked -= Open;
+            menu.SettingsClicked -= OpenFromMenu;
+            pause.SettingsOpenRequested -= OpenFromWorld;
             view.Closed -= OnClosed;
             if (opened && chat != null) chat.enabled = chatWasEnabled;
         }
