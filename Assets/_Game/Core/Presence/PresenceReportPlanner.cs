@@ -73,7 +73,19 @@ namespace Game.Core.Presence
     public sealed class PresenceReportPlanner
     {
         private PresenceReport? lastReported;
-        private bool linkWasConnected;
+
+        /// <summary>
+        /// What the link was doing the last time this was asked. Null until the
+        /// first ask.
+        /// </summary>
+        /// <remarks>
+        /// Nullable on purpose. A plain false would make the very first ask with
+        /// the link up look like a comeback, and then a report goes out while
+        /// nothing has changed — which is the thirty-second heartbeat this class
+        /// exists to remove, back for one tick. "Never observed" is not a
+        /// transition.
+        /// </remarks>
+        private bool? linkWasConnected;
 
         /// <summary>
         /// What the world currently says this player should report.
@@ -108,7 +120,7 @@ namespace Game.Core.Presence
         /// </returns>
         public bool ShouldReport(PresenceReport current, bool linkConnected)
         {
-            var linkCameBack = linkConnected && !linkWasConnected;
+            var linkCameBack = linkConnected && linkWasConnected == false;
             linkWasConnected = linkConnected;
 
             if (lastReported == null)

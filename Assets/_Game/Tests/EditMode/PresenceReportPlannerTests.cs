@@ -113,6 +113,19 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void ALinkThatWasUpAllAlong_IsNotAComeback()
+        {
+            // 첫 질문에 링크가 켜져 있는 것은 "돌아온" 것이 아닙니다. 이것을 전이로
+            // 세면 아무것도 바뀌지 않았는데 보고가 한 번 나가고, 그것이 이 클래스가
+            // 없앤 30초 하트비트입니다.
+            var planner = new PresenceReportPlanner();
+            var lobby = new PresenceReport("ROOM", RoomSessionKind.Lobby);
+            planner.Reported(lobby);
+
+            Assert.That(planner.ShouldReport(lobby, linkConnected: true), Is.False);
+        }
+
+        [Test]
         public void TheLinkComingBack_RepeatsTheCurrentReportOnce()
         {
             var planner = new PresenceReportPlanner();
