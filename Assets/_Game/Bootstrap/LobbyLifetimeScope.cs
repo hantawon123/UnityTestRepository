@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Client.Cameras;
+using Game.Client.Interactions;
 using Game.Client.Home;
 using Game.Client.Lobby;
 using Game.Client.Match;
@@ -67,6 +68,8 @@ namespace Game.Bootstrap
 
         private NetworkRunnerService stagingNetwork;
         private GameObject[] sceneRoots = Array.Empty<GameObject>();
+        private readonly HashSet<CarryableItem> lobbyItems = new();
+        internal bool OwnsItem(CarryableItem item) => lobbyItems.Contains(item);
         private Renderer[] stagingRenderers = Array.Empty<Renderer>();
         private bool[] stagingRendererStates = Array.Empty<bool>();
         private Collider[] stagingColliders = Array.Empty<Collider>();
@@ -121,6 +124,8 @@ namespace Game.Bootstrap
             // Awake. Keep the roots that actually arrived with Lobby so match
             // objects are never shifted or hidden with it.
             sceneRoots = gameObject.scene.GetRootGameObjects();
+            foreach (var root in sceneRoots)
+                foreach (var item in root.GetComponentsInChildren<CarryableItem>(true)) lobbyItems.Add(item);
             base.Awake();
         }
 
@@ -239,7 +244,8 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<LobbyPlayerCameraBinder>();
             builder.RegisterEntryPoint<LobbyPlayerAnimationBinder>();
             builder.RegisterEntryPoint<NetworkInteractionSceneBridge>()
-                .WithParameter(true).WithParameter(gameObject.scene);
+                .WithParameter(true).WithParameter(gameObject.scene).AsSelf();
+            builder.RegisterBuildCallback(c => c.Resolve<NetworkInteractionSceneBridge>().BindSceneItems(lobbyItems));
             // Voluntary requests reach the project-owned session/exit flow through the bridge.
             builder.Register<LobbyExitPresenter>(Lifetime.Scoped);
             builder.RegisterEntryPoint<NetworkLobbyExitBridge>();

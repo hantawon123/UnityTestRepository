@@ -85,6 +85,7 @@ namespace Game.Network.Session
             }
 
             ReportExit(ResolveUnexpectedExit(_isClientSession, Translate(reason)));
+            ScheduleExitShutdown(runner);
         }
 
         public void OnConnectFailed(
@@ -306,15 +307,22 @@ namespace Game.Network.Session
         {
             // Migration is suspended: never reconnect or promote another participant.
             // MigrateHostAsync(runner, hostMigrationToken).Forget();
-            if (!IsCurrentRunner(runner) || runner == null || _browsingLobby || _hostLossShutdownPending) return;
+            if (!IsCurrentRunner(runner) || runner == null || _browsingLobby || _exitShutdownPending) return;
             // A disconnect callback can have already reported the reason, but a
             // migration callback still requires us to stop this runner explicitly.
-            _hostLossShutdownPending = true;
+            _exitShutdownPending = true;
             ReportExit(RoomExitReason.HostClosed);
-            CloseAfterHostLostAsync(runner).Forget(exception => Debug.LogException(exception));
+            ShutdownAfterExitAsync(runner).Forget(exception => Debug.LogException(exception));
         }
 
-        private async UniTask CloseAfterHostLostAsync(NetworkRunner runner)
+        private void ScheduleExitShutdown(NetworkRunner runner)
+        {
+            if (_exitShutdownPending) return;
+            _exitShutdownPending = true;
+            ShutdownAfterExitAsync(runner).Forget(Debug.LogException);
+        }
+
+        private async UniTask ShutdownAfterExitAsync(NetworkRunner runner)
         {
             // Leave Fusion's callback/simulation stack before disposing physics and voice.
             await UniTask.NextFrame(PlayerLoopTiming.Update);
@@ -836,6 +844,7 @@ namespace Game.Network.Session
                 {
                     ReportExit(RoomExitReason.Kicked);
                     runner.SendReliableDataToServer(key, new byte[] { 1 });
+                    ScheduleExitShutdown(runner);
                 }
                 return;
             }

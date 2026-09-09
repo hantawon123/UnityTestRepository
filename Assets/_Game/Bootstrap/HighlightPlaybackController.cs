@@ -612,6 +612,7 @@ namespace Game.Bootstrap
 
         private void CaptureVisuals()
         {
+            if (phase == MatchPhase.Waiting) return;
             foreach (var avatar in UnityEngine.Object.FindObjectsByType<PlayerAvatar>(
                          FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
@@ -620,9 +621,14 @@ namespace Game.Bootstrap
                 if (!playerVisuals.ContainsKey(id))
                     playerVisuals.Add(id, new ReplayVisual(avatar.transform, null));
             }
+            var lobbies = UnityEngine.Object.FindObjectsByType<LobbyLifetimeScope>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (var item in UnityEngine.Object.FindObjectsByType<CarryableItem>(
                          FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
+                var belongsToLobby = false;
+                foreach (var lobby in lobbies) if (lobby.OwnsItem(item)) { belongsToLobby = true; break; }
+                if (belongsToLobby) continue;
                 if (!itemVisuals.ContainsKey(item.ObjectId))
                     itemVisuals.Add(item.ObjectId, new ReplayVisual(item.transform, null));
             }

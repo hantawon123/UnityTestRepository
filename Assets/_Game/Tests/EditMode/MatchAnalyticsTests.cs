@@ -14,6 +14,19 @@ namespace Game.Architecture.Tests
     public sealed class MatchAnalyticsTests
     {
         [Test]
+        public void Samples_SerializeCumulativeCombatTotalsWithoutMutatingPreviousSeconds()
+        {
+            var buffer = new MatchAnalyticsBuffer(0);
+            var data = new MatchAnalyticsParams { seat = 1, total_hits_received = 3, total_stuns = 1 };
+            buffer.Add(new MatchAnalyticsEvent { eventName = "position_sample", @params = data }, 1);
+            data.total_hits_received = 6; data.total_stuns = 2;
+            buffer.Add(new MatchAnalyticsEvent { eventName = "position_sample", @params = data }, 2);
+            var samples = buffer.Snapshot();
+            Assert.That(samples[0], Does.Contain("\"total_hits_received\":3").And.Contain("\"total_stuns\":1"));
+            Assert.That(samples[1], Does.Contain("\"total_hits_received\":6").And.Contain("\"total_stuns\":2"));
+        }
+
+        [Test]
         public void Sampling_OncePerSecondWithoutCatchUp()
         {
             var buffer = new MatchAnalyticsBuffer(10);
