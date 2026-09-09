@@ -412,20 +412,27 @@ namespace Game.Client.Interactions
                 highlightedItem = nextHighlight;
             }
 
-            if (!TryGetPrompt(out var key, out var action, out var follow))
+            if (!TryGetPrompt(out var key, out var action, out var follow, out var actionColor, out var worldAnchor))
             {
                 promptView?.Hide();
                 return;
             }
 
-            PromptView.Show(key, action, follow);
+            PromptView.Show(key, action, follow, icon: null, actionColor, worldAnchor);
         }
 
-        private bool TryGetPrompt(out string key, out string action, out Transform follow)
+        private bool TryGetPrompt(
+            out string key,
+            out string action,
+            out Transform follow,
+            out Color actionColor,
+            out Vector3? worldAnchor)
         {
             key = null;
             action = null;
             follow = null;
+            actionColor = Color.white;
+            worldAnchor = null;
 
             if (!HudVisible ||
                 !interactionPromptVisible ||
@@ -440,6 +447,12 @@ namespace Game.Client.Interactions
             key = InteractKeyLabel();
             action = interactable.InteractionPrompt;
             follow = aimedTarget.transform;
+            actionColor = interactable.InteractionPromptColor;
+            if (interactable.TryGetInteractionPromptWorldPosition(out var promptWorld))
+            {
+                worldAnchor = promptWorld;
+            }
+
             return true;
         }
 

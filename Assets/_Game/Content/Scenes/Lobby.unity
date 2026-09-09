@@ -1939,8 +1939,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6fc4649eb04c751468edf381fb3f9729, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Client::Game.Client.Lobby.LobbyPlanBoardInteractable
-  hostPrompt: "\uBC29 \uC124\uC815 \uC5F4\uAE30"
-  guestPrompt: "\uC791\uC804 \uACC4\uD68D \uBCF4\uAE30"
+  prompt: "\uBC29 \uC124\uC815"
   outline: {fileID: 298466737}
   label: {fileID: 451973114}
 --- !u!114 &298466737
