@@ -182,6 +182,9 @@ namespace Game.Bootstrap
             var endpoint = new BackendEndpoint(baseUrl);
             var session = new BackendSession(DeviceIdentity.Current());
             var client = new BackendClient(new UnityWebRequestTransport(), endpoint, session);
+            builder.RegisterInstance(new MatchAnalyticsUpload(new UnityWebRequestTransport(), endpoint,
+                System.IO.Path.Combine(Application.persistentDataPath, "match-analytics")));
+            builder.RegisterEntryPoint<MatchAnalyticsRecorder>();
 
             // First, because the presence gateway sends over it when it is up.
             var frames = RegisterNotifications(builder, endpoint, session);

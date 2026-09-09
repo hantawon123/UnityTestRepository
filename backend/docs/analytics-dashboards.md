@@ -1,5 +1,7 @@
 # 플레이 로그 대시보드 쿼리 (812)
 
+> Unity의 현재 1초 수집(schemaVer=2)은 [경기 분석 조회](match-analytics.md)의 뷰와 SQL을 사용합니다. 아래 v1 상세 행동 이벤트 전용 지표는 v2에서 수집하지 않는 이벤트가 있어 값이 비어 있을 수 있습니다.
+
 Metabase 의 "플레이 로그"(`d205_analytics`)를 읽는 다섯 화면의 SQL 입니다. 각 질문이 답하는 것은
 [`analytics-events.md`](analytics-events.md) 1절의 번호를 따릅니다. 화면은 손으로 만들지 않고
 [아래](#화면-만들기) 스크립트가 이 문서를 읽어 만듭니다.
