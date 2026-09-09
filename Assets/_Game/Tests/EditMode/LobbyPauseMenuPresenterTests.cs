@@ -95,8 +95,74 @@ namespace Game.Tests.EditMode
             Assert.That(fixture.Menu.VisibleCalls, Has.No.Member(true));
         }
 
+        [Test]
+        public void ToggleShortcut_OpensCharacterFromTheRoom()
+        {
+            using var fixture = new Fixture();
+            fixture.Presenter.Start();
+
+            fixture.Presenter.ToggleShortcut(LobbyShortcutKind.Character);
+
+            Assert.That(fixture.Shortcuts.OpenKind, Is.EqualTo(LobbyShortcutKind.Character));
+            Assert.That(fixture.Menu.IsOpen, Is.False);
+        }
+
+        [Test]
+        public void ToggleShortcut_SameKind_ClosesAndReturnsToRoom()
+        {
+            using var fixture = new Fixture();
+            fixture.Presenter.Start();
+            fixture.Presenter.ToggleShortcut(LobbyShortcutKind.Players);
+            fixture.Menu.VisibleCalls.Clear();
+
+            fixture.Presenter.ToggleShortcut(LobbyShortcutKind.Players);
+
+            Assert.That(fixture.Shortcuts.IsOpen, Is.False);
+            Assert.That(fixture.Menu.VisibleCalls, Has.No.Member(true));
+        }
+
+        [Test]
+        public void ToggleShortcut_SwitchesBetweenOverlays()
+        {
+            using var fixture = new Fixture();
+            fixture.Presenter.Start();
+            fixture.Presenter.ToggleShortcut(LobbyShortcutKind.Character);
+
+            fixture.Presenter.ToggleShortcut(LobbyShortcutKind.Players);
+
+            Assert.That(fixture.Shortcuts.OpenKind, Is.EqualTo(LobbyShortcutKind.Players));
+        }
+
+        [Test]
+        public void ToggleShortcut_WhilePlaySettingsOpen_DoesNothing()
+        {
+            using var fixture = new Fixture();
+            fixture.Presenter.Start();
+            fixture.Presenter.OpenPlaySettingsFromWorld();
+
+            fixture.Presenter.ToggleShortcut(LobbyShortcutKind.Settings);
+
+            Assert.That(fixture.Shortcuts.IsOpen, Is.False);
+        }
+
+        [Test]
+        public void SettingsClicked_OpensEnvironmentSettings_ThenCloseReturnsToMenu()
+        {
+            using var fixture = new Fixture();
+            fixture.Presenter.Start();
+            fixture.Menu.SetVisible(true);
+            fixture.Menu.ClickSettings();
+            fixture.Menu.VisibleCalls.Clear();
+
+            Assert.That(fixture.Shortcuts.OpenKind, Is.EqualTo(LobbyShortcutKind.Settings));
+            fixture.Shortcuts.RequestClose();
+
+            Assert.That(fixture.Menu.VisibleCalls, Has.Member(true));
+        }
+
         private sealed class Fixture : IDisposable
         {
+            public readonly ShortcutOverlay Shortcuts = new();
             public readonly PauseView Menu = new();
             public readonly SettingsView Settings = new();
             public readonly HostSession Session = new();
@@ -105,7 +171,7 @@ namespace Game.Tests.EditMode
             public Fixture()
             {
                 Presenter = new LobbyPauseMenuPresenter(
-                    Menu, Settings, Session, new LobbyExitPresenter());
+                    Menu, Settings, Session, new LobbyExitPresenter(), Shortcuts);
             }
 
             public void Dispose()
@@ -121,14 +187,34 @@ namespace Game.Tests.EditMode
             public event Action StartClicked { add { } remove { } }
             public event Action LeaveClicked { add { } remove { } }
             public event Action ResumeClicked;
-            public event Action SettingsClicked { add { } remove { } }
+            public event Action SettingsClicked;
             public event Action PlaySettingsClicked;
             public bool IsOpen { get; private set; }
             public void SetVisible(bool visible) { IsOpen = visible; VisibleCalls.Add(visible); }
             public void SetStartVisible(bool visible) { }
             public void SetPlaySettingsVisible(bool visible) { }
             public void ClickPlaySettings() => PlaySettingsClicked?.Invoke();
+            public void ClickSettings() => SettingsClicked?.Invoke();
             public void ClickResume() => ResumeClicked?.Invoke();
+        }
+
+        private sealed class ShortcutOverlay : ILobbyShortcutOverlay
+        {
+            public event Action CloseRequested;
+            public LobbyShortcutKind OpenKind { get; private set; }
+            public bool IsOpen => OpenKind != LobbyShortcutKind.None;
+            public void Show(LobbyShortcutKind kind) => OpenKind = kind;
+            public void Hide() => OpenKind = LobbyShortcutKind.None;
+            public void RequestClose()
+            {
+                if (!IsOpen)
+                {
+                    return;
+                }
+
+                Hide();
+                CloseRequested?.Invoke();
+            }
         }
 
         private sealed class SettingsView : IPlaySettingsView

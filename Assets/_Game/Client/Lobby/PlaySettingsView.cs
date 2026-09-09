@@ -347,8 +347,11 @@ namespace Game.Client.Lobby
             selectedCategoryIndex = PlaySettingsCategoryCatalog.IndexOf(matchRules.CategoryId);
             if (selectedCategoryIndex < 0)
             {
+                // The picker only lists ready categories. An id it cannot name
+                // is still the room's rule — rewriting it here would drop
+                // food/fruit (and anything else not on the chip yet) the
+                // moment a host changed player cap.
                 selectedCategoryIndex = PlaySettingsCategoryCatalog.DefaultIndex;
-                NormalizeCategoryRules();
             }
 
             maxPlayers = Mathf.Clamp(

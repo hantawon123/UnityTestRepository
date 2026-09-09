@@ -141,6 +141,8 @@ namespace Game.Bootstrap
             builder.Register<UnityHomeApplicationHost>(Lifetime.Scoped).As<IHomeApplicationHost>();
             builder.RegisterComponent(hudView);
             builder.RegisterEntryPoint<LobbyStartCountdown>();
+            builder.RegisterComponent(hudView.EnsureShortcutOverlay())
+                .As<ILobbyShortcutOverlay>();
             builder.RegisterComponent(pauseMenuView).As<ILobbyPauseMenuView>();
             builder.RegisterComponent(playerListView).As<ILobbyPlayerListView>();
             builder.RegisterComponent(playSettingsView).As<IPlaySettingsView>();

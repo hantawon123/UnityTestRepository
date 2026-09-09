@@ -73,7 +73,11 @@ namespace Game.Editor
                 Anchor.BottomLeft,
                 new Vector2(MatchChatView.Margin, MatchChatView.Margin),
                 new Vector2(MatchChatView.InputWidth, 306f));
-            Place(voice, Anchor.BottomRight, new Vector2(-24f, 24f), new Vector2(72f, 72f));
+            Place(
+                voice,
+                Anchor.BottomRight,
+                new Vector2(-LobbyShortcutGuideView.MarginRight, LobbyShortcutGuideView.VoiceBottom),
+                new Vector2(72f, 72f));
 
             SetLabel(playerList, string.Empty);
             SetLabel(chat, string.Empty);
@@ -141,6 +145,8 @@ namespace Game.Editor
 
             var chatBubbleView = EnsureChatBubbleWorld(scope.transform);
             KeySettingGuideView.Ensure(root);
+            LobbyShortcutGuideView.Ensure(root);
+            LobbyShortcutOverlayView.Ensure(root)?.Hide();
             LobbyMatchInfoView.Ensure(root);
 
             var hudSo = new SerializedObject(hud);
@@ -867,11 +873,8 @@ namespace Game.Editor
                 panel, "ResumeButton", "돌아가기", new Vector2(0f, -128f), buttonSize);
             EnsureImage(start.gameObject, new Color(1f, 0.85f, 0.2f, 0.95f));
 
-            // Nothing answers this one yet. It keeps its place so the menu does
-            // not reshuffle when a settings screen arrives, but it is left
-            // unpressable: a button that swallows a click reads as broken.
             var settingsButton = settings.GetComponent<Button>();
-            settingsButton.interactable = false;
+            settingsButton.interactable = true;
 
             var view = hud.GetComponent<LobbyPauseMenuView>();
             if (view == null)

@@ -16,8 +16,8 @@ namespace Game.Client.Lobby
     /// <see cref="LobbyPauseMenuView"/>.
     /// <para>
     /// What is left is the things a player reads rather than clicks: the
-    /// category/map card, the shared key guide, and the chat field, which
-    /// the keyboard reaches on its own.
+    /// category/map card, the shared key guide, the 1 / 2 / Esc shortcut
+    /// row, and the chat field, which the keyboard reaches on its own.
     /// </para>
     /// </remarks>
     public sealed class LobbyHudView : MonoBehaviour
@@ -101,6 +101,17 @@ namespace Game.Client.Lobby
             KeySettingGuideView.Ensure(transform)?.SetVisible(true);
         }
 
+        public LobbyShortcutGuideView EnsureShortcutGuide()
+        {
+            PlaceVoiceAboveShortcuts();
+            return LobbyShortcutGuideView.Ensure(transform);
+        }
+
+        public LobbyShortcutOverlayView EnsureShortcutOverlay()
+        {
+            return LobbyShortcutOverlayView.Ensure(transform);
+        }
+
         public LobbyMatchInfoView EnsureMatchInfo()
         {
             var info = LobbyMatchInfoView.Ensure(transform);
@@ -111,6 +122,20 @@ namespace Game.Client.Lobby
         public void SetMatchInfo(string categoryLabel, string mapLabel)
         {
             EnsureMatchInfo()?.SetInfo(categoryLabel, mapLabel);
+        }
+
+        private void PlaceVoiceAboveShortcuts()
+        {
+            if (voiceButton == null)
+            {
+                return;
+            }
+
+            voiceButton.anchorMin = voiceButton.anchorMax = new Vector2(1f, 0f);
+            voiceButton.pivot = new Vector2(1f, 0f);
+            voiceButton.anchoredPosition = new Vector2(
+                -LobbyShortcutGuideView.MarginRight,
+                LobbyShortcutGuideView.VoiceBottom);
         }
 
         private void PlacePlayerListBelowMatchInfo()
@@ -130,12 +155,16 @@ namespace Game.Client.Lobby
         private void Awake()
         {
             EnsureSharedGuide();
+            EnsureShortcutGuide();
+            EnsureShortcutOverlay();
             EnsureMatchInfo();
         }
 
         private void OnEnable()
         {
             EnsureSharedGuide();
+            EnsureShortcutGuide();
+            EnsureShortcutOverlay();
             EnsureMatchInfo();
             var canvas = GetComponentInParent<Canvas>();
             HomeUiFonts.ApplyLegacy(canvas != null ? canvas.transform : transform);
