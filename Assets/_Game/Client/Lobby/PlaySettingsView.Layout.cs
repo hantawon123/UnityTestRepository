@@ -628,22 +628,38 @@ namespace Game.Client.Lobby
 
             var mapPicker = CreateHorizontalPickerRow(CreateSplitCell(pickerRow, "MapSelect"), selectionHeight);
             Stretch(mapPicker);
+            AddFlexibleSpacer(mapPicker);
             mapPrevButton = CreateLayoutArrowButton(mapPicker, isLeft: true);
+            AddFlexibleSpacer(mapPicker);
             CreateMapStack(mapPicker);
+            AddFlexibleSpacer(mapPicker);
             mapNextButton = CreateLayoutArrowButton(mapPicker, isLeft: false);
+            AddFlexibleSpacer(mapPicker);
 
             var categoryPicker = CreateHorizontalPickerRow(
                 CreateSplitCell(pickerRow, "CategorySelect"),
                 selectionHeight);
             Stretch(categoryPicker);
+            AddFlexibleSpacer(categoryPicker);
             categoryPrevButton = CreateLayoutArrowButton(categoryPicker, isLeft: true);
             categoryPrevButton.gameObject.name = "CategoryPrev";
+            AddFlexibleSpacer(categoryPicker);
             categoryText = CreatePickerValueText(
                 categoryPicker,
                 PlaySettingsCategoryCatalog.Default.Label,
                 selectionHeight);
+            AddFlexibleSpacer(categoryPicker);
             categoryNextButton = CreateLayoutArrowButton(categoryPicker, isLeft: false);
             categoryNextButton.gameObject.name = "CategoryNext";
+            AddFlexibleSpacer(categoryPicker);
+        }
+
+        private static void AddFlexibleSpacer(RectTransform parent)
+        {
+            var spacer = CreateRect("Spacer", parent);
+            var element = spacer.gameObject.AddComponent<LayoutElement>();
+            element.flexibleWidth = 1f;
+            element.minWidth = 0f;
         }
 
         private RectTransform CreateSplitRow(RectTransform parent, string name, float height)
@@ -678,6 +694,7 @@ namespace Game.Client.Lobby
             var stackHeight = previewSize.y + spacing + nameHeight;
 
             var stack = CreateRect("MapStack", parent);
+            stack.sizeDelta = new Vector2(previewSize.x, stackHeight);
             var element = stack.gameObject.AddComponent<LayoutElement>();
             element.preferredWidth = previewSize.x;
             element.minWidth = previewSize.x;
@@ -749,7 +766,7 @@ namespace Game.Client.Lobby
             element.minHeight = height;
             var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
             layout.childAlignment = TextAnchor.MiddleCenter;
-            layout.childControlWidth = false;
+            layout.childControlWidth = true;
             layout.childControlHeight = false;
             layout.childForceExpandWidth = false;
             layout.childForceExpandHeight = false;
