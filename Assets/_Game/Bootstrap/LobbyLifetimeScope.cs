@@ -82,10 +82,39 @@ namespace Game.Bootstrap
         {
             private readonly NetworkRunnerService network;
             private readonly LobbyHudView view;
-            public LobbyStartCountdown(NetworkRunnerService network, LobbyHudView view)
-            { this.network = network; this.view = view; }
-            public void Tick() => view.SetStartCountdown(network.StartCountdownRemaining);
+            private readonly LobbyPauseMenuPresenter pauseMenu;
+            private bool dismissedForCountdown;
+
+            public LobbyStartCountdown(
+                NetworkRunnerService network,
+                LobbyHudView view,
+                LobbyPauseMenuPresenter pauseMenu)
+            {
+                this.network = network;
+                this.view = view;
+                this.pauseMenu = pauseMenu;
+            }
+
+            public void Tick()
+            {
+                var remaining = network.StartCountdownRemaining;
+                view.SetStartCountdown(remaining);
+                if (remaining <= 0d)
+                {
+                    dismissedForCountdown = false;
+                    return;
+                }
+
+                if (dismissedForCountdown)
+                {
+                    return;
+                }
+
+                dismissedForCountdown = true;
+                pauseMenu.DismissForMatchStart();
+            }
         }
+
         protected override void Awake()
         {
             // Fusion can merge additive content into its runner scene after

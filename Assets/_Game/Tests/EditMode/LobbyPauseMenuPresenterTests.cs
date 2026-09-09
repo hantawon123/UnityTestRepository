@@ -196,6 +196,36 @@ namespace Game.Tests.EditMode
             Assert.That(fixture.Menu.VisibleCalls, Has.Member(true));
         }
 
+        [Test]
+        public void StartRequested_WhileSettingsOpenFromWorld_ReturnsToRoom()
+        {
+            using var fixture = new Fixture();
+            fixture.Presenter.Start();
+            fixture.Presenter.OpenPlaySettingsFromWorld();
+            fixture.Menu.VisibleCalls.Clear();
+
+            fixture.Session.RequestStart();
+
+            Assert.That(fixture.Settings.CloseRequests, Is.EqualTo(1));
+            Assert.That(fixture.Menu.IsOpen, Is.False);
+            Assert.That(fixture.Menu.VisibleCalls, Has.No.Member(true));
+        }
+
+        [Test]
+        public void StartRequested_WhileSettingsOpenFromMenu_DoesNotReturnToMenu()
+        {
+            using var fixture = new Fixture();
+            fixture.Presenter.Start();
+            fixture.Menu.ClickPlaySettings();
+            fixture.Menu.VisibleCalls.Clear();
+
+            fixture.Session.RequestStart();
+
+            Assert.That(fixture.Settings.CloseRequests, Is.EqualTo(1));
+            Assert.That(fixture.Menu.IsOpen, Is.False);
+            Assert.That(fixture.Menu.VisibleCalls, Has.No.Member(true));
+        }
+
         private sealed class Fixture : IDisposable
         {
             public readonly ShortcutOverlay Shortcuts = new();
@@ -259,6 +289,7 @@ namespace Game.Tests.EditMode
         private sealed class SettingsView : IPlaySettingsView
         {
             public int OpenRequests;
+            public int CloseRequests;
             public event Action OpenRequested;
             public event Action CloseRequested;
             public event Action CopyRoomCodeRequested { add { } remove { } }
@@ -270,7 +301,11 @@ namespace Game.Tests.EditMode
             public void SetDraft(PlaySettingsDraft draft) { }
             public PlaySettingsDraft ReadDraft() =>
                 new("방", "CODE", false, null, 6, 3, "playground");
-            public void RequestClose() => CloseRequested?.Invoke();
+            public void RequestClose()
+            {
+                CloseRequests++;
+                CloseRequested?.Invoke();
+            }
             public void RequestOpen() { OpenRequests++; OpenRequested?.Invoke(); }
         }
 
@@ -283,13 +318,13 @@ namespace Game.Tests.EditMode
             public string LocalPlayerId => "me";
             public ReadOnlyReactiveProperty<bool> IsLocalHost => host;
             public ReadOnlyReactiveProperty<PlaySettingsDraft> Settings => settings;
-            public event Action StartRequested { add { } remove { } }
+            public event Action StartRequested;
             public event Action<string> KickRequested { add { } remove { } }
             public event Action<string> HostTransferRequested { add { } remove { } }
             public event Action<PlaySettingsDraft> SettingsApplyRequested { add { } remove { } }
             public void SetLocalHost(bool value) => host.Value = value;
             public void ReplaceSettings(PlaySettingsDraft value) => settings.Value = value;
-            public void RequestStart() { }
+            public void RequestStart() => StartRequested?.Invoke();
             public void RequestKick(string id) { }
             public void RequestHostTransfer(string id) { }
             public void RequestApplySettings(PlaySettingsDraft value) => settings.Value = value;

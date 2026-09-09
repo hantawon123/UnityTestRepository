@@ -92,6 +92,7 @@ namespace Game.Client.Lobby
             // menu's to do. The 1 / 2 / Esc overlays share that same return.
             playSettings.CloseRequested += OnScreenClosed;
             shortcuts.CloseRequested += OnScreenClosed;
+            hostSession.StartRequested += DismissForMatchStart;
 
             // Starting and changing the room are the host's to ask for, so
             // neither entry is there for anyone else.
@@ -109,6 +110,7 @@ namespace Game.Client.Lobby
             view.SettingsClicked -= OnSettingsClicked;
             playSettings.CloseRequested -= OnScreenClosed;
             shortcuts.CloseRequested -= OnScreenClosed;
+            hostSession.StartRequested -= DismissForMatchStart;
             hostSubscription?.Dispose();
 
             // A frozen avatar and a rig that no longer answers Esc would both
@@ -212,10 +214,20 @@ namespace Game.Client.Lobby
             LockMovement();
         }
 
+        /// <summary>
+        /// Folds every lobby menu and lets the avatar walk. Play settings'
+        /// start button hides that screen without a close request, so the
+        /// movement lock from opening it would otherwise last the whole
+        /// countdown.
+        /// </summary>
+        public void DismissForMatchStart() => Close();
+
         private void Close()
         {
+            var pending = closeOpenScreen;
             closeOpenScreen = null;
             openedFromWorld = false;
+            pending?.Invoke();
             view.SetVisible(false);
             SetCursorCaptured(true);
             ReleaseMovement();
