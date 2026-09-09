@@ -25,6 +25,7 @@ namespace Game.Backend
         public int seat = -1, player_count, hide_sec, seek_sec, stun_hits, destroy_limit;
         public float sprint_multiplier, rotation_y;
         public string from, to, end_reason, result, build_ver, posture, item_id;
+        public int total_hits_received, total_stuns;
         public int attack_sequence, holder_seat = -1, dropped_samples;
         public bool grounded, item_known, item_destroyed, item_in_motion, partial;
         public float item_x, item_y, item_z;

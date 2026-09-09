@@ -846,6 +846,19 @@ namespace Game.Network.Match
             return _state.TrySetObjectReleased(objectId, pose, initialVelocity);
         }
 
+        public (int HitsReceived, int Stuns) GetCombatTotals(int playerIndex) =>
+            _session?.GetCombatTotals(playerIndex) ?? default;
+
+        public bool TryConfirmObjectPhysicsPose(string objectId, Pose pose, Vector3 velocity,
+            bool moving, int expectedVersion)
+        {
+            if (_state == null || (IsLobby && lobbyObjects == null) || (!IsLobby && (_session == null ||
+                !_session.TryGetObjectPose(objectId, out _)))) return false;
+            if (!_state.TrySetObjectPhysicsPose(objectId, pose, velocity, moving, expectedVersion)) return false;
+            return IsLobby ? lobbyObjects != null && lobbyObjects.TrySetPose(objectId, pose)
+                : _session.TryConfirmReleasedObjectPose(objectId, pose);
+        }
+
         public bool TryConfirmObjectSettled(
             string objectId,
             Pose pose,

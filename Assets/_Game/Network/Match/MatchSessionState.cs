@@ -609,6 +609,21 @@ namespace Game.Network.Match
             return WriteObjectState(key, state);
         }
 
+        public bool TrySetObjectPhysicsPose(string objectId, Pose pose, Vector3 velocity,
+            bool moving, int expectedVersion)
+        {
+            if (!IsFinite(pose.position) || !IsFinite(pose.rotation) || !IsFinite(velocity) ||
+                Object == null || !Object.HasStateAuthority ||
+                !TryFindObjectState(objectId, out var key, out var state) ||
+                state.Version != expectedVersion || state.HolderPlayerIndex >= 0 ||
+                state.IsDestroyed || state.IsPendingEjection) return false;
+            state.Position = pose.position;
+            state.Rotation = pose.rotation;
+            state.InitialVelocity = velocity;
+            state.IsPhysicsActive = moving;
+            return WriteObjectState(key, state);
+        }
+
         public bool TrySetObjectSettled(
             string objectId,
             Pose pose,
