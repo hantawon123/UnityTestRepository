@@ -11,6 +11,23 @@ namespace Game.Client.Common
     /// <summary>Web IME uses a native browser input; TMP remains the validated UI model.</summary>
     public sealed class WebTextInput : MonoBehaviour
     {
+        // TMP refreshes placeholder.enabled while its text is still empty during IME
+        // composition. Hide the object so only the browser owns the editing placeholder.
+        internal static bool HidePlaceholder(TMP_InputField input)
+        {
+            if (input.placeholder == null) return false;
+            var wasActive = input.placeholder.gameObject.activeSelf;
+            input.placeholder.gameObject.SetActive(false);
+            return wasActive;
+        }
+
+        internal static void RestorePlaceholder(TMP_InputField input, bool wasActive)
+        {
+            if (input.placeholder == null) return;
+            input.placeholder.gameObject.SetActive(wasActive);
+            input.ForceLabelUpdate();
+        }
+
 #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")] private static extern void GameTextOpen(string target, string options);
         [DllImport("__Internal")] private static extern void GameTextLayout(float x, float y, float width, float height, float fontSize);
@@ -31,7 +48,7 @@ namespace Game.Client.Common
 
         private TMP_InputField field;
         private int session;
-        private bool captureKeyboard, textEnabled, placeholderEnabled;
+        private bool captureKeyboard, textEnabled, placeholderActive;
         private readonly Vector3[] corners = new Vector3[4];
 
         private void LateUpdate()
@@ -71,8 +88,7 @@ namespace Game.Client.Common
             WebGLInput.captureAllKeyboardInput = false;
             textEnabled = field.textComponent.enabled;
             field.textComponent.enabled = false;
-            placeholderEnabled = field.placeholder != null && field.placeholder.enabled;
-            if (field.placeholder != null) field.placeholder.enabled = false;
+            placeholderActive = HidePlaceholder(field);
             GameTextOpen(gameObject.name, JsonUtility.ToJson(new Options
             {
                 id = ++session, value = field.text, limit = field.characterLimit,
@@ -118,7 +134,7 @@ namespace Game.Client.Common
             if (field != null)
             {
                 field.textComponent.enabled = textEnabled;
-                if (field.placeholder != null) field.placeholder.enabled = placeholderEnabled;
+                RestorePlaceholder(field, placeholderActive);
             }
             field = null;
             ++session;
