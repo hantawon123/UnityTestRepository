@@ -45,11 +45,17 @@ public class UserPresence {
     @Column(name = "status", nullable = false, length = 16)
     private PresenceStatus status;
 
-    /** Photon 룸 식별자. IN_GAME 이 아니면 NULL 입니다. */
+    /** Photon 룸 식별자. 룸 안(IN_LOBBY, IN_GAME)이 아니면 NULL 입니다. */
     @Column(name = "session_id", length = 64)
     private String sessionId;
 
-    /** 마지막 생존 신호. 30초 주기입니다. */
+    /**
+     * 마지막 생존 신호.
+     *
+     * <p>이제 <b>서버가</b> 밉니다. 알림 WebSocket 이 살아 있는 사람들의 이 컬럼을 한
+     * 문장으로 갱신합니다(PresenceHeartbeat). 클라이언트가 30초마다 PUT 을 보내던
+     * 때에는 요청 하나가 이 컬럼 하나를 밀었고, 접속자 수만큼 트랜잭션이 생겼습니다.
+     */
     @Column(name = "heartbeat_at", nullable = false, length = 14)
     private String heartbeatAt;
 
@@ -65,8 +71,13 @@ public class UserPresence {
         this.updatedAt = at;
     }
 
-    public static UserPresence of(Integer userSeq, String sessionId, String now) {
-        return new UserPresence(userSeq, statusFor(sessionId), sessionId, now);
+    public static UserPresence of(Integer userSeq, String sessionId, SessionKind sessionKind, String now) {
+        return new UserPresence(userSeq, statusFor(sessionId, sessionKind), sessionId, now);
+    }
+
+    /** 알림 채널에 처음 붙은 사람의 첫 행. 룸 밖이라 ONLINE 입니다. */
+    public static UserPresence online(Integer userSeq, String now) {
+        return new UserPresence(userSeq, PresenceStatus.ONLINE, null, now);
     }
 
     /**
@@ -76,11 +87,15 @@ public class UserPresence {
      * 하트비트는 30초마다 오고 상태 변화는 드물게 일어나므로 둘을 구분해야 "언제부터
      * 이 상태인지"를 알 수 있습니다.
      *
-     * <p>방을 옮기는 것도 상태 변화로 봅니다. IN_GAME 은 그대로지만 다른 방이라
+     * <p>방을 옮기는 것도 상태 변화로 봅니다. 상태 이름은 그대로지만 다른 방이라
      * sessionId 가 달라지고, 그 시점을 남기는 것이 맞습니다.
+     *
+     * <p>로비에서 경기로 넘어가는 것도 상태 변화입니다. 그때는 <b>sessionId 가 그대로</b>
+     * 입니다 — 같은 룸이 경기 씬으로 넘어간 것이니까요. 상태 이름이 달라지는 것으로만
+     * 알아챌 수 있습니다.
      */
-    public void report(String sessionId, String now) {
-        PresenceStatus next = statusFor(sessionId);
+    public void report(String sessionId, SessionKind sessionKind, String now) {
+        PresenceStatus next = statusFor(sessionId, sessionKind);
         this.heartbeatAt = now;
 
         if (this.status != next || !Objects.equals(this.sessionId, sessionId)) {
@@ -90,7 +105,30 @@ public class UserPresence {
         }
     }
 
-    /** 앱을 정상 종료할 때 부릅니다. 타임아웃을 기다리지 않고 바로 내려갑니다. */
+    /**
+     * 알림 채널에 붙었습니다. 이것이 곧 접속 신호입니다.
+     *
+     * <p><b>이미 룸 안이면 상태를 건드리지 않습니다.</b> 탭이나 기기를 하나 더 연 것일
+     * 수도 있고, 경기 중에 연결이 끊겼다 다시 붙은 것일 수도 있습니다. 어느 쪽이든
+     * 붙었다는 사실만으로 사람을 방에서 끌어내면 친구 목록에서 경기 중인 사람이
+     * ONLINE 으로 잘못 보입니다.
+     *
+     * <p>정말 룸 밖으로 나온 클라이언트는 {@code HELLO_ACK} 직후 자기 상태를 다시
+     * 보고하므로 그 프레임이 곧바로 교정합니다.
+     */
+    public void connected(String now) {
+        this.heartbeatAt = now;
+        if (this.status == PresenceStatus.OFFLINE) {
+            this.status = PresenceStatus.ONLINE;
+            this.sessionId = null;
+            this.updatedAt = now;
+        }
+    }
+
+    /**
+     * 앱을 정상 종료하거나 알림 채널의 마지막 연결이 끊겼을 때 부릅니다. 타임아웃을
+     * 기다리지 않고 바로 내려갑니다.
+     */
     public void goOffline(String now) {
         this.heartbeatAt = now;
         if (this.status != PresenceStatus.OFFLINE) {
@@ -101,13 +139,19 @@ public class UserPresence {
     }
 
     /**
-     * 상태를 sessionId 로 유도합니다.
+     * 상태를 sessionId 와 sessionKind 로 유도합니다.
      *
      * <p>클라이언트가 status 를 직접 보내지 않는 이유입니다. 보내게 하면 "IN_GAME 인데
      * sessionId 가 없다" 같은 <b>잘못된 조합이 표현 가능</b>해지고, 그걸 막는 검증
      * 규칙을 따로 만들어야 합니다. 유도하면 애초에 표현할 수 없습니다.
+     *
+     * <p>sessionId 가 없으면 룸 밖이라 sessionKind 를 보지 않습니다. 룸 밖인데 로비라고
+     * 주장하는 요청이 와도 상태는 ONLINE 하나로 정해집니다.
      */
-    private static PresenceStatus statusFor(String sessionId) {
-        return sessionId == null ? PresenceStatus.ONLINE : PresenceStatus.IN_GAME;
+    private static PresenceStatus statusFor(String sessionId, SessionKind sessionKind) {
+        if (sessionId == null) {
+            return PresenceStatus.ONLINE;
+        }
+        return sessionKind == SessionKind.LOBBY ? PresenceStatus.IN_LOBBY : PresenceStatus.IN_GAME;
     }
 }

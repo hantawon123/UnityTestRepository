@@ -55,6 +55,28 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Presenter_Settings_OpensSettingsScreen()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out var host, out var appFlow, out _, out _);
+            view.Raise(HomeMenuAction.Settings);
+
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.Settings));
+            Assert.That(host.SettingsOpenCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Presenter_Settings_IsRefusedAwayFromHome()
+        {
+            using var presenter = CreateStartedPresenter(out var view, out var host, out var appFlow, out _, out _);
+            view.Raise(HomeMenuAction.FindRoom);
+
+            view.Raise(HomeMenuAction.Settings);
+
+            Assert.That(appFlow.CurrentState, Is.EqualTo(AppFlowState.RoomBrowser));
+            Assert.That(host.SettingsOpenCount, Is.EqualTo(0));
+        }
+
+        [Test]
         public void Presenter_FindRoom_OpensRoomBrowser()
         {
             using var presenter = CreateStartedPresenter(out var view, out var host, out var appFlow, out _, out _);
@@ -950,6 +972,8 @@ namespace Game.Tests.EditMode
 
             public int CharacterClosetOpenCount { get; private set; }
 
+            public int SettingsOpenCount { get; private set; }
+
             public int LobbyOpenCount { get; private set; }
 
             public string CreatedTitle { get; private set; }
@@ -991,6 +1015,11 @@ namespace Game.Tests.EditMode
             public void OpenCharacterCloset()
             {
                 CharacterClosetOpenCount++;
+            }
+
+            public void OpenSettings()
+            {
+                SettingsOpenCount++;
             }
         }
     }

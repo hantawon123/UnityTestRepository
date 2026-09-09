@@ -9,8 +9,15 @@
 # 없어서 해가 없고, 한 시간 뒤에는 테스트가 이미 끝나 있습니다.
 #
 # 스윕 자체를 검증하는 테스트는 sweep() 을 직접 부르므로 이 설정과 무관합니다.
+#
+# 하트비트 갱신도 같은 이유로 끕니다. 이쪽은 반대 방향으로 경합합니다 — 하트비트를
+# 과거로 밀어 크래시를 재현해 두면, 그 사용자가 아직 소켓에 붙어 있는 테스트에서
+# 갱신이 하트비트를 현재로 되돌려 스윕이 아무것도 하지 않게 만듭니다.
+#
+# 갱신 자체를 검증하는 테스트는 refresh() 를 직접 부릅니다.
 presence:
   sweep-interval-ms: 3600000
+  heartbeat-refresh-ms: 3600000
 
 # 초대 스윕도 같은 이유로 끕니다. 초대를 과거로 밀어 만료를 재현하는 테스트가
 # 스윕과 겹치면, 만료된 초대가 목록에서 빠지는 것을 확인하려는 사이에 스윕이 행을
@@ -46,3 +53,18 @@ analytics:
     url: ${test.analytics.url}
     username: ${test.analytics.username}
     password: ${test.analytics.password}
+
+# HELLO 마감을 짧게 둡니다. 마감을 시험하는 테스트가 기본값 5초를 기다리면 스위트가 느려집니다.
+# 정상 경로 테스트는 연결 직후 HELLO 를 보내므로 1초 안에 넉넉히 들어옵니다.
+notifications:
+  hello-timeout-ms: 1000
+
+# 나간 SQL 문장을 세는 검사기입니다. 하트비트 갱신이 접속자 수와 무관하게 한 문장인지
+# 확인하는 테스트가 씁니다(PresenceApiTest). 기본이 꺼짐이라 다른 테스트에는 boolean
+# 검사 하나만 더해집니다. 자세한 이유는 StatementRecorder 의 주석에 있습니다.
+spring:
+  jpa:
+    properties:
+      hibernate:
+        session_factory:
+          statement_inspector: com.ssafy.d205.support.StatementRecorder

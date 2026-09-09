@@ -177,6 +177,67 @@ namespace Game.Backend
     internal sealed class UpdatePresenceRequestDto
     {
         public string sessionId;
+
+        /// <summary>LOBBY or MATCH. The server reads a missing value as MATCH.</summary>
+        public string sessionKind;
+    }
+
+    /// <summary>
+    /// The room report as a frame on the notification socket. Same two fields as
+    /// the REST body, plus the type that tells the server what the frame is.
+    /// </summary>
+    [Serializable]
+    internal sealed class PresenceFrameDto
+    {
+        public string type;
+        public string sessionId;
+        public string sessionKind;
+    }
+
+    /// <summary>
+    /// The out-of-room report as a frame. Only the type, for the same reason the
+    /// REST body is <see cref="EmptyBodyDto"/>: a sessionId field that is present
+    /// but empty would be read as a room.
+    /// </summary>
+    [Serializable]
+    internal sealed class PresenceOutOfRoomFrameDto
+    {
+        public string type;
+    }
+
+    /// <summary>
+    /// The first frame on the notification socket. Says who this client is.
+    /// </summary>
+    /// <remarks>
+    /// A frame rather than a header because a browser's WebSocket cannot set
+    /// headers, and a query string would put the id in nginx's access log.
+    /// </remarks>
+    [Serializable]
+    internal sealed class HelloFrameDto
+    {
+        public string type;
+        public string userId;
+    }
+
+    /// <summary>
+    /// Every frame the server sends, including <c>HELLO_ACK</c>, which carries
+    /// only <see cref="type"/>. The rest are null or empty for it.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="roomCode"/> is only meaningful for a room invite. JsonUtility
+    /// reads a JSON null string as either null or empty depending on the field's
+    /// starting state, so the Core type treats both as absent.
+    /// </remarks>
+    [Serializable]
+    internal sealed class NotificationFrameDto
+    {
+        public string type;
+
+        /// <summary>yyyyMMddHHmmss, UTC.</summary>
+        public string sentAt;
+
+        public UserSummaryDto from;
+        public string roomCode;
     }
 
     /// <summary>

@@ -34,7 +34,22 @@ namespace Game.Core.Rooms
         /// <summary>Whether this person holds authority over the room.</summary>
         public readonly bool IsHost;
 
-        public RoomParticipant(string playerId, int seat, bool isHost, string nickname = null)
+        /// <summary>
+        /// The backend account this person signed in as. Empty when they did not
+        /// sign in, or when the network has not carried it yet.
+        /// </summary>
+        /// <remarks>
+        /// The one value here that outlives the room. <see cref="PlayerId"/> is
+        /// handed out per room and reused, so anything that has to follow a
+        /// person across matches — the play log above all — keys on this instead.
+        /// Never shown: the client guide forbids putting another player's account
+        /// id on screen. Identification only, so replicating it reveals nothing
+        /// that the REST responses do not already.
+        /// </remarks>
+        public readonly string UserId;
+
+        public RoomParticipant(
+            string playerId, int seat, bool isHost, string nickname = null, string userId = null)
         {
             PlayerId = playerId;
             Seat = seat;
@@ -43,6 +58,7 @@ namespace Game.Core.Rooms
             // Normalised here so every consumer can treat it as "empty or a real
             // name" without repeating the check.
             Nickname = string.IsNullOrWhiteSpace(nickname) ? string.Empty : nickname.Trim();
+            UserId = string.IsNullOrWhiteSpace(userId) ? string.Empty : userId.Trim();
         }
     }
 }

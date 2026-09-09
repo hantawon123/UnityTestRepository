@@ -5,6 +5,7 @@ using Cysharp.Threading.Tasks;
 using Game.Backend;
 using Game.Core.Backend;
 using Game.Core.Home;
+using Game.Core.Ports;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 
@@ -311,7 +312,7 @@ namespace Game.Tests.PlayMode
 
         private static async UniTask Reports(Player player, string sessionId)
         {
-            var reported = await player.Presence.ReportAsync(sessionId, CancellationToken.None);
+            var reported = await player.Presence.ReportAsync(sessionId, RoomSessionKind.Match, CancellationToken.None);
             Assert.That(reported.Ok, Is.True, "heartbeat");
         }
 
@@ -334,7 +335,7 @@ namespace Game.Tests.PlayMode
                 client = new BackendClient(transport, new BackendEndpoint(LocalBackend), session);
                 Accounts = new AccountGateway(client);
                 Friends = new FriendGateway(client);
-                Presence = new PresenceGateway(client);
+                Presence = new PresenceGateway(client, new SilentNotificationStream());
 
                 // Letters and digits only, inside the server's twelve, and
                 // unique to this run. The server matches the whole nickname

@@ -6,6 +6,7 @@ using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Players;
 using Game.Core.Ports;
+using Game.Core.Settings;
 using Game.Core.Voice;
 using Game.Network;
 using Game.Network.Lobby;
@@ -51,13 +52,54 @@ namespace Game.Bootstrap
             // there before anybody picks another.
             var regionStore = new PlayerPrefsServerRegionStore();
 
+            // Built here for the same reason: the settings screen reads this
+            // machine's preferences, and a test container must not pick up
+            // whichever language the developer last applied.
+            var generalSettingsStore = new PlayerPrefsGeneralSettingsStore();
+
+            // Likewise for the graphics settings, whose applier is the one
+            // object in the game that speaks to the renderer.
+            var graphicsSettingsStore = new PlayerPrefsGraphicsSettingsStore();
+            var graphicsSettingsApplier = new UnityGraphicsSettingsApplier();
+            var interfaceSettingsStore = new PlayerPrefsInterfaceSettingsStore();
+            var soundSettingsStore = new PlayerPrefsSoundSettingsStore();
+            var soundSettingsApplier = new UnitySoundSettingsApplier();
+            var microphones = new UnityMicrophoneDevices();
+            var controlSettingsStore = new PlayerPrefsControlSettingsStore();
+            var notificationSettingsStore = new PlayerPrefsNotificationSettingsStore();
+
             RegisterServices(
                 builder,
                 _networkPrefabs,
                 _networkScenes,
                 null,
-                new ServerRegionSystem(regionStore, _networkRegion));
+                new ServerRegionSystem(regionStore, _networkRegion),
+                new GeneralSettingsSystem(generalSettingsStore),
+                new GraphicsSettingsSystem(graphicsSettingsStore, graphicsSettingsApplier),
+                new InterfaceSettingsSystem(interfaceSettingsStore),
+                new SoundSettingsSystem(soundSettingsStore, soundSettingsApplier, microphones),
+                new ControlSettingsSystem(controlSettingsStore),
+                new NotificationSettingsSystem(notificationSettingsStore));
             builder.RegisterInstance<IServerRegionStore>(regionStore);
+            builder.RegisterInstance<IGeneralSettingsStore>(generalSettingsStore);
+            builder.RegisterInstance<IGraphicsSettingsStore>(graphicsSettingsStore);
+            builder.RegisterInstance<IGraphicsSettingsApplier>(graphicsSettingsApplier);
+            builder.RegisterInstance<IInterfaceSettingsStore>(interfaceSettingsStore);
+            builder.RegisterInstance<ISoundSettingsStore>(soundSettingsStore);
+            builder.RegisterInstance<ISoundSettingsApplier>(soundSettingsApplier);
+            builder.RegisterInstance<IMicrophoneDevices>(microphones);
+            builder.RegisterInstance<IControlSettingsStore>(controlSettingsStore);
+            builder.RegisterInstance<INotificationSettingsStore>(notificationSettingsStore);
+
+            // Listens to the whole keyboard and mouse while a key is being
+            // put on an action, so only the application has one.
+            builder.Register<IKeyCapture, UnityKeyCapture>(Lifetime.Singleton);
+            builder.RegisterEntryPoint<SoundSettingsStartup>();
+
+            // Makes a saved choice real. Registered here rather than in
+            // RegisterServices because only the application has a window to
+            // resize; a test container must not touch one.
+            builder.RegisterEntryPoint<GraphicsSettingsStartup>();
 
             // Built here rather than in RegisterServices: the device identifier
             // is this machine's saved credential, and a test container must not
@@ -77,6 +119,13 @@ namespace Game.Bootstrap
             inputObject.AddComponent<SharedUiInputActions>().Bind(inputModule);
             inputObject.SetActive(true);
             builder.RegisterComponent(eventSystem);
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+            var webText = new GameObject("Web Text Input").AddComponent<Game.Client.Common.WebTextInput>();
+            webText.transform.SetParent(transform, false);
+            builder.RegisterComponent(webText);
+            builder.RegisterComponent(webText.gameObject.AddComponent<Game.Client.Common.WebFrameCapture>());
+#endif
 
             builder.Register<UnityHomeApplicationHost>(Lifetime.Singleton).As<IHomeApplicationHost>();
             builder.RegisterEntryPoint<FrontendSceneCoordinator>().AsSelf();
@@ -130,17 +179,19 @@ namespace Game.Bootstrap
         /// </remarks>
         private static void RegisterBackend(IContainerBuilder builder, string baseUrl)
         {
-            var client = new BackendClient(
-                new UnityWebRequestTransport(),
-                new BackendEndpoint(baseUrl),
-                new BackendSession(DeviceIdentity.Current()));
+            var endpoint = new BackendEndpoint(baseUrl);
+            var session = new BackendSession(DeviceIdentity.Current());
+            var client = new BackendClient(new UnityWebRequestTransport(), endpoint, session);
+
+            // First, because the presence gateway sends over it when it is up.
+            var frames = RegisterNotifications(builder, endpoint, session);
 
             // The client itself is not registered. Nothing above this line has a
             // reason to hold it, and a container that hands it out is one where
             // a presenter can send its own request and skip the ports entirely.
             builder.RegisterInstance<IAccountGateway>(new AccountGateway(client));
             builder.RegisterInstance<IFriendGateway>(new FriendGateway(client));
-            builder.RegisterInstance<IPresenceGateway>(new PresenceGateway(client));
+            builder.RegisterInstance<IPresenceGateway>(new PresenceGateway(client, frames));
             builder.RegisterInstance<IInviteGateway>(new InviteGateway(client));
             builder.RegisterInstance<IReportGateway>(new ReportGateway(client));
 
@@ -162,6 +213,54 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<AvatarAppearanceSeed>();
         }
 
+        /// <summary>
+        /// Registers the realtime channel, or a silent stand-in when the socket
+        /// package is not in this build.
+        /// </summary>
+        /// <remarks>
+        /// Two branches so that <see cref="INotificationStream"/> always resolves.
+        /// The screens that subscribe to it should not each have to ask whether
+        /// there is a channel; with the stand-in they simply never hear anything,
+        /// which is what they heard before the channel existed.
+        /// <para>
+        /// The define is set by this assembly's versionDefines when
+        /// com.endel.nativewebsocket resolves. Without it the adapter is not
+        /// compiled at all, which is also what keeps <c>dotnet build</c> — which
+        /// never sees Unity packages — building the rest of the assembly.
+        /// </para>
+        /// </remarks>
+        /// <returns>
+        /// The sender the presence gateway puts its frames through. Returned
+        /// rather than resolved so the gateway, which is built by hand above, can
+        /// be handed the same instance the container holds.
+        /// </returns>
+        private static INotificationFrameSender RegisterNotifications(
+            IContainerBuilder builder, BackendEndpoint endpoint, BackendSession session)
+        {
+#if NATIVEWEBSOCKET_PRESENT
+            var transport = new NativeWebSocketTransport(endpoint.TimeoutSeconds);
+            builder.RegisterInstance(transport).As<IWebSocketTransport>().As<ITickable>();
+
+            var stream = new WebSocketNotificationStream(transport, endpoint, session);
+            builder.RegisterInstance(stream)
+                .As<INotificationStream>()
+                .As<INotificationFrameSender>()
+                .AsSelf();
+
+            builder.RegisterEntryPoint<NotificationLink>();
+            return stream;
+#else
+            Debug.LogWarning(
+                "[Notifications] NativeWebSocket is not in this build. Realtime notifications are off; "
+                + "lists refresh when opened, as before.");
+            var silent = new SilentNotificationStream();
+            builder.RegisterInstance(silent)
+                .As<INotificationStream>()
+                .As<INotificationFrameSender>();
+            return silent;
+#endif
+        }
+
         /// <param name="networkPrefabs">
         /// Optional so tests can build the same container without a project
         /// asset. A spawner without prefabs reports the problem when it is first
@@ -181,7 +280,13 @@ namespace Game.Bootstrap
             NetworkPrefabs networkPrefabs = null,
             NetworkScenes networkScenes = null,
             PlayerProfile profile = null,
-            ServerRegionSystem regions = null)
+            ServerRegionSystem regions = null,
+            GeneralSettingsSystem generalSettings = null,
+            GraphicsSettingsSystem graphicsSettings = null,
+            InterfaceSettingsSystem interfaceSettings = null,
+            SoundSettingsSystem soundSettings = null,
+            ControlSettingsSystem controlSettings = null,
+            NotificationSettingsSystem notificationSettings = null)
         {
             builder.Register<AppFlowSystem>(Lifetime.Singleton);
             builder.Register<HomeMenuSystem>(Lifetime.Singleton);
@@ -193,6 +298,34 @@ namespace Game.Bootstrap
             // one backed by this machine's preferences.
             builder.RegisterInstance(
                 regions ?? new ServerRegionSystem(new InMemoryServerRegionStore()));
+
+            // Likewise: one for every container, forgetting with the process
+            // unless the application hands in one backed by preferences.
+            builder.RegisterInstance(
+                generalSettings ?? new GeneralSettingsSystem(new InMemoryGeneralSettingsStore()));
+
+            // Forgetting with the process, and changing nothing about the
+            // picture, unless the application hands in one backed by
+            // preferences and wired to the renderer.
+            builder.RegisterInstance(
+                graphicsSettings ?? new GraphicsSettingsSystem(new InMemoryGraphicsSettingsStore()));
+
+            builder.RegisterInstance(
+                interfaceSettings ?? new InterfaceSettingsSystem(new InMemoryInterfaceSettingsStore()));
+
+            builder.RegisterInstance(
+                soundSettings ?? new SoundSettingsSystem(new InMemorySoundSettingsStore()));
+
+            builder.RegisterInstance(
+                controlSettings ?? new ControlSettingsSystem(new InMemoryControlSettingsStore()));
+
+            builder.RegisterInstance(
+                notificationSettings
+                    ?? new NotificationSettingsSystem(new InMemoryNotificationSettingsStore()));
+
+            // Tests nothing yet: what a microphone test does has not been
+            // decided. The screen's button is wired to this either way.
+            builder.Register<IMicrophoneTest, NullMicrophoneTest>(Lifetime.Singleton);
 
             // One instance for the whole application. The home screen edits this
             // one and the network reads this one, so a rename is visible in both
@@ -238,6 +371,7 @@ namespace Game.Bootstrap
                         c.Resolve<ServerRegionSystem>()),
                     Lifetime.Singleton)
                 .AsSelf()
+                .As<IRoomSessionProbe>()
                 .As<INetworkMatchRuntimeSource>()
                 .As<INetworkMatchAuthority>()
                 .As<INetworkMatchEvents>()

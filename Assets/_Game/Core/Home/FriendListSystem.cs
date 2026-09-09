@@ -14,7 +14,22 @@ namespace Game.Core.Home
         /// together goes, which is why it is listed under 오프라인, but worth
         /// telling apart: this friend is at the keyboard.
         /// </summary>
-        SteamOnline
+        SteamOnline,
+
+        /// <summary>
+        /// In a room, waiting for the match to start. The server's IN_LOBBY.
+        /// </summary>
+        /// <remarks>
+        /// Online, and shown under 온라인. Kept apart from <see cref="InGame"/>
+        /// because a friend in a lobby is about to be busy rather than busy, and
+        /// the screen may want to say so. Inviting either is refused by the
+        /// server: the toast only appears at home, so neither would see it.
+        /// <para>
+        /// Appended rather than placed beside <see cref="InGame"/> so the numbers
+        /// the existing members carry do not shift.
+        /// </para>
+        /// </remarks>
+        InLobby
     }
 
     public readonly struct FriendSummary
@@ -52,7 +67,9 @@ namespace Game.Core.Home
         /// is only on Steam is not one of these.
         /// </summary>
         public bool IsOnline =>
-            Presence == FriendPresence.Online || Presence == FriendPresence.InGame;
+            Presence == FriendPresence.Online
+            || Presence == FriendPresence.InLobby
+            || Presence == FriendPresence.InGame;
     }
 
     public sealed class FriendListSystem

@@ -34,6 +34,9 @@ namespace Game.Client.Interactions
 
         public bool IsPlacing { get; private set; }
 
+        /// <summary>결과 화면 등 외부에서 배치 모드 진입을 막을 때 사용한다. 켜지면 진행 중인 배치도 끝낸다.</summary>
+        public bool IsInputLocked { get; set; }
+
         /// <summary>
         /// 배치 확정 좌클릭이 손을 비운 뒤 같은 입력으로 펀치가 나가지 않게 한다.
         /// </summary>
@@ -107,7 +110,7 @@ namespace Game.Client.Interactions
                 suppressAttackUntilRelease = false;
             }
 
-            if (Cursor.lockState != CursorLockMode.Locked)
+            if (Cursor.lockState != CursorLockMode.Locked || IsInputLocked)
             {
                 ExitPlacementMode();
                 return;

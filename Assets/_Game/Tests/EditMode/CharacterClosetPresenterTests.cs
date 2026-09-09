@@ -535,6 +535,10 @@ namespace Game.Architecture.Tests
             {
             }
 
+            public void OpenSettings()
+            {
+            }
+
             public void CreateRoom(string title, bool isPublic, int maxPlayers)
             {
             }

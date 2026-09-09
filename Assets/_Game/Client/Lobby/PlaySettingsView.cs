@@ -64,6 +64,8 @@ namespace Game.Client.Lobby
         private bool copyCooldownActive;
         private Text titleText;
         private InputField titleInput;
+        private Button saveTitleButton;
+        private string savedTitle = string.Empty;
         private Text roomCodeText;
         private Text maxPlayersText;
         private Button maxPlayersMinusButton;
@@ -120,6 +122,7 @@ namespace Game.Client.Lobby
             Bind(destructionPlusButton, () => SetDestructionLimit(destructionLimit + 1));
             Bind(mapPrevButton, () => StepMapSelection(-1));
             Bind(mapNextButton, () => StepMapSelection(1));
+            Bind(saveTitleButton, () => SaveTitleRequested?.Invoke());
             Bind(categoryPrevButton, () => SelectCategory(-1));
             Bind(categoryNextButton, () => SelectCategory(1));
         }
@@ -129,6 +132,7 @@ namespace Game.Client.Lobby
             if (titleInput != null) titleInput.onValueChanged.RemoveListener(OnTitleChanged);
             foreach (var button in ruleMinus) Unbind(button);
             foreach (var button in rulePlus) Unbind(button);
+            Unbind(saveTitleButton);
             Unbind(applyButton);
             Unbind(openButton);
             Unbind(closeButton);
@@ -323,6 +327,7 @@ namespace Game.Client.Lobby
         {
             editable = value;
             if (titleInput != null) titleInput.interactable = value;
+            RefreshTitleSave();
             foreach (var button in mapSlotButtons)
             {
                 if (button != null)
@@ -340,8 +345,10 @@ namespace Game.Client.Lobby
         {
             EnsureLayout();
             title = draft.Title;
+            savedTitle = title;
             if (titleInput != null) titleInput.SetTextWithoutNotify(title);
             RefreshTitleCounter();
+            RefreshTitleSave();
             roomCode = draft.RoomCode;
             passwordEnabled = draft.PasswordEnabled;
             password = draft.Password ?? string.Empty;
@@ -403,6 +410,19 @@ namespace Game.Client.Lobby
             if (!editable) return;
             title = value;
             RefreshTitleCounter();
+            RefreshTitleSave();
+        }
+
+        private void RefreshTitleSave()
+        {
+            if (saveTitleButton == null)
+            {
+                return;
+            }
+
+            saveTitleButton.interactable = editable
+                && RoomSettings.IsValidTitle(title)
+                && !string.Equals(title.Trim(), savedTitle, StringComparison.Ordinal);
         }
 
         private void RefreshTitleCounter()

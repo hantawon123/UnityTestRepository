@@ -16,15 +16,17 @@ namespace Game.Bootstrap
     /// Home and the room browser are kept warm in each other's company because
     /// the player crosses between them constantly and both are cheap. The
     /// closet is not preloaded: it carries a lit room and a character, and it
-    /// is opened far less often than it is passed by.
+    /// is opened far less often than it is passed by. Nor is the settings
+    /// screen, which is cheap but rarer still.
     /// </remarks>
     internal sealed class FrontendSceneCoordinator : IStartable, IDisposable
     {
         private const string Home = UnityHomeApplicationHost.HomeSceneName;
         private const string Room = UnityHomeApplicationHost.RoomBrowserSceneName;
         private const string Closet = UnityHomeApplicationHost.CharacterClosetSceneName;
+        private const string Settings = UnityHomeApplicationHost.SettingsSceneName;
 
-        private static readonly string[] Frontends = { Home, Room, Closet };
+        private static readonly string[] Frontends = { Home, Room, Closet, Settings };
 
         private string desiredScene;
         private readonly Dictionary<string, AsyncOperation> loads =
@@ -68,6 +70,8 @@ namespace Game.Bootstrap
         public void OpenRoomBrowser() => Open(Room);
 
         public void OpenCharacterCloset() => Open(Closet);
+
+        public void OpenSettings() => Open(Settings);
 
         private void Open(string sceneName)
         {
