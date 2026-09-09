@@ -38,7 +38,6 @@ namespace Game.Client.Lobby
                 {
                     CacheScrollRefs(content);
                     CacheRoomCodeRefs(content);
-                    CacheTitleRefs(content);
                     CacheMapAreaRefs(content);
                     CacheMapScrollRefs();
                 }
@@ -63,21 +62,6 @@ namespace Game.Client.Lobby
             settingsContent = content;
             var scrollTransform = panel.transform.Find("Body/SettingsScroll");
             bodyScroll = scrollTransform != null ? scrollTransform.GetComponent<ScrollRect>() : null;
-        }
-
-        private void CacheTitleRefs(RectTransform content)
-        {
-            var saveTransform = FindDeepChild(content, "SaveTitle");
-            if (saveTransform == null)
-            {
-                return;
-            }
-
-            var button = saveTransform.GetComponent<Button>();
-            if (button != null)
-            {
-                saveTitleButton = button;
-            }
         }
 
         private void CacheRoomCodeRefs(RectTransform content)
@@ -417,7 +401,7 @@ namespace Game.Client.Lobby
             var inputRect = CreateRect("TitleInput", field);
             Anchor(inputRect, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(0.5f, 0.5f));
             inputRect.offsetMin = new Vector2(0f, 12f);
-            inputRect.offsetMax = new Vector2(-90f, 0f);
+            inputRect.offsetMax = Vector2.zero;
             var inputBg = inputRect.gameObject.AddComponent<Image>();
             inputBg.color = Color.clear;
             titleText = CreateBodyText(inputRect, string.Empty, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
@@ -426,18 +410,6 @@ namespace Game.Client.Lobby
             titleInput.textComponent = titleText;
             titleInput.targetGraphic = inputBg;
             titleInput.characterLimit = RoomSettings.MaxTitleLength;
-
-            var saveRect = CreateRect("SaveTitle", field);
-            Anchor(saveRect, new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(1f, 0.5f));
-            saveRect.sizeDelta = new Vector2(80f, 0f);
-            saveRect.offsetMin = new Vector2(-80f, 12f);
-            saveRect.offsetMax = Vector2.zero;
-            var saveFill = saveRect.gameObject.AddComponent<Image>();
-            saveFill.color = Color.clear;
-            var saveLabel = CreateBodyText(saveRect, "저장", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-            saveLabel.alignment = TextAnchor.MiddleCenter;
-            saveTitleButton = saveRect.gameObject.AddComponent<Button>();
-            saveTitleButton.targetGraphic = saveFill;
         }
 
         private void BuildRoomCodeRow(RectTransform parent)
