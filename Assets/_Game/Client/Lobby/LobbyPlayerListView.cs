@@ -53,7 +53,6 @@ namespace Game.Client.Lobby
         private readonly List<GameObject> friendRows = new();
 
         public event Action<string, string> KickClicked;
-        public event Action<string, string> TransferClicked;
         public event Action<string, string> InviteClicked;
 
         public string ParticipantsTitleText =>

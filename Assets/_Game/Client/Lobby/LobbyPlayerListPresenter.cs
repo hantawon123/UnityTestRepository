@@ -19,12 +19,10 @@ namespace Game.Client.Lobby
         private readonly ILobbyPlayerListView view;
         private readonly ILobbyPlayerCountView countView;
         private readonly ILobbyConfirmView kickConfirmView;
-        private readonly ILobbyConfirmView transferConfirmView;
 
         private readonly CancellationTokenSource lifetime = new();
         private IDisposable refreshSubscription;
         private string pendingPlayerId;
-        private bool pendingIsKick;
 
         public LobbyPlayerListPresenter(
             ILobbyParticipantList participantList,
@@ -33,8 +31,7 @@ namespace Game.Client.Lobby
             IInviteGateway invites,
             ILobbyPlayerListView view,
             ILobbyPlayerCountView countView,
-            IKickConfirmView kickConfirmView,
-            IHostTransferConfirmView transferConfirmView)
+            ILobbyConfirmView kickConfirmView)
         {
             this.participantList = participantList
                 ?? throw new ArgumentNullException(nameof(participantList));
@@ -45,22 +42,16 @@ namespace Game.Client.Lobby
             this.countView = countView ?? throw new ArgumentNullException(nameof(countView));
             this.kickConfirmView = kickConfirmView
                 ?? throw new ArgumentNullException(nameof(kickConfirmView));
-            this.transferConfirmView = transferConfirmView
-                ?? throw new ArgumentNullException(nameof(transferConfirmView));
         }
 
         public void Start()
         {
             kickConfirmView.Hide();
-            transferConfirmView.Hide();
 
             view.KickClicked += OnKickClicked;
-            view.TransferClicked += OnTransferClicked;
             view.InviteClicked += OnInviteClicked;
             kickConfirmView.Confirmed += ConfirmPending;
             kickConfirmView.Cancelled += CancelPending;
-            transferConfirmView.Confirmed += ConfirmPending;
-            transferConfirmView.Cancelled += CancelPending;
             friends.FriendsChanged += BindFriends;
 
             refreshSubscription = Observable.CombineLatest(
@@ -84,14 +75,11 @@ namespace Game.Client.Lobby
         public void Dispose()
         {
             view.KickClicked -= OnKickClicked;
-            view.TransferClicked -= OnTransferClicked;
             view.InviteClicked -= OnInviteClicked;
             lifetime.Cancel();
             lifetime.Dispose();
             kickConfirmView.Confirmed -= ConfirmPending;
             kickConfirmView.Cancelled -= CancelPending;
-            transferConfirmView.Confirmed -= ConfirmPending;
-            transferConfirmView.Cancelled -= CancelPending;
             friends.FriendsChanged -= BindFriends;
             refreshSubscription?.Dispose();
         }
@@ -149,23 +137,8 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            pendingIsKick = true;
             pendingPlayerId = playerId;
-            transferConfirmView.Hide();
-            kickConfirmView.Show($"{displayName}님을 강퇴하시겠습니까?");
-        }
-
-        private void OnTransferClicked(string playerId, string displayName)
-        {
-            if (!hostSession.IsLocalHost.CurrentValue)
-            {
-                return;
-            }
-
-            pendingIsKick = false;
-            pendingPlayerId = playerId;
-            kickConfirmView.Hide();
-            transferConfirmView.Show($"{displayName}님에게 방장을 위임하시겠습니까?");
+            kickConfirmView.Show(KickConfirmView.FormatTitle(displayName));
         }
 
         private void ConfirmPending()
@@ -176,15 +149,7 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            if (pendingIsKick)
-            {
-                hostSession.RequestKick(pendingPlayerId);
-            }
-            else
-            {
-                hostSession.RequestHostTransfer(pendingPlayerId);
-            }
-
+            hostSession.RequestKick(pendingPlayerId);
             CancelPending();
         }
 
@@ -192,7 +157,6 @@ namespace Game.Client.Lobby
         {
             pendingPlayerId = null;
             kickConfirmView.Hide();
-            transferConfirmView.Hide();
         }
     }
 }

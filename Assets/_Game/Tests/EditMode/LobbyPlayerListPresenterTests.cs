@@ -32,7 +32,6 @@ namespace Game.Tests.EditMode
                 new FakeInviteGateway(),
                 view,
                 count,
-                new FakeConfirmView(),
                 new FakeConfirmView());
 
             presenter.Start();
@@ -63,7 +62,6 @@ namespace Game.Tests.EditMode
                 new FakeInviteGateway(),
                 view,
                 new FakeCountView(),
-                new FakeConfirmView(),
                 new FakeConfirmView());
 
             presenter.Start();
@@ -102,7 +100,6 @@ namespace Game.Tests.EditMode
                 new FakeInviteGateway(),
                 view,
                 new FakeCountView(),
-                new FakeConfirmView(),
                 new FakeConfirmView());
 
             presenter.Start();
@@ -140,11 +137,13 @@ namespace Game.Tests.EditMode
                 new FakeInviteGateway(),
                 view,
                 new FakeCountView(),
-                kickConfirm,
-                new FakeConfirmView());
+                kickConfirm);
 
             presenter.Start();
             view.RaiseKick("player-2", "게스트");
+
+            Assert.That(kickConfirm.Message, Is.EqualTo(KickConfirmView.FormatTitle("게스트")));
+
             kickConfirm.RaiseConfirm();
 
             Assert.That(kicked, Is.EqualTo(new[] { "player-2" }));
@@ -165,7 +164,6 @@ namespace Game.Tests.EditMode
                 invites,
                 view,
                 new FakeCountView(),
-                new FakeConfirmView(),
                 new FakeConfirmView());
 
             presenter.Start();
@@ -252,7 +250,6 @@ namespace Game.Tests.EditMode
             public int UpdateCount { get; private set; }
 
             public event Action<string, string> KickClicked;
-            public event Action<string, string> TransferClicked;
             public event Action<string, string> InviteClicked;
 
             public void SetParticipants(
@@ -313,13 +310,18 @@ namespace Game.Tests.EditMode
             }
         }
 
-        private sealed class FakeConfirmView : IKickConfirmView, IHostTransferConfirmView
+        private sealed class FakeConfirmView : ILobbyConfirmView
         {
             public bool IsVisible { get; private set; }
+            public string Message { get; private set; }
             public event Action Confirmed;
             public event Action Cancelled;
 
-            public void Show(string message) => IsVisible = true;
+            public void Show(string message)
+            {
+                Message = message;
+                IsVisible = true;
+            }
 
             public void Hide() => IsVisible = false;
 

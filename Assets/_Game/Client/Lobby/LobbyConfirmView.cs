@@ -14,14 +14,6 @@ namespace Game.Client.Lobby
         void Hide();
     }
 
-    public interface IKickConfirmView : ILobbyConfirmView
-    {
-    }
-
-    public interface IHostTransferConfirmView : ILobbyConfirmView
-    {
-    }
-
     public class LobbyConfirmView : MonoBehaviour, ILobbyConfirmView
     {
         [SerializeField]
@@ -147,13 +139,5 @@ namespace Game.Client.Lobby
         private void HandleConfirm() => Confirmed?.Invoke();
 
         private void HandleCancel() => Cancelled?.Invoke();
-    }
-
-    public sealed class KickConfirmView : LobbyConfirmView, IKickConfirmView
-    {
-    }
-
-    public sealed class HostTransferConfirmView : LobbyConfirmView, IHostTransferConfirmView
-    {
     }
 }

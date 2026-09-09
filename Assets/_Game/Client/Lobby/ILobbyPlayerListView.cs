@@ -8,7 +8,6 @@ namespace Game.Client.Lobby
     public interface ILobbyPlayerListView
     {
         event Action<string, string> KickClicked;
-        event Action<string, string> TransferClicked;
         event Action<string, string> InviteClicked;
 
         void SetParticipants(

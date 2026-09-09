@@ -41,9 +41,6 @@ namespace Game.Bootstrap
         private KickConfirmView kickConfirmView;
 
         [SerializeField]
-        private HostTransferConfirmView transferConfirmView;
-
-        [SerializeField]
         private MatchChatView chatView;
 
         [SerializeField]
@@ -121,7 +118,7 @@ namespace Game.Bootstrap
                     "LobbyPlayerListView must be assigned. Lobby 씬에서 Game > Lobby > Build HUD Layout 을 실행하세요.");
             }
 
-            if (playSettingsView == null || kickConfirmView == null || transferConfirmView == null)
+            if (playSettingsView == null || kickConfirmView == null)
             {
                 throw new InvalidOperationException(
                     "Host UI views must be assigned. Lobby 씬에서 Game > Lobby > Build HUD Layout 을 실행하세요.");
@@ -148,8 +145,7 @@ namespace Game.Bootstrap
             builder.RegisterComponent(pauseMenuView).As<ILobbyPauseMenuView>();
             builder.RegisterComponent(playerListView).As<ILobbyPlayerListView>();
             builder.RegisterComponent(playSettingsView).As<IPlaySettingsView>();
-            builder.RegisterComponent(kickConfirmView).As<IKickConfirmView>();
-            builder.RegisterComponent(transferConfirmView).As<IHostTransferConfirmView>();
+            builder.RegisterComponent(kickConfirmView).As<ILobbyConfirmView>();
             chatView.SetKeepChromeVisible(true);
             builder.RegisterComponent(chatView).As<IChatView>();
             builder.RegisterComponent(chatBubbleView).As<IMatchChatBubbleView>();

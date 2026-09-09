@@ -112,14 +112,8 @@ namespace Game.Editor
             DestroyIfExists(pauseMenuPanel, "KeyGuideButton");
             var pausePlaySettings = pauseMenuPanel.Find("PlaySettingsButton") as RectTransform;
             var playSettingsView = EnsurePlaySettingsView(root, pausePlaySettings);
-            var kickConfirm = EnsureConfirmView<KickConfirmView>(
-                root,
-                "KickConfirmPanel",
-                "강퇴 확인");
-            var transferConfirm = EnsureConfirmView<HostTransferConfirmView>(
-                root,
-                "HostTransferConfirmPanel",
-                "방장 위임 확인");
+            var kickConfirm = EnsureKickConfirmView(root);
+            DestroyIfExists(root, "HostTransferConfirmPanel");
             var voiceView = hud.GetComponent<VoiceView>();
             if (voiceView == null)
             {
@@ -154,7 +148,6 @@ namespace Game.Editor
             scopeSo.FindProperty("playerListView").objectReferenceValue = playerListView;
             scopeSo.FindProperty("playSettingsView").objectReferenceValue = playSettingsView;
             scopeSo.FindProperty("kickConfirmView").objectReferenceValue = kickConfirm;
-            scopeSo.FindProperty("transferConfirmView").objectReferenceValue = transferConfirm;
             scopeSo.FindProperty("chatView").objectReferenceValue = chatView;
             scopeSo.FindProperty("chatBubbleView").objectReferenceValue = chatBubbleView;
             scopeSo.FindProperty("voiceView").objectReferenceValue = voiceView;
@@ -512,51 +505,15 @@ namespace Game.Editor
             }
         }
 
-        private static TConfirm EnsureConfirmView<TConfirm>(
-            RectTransform root,
-            string panelName,
-            string title)
-            where TConfirm : LobbyConfirmView
+        private static KickConfirmView EnsureKickConfirmView(RectTransform root)
         {
-            var panel = root.Find(panelName) as RectTransform;
-            if (panel == null)
-            {
-                panel = GetOrCreateSlot(root, panelName, new Color(0.12f, 0.13f, 0.18f, 0.96f));
-                Place(panel, Anchor.Center, Vector2.zero, new Vector2(460f, 220f));
-                SetLabel(panel, string.Empty);
-            }
-
-            var messageTransform = panel.Find("MessageText");
-            if (messageTransform == null)
-            {
-                messageTransform = CreateTextChild(panel, "MessageText", title, 22, TextAnchor.MiddleCenter).transform;
-            }
-
-            var messageRect = messageTransform.GetComponent<RectTransform>();
-            messageRect.anchorMin = new Vector2(0f, 0f);
-            messageRect.anchorMax = new Vector2(1f, 1f);
-            messageRect.offsetMin = new Vector2(24f, 88f);
-            messageRect.offsetMax = new Vector2(-24f, -24f);
-
-            EnsureButtonSlot(panel, "ConfirmButton", "예", new Vector2(-80f, -58f), new Vector2(120f, 40f));
-            EnsureButtonSlot(panel, "CancelButton", "아니오", new Vector2(80f, -58f), new Vector2(120f, 40f));
-
-            var view = panel.GetComponent<TConfirm>();
+            DestroyIfExists(root, "KickConfirmPanel");
+            var view = root.GetComponent<KickConfirmView>();
             if (view == null)
             {
-                view = Undo.AddComponent<TConfirm>(panel.gameObject);
+                view = Undo.AddComponent<KickConfirmView>(root.gameObject);
             }
 
-            var so = new SerializedObject(view);
-            so.FindProperty("panel").objectReferenceValue = panel.gameObject;
-            so.FindProperty("messageText").objectReferenceValue =
-                panel.Find("MessageText")?.GetComponent<Text>();
-            so.FindProperty("confirmButton").objectReferenceValue =
-                panel.Find("ConfirmButton")?.GetComponent<Button>();
-            so.FindProperty("cancelButton").objectReferenceValue =
-                panel.Find("CancelButton")?.GetComponent<Button>();
-            so.ApplyModifiedPropertiesWithoutUndo();
-            panel.gameObject.SetActive(false);
             return view;
         }
 
