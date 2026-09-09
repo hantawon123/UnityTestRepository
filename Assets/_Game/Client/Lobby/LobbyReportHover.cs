@@ -97,7 +97,7 @@ namespace Game.Client.Lobby
         /// Closes the button if the pointer never arrived on it. Tests call
         /// this in place of the next-frame wait.
         /// </summary>
-        internal void HideIfStillLeft()
+        public void HideIfStillLeft()
         {
             hideRoutine = null;
             if (hoverCount == 0)

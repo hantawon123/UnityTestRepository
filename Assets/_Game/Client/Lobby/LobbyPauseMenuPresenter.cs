@@ -16,9 +16,9 @@ namespace Game.Client.Lobby
     /// The lobby is a place the player walks around, so the cursor stays
     /// captured for looking: movement is camera-relative and the character
     /// faces where the camera faces, which leaves a freed cursor with no way to
-    /// turn. Esc frees the pointer and opens environment settings; 1 and 2
-    /// open the other two overlays the bottom-right guide names. A released
-    /// cursor with nothing to press is just a stuck screen.
+    /// turn. Esc currently leaves the room; 1 and 2 open the overlays the
+    /// bottom-right guide names. A released cursor with nothing to press is
+    /// just a stuck screen.
     /// <para>
     /// Cursor and movement are set here rather than once while the scene loads.
     /// The one-shot call this replaces ran before the avatar had replicated in,
@@ -160,11 +160,18 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            if (!WasPressed(keyboard.escapeKey))
+            if (WasPressed(keyboard.escapeKey))
             {
-                return;
+                HandleEscape();
             }
+        }
 
+        /// <summary>
+        /// Temporary: Esc backs out of an open screen, then leaves the room.
+        /// Settings will take this key again later.
+        /// </summary>
+        public void HandleEscape()
+        {
             // One page back rather than all the way out. Asking the screen to
             // close, instead of hiding it, keeps its presenter's idea of whether
             // it is open in step with what is on the glass.
@@ -180,7 +187,7 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            ToggleShortcut(LobbyShortcutKind.Settings);
+            Leave();
         }
 
         private void ApplyHostControls(bool isHost)

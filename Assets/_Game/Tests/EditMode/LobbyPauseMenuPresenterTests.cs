@@ -146,6 +146,31 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Escape_FromTheRoom_LeavesTheGame()
+        {
+            using var fixture = new Fixture();
+            fixture.Presenter.Start();
+
+            fixture.Presenter.HandleEscape();
+
+            Assert.That(fixture.Left, Is.True);
+            Assert.That(fixture.Shortcuts.IsOpen, Is.False);
+        }
+
+        [Test]
+        public void Escape_WhileShortcutOpen_ClosesItWithoutLeaving()
+        {
+            using var fixture = new Fixture();
+            fixture.Presenter.Start();
+            fixture.Presenter.ToggleShortcut(LobbyShortcutKind.Players);
+
+            fixture.Presenter.HandleEscape();
+
+            Assert.That(fixture.Shortcuts.IsOpen, Is.False);
+            Assert.That(fixture.Left, Is.False);
+        }
+
+        [Test]
         public void SettingsClicked_OpensEnvironmentSettings_ThenCloseReturnsToMenu()
         {
             using var fixture = new Fixture();
@@ -166,12 +191,15 @@ namespace Game.Tests.EditMode
             public readonly PauseView Menu = new();
             public readonly SettingsView Settings = new();
             public readonly HostSession Session = new();
+            public readonly LobbyExitPresenter Exit = new();
             public readonly LobbyPauseMenuPresenter Presenter;
+            public bool Left { get; private set; }
 
             public Fixture()
             {
+                Exit.LeaveRequested += () => Left = true;
                 Presenter = new LobbyPauseMenuPresenter(
-                    Menu, Settings, Session, new LobbyExitPresenter(), Shortcuts);
+                    Menu, Settings, Session, Exit, Shortcuts);
             }
 
             public void Dispose()

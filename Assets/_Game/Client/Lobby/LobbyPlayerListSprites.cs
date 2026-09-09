@@ -9,12 +9,17 @@ namespace Game.Client.Lobby
     internal static class LobbyPlayerListSprites
     {
         public const string PlusResource = "UI/Icon_Plus";
+        public const string PlusGrayResource = "UI/Icon_Plus_Gray";
         public const string LeaderResource = "UI/Icon_Leader";
 
         private static Sprite plus;
+        private static Sprite plusGray;
         private static Sprite leader;
 
         public static Sprite Plus => plus ??= Resources.Load<Sprite>(PlusResource) ?? BuildPlus();
+
+        public static Sprite PlusGray =>
+            plusGray ??= Resources.Load<Sprite>(PlusGrayResource) ?? BuildPlusGray();
 
         public static Sprite Leader => leader ??= Resources.Load<Sprite>(LeaderResource) ?? BuildCrown();
 
@@ -47,6 +52,48 @@ namespace Game.Client.Lobby
                     var onPlus = Mathf.Abs(dx) <= bar && Mathf.Abs(dy) <= arm
                         || Mathf.Abs(dy) <= bar && Mathf.Abs(dx) <= arm;
                     texture.SetPixel(x, y, onPlus ? Color.white : accent);
+                }
+            }
+
+            texture.Apply(false, false);
+            var sprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, size, size),
+                new Vector2(0.5f, 0.5f),
+                100f);
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+
+        private static Sprite BuildPlusGray()
+        {
+            const int size = 64;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                hideFlags = HideFlags.HideAndDontSave,
+                filterMode = FilterMode.Bilinear
+            };
+
+            var center = (size - 1) * 0.5f;
+            var hexRadius = center - 2f;
+            var bar = 4.5f;
+            var arm = 12f;
+            var gray = new Color(0.62f, 0.62f, 0.62f, 1f);
+            for (var y = 0; y < size; y++)
+            {
+                for (var x = 0; x < size; x++)
+                {
+                    var dx = x - center;
+                    var dy = y - center;
+                    if (!InsideHex(dx, dy, hexRadius))
+                    {
+                        texture.SetPixel(x, y, Color.clear);
+                        continue;
+                    }
+
+                    var onPlus = Mathf.Abs(dx) <= bar && Mathf.Abs(dy) <= arm
+                        || Mathf.Abs(dy) <= bar && Mathf.Abs(dx) <= arm;
+                    texture.SetPixel(x, y, onPlus ? gray : Color.clear);
                 }
             }
 

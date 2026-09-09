@@ -44,6 +44,7 @@ namespace Game.Client.Lobby
         public const string ReportLabel = "신고하기";
         public const string ReportBridgeName = "Bridge";
         public const string ReportConfirmLabel = "확인";
+        public const float InviteCooldownSeconds = 10f;
 
         public static readonly Color KickColor = new Color(177f / 255f, 177f / 255f, 177f / 255f, 1f);
         public static readonly Color RowHoverFill = new Color(1f, 1f, 1f, 0.12f);
@@ -59,6 +60,10 @@ namespace Game.Client.Lobby
         private TextMeshProUGUI friendsTitle;
         private readonly List<GameObject> participantRows = new();
         private readonly List<GameObject> friendRows = new();
+        private readonly Dictionary<string, Button> inviteButtons = new();
+        private readonly Dictionary<string, Image> inviteIcons = new();
+        private readonly Dictionary<string, float> inviteReadyAt = new();
+        private Func<float> inviteClock = () => Time.unscaledTime;
 
         public event Action<string, string> KickClicked;
         public event Action<string, string> InviteClicked;
@@ -76,6 +81,11 @@ namespace Game.Client.Lobby
         private void Awake()
         {
             EnsureLayout();
+        }
+
+        private void Update()
+        {
+            RefreshInviteCooldowns();
         }
 
         public void SetParticipants(
@@ -120,9 +130,35 @@ namespace Game.Client.Lobby
             }
         }
 
+        public void SetInviteClock(Func<float> clock)
+        {
+            inviteClock = clock ?? (() => Time.unscaledTime);
+        }
+
+        public void RefreshInviteCooldowns()
+        {
+            var now = inviteClock();
+            var expired = new List<string>();
+            foreach (var entry in inviteReadyAt)
+            {
+                if (entry.Value <= now)
+                {
+                    expired.Add(entry.Key);
+                }
+            }
+
+            for (var index = 0; index < expired.Count; index++)
+            {
+                inviteReadyAt.Remove(expired[index]);
+                ApplyInviteButton(expired[index]);
+            }
+        }
+
         public void SetFriends(IReadOnlyList<FriendSummary> friends)
         {
             EnsureLayout();
+            inviteButtons.Clear();
+            inviteIcons.Clear();
             ClearRows(friendRows);
 
             if (friends == null || friends.Count == 0)
@@ -142,15 +178,7 @@ namespace Game.Client.Lobby
                     showLeader: false,
                     showKick: false,
                     showAdd: true);
-                var add = row.Find("Add")?.GetComponent<Button>();
-                if (add == null)
-                {
-                    continue;
-                }
-
-                var playerId = friend.PlayerId;
-                var nickname = friend.Nickname;
-                add.onClick.AddListener(() => InviteClicked?.Invoke(playerId, nickname));
+                BindInvite(row, friend.PlayerId, friend.Nickname);
             }
         }
 
@@ -444,6 +472,61 @@ namespace Game.Client.Lobby
             scrollbar.targetGraphic = grab;
             scrollbar.transition = Selectable.Transition.None;
             return scrollbar;
+        }
+
+        private void BindInvite(RectTransform row, string playerId, string nickname)
+        {
+            var add = row.Find("Add");
+            if (add == null)
+            {
+                return;
+            }
+
+            var button = add.GetComponent<Button>();
+            var icon = add.GetComponent<Image>();
+            if (button == null || icon == null)
+            {
+                return;
+            }
+
+            inviteButtons[playerId] = button;
+            inviteIcons[playerId] = icon;
+            ApplyInviteButton(playerId);
+            button.onClick.AddListener(() => TryInvite(playerId, nickname));
+        }
+
+        private void TryInvite(string playerId, string nickname)
+        {
+            if (IsInviteCooling(playerId))
+            {
+                return;
+            }
+
+            inviteReadyAt[playerId] = inviteClock() + InviteCooldownSeconds;
+            ApplyInviteButton(playerId);
+            InviteClicked?.Invoke(playerId, nickname);
+        }
+
+        private void ApplyInviteButton(string playerId)
+        {
+            var cooling = IsInviteCooling(playerId);
+            if (inviteButtons.TryGetValue(playerId, out var button) && button != null)
+            {
+                button.interactable = !cooling;
+            }
+
+            if (inviteIcons.TryGetValue(playerId, out var icon) && icon != null)
+            {
+                icon.sprite = cooling
+                    ? LobbyPlayerListSprites.PlusGray
+                    : LobbyPlayerListSprites.Plus;
+            }
+        }
+
+        private bool IsInviteCooling(string playerId)
+        {
+            return inviteReadyAt.TryGetValue(playerId, out var readyAt)
+                && readyAt > inviteClock();
         }
 
         private void BindReport(RectTransform row, string playerId, string displayName)

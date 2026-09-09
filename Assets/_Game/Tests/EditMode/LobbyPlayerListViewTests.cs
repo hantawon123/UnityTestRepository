@@ -253,5 +253,63 @@ namespace Game.Architecture.Tests
                 Object.DestroyImmediate(canvas);
             }
         }
+
+        [Test]
+        public void Invite_LocksThatPlayersPlusForTenSeconds()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var now = 100f;
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.SetInviteClock(() => now);
+                view.SetFriends(new[]
+                {
+                    new FriendSummary("f-1", "첫번째", FriendPresence.Online),
+                    new FriendSummary("f-2", "두번째", FriendPresence.Online),
+                });
+
+                var invited = new List<string>();
+                view.InviteClicked += (id, _) => invited.Add(id);
+
+                var first = canvas.transform
+                    .Find("Columns/Friends/Scroll/RowRoot/Friend_f-1/Add");
+                var second = canvas.transform
+                    .Find("Columns/Friends/Scroll/RowRoot/Friend_f-2/Add");
+                first.GetComponent<Button>().onClick.Invoke();
+                first.GetComponent<Button>().onClick.Invoke();
+
+                var lockedIcon = first.GetComponent<Image>().sprite;
+                var readyIcon = second.GetComponent<Image>().sprite;
+                Assert.That(invited, Is.EqualTo(new[] { "f-1" }));
+                Assert.That(first.GetComponent<Button>().interactable, Is.False);
+                Assert.That(lockedIcon, Is.Not.Null);
+                Assert.That(readyIcon, Is.Not.Null);
+                Assert.That(lockedIcon, Is.Not.EqualTo(readyIcon));
+                Assert.That(second.GetComponent<Button>().interactable, Is.True);
+                Assert.That(
+                    second.GetComponent<Image>().sprite,
+                    Is.EqualTo(readyIcon));
+
+                view.SetFriends(new[]
+                {
+                    new FriendSummary("f-1", "첫번째", FriendPresence.Online),
+                    new FriendSummary("f-2", "두번째", FriendPresence.Online),
+                });
+                first = canvas.transform
+                    .Find("Columns/Friends/Scroll/RowRoot/Friend_f-1/Add");
+                Assert.That(first.GetComponent<Button>().interactable, Is.False);
+                Assert.That(first.GetComponent<Image>().sprite, Is.EqualTo(lockedIcon));
+
+                now += LobbyPlayerListView.InviteCooldownSeconds;
+                view.RefreshInviteCooldowns();
+                Assert.That(first.GetComponent<Button>().interactable, Is.True);
+                Assert.That(first.GetComponent<Image>().sprite, Is.EqualTo(readyIcon));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
     }
 }
