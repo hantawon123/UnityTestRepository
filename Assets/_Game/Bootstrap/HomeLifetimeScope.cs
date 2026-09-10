@@ -129,9 +129,15 @@ namespace Game.Bootstrap
         /// </summary>
         /// <remarks>
         /// The room browser used to do this, from a create form it no longer
-        /// has. Nothing forces the preload to be used: closing the form leaves a
-        /// finished load sitting as a cache, and leaving Home releases it with
-        /// the session.
+        /// has.
+        /// <para>
+        /// The preload is parked, not finished — the scene is read but held
+        /// short of activation — and Unity runs scene loads one at a time, so
+        /// anything asked for behind it waits until it is let go. Closing the
+        /// form without making a room therefore releases it at once, and so
+        /// does leaving Home; a parked load left behind is a 환경설정 button
+        /// that does nothing, with no error to say why.
+        /// </para>
         /// </remarks>
         private sealed class CreateRoomWarmup : IStartable, System.IDisposable
         {
@@ -147,11 +153,17 @@ namespace Game.Bootstrap
             public void Start()
             {
                 view.ActionClicked += OnActionClicked;
+                view.CreateRoomDismissed += OnCreateRoomDismissed;
             }
 
             public void Dispose()
             {
                 view.ActionClicked -= OnActionClicked;
+                view.CreateRoomDismissed -= OnCreateRoomDismissed;
+
+                // Leaving Home with the form's preload still parked would block
+                // the next screen's load just the same.
+                network.ReleaseLobbyPreload();
             }
 
             private void OnActionClicked(HomeMenuAction action)
@@ -161,6 +173,8 @@ namespace Game.Bootstrap
                     network.PrepareLobbyScene();
                 }
             }
+
+            private void OnCreateRoomDismissed() => network.ReleaseLobbyPreload();
         }
 
         /// <summary>
