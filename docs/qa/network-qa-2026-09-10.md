@@ -107,3 +107,14 @@ Unity 테스트 로그와 XML은 작업용 문서 저장소의 `.build/lobby-pro
 - 원인: LobbySettingsOverlay.Open과 Tick이 IsWaitingForMatch만 허용해 서버의 공유 Highlight 페이즈 동안 열기를 거절하거나 열린 창을 닫음.
 - Bootstrap의 두 조건을 통일: 기존 로비 상태 또는 Highlight 진행 중 개인 IsLocalHighlightComplete인 상태에서 허용. 실제 경기 시작 시 기존 자동 닫기 유지. Client 수정 없음.
 - 기존 로비 메뉴·커서·하이라이트·네트워크 관련 Unity EditMode 192/192 통과 (qa-skipped-lobby-settings.xml). 다중 참가자 중 먼저 스킵한 사용자의 실제 설정 열기/닫기는 플레이 재확인 필요.
+
+
+## 캐릭터의 물건 밀기 차단과 발판/낙하 유지
+
+- 사용자 요구 확정: 캐릭터가 걷거나 점프해서 접촉한다고 물건이 밀리면 안 됨. 쌓인 상자의 받침을 집으면 위 상자들은 중력으로 떨어져야 함.
+- 기존 캐릭터 KCC CollisionLayerMask는 Default만 포함하고 Carryable을 제외했지만 PhysX 접촉은 살아 있었음. 캐릭터 무게 변경이 아니라 이동 질의와 강체 접촉의 역할 분리가 필요.
+- NetworkPlayerMotor 초기화에서 Carryable을 KCC 충돌 질의에 포함하고, 캐릭터 Rigidbody.excludeLayers에는 Carryable을 추가. 캐릭터가 물건을 벽/발판으로 감지하되 운동량을 전달하지 않음. 물건의 Rigidbody, 질량, 중력, 물건끼리 충돌 및 받침 제거 각성 로직 유지. Client/프리팹/Photon SDK 변경 없음.
+- 실제 NetworkedPlayer 프리팹과 Fusion Single 입력을 사용하는 PlayMode 검증: 상자 위 착지/접지, 옆에서 보행 시 차단, 두 경우 상자 위치 변동 0.04m 미만, 동적 강체 유지. 기존 받침 제거 낙하 및 물리 재동기화 등 총 6/6 통과(qa-carryable-contact-v3.xml).
+- 초기 테스트의 렌더 단계 KCC 입력은 다음 fixed update에 사라져 이동 검증 실패. 실제 NetworkEvents.OnInput 전달 및 이벤트 초기화로 테스트 구성을 수정한 후 통과. 생산 코드 추가 변경 없음.
+- 기존 EditMode 192/192 통과(qa-carryable-contract.xml). 별도 PC 다중 접속 및 WebGL 빌드 재배포는 미실행.
+- 참고: https://docs.unity3d.com/6000.3/Documentation/ScriptReference/Rigidbody-excludeLayers.html 및 저장소 KCC.Physics.cs의 레이어 기반 질의/ComputePenetration 경로 확인.

@@ -103,6 +103,12 @@ namespace Game.Network.Players
             kcc = GetComponent<KCC>();
             movementProcessor = GetComponent<PlayerKCCMovementProcessor>();
 
+            var carryableMask = LayerMask.GetMask("Carryable");
+            // KCC queries provide blocking/grounding; PhysX must not push props
+            // with the avatar's kinematic body. Prop gravity/contact stays active.
+            kcc.SetCollisionLayerMask(kcc.Settings.CollisionLayerMask | carryableMask);
+            GetComponent<Rigidbody>().excludeLayers |= carryableMask;
+
             var behaviours = GetComponents<MonoBehaviour>();
             for (var index = 0; index < behaviours.Length; index++)
             {
