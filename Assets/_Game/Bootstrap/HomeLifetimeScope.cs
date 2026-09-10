@@ -40,6 +40,7 @@ namespace Game.Bootstrap
             builder.RegisterComponent(homeMenuView).As<IHomeMenuView>();
 
             builder.RegisterEntryPoint<HomeMenuPresenter>();
+            builder.RegisterEntryPoint<CreateRoomWarmup>();
             builder.RegisterEntryPoint<HomeExitNotice>().WithParameter(homeMenuView);
 
             // Carries this panel's requests to the backend and its answers
@@ -118,6 +119,50 @@ namespace Game.Bootstrap
             {
                 rooms.RefreshAsync(CancellationToken.None)
                     .Forget(exception => Debug.LogException(exception));
+            }
+        }
+
+        /// <summary>
+        /// Starts loading the Lobby scene while the create-room form is open,
+        /// so the wait after pressing 만들기 is the room being made rather than
+        /// a scene being read off disk.
+        /// </summary>
+        /// <remarks>
+        /// The load is parked short of activation and cannot be cancelled —
+        /// Unity would have to activate the scene to let it go, and that runs
+        /// the lobby. So it is left where it is, and the room entry that
+        /// follows consumes it. Unity runs scene loads one at a time, which
+        /// means nothing else may need a fresh load while this is parked; the
+        /// frontend coordinator keeps every menu screen loaded from Home for
+        /// exactly that reason.
+        /// </remarks>
+        private sealed class CreateRoomWarmup : IStartable, System.IDisposable
+        {
+            private readonly IHomeMenuView view;
+            private readonly NetworkRunnerService network;
+
+            public CreateRoomWarmup(IHomeMenuView view, NetworkRunnerService network)
+            {
+                this.view = view;
+                this.network = network;
+            }
+
+            public void Start()
+            {
+                view.ActionClicked += OnActionClicked;
+            }
+
+            public void Dispose()
+            {
+                view.ActionClicked -= OnActionClicked;
+            }
+
+            private void OnActionClicked(HomeMenuAction action)
+            {
+                if (action == HomeMenuAction.CreateRoom)
+                {
+                    network.PrepareLobbyScene();
+                }
             }
         }
 

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Game.Client.Common;
 using Game.Core.Flow;
-using Game.Network.Session;
 using Game.Client.Home;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -43,18 +42,13 @@ namespace Game.Bootstrap
         private readonly EventSystem sharedEventSystem;
         private readonly ILoadingOverlay loading;
         private readonly AppFlowSystem flow;
-        private readonly NetworkRunnerService network;
 
         public FrontendSceneCoordinator(
-            EventSystem sharedEventSystem,
-            ILoadingOverlay loading = null,
-            AppFlowSystem flow = null,
-            NetworkRunnerService network = null)
+            EventSystem sharedEventSystem, ILoadingOverlay loading = null, AppFlowSystem flow = null)
         {
             this.sharedEventSystem = sharedEventSystem;
             this.loading = loading;
             this.flow = flow;
-            this.network = network;
         }
 
         public void Start()
@@ -182,67 +176,12 @@ namespace Game.Bootstrap
         {
             if (!IsFrontend(scene))
             {
-                RestoreFrontendIfNoGameplayRemains();
                 return;
             }
 
             ClearLoad(scene.name);
         }
 
-        /// <summary>
-        /// Puts the menu back when the last gameplay scene has gone.
-        /// </summary>
-        /// <remarks>
-        /// Loading a gameplay scene switches every frontend off (see
-        /// <see cref="OnSceneLoaded"/>), and nothing switched them back on when
-        /// that scene left without another taking its place. A lobby preload
-        /// that is discarded — the room was never made — does exactly that: it
-        /// has to be activated to be unloaded, the activation hides Home, and
-        /// Home stayed dark with its camera off. Any gameplay scene that unloads
-        /// while a frontend is what the player should be seeing is the same
-        /// case.
-        /// <para>
-        /// Leaving a match is unaffected: Home is loaded before the match scene
-        /// unloads, so <see cref="OnSceneLoaded"/> has already shown it and this
-        /// shows it again, which changes nothing.
-        /// </para>
-        /// </remarks>
-        private void RestoreFrontendIfNoGameplayRemains()
-        {
-            // While a room session stands, Fusion owns the screen: it swaps the
-            // lobby in with a Single load that unloads the preloaded copy on the
-            // way, and stepping in between would put Home back over the lobby
-            // and make Home the active scene under Fusion's feet. The case this
-            // method exists for — a discarded preload — has no session.
-            if (network != null && (network.HasRoomSession || network.IsRoomExitPending))
-            {
-                return;
-            }
-
-            for (var index = 0; index < SceneManager.sceneCount; index++)
-            {
-                var scene = SceneManager.GetSceneAt(index);
-
-                // A scene still loading is not isLoaded yet but is on its way,
-                // so it counts: the screen is about to be somebody else's.
-                if (!scene.IsValid() || IsFrontend(scene) || LoadingScene.IsLoading(scene))
-                {
-                    continue;
-                }
-
-                // A gameplay scene is up or arriving; it owns the screen.
-                return;
-            }
-
-            var wanted = string.IsNullOrEmpty(desiredScene) ? Home : desiredScene;
-            if (!TryShow(wanted) && !TryShow(Home))
-            {
-                return;
-            }
-
-            Debug.Log(
-                $"[SceneTiming] Gameplay scene gone with no successor; frontend {wanted} shown again.");
-        }
 
         private bool TryShow(string sceneName)
         {
@@ -301,7 +240,14 @@ namespace Game.Bootstrap
         {
             if (string.Equals(visibleScene, Home, StringComparison.Ordinal))
             {
+                // Every menu screen, not just the browser. Opening the
+                // create-room form parks a lobby preload, and Unity runs scene
+                // loads one at a time, so a screen that still had to load after
+                // that would wait behind the parked load with no end and no
+                // error. A screen already loaded only has its roots switched on.
                 EnsureLoaded(Room);
+                EnsureLoaded(Settings);
+                EnsureLoaded(Closet);
             }
             else if (string.Equals(visibleScene, Room, StringComparison.Ordinal))
             {
