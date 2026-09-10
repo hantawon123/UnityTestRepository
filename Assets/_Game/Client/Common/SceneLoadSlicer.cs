@@ -47,6 +47,10 @@ namespace Game.Client.Common
             var operation = SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Additive);
             if (operation == null)
             {
+                // Unity returns null rather than throwing for a scene it cannot
+                // load — not in the build, or misnamed. Returning quietly here
+                // is how a screen that never appeared left no trace.
+                Debug.LogError($"[SceneTiming] Could not start loading scene '{sceneName}'.");
                 return;
             }
 

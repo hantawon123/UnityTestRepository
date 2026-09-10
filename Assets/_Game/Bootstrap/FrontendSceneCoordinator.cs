@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Game.Client.Common;
+using Game.Core.Flow;
 using Game.Client.Home;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -37,11 +38,14 @@ namespace Game.Bootstrap
         private double switchStartedAt = -1d;
         private readonly EventSystem sharedEventSystem;
         private readonly ILoadingOverlay loading;
+        private readonly AppFlowSystem flow;
 
-        public FrontendSceneCoordinator(EventSystem sharedEventSystem, ILoadingOverlay loading = null)
+        public FrontendSceneCoordinator(
+            EventSystem sharedEventSystem, ILoadingOverlay loading = null, AppFlowSystem flow = null)
         {
             this.sharedEventSystem = sharedEventSystem;
             this.loading = loading;
+            this.flow = flow;
         }
 
         public void Start()
@@ -105,7 +109,13 @@ namespace Game.Bootstrap
             }
 
             await SceneLoadSlicer.LoadAdditiveAsync(sceneName);
-            TryShow(sceneName);
+            if (!TryShow(sceneName))
+            {
+                // Said out loud. The screen that asked for this has already
+                // moved the flow to the new state, and a switch that quietly
+                // never happens leaves it there with the old screen still up.
+                Debug.LogError($"[SceneTiming] Frontend switch to {sceneName} loaded nothing to show.");
+            }
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -185,6 +195,16 @@ namespace Game.Bootstrap
             if (string.Equals(sceneName, Home, StringComparison.Ordinal))
             {
                 loading?.Hide();
+
+                // Home on screen is the one fact this class knows for certain.
+                // If the flow still says a detour, the detour never took the
+                // player anywhere, and Home's buttons would all be refused.
+                var stale = flow?.CurrentState;
+                if (flow != null && flow.TryReconcileToHome())
+                {
+                    Debug.LogWarning(
+                        $"[Home] Flow was still {stale} with Home on screen; put back to Home.");
+                }
             }
 
             EnsureCounterpartLoaded(sceneName);

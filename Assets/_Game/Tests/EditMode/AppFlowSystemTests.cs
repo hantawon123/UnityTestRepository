@@ -68,6 +68,54 @@ namespace Game.Tests.EditMode
             Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.Home));
         }
 
+        /// <summary>
+        /// Home on screen with the flow still on a detour is the state that
+        /// left Home with half its menu dead. Showing Home puts it right.
+        /// </summary>
+        [TestCase(AppFlowState.CharacterCloset)]
+        [TestCase(AppFlowState.Settings)]
+        [TestCase(AppFlowState.RoomBrowser)]
+        public void ShowingHome_PutsAStrandedDetourBackToHome(AppFlowState detour)
+        {
+            var flow = new AppFlowSystem();
+            Assert.That(flow.TryTransitionTo(detour), Is.True);
+
+            Assert.That(flow.TryReconcileToHome(), Is.True, "Something was wrong and was corrected.");
+            Assert.That(flow.CurrentState, Is.EqualTo(AppFlowState.Home));
+            Assert.That(flow.TryTransitionTo(AppFlowState.Settings), Is.True, "And the menu works again.");
+        }
+
+        [Test]
+        public void ShowingHome_WhenAlreadyHome_ChangesNothing()
+        {
+            var flow = new AppFlowSystem();
+            var changes = 0;
+            flow.StateChanged += _ => changes++;
+
+            Assert.That(flow.TryReconcileToHome(), Is.False);
+            Assert.That(changes, Is.Zero);
+        }
+
+        /// <summary>
+        /// A session is a claim about a room the player may still be in. Only
+        /// the room's own exit ends it; a screen must not guess.
+        /// </summary>
+        [TestCase(AppFlowState.Lobby)]
+        [TestCase(AppFlowState.InGame)]
+        [TestCase(AppFlowState.Highlight)]
+        [TestCase(AppFlowState.Result)]
+        public void ShowingHome_LeavesASessionStateAlone(AppFlowState session)
+        {
+            var flow = new AppFlowSystem();
+            Assert.That(flow.TryRestoreSessionState(session), Is.False, "Not a session yet.");
+            flow.TryTransitionTo(AppFlowState.Lobby);
+            flow.TryRestoreSessionState(session);
+            Assume.That(flow.CurrentState, Is.EqualTo(session));
+
+            Assert.That(flow.TryReconcileToHome(), Is.False);
+            Assert.That(flow.CurrentState, Is.EqualTo(session));
+        }
+
         [Test]
         public void ExitSession_KickCanReturnToBrowser_AndRejectsSessionDestination()
         {
