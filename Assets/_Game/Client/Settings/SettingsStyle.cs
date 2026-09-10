@@ -28,6 +28,30 @@ namespace Game.Client.Settings
         /// </summary>
         public const string ArrowLeftIconResource = "UI/Icon_Left";
         public const string ArrowRightIconResource = "UI/Icon_Right";
+        public const string CloseIconResource = "UI/Icon_Close";
+
+        /// <summary>
+        /// The X on a confirmation. The Settings / Closet scenes assign it in
+        /// the inspector; a view built in code, as the lobby overlays are,
+        /// loads the Resources copy.
+        /// </summary>
+        public static Sprite LoadCloseIcon(Sprite assigned = null)
+        {
+            if (assigned != null)
+            {
+                return assigned;
+            }
+
+            var loaded = Resources.Load<Sprite>(CloseIconResource);
+#if UNITY_EDITOR
+            if (loaded == null)
+            {
+                loaded = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(
+                    "Assets/_Game/Content/UI/Common/Icon_Close.png");
+            }
+#endif
+            return loaded;
+        }
 
         public static class Palette
         {
@@ -198,6 +222,7 @@ namespace Game.Client.Settings
         {
             public static readonly Vector2 Position = new Vector2(64f, -62f);
             public static readonly Vector2 Size = new Vector2(140f, 44f);
+            public static readonly Vector2 LeaveSize = new Vector2(220f, 44f);
             public const float FontSize = 30f;
             public const string Label = "← 이전";
         }
@@ -465,6 +490,8 @@ namespace Game.Client.Settings
                         return "앉기";
                     case Core.Settings.ControlAction.Prone:
                         return "엎드리기";
+                    case Core.Settings.ControlAction.ToggleKeyGuide:
+                        return "키 가이드 on/off";
                     default:
                         return action.ToString();
                 }
@@ -764,6 +791,10 @@ namespace Game.Client.Settings
             public const string DiscardSubtitle = "저장하지 않으면 변경사항이 사라집니다.";
             public const string LeaveLabel = "바로 나가기";
             public const string SaveAndLeaveLabel = "저장하고 나가기";
+
+            public const string LeaveGameTitle = "게임을 진짜 나가시겠습니까?";
+            public const string LeaveGameSubtitle = "";
+            public const string LeaveGameAcceptLabel = "나가기";
         }
 
         /// <summary>

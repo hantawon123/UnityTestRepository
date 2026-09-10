@@ -18,9 +18,9 @@ namespace Game.Client.Settings
     }
 
     /// <summary>
-    /// Which confirmation is being asked for. The three share one panel and
-    /// differ in their words and in what the two buttons do, so the presenter
-    /// has to know which one it put up.
+        /// Which confirmation is being asked for. They share one panel and
+        /// differ in their words and in what the two buttons do, so the presenter
+        /// has to know which one it put up.
     /// </summary>
     public enum SettingsConfirmKind
     {
@@ -34,7 +34,10 @@ namespace Game.Client.Settings
         /// ← 이전 with changes not yet applied. Its right button saves and
         /// leaves, its left button leaves without saving, and its X stays.
         /// </summary>
-        Discard
+        Discard,
+
+        /// <summary>Lobby overlay 게임 나가기: leave the room after asking.</summary>
+        LeaveGame
     }
 
     /// <summary>
@@ -109,6 +112,9 @@ namespace Game.Client.Settings
         event Action ResetRequested;
 
         event Action ApplyRequested;
+
+        /// <summary>Lobby overlay only: 게임 나가기 at the top left.</summary>
+        event Action LeaveGameRequested;
 
         /// <summary>The right, orange button of whichever confirmation is up.</summary>
         event Action ConfirmAccepted;

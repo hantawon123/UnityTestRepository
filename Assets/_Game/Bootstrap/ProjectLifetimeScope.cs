@@ -110,6 +110,7 @@ namespace Game.Bootstrap
             // resize; a test container must not touch one.
             builder.RegisterEntryPoint<GraphicsSettingsStartup>();
             builder.RegisterEntryPoint<CameraSettingsBinder>();
+            builder.RegisterEntryPoint<KeySettingGuideBinder>();
 
             // Only when a picture was given: the system arrow needs no setting,
             // and a test container has no texture to hand over.

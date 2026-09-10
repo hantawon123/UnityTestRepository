@@ -245,6 +245,35 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void LeaveGame_AsksFirst_AndOnlyAcceptingConfirms()
+        {
+            using var presenter = Started();
+            var confirmed = 0;
+            presenter.LeaveGameConfirmed += () => confirmed++;
+
+            view.LeaveGame();
+
+            Assert.That(view.ConfirmVisible, Is.True);
+            Assert.That(view.ConfirmKind, Is.EqualTo(SettingsConfirmKind.LeaveGame));
+            Assert.That(confirmed, Is.Zero);
+
+            view.Dismiss();
+            Assert.That(view.ConfirmVisible, Is.False);
+            Assert.That(confirmed, Is.Zero);
+
+            view.LeaveGame();
+            view.Decline();
+            Assert.That(view.ConfirmVisible, Is.False);
+            Assert.That(confirmed, Is.Zero);
+
+            view.LeaveGame();
+            view.Accept();
+            Assert.That(view.ConfirmVisible, Is.False);
+            Assert.That(confirmed, Is.EqualTo(1));
+            Assert.That(host.HomeOpenCount, Is.Zero);
+        }
+
+        [Test]
         public void Back_WithoutChanges_LeavesForHome()
         {
             using var presenter = Started();
@@ -702,7 +731,7 @@ namespace Game.Architecture.Tests
         {
             using var presenter = Started();
 
-            Assert.That(view.Bindings.Count, Is.EqualTo(18));
+            Assert.That(view.Bindings.Count, Is.EqualTo(19));
             Assert.That(view.Bindings[ControlAction.MoveForward], Is.EqualTo("W"));
             Assert.That(view.Bindings[ControlAction.Interact], Is.EqualTo("F"));
             Assert.That(view.Bindings[ControlAction.PrimaryAction], Is.EqualTo("좌클릭"));
@@ -710,6 +739,7 @@ namespace Game.Architecture.Tests
             Assert.That(view.Bindings[ControlAction.Jump], Is.EqualTo("SPACE"));
             Assert.That(view.Bindings[ControlAction.RaiseObject], Is.EqualTo("스크롤 ↑"));
             Assert.That(view.Bindings[ControlAction.LowerObject], Is.EqualTo("스크롤 ↓"));
+            Assert.That(view.Bindings[ControlAction.ToggleKeyGuide], Is.EqualTo("L"));
             Assert.That(view.Sensitivities.Count, Is.EqualTo(3));
             Assert.That(view.Sensitivities[ControlSensitivity.FirstPersonMouse], Is.EqualTo(50));
             Assert.That(view.Reversals.Count, Is.EqualTo(4));

@@ -1,4 +1,5 @@
 using Game.Client.Home;
+using Game.Client.Match;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -234,10 +235,28 @@ namespace Game.Client.Interactions
 
             keyLabel.gameObject.SetActive(!useIcon);
             keyLabel.text = useIcon ? string.Empty : key ?? string.Empty;
-            if (keyBoxLayout != null)
+            FitKeyBox(useIcon);
+        }
+
+        private void FitKeyBox(bool useIcon)
+        {
+            if (keyBoxLayout == null)
             {
-                keyBoxLayout.preferredWidth = KeyBoxSize;
-                keyBoxLayout.minWidth = KeyBoxSize;
+                return;
+            }
+
+            var width = KeyBoxSize;
+            if (!useIcon && keyLabel != null)
+            {
+                keyLabel.ForceMeshUpdate();
+                width = HidingActiveHudView.MeasureKeyChipWidth(keyLabel.text, keyLabel.preferredWidth);
+            }
+
+            keyBoxLayout.minWidth = width;
+            keyBoxLayout.preferredWidth = width;
+            if (root != null)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(root);
             }
         }
 
