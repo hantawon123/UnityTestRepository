@@ -159,28 +159,42 @@ namespace Game.Architecture.Tests
             string categoryId,
             bool expected)
         {
-            Assert.That(
-                MatchRuleSettings.TryCreate(
-                    60,
-                    5,
-                    1.5f,
-                    4,
-                    categoryId,
-                    out var rules,
-                    out _),
-                Is.True);
+            // Production loads the authored catalog at startup; EditMode tests must
+            // provide their own data and restore the shared catalog afterwards.
+            var previousDefinitions = Game.Core.Items.ItemCatalog.Definitions;
+            try
+            {
+                Game.Core.Items.ItemCatalog.Configure(new[]
+                {
+                    new Game.Core.Items.ItemDefinition("test_food", "food", "Test food")
+                });
+                Assert.That(
+                    MatchRuleSettings.TryCreate(
+                        60,
+                        5,
+                        1.5f,
+                        4,
+                        categoryId,
+                        out var rules,
+                        out _),
+                    Is.True);
 
-            Assert.That(
-                NetworkRunnerService.TryValidateLobbySettingsRequest(
-                    hasAuthority,
-                    hasValidSession,
-                    currentPlayerCount,
-                    maxPlayers,
-                    destructionLimit,
-                    mapId,
-                    rules,
-                    out _),
-                Is.EqualTo(expected));
+                Assert.That(
+                    NetworkRunnerService.TryValidateLobbySettingsRequest(
+                        hasAuthority,
+                        hasValidSession,
+                        currentPlayerCount,
+                        maxPlayers,
+                        destructionLimit,
+                        mapId,
+                        rules,
+                        out _),
+                    Is.EqualTo(expected));
+            }
+            finally
+            {
+                Game.Core.Items.ItemCatalog.Configure(previousDefinitions);
+            }
         }
 
         [TestCase(Game.Core.Flow.AppFlowState.Lobby)]
@@ -323,6 +337,9 @@ namespace Game.Architecture.Tests
             var session = NetworkRunnerService.ConfigureSession(source);
             Assert.That(session.HostMigration.EnableAutoUpdate, Is.False);
             Assert.That(session.Heap.PageShift, Is.EqualTo(pageShift));
+#if UNITY_WEBGL
+            Assert.That(session.AllowClientServerModesInWebGL, Is.True);
+#endif
         }
 
         private sealed class DisconnectApplicationSpy : Game.Client.Home.IHomeApplicationHost
@@ -878,6 +895,19 @@ namespace Game.Architecture.Tests
             Assert.That(
                 NetworkPlayerMotor.MoveSpeedForPosture(settings, posture, true),
                 Is.EqualTo(2f));
+        }
+
+        [TestCase(PlayerPosture.Crouching)]
+        [TestCase(PlayerPosture.Prone)]
+        public void NetworkPlayer_JumpStandsUpWithoutLeavingGround(PlayerPosture posture)
+        {
+            var input = NetworkPlayerInput.FromIntent(new PlayerInputIntent(
+                0f, 0f, 0f, PlayerInputButtons.Jump));
+            var after = NetworkPlayerMotor.ResolvePosture(posture, true, input, default);
+            Assert.That(after, Is.EqualTo(PlayerPosture.Standing));
+            Assert.That(NetworkPlayerMotor.CanJump(true, posture, after), Is.False);
+            Assert.That(NetworkPlayerMotor.CanJump(true, after, after), Is.True);
+            Assert.That(NetworkPlayerMotor.CanJump(false, after, after), Is.False);
         }
 
         [Test]

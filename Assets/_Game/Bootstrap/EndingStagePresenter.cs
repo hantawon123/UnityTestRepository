@@ -153,6 +153,8 @@ namespace Game.Bootstrap
                     renderer.forceRenderingOff = true;
                     hiddenItemRenderers.Add(renderer);
                 }
+                // Hidden geometry alone leaves the interactor choosing throw instead of attack.
+                interactor.ForgetConfirmedItem(item);
                 itemHiddenFor.Add(placement.PlayerIndex);
             }
         }

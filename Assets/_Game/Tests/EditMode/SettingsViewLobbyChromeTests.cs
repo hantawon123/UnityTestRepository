@@ -17,6 +17,9 @@ namespace Game.Architecture.Tests
                 var view = root.AddComponent<SettingsView>();
                 view.ConfigureAsLobbyOverlay();
                 root.SetActive(true);
+                typeof(SettingsView).GetMethod("Awake",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, null);
 
                 Assert.That(Find(root, "FeedbackRow"), Is.Null);
                 Assert.That(Find(root, "BackButton"), Is.Null);
@@ -43,7 +46,10 @@ namespace Game.Architecture.Tests
             var root = new GameObject("Home Settings");
             try
             {
-                root.AddComponent<SettingsView>();
+                var view = root.AddComponent<SettingsView>();
+                typeof(SettingsView).GetMethod("Awake",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, null);
 
                 Assert.That(Find(root, "FeedbackRow"), Is.Not.Null);
                 Assert.That(Find(root, "LeaveGameButton"), Is.Null);

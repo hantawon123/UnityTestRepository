@@ -16,6 +16,62 @@ namespace Game.Tests.PlayMode
         private NetworkRunner runner;
 
         [UnityTest]
+        public IEnumerator Character_LandsOnAndIsBlockedByBox_WithoutPushingIt()
+        {
+            var floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            floor.transform.position = Vector3.down * 0.5f;
+            floor.transform.localScale = new Vector3(20f, 1f, 20f);
+            var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            box.transform.position = Vector3.up * 0.5f;
+            box.AddComponent<CarryableItem>();
+            var body = box.GetComponent<Rigidbody>();
+            NetworkObject player = null;
+            var moveInput = Vector2.zero;
+            try
+            {
+                runner = new GameObject("Carryable contact runner").AddComponent<NetworkRunner>();
+                runner.ProvideInput = true;
+                var events = runner.gameObject.AddComponent<NetworkEvents>();
+                events.OnInput = new NetworkEvents.InputEvent();
+                events.OnInput.AddListener((source, input) => input.Set(
+                    new Game.Network.Players.NetworkPlayerInput { Move = moveInput }));
+                runner.gameObject.AddComponent<Photon.Voice.Unity.VoiceConnection>().enabled = false;
+                var start = runner.StartGame(new StartGameArgs { GameMode = GameMode.Single });
+                var deadline = Time.realtimeSinceStartup + 30f;
+                while (!start.IsCompleted && Time.realtimeSinceStartup < deadline) yield return null;
+                Assert.That(start.IsCompleted && start.Result.Ok, Is.True);
+                var prefab = AssetDatabase.LoadAssetAtPath<NetworkObject>("Assets/_Game/Content/Prefabs/NetworkedPlayer.prefab");
+                player = runner.Spawn(prefab, inputAuthority: runner.LocalPlayer);
+                var motor = player.GetComponent<Game.Network.Players.NetworkPlayerMotor>();
+                var kcc = player.GetComponent<Fusion.Addons.KCC.KCC>();
+                var teleport = typeof(Game.Network.Players.NetworkPlayerMotor).GetMethod("TryTeleport",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                yield return new WaitForSeconds(0.3f);
+                var boxPosition = body.position;
+                teleport.Invoke(motor, new object[] { new Pose(new Vector3(0f, 3f, 0f), Quaternion.identity) });
+                yield return new WaitForSeconds(1.5f);
+                Assert.That(kcc.FixedData.IsGrounded, Is.True, "The box must remain a usable landing surface.");
+                Assert.That(kcc.FixedData.TargetPosition.y, Is.EqualTo(1f).Within(0.08f));
+                Assert.That(Vector3.Distance(body.position, boxPosition), Is.LessThan(0.04f), "Landing must not kick the box away.");
+
+                teleport.Invoke(motor, new object[] { new Pose(new Vector3(-2f, 0f, 0f), Quaternion.identity) });
+                yield return new WaitForFixedUpdate();
+                moveInput = Vector2.right;
+                yield return new WaitForSeconds(1.2f);
+                Assert.That(kcc.FixedData.TargetPosition.x, Is.GreaterThan(-1.9f), "The walking probe must actually move.");
+                Assert.That(kcc.FixedData.TargetPosition.x, Is.LessThan(-0.7f), "The player must stop at the box instead of walking through it.");
+                Assert.That(Vector3.Distance(body.position, boxPosition), Is.LessThan(0.04f), "Walking into the box must not push it.");
+                Assert.That(body.isKinematic, Is.False, "Props must retain gravity and prop-to-prop physics.");
+            }
+            finally
+            {
+                if (player != null) runner.Despawn(player);
+                Object.Destroy(box);
+                Object.Destroy(floor);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator DisconnectedRunner_ShutsDownWithoutWaitingForHostExit()
         {
             using var room = new Game.Core.Lobby.RoomBrowserSystem();

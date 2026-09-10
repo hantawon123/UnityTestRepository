@@ -28,9 +28,13 @@ namespace Game.Architecture.Tests
             try
             {
                 Cursor.lockState = CursorLockMode.Locked;
+                if (Cursor.lockState != CursorLockMode.Locked)
+                {
+                    Assert.Ignore("This Editor session cannot capture the cursor (for example, -nographics).");
+                }
                 if (UnityEngine.EventSystems.EventSystem.current != null)
                 {
-                    Assert.Pass("EventSystem is present; UI hover cannot be asserted here.");
+                    Assert.Ignore("This test requires a scene without an EventSystem.");
                 }
 
                 Assert.That(PlayerMovement.ShouldIgnoreAttackInput(), Is.False);
