@@ -191,6 +191,22 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void ToggleShortcut_Character_WhileOverlayOpen_ClosesIt()
+        {
+            using var fixture = new Fixture();
+            var closed = false;
+            fixture.Presenter.Start();
+            fixture.Presenter.OpenCharacterScreen(() => closed = true, fromWorld: true);
+            fixture.Menu.VisibleCalls.Clear();
+
+            fixture.Presenter.ToggleShortcut(LobbyShortcutKind.Character);
+
+            Assert.That(closed, Is.True);
+            Assert.That(fixture.Menu.IsOpen, Is.False);
+            Assert.That(fixture.Menu.VisibleCalls, Has.No.Member(true));
+        }
+
+        [Test]
         public void ToggleShortcut_WhileCharacterOverlayOpen_DoesNotOpenPlayers()
         {
             using var fixture = new Fixture();

@@ -171,7 +171,6 @@ namespace Game.Client.Character
             {
                 CreateDim(controlsRoot);
                 CreateFrame(controlsRoot);
-                CreateBackButton(controlsRoot);
                 CreateTabRail(panel);
                 CreateLocker(panel);
                 CreateActionBar(panel);

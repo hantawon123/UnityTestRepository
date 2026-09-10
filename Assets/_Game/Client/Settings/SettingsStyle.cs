@@ -198,6 +198,7 @@ namespace Game.Client.Settings
         {
             public static readonly Vector2 Position = new Vector2(64f, -62f);
             public static readonly Vector2 Size = new Vector2(140f, 44f);
+            public static readonly Vector2 LeaveSize = new Vector2(220f, 44f);
             public const float FontSize = 30f;
             public const string Label = "← 이전";
         }

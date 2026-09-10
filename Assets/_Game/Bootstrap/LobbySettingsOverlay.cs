@@ -44,7 +44,15 @@ namespace Game.Bootstrap
             chatWasEnabled = chat.enabled;
             chat.enabled = false;
             view.gameObject.SetActive(true);
-            pause.OpenSettingsScreen(view.RequestBack, fromWorld);
+            pause.OpenSettingsScreen(Hide, fromWorld);
+        }
+
+        private void Hide()
+        {
+            if (view != null)
+            {
+                view.gameObject.SetActive(false);
+            }
         }
 
         private void OnLeaveGame()
@@ -61,7 +69,7 @@ namespace Game.Bootstrap
                 chat.enabled = chatWasEnabled;
             }
 
-            view.gameObject.SetActive(false);
+            Hide();
             pause.LeaveRoom();
         }
 

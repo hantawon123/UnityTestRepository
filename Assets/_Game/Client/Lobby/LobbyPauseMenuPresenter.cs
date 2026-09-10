@@ -192,8 +192,9 @@ namespace Game.Client.Lobby
         }
 
         /// <summary>
-        /// Esc backs out of an open screen, then opens environment settings.
-        /// Leaving the room is 게임 나가기 on that overlay, not this key.
+        /// Esc backs out of an open screen, or opens environment settings from
+        /// the room. The same key closes that overlay. Leaving the room is
+        /// 게임 나가기 on it, not this key.
         /// </summary>
         public void HandleEscape()
         {
@@ -310,7 +311,18 @@ namespace Game.Client.Lobby
         /// </summary>
         public void ToggleShortcut(LobbyShortcutKind kind)
         {
-            if (kind == LobbyShortcutKind.None || HasForeignScreen)
+            if (kind == LobbyShortcutKind.None)
+            {
+                return;
+            }
+
+            if (kind == LobbyShortcutKind.Character && characterOverlayOpen)
+            {
+                closeOpenScreen?.Invoke();
+                return;
+            }
+
+            if (HasForeignScreen)
             {
                 return;
             }
