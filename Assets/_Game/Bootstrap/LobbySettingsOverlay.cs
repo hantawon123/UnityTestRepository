@@ -29,7 +29,7 @@ namespace Game.Bootstrap
         {
             menu.SettingsClicked += OpenFromMenu;
             pause.SettingsOpenRequested += OpenFromWorld;
-            view.LeaveGameRequested += OnLeaveGame;
+            presenter.LeaveGameConfirmed += OnLeaveGame;
             view.Closed += OnClosed;
         }
 
@@ -93,7 +93,7 @@ namespace Game.Bootstrap
         {
             menu.SettingsClicked -= OpenFromMenu;
             pause.SettingsOpenRequested -= OpenFromWorld;
-            view.LeaveGameRequested -= OnLeaveGame;
+            presenter.LeaveGameConfirmed -= OnLeaveGame;
             view.Closed -= OnClosed;
             if (opened && chat != null) chat.enabled = chatWasEnabled;
         }

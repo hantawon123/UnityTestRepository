@@ -67,6 +67,12 @@ namespace Game.Client.Settings
                     declineLabel.text = SettingsStyle.Modal.LeaveLabel;
                     acceptLabel.text = SettingsStyle.Modal.SaveAndLeaveLabel;
                     break;
+                case SettingsConfirmKind.LeaveGame:
+                    confirmTitle.text = SettingsStyle.Modal.LeaveGameTitle;
+                    confirmSubtitle.text = SettingsStyle.Modal.LeaveGameSubtitle;
+                    declineLabel.text = SettingsStyle.Modal.CancelLabel;
+                    acceptLabel.text = SettingsStyle.Modal.LeaveGameAcceptLabel;
+                    break;
                 default:
                     confirmTitle.text = SettingsStyle.TabLabel(tab) + SettingsStyle.Modal.ResetTabTitleSuffix;
                     confirmSubtitle.text = SettingsStyle.Modal.ResetTabSubtitle;

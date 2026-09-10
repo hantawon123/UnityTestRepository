@@ -245,6 +245,35 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void LeaveGame_AsksFirst_AndOnlyAcceptingConfirms()
+        {
+            using var presenter = Started();
+            var confirmed = 0;
+            presenter.LeaveGameConfirmed += () => confirmed++;
+
+            view.LeaveGame();
+
+            Assert.That(view.ConfirmVisible, Is.True);
+            Assert.That(view.ConfirmKind, Is.EqualTo(SettingsConfirmKind.LeaveGame));
+            Assert.That(confirmed, Is.Zero);
+
+            view.Dismiss();
+            Assert.That(view.ConfirmVisible, Is.False);
+            Assert.That(confirmed, Is.Zero);
+
+            view.LeaveGame();
+            view.Decline();
+            Assert.That(view.ConfirmVisible, Is.False);
+            Assert.That(confirmed, Is.Zero);
+
+            view.LeaveGame();
+            view.Accept();
+            Assert.That(view.ConfirmVisible, Is.False);
+            Assert.That(confirmed, Is.EqualTo(1));
+            Assert.That(host.HomeOpenCount, Is.Zero);
+        }
+
+        [Test]
         public void Back_WithoutChanges_LeavesForHome()
         {
             using var presenter = Started();

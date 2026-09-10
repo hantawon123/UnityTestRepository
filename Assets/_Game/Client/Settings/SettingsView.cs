@@ -289,6 +289,8 @@ namespace Game.Client.Settings
             {
                 rightIcon = Resources.Load<Sprite>(SettingsStyle.ArrowRightIconResource);
             }
+
+            closeIcon = SettingsStyle.LoadCloseIcon(closeIcon);
         }
 
         /// <summary>

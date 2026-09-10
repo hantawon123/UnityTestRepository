@@ -28,6 +28,30 @@ namespace Game.Client.Settings
         /// </summary>
         public const string ArrowLeftIconResource = "UI/Icon_Left";
         public const string ArrowRightIconResource = "UI/Icon_Right";
+        public const string CloseIconResource = "UI/Icon_Close";
+
+        /// <summary>
+        /// The X on a confirmation. The Settings / Closet scenes assign it in
+        /// the inspector; a view built in code, as the lobby overlays are,
+        /// loads the Resources copy.
+        /// </summary>
+        public static Sprite LoadCloseIcon(Sprite assigned = null)
+        {
+            if (assigned != null)
+            {
+                return assigned;
+            }
+
+            var loaded = Resources.Load<Sprite>(CloseIconResource);
+#if UNITY_EDITOR
+            if (loaded == null)
+            {
+                loaded = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(
+                    "Assets/_Game/Content/UI/Common/Icon_Close.png");
+            }
+#endif
+            return loaded;
+        }
 
         public static class Palette
         {
@@ -763,6 +787,10 @@ namespace Game.Client.Settings
             public const string DiscardSubtitle = "저장하지 않으면 변경사항이 사라집니다.";
             public const string LeaveLabel = "바로 나가기";
             public const string SaveAndLeaveLabel = "저장하고 나가기";
+
+            public const string LeaveGameTitle = "게임을 진짜 나가시겠습니까?";
+            public const string LeaveGameSubtitle = "";
+            public const string LeaveGameAcceptLabel = "나가기";
         }
 
         /// <summary>

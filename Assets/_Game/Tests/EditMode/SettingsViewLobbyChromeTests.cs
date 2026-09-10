@@ -1,6 +1,7 @@
 using Game.Client.Settings;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Architecture.Tests
 {
@@ -26,6 +27,9 @@ namespace Game.Architecture.Tests
                 Assert.That(rect.anchoredPosition, Is.EqualTo(SettingsStyle.Back.Position));
                 var label = leave.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
                 Assert.That(label.text, Is.EqualTo(SettingsStyle.Buttons.LeaveLabel));
+                var close = Find(root, "CloseButton");
+                Assert.That(close, Is.Not.Null);
+                Assert.That(close.GetComponent<Image>().sprite, Is.Not.Null);
             }
             finally
             {
