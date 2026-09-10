@@ -38,7 +38,7 @@ namespace Game.Tests.EditMode
             Assert.That(
                 PlayerAnimationDriver.ResolveLocomotionClip(
                     PlayerPosture.Standing, true, 0f, Vector2.zero, 4f, 7f),
-                Is.EqualTo("Carry_Idle"));
+                Is.EqualTo("Carry_TwoHands"));
             Assert.That(
                 PlayerAnimationDriver.ResolveLocomotionClip(
                     PlayerPosture.Standing, false, 4f, new Vector2(-1f, 0f), 4f, 7f),
@@ -46,7 +46,7 @@ namespace Game.Tests.EditMode
             Assert.That(
                 PlayerAnimationDriver.ResolveLocomotionClip(
                     PlayerPosture.Standing, true, 7f, new Vector2(0f, 1f), 4f, 7f),
-                Is.EqualTo("Carry_Run_Forward"));
+                Is.EqualTo("Carry_TwoHands_Run_Forward"));
             Assert.That(
                 PlayerAnimationDriver.ResolveLocomotionClip(
                     PlayerPosture.Crouching, false, 2f, new Vector2(0f, 1f), 4f, 7f),
@@ -54,7 +54,7 @@ namespace Game.Tests.EditMode
             Assert.That(
                 PlayerAnimationDriver.ResolveLocomotionClip(
                     PlayerPosture.Prone, true, 0.8f, new Vector2(0f, -1f), 4f, 7f),
-                    Is.EqualTo("Carry_Crawl_Back"));
+                    Is.EqualTo("Carry_TwoHands_Crawl_Back"));
         }
 
         [Test]
@@ -82,38 +82,78 @@ namespace Game.Tests.EditMode
         {
             Assert.That(
                 PlayerAnimationDriver.ResolvePickupClip(PlayerPosture.Standing),
-                Is.EqualTo("Pickup_Low"));
+                Is.EqualTo("PutUp_TwoHands"));
             Assert.That(
                 PlayerAnimationDriver.ResolvePickupClip(PlayerPosture.Crouching),
-                Is.EqualTo("Pickup_Crouch"));
+                Is.EqualTo("PutUp_TwoHands_Crouch"));
             Assert.That(
                 PlayerAnimationDriver.ResolvePickupClip(PlayerPosture.Prone),
-                Is.EqualTo("Pickup_Prone"));
+                Is.EqualTo("PutUp_TwoHands_Prone"));
+            Assert.That(
+                PlayerAnimationDriver.ResolvePutDownClip(PlayerPosture.Standing),
+                Is.EqualTo("PutDown_TwoHands"));
             Assert.That(
                 PlayerAnimationDriver.ResolvePutDownClip(PlayerPosture.Crouching),
-                Is.EqualTo("PutDown_Crouch"));
+                Is.EqualTo("PutDown_TwoHands_Crouch"));
             Assert.That(
                 PlayerAnimationDriver.ResolvePutDownClip(PlayerPosture.Prone),
-                Is.EqualTo("PutDown_Prone"));
+                Is.EqualTo("PutDown_TwoHands_Prone"));
+            Assert.That(
+                PlayerAnimationDriver.TransitionClip(
+                    PlayerPosture.Standing, PlayerPosture.Crouching, false),
+                Is.EqualTo("Crouch_Start"));
+            Assert.That(
+                PlayerAnimationDriver.TransitionClip(
+                    PlayerPosture.Standing, PlayerPosture.Crouching, true),
+                Is.EqualTo("Carry_TwoHands_Crouch_Start"));
+            Assert.That(
+                PlayerAnimationDriver.TransitionClip(
+                    PlayerPosture.Crouching, PlayerPosture.Prone, true),
+                Is.EqualTo("Carry_TwoHands_Crouch_To_Prone"));
         }
 
         [Test]
         public void PickupOneShot_IsInterruptedByLocomotion()
         {
             Assert.That(PlayerAnimationDriver.IsMovementInterruptible("Pickup_Low"), Is.True);
+            Assert.That(PlayerAnimationDriver.IsMovementInterruptible("PutUp_TwoHands"), Is.True);
             Assert.That(PlayerAnimationDriver.IsMovementInterruptible("PutDown_Prone"), Is.True);
             Assert.That(PlayerAnimationDriver.IsMovementInterruptible("Land"), Is.True);
-            Assert.That(PlayerAnimationDriver.IsMovementInterruptible("Carry_Land"), Is.True);
+            Assert.That(PlayerAnimationDriver.IsMovementInterruptible("Carry_TwoHands_Land"), Is.True);
             Assert.That(PlayerAnimationDriver.IsMovementInterruptible("Prone_End"), Is.False);
-            Assert.That(PlayerAnimationDriver.IsLocomotionMoving("Carry_Walk_Forward"), Is.True);
-            Assert.That(PlayerAnimationDriver.IsLocomotionMoving("Carry_Crawl_Forward"), Is.True);
-            Assert.That(PlayerAnimationDriver.IsLocomotionMoving("Carry_Idle"), Is.False);
+            Assert.That(PlayerAnimationDriver.IsLocomotionMoving("Carry_TwoHands_Walk_Forward"), Is.True);
+            Assert.That(PlayerAnimationDriver.IsLocomotionMoving("Carry_TwoHands_Crawl_Forward"), Is.True);
+            Assert.That(PlayerAnimationDriver.IsLocomotionMoving("Carry_TwoHands"), Is.False);
             Assert.That(PlayerAnimationDriver.ResolveJumpClip(false), Is.EqualTo("Jump"));
-            Assert.That(PlayerAnimationDriver.ResolveJumpClip(true), Is.EqualTo("Carry_Jump"));
+            Assert.That(PlayerAnimationDriver.ResolveJumpClip(true), Is.EqualTo("Carry_TwoHands_Jump"));
             Assert.That(PlayerAnimationDriver.ResolveLandClip(false), Is.EqualTo("Land"));
-            Assert.That(PlayerAnimationDriver.ResolveLandClip(true), Is.EqualTo("Carry_Land"));
-            Assert.That(PlayerAnimationDriver.IsJumpState("Carry_Jump"), Is.True);
+            Assert.That(PlayerAnimationDriver.ResolveLandClip(true), Is.EqualTo("Carry_TwoHands_Land"));
+            Assert.That(PlayerAnimationDriver.IsJumpState("Carry_TwoHands_Jump"), Is.True);
             Assert.That(PlayerAnimationDriver.IsJumpState("Fall"), Is.False);
+            Assert.That(
+                PlayerAnimationDriver.ResolveThrowClip(PlayerPosture.Standing, 0f, 4f, 7f),
+                Is.EqualTo("Throw_TwoHands"));
+            Assert.That(
+                PlayerAnimationDriver.ResolveThrowClip(PlayerPosture.Standing, 4f, 4f, 7f),
+                Is.EqualTo("Throw_TwoHands_Walk"));
+            Assert.That(
+                PlayerAnimationDriver.ResolveThrowClip(PlayerPosture.Standing, 7f, 4f, 7f),
+                Is.EqualTo("Throw_TwoHands_Run"));
+            Assert.That(
+                PlayerAnimationDriver.ResolveThrowClip(PlayerPosture.Crouching, 0f, 4f, 7f),
+                Is.EqualTo("Throw_TwoHands_Crouch"));
+            Assert.That(
+                PlayerAnimationDriver.ResolveThrowClip(PlayerPosture.Crouching, 2f, 4f, 7f),
+                Is.EqualTo("Throw_TwoHands_Crouch_Walk"));
+            Assert.That(
+                PlayerAnimationDriver.ResolveThrowClip(PlayerPosture.Prone, 0f, 4f, 7f),
+                Is.EqualTo("Throw_TwoHands_Prone"));
+            Assert.That(
+                PlayerAnimationDriver.ResolveThrowClip(PlayerPosture.Prone, 0.8f, 4f, 7f),
+                Is.EqualTo("Throw_TwoHands_Crawl"));
+            Assert.That(
+                PlayerAnimationDriver.ResolvePlaybackSpeed("Throw_TwoHands_Walk", 7f, 4f, 7f, 2f, 0.8f),
+                Is.EqualTo(1f));
             Assert.That(
                 PlayerAnimationDriver.ResolvePunchClip(PlayerPosture.Standing, 0f, 4f, 7f),
                 Is.EqualTo("Punch"));
@@ -164,8 +204,10 @@ namespace Game.Tests.EditMode
             var names = controller.layers[0].stateMachine.states.Select(entry => entry.state.name).ToArray();
             Assert.That(names, Does.Contain("Idle"));
             Assert.That(names, Does.Contain("Walk_Left"));
-            Assert.That(names, Does.Contain("Carry_Idle"));
+            Assert.That(names, Does.Contain("Carry_TwoHands"));
             Assert.That(names, Does.Contain("Throw"));
+            Assert.That(names, Does.Contain("Throw_TwoHands"));
+            Assert.That(names, Does.Contain("Throw_TwoHands_Walk"));
             Assert.That(names, Does.Contain("Punch"));
             Assert.That(names, Does.Contain("Stunned"));
 
