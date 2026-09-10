@@ -324,6 +324,46 @@ namespace Game.Network.Session
             SanitiseNickname(_publishedName != null ? _publishedName.Current : _profile?.Nickname);
 
         /// <summary>
+        /// Writes the host's public name into the session again, if it has
+        /// changed since it was last written.
+        /// </summary>
+        /// <remarks>
+        /// The name goes into the session's properties when the room is made
+        /// and when the host changes, and nowhere else — so a host who turned
+        /// 스트리머 모드 on after making the room stayed listed under their own
+        /// name for as long as the room stood. Nothing but the host may write
+        /// it, and a peer asking is told no rather than made to think.
+        /// <para>
+        /// Compares before writing. The caller may ask on every change to any
+        /// interface setting, and a session property update is a network round
+        /// trip that the room list then re-reads.
+        /// </para>
+        /// </remarks>
+        public bool RefreshHostNickname()
+        {
+            if (!IsServer || _runner.SessionInfo == null || !_runner.SessionInfo.IsValid)
+            {
+                return false;
+            }
+
+            var wanted = PublicHostNickname;
+            var properties = _runner.SessionInfo.Properties;
+            if (properties != null
+                && properties.TryGetValue(SessionPropertyKeys.HostNickname, out var current)
+                && current.IsString
+                && string.Equals((string)current, wanted, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            return _runner.SessionInfo.UpdateCustomProperties(
+                new Dictionary<string, SessionProperty>
+                {
+                    [SessionPropertyKeys.HostNickname] = wanted,
+                });
+        }
+
+        /// <summary>
         /// Longest nickname the network carries. Matches the
         /// <c>NetworkString&lt;_32&gt;</c> the character replicates, so a name
         /// that survives this survives the trip intact.

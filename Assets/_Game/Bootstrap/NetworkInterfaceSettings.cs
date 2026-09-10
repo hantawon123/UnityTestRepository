@@ -16,7 +16,7 @@ namespace Game.Bootstrap
     /// that speaks an older dialect cannot cause a name to be shown that its
     /// owner wanted hidden.
     /// </remarks>
-    public sealed class NetworkInterfaceSettings : ITickable, IDisposable
+    public sealed class NetworkInterfaceSettings : IStartable, ITickable, IDisposable
     {
         /// <summary>
         /// What travels in <c>PlayerAvatar.NicknameVisibility</c>.
@@ -49,6 +49,16 @@ namespace Game.Bootstrap
             this.network = network; this.settings = settings; this.presentation = presentation;
             this.publishedName = publishedName;
         }
+
+        public void Start() => settings.Changed += OnSettingsChanged;
+
+        /// <summary>
+        /// The room list's copy of the host's name lives in the session, not in
+        /// anybody's avatar, so a change of 스트리머 모드 has to be carried there
+        /// separately. Only the host's write goes through; everybody else's
+        /// call is refused inside and costs nothing.
+        /// </summary>
+        private void OnSettingsChanged(InterfaceSettings _) => network.RefreshHostNickname();
 
         public void Tick()
         {
@@ -106,6 +116,10 @@ namespace Game.Bootstrap
             }
         }
 
-        public void Dispose() => presentation.ClearPermissions(notify: false);
+        public void Dispose()
+        {
+            settings.Changed -= OnSettingsChanged;
+            presentation.ClearPermissions(notify: false);
+        }
     }
 }
