@@ -291,9 +291,10 @@ namespace Game.Client.Lobby
 
         private void RefreshApplyChrome()
         {
-            var enabled = HasUnappliedChanges;
+            var enabled = editable && HasUnappliedChanges;
             if (applyButton != null)
             {
+                applyButton.gameObject.SetActive(editable);
                 applyButton.interactable = enabled;
             }
 

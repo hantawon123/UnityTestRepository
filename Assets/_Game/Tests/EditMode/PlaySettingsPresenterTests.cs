@@ -339,6 +339,37 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void RealView_GuestHidesApplyAndRevert()
+        {
+            var root = new GameObject("Guest chrome test");
+            var panel = new GameObject("PlaySettingsPanel", typeof(RectTransform));
+            panel.transform.SetParent(root.transform, false);
+            root.SetActive(false);
+            try
+            {
+                var view = root.AddComponent<PlaySettingsView>();
+                var serialized = new SerializedObject(view);
+                serialized.FindProperty("panel").objectReferenceValue = panel;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                root.SetActive(true);
+                typeof(PlaySettingsView).GetMethod("OnEnable",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, null);
+                view.SetDraft(Draft(4));
+                view.SetEditable(false);
+                var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                var apply = (Button)typeof(PlaySettingsView).GetField("applyButton", flags).GetValue(view);
+                var revert = (Button)typeof(PlaySettingsView).GetField("revertButton", flags).GetValue(view);
+                Assert.That(apply.gameObject.activeSelf, Is.False);
+                Assert.That(revert.gameObject.activeSelf, Is.False);
+                view.SetEditable(true);
+                Assert.That(apply.gameObject.activeSelf, Is.True);
+                Assert.That(revert.gameObject.activeSelf, Is.True);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+        }
+
+        [Test]
         public void RealView_RevertRestoresAppliedDraft()
         {
             var root = new GameObject("Revert test");

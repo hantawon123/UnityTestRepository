@@ -1049,6 +1049,8 @@ namespace Game.Client.Lobby
             {
                 revertLabel = labelTransform.GetComponent<Text>();
             }
+
+            RefreshRevertChrome();
         }
 
         private Button CreateRevertButton(RectTransform header)
