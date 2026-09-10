@@ -421,6 +421,7 @@ namespace Game.Bootstrap
                 if (combatants.TryGetValue(state.PlayerIndex, out var combatant))
                 {
                     combatant.SetNetworkStunned(state.IsStunned(now));
+                    combatant.SetNetworkHitCount(state.HitCount);
                 }
             }
         }

@@ -19,14 +19,14 @@ out_dir = Path(out_dir)
 out_dir.mkdir(parents=True, exist_ok=True)
 
 CROUCH = (
-    ("FirstPlayerCapsule_Crouch_Idle_KneesUp.fbx", "Carry_Crouch"),
-    ("FirstPlayerCapsule_Crouch_Walk_Forward_KneesUp.fbx", "Carry_Crouch_Walk_Forward"),
-    ("FirstPlayerCapsule_Crouch_Walk_Back_KneesUp.fbx", "Carry_Crouch_Walk_Back"),
-    ("FirstPlayerCapsule_Crouch_Walk_Left_KneesUp.fbx", "Carry_Crouch_Walk_Left"),
-    ("FirstPlayerCapsule_Crouch_Walk_Right_KneesUp.fbx", "Carry_Crouch_Walk_Right"),
+    ("FirstPlayerCapsule_Crouch_Idle.fbx", "Carry_Crouch_Idle"),
+    ("FirstPlayerCapsule_Crouch_Walk_Forward.fbx", "Carry_Crouch_Walk_Forward"),
+    ("FirstPlayerCapsule_Crouch_Walk_Back.fbx", "Carry_Crouch_Walk_Back"),
+    ("FirstPlayerCapsule_Crouch_Walk_Left.fbx", "Carry_Crouch_Walk_Left"),
+    ("FirstPlayerCapsule_Crouch_Walk_Right.fbx", "Carry_Crouch_Walk_Right"),
 )
 PRONE = (
-    ("FirstPlayerCapsule_Prone_Idle.fbx", "Carry_Prone"),
+    ("FirstPlayerCapsule_Prone_Idle.fbx", "Carry_Prone_Idle"),
     ("FirstPlayerCapsule_Crawl_Forward.fbx", "Carry_Crawl_Forward"),
     ("FirstPlayerCapsule_Crawl_Back.fbx", "Carry_Crawl_Back"),
     ("FirstPlayerCapsule_Crawl_Left.fbx", "Carry_Crawl_Left"),

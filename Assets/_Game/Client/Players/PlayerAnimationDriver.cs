@@ -13,16 +13,27 @@ namespace Game.Client.Players
     public sealed class PlayerAnimationDriver : MonoBehaviour
     {
         private const string PunchState = "Punch";
+        private const string HitState = "Hit";
         private const string StunnedState = "Stunned";
-        private const string AirborneState = "Fall_Flutter";
-        private const string LandState = "Land_Matched";
+        private const string JumpState = "Jump";
+        private const string CarryJumpState = "Carry_Jump";
+        private const string AirborneState = "Fall";
+        private const string LandState = "Land";
+        private const string CarryLandState = "Carry_Land";
         private const float SpeedDampTime = 0.1f;
         private const float CrossFadeSeconds = 0.15f;
         private const float DirectionDeadZone = 0.2f;
+        private const float JumpSeconds = 32f / 30f;
         private const float LandSeconds = 20f / 30f;
+        private const float HitSeconds = 30f / 30f;
+        private const float MinLocomotionPlayback = 0.5f;
+        private const float MaxLocomotionPlayback = 2f;
 
         [SerializeField, Min(0.1f), Tooltip("펀치 모션 유지 시간(초). CombatConfig가 있으면 그 값을 우선한다")]
         private float punchDurationSeconds = 0.5f;
+
+        [SerializeField, Min(0.1f), Tooltip("이동 모션 재생 배율. 1이면 설정 걷기/달리기 속도에서 1배")]
+        private float locomotionPlaybackScale = 1f;
 
         private float PunchDuration =>
             combatant != null && combatant.Config != null
@@ -35,6 +46,7 @@ namespace Game.Client.Players
         private Animator animator;
         private string currentState;
         private float punchUntilTime;
+        private float hitUntilTime;
         private float oneShotUntilTime;
         private string oneShotState;
         private bool wasGrounded = true;
@@ -69,6 +81,7 @@ namespace Game.Client.Players
             if (combatant != null)
             {
                 combatant.AttackPerformed += OnAttackPerformed;
+                combatant.HitReceived += OnHitReceived;
             }
         }
 
@@ -77,6 +90,12 @@ namespace Game.Client.Players
             if (combatant != null)
             {
                 combatant.AttackPerformed -= OnAttackPerformed;
+                combatant.HitReceived -= OnHitReceived;
+            }
+
+            if (animator != null)
+            {
+                animator.speed = 1f;
             }
         }
 
@@ -90,19 +109,75 @@ namespace Game.Client.Players
             PlayPunch();
         }
 
+        private void OnHitReceived() => PlayHit();
+
         private void PlayPunch()
         {
             punchUntilTime = Time.time + PunchDuration;
+            hitUntilTime = 0f;
             oneShotUntilTime = 0f;
-            currentState = PunchState;
-            animator.CrossFadeInFixedTime(PunchState, 0.05f, 0, 0f);
+            var clip = ResolveCurrentCombatClip(isHit: false);
+            currentState = clip;
+            animator.CrossFadeInFixedTime(clip, 0.05f, 0, 0f);
         }
 
-        public void PlayPickup() => PlayOneShot("Pickup_Low", 60f / 30f);
+        private void PlayHit()
+        {
+            if (combatant != null && combatant.IsStunned)
+            {
+                return;
+            }
 
-        public void PlayPutDown() => PlayOneShot("PutDown_Low", 60f / 30f);
+            hitUntilTime = Time.time + HitSeconds;
+            punchUntilTime = 0f;
+            oneShotUntilTime = 0f;
+            var clip = ResolveCurrentCombatClip(isHit: true);
+            currentState = clip;
+            animator.CrossFadeInFixedTime(clip, 0.05f, 0, 0f);
+        }
 
-        public void PlayThrow() => PlayOneShot("Throw", 41f / 30f);
+        private string ResolveCurrentCombatClip(bool isHit)
+        {
+            var settings = movement.MovementSettings;
+            var speed = usesNetworkState ? networkSpeed : movement.PlanarSpeed;
+            return isHit
+                ? ResolveHitClip(movement.Posture, speed, settings.WalkSpeed, settings.SprintSpeed)
+                : ResolvePunchClip(movement.Posture, speed, settings.WalkSpeed, settings.SprintSpeed);
+        }
+
+        public void PlayPickup()
+        {
+            var clip = ResolvePickupClip(movement.Posture);
+            PlayOneShot(clip, ClipSeconds(clip));
+        }
+
+        public void PlayPutDown()
+        {
+            var clip = ResolvePutDownClip(movement.Posture);
+            PlayOneShot(clip, ClipSeconds(clip));
+        }
+
+        public void PlayThrow() => PlayOneShot("Throw", 24f / 30f);
+
+        internal static string ResolvePickupClip(PlayerPosture posture) => posture switch
+        {
+            PlayerPosture.Crouching => "Pickup_Crouch",
+            PlayerPosture.Prone => "Pickup_Prone",
+            _ => "Pickup_Low",
+        };
+
+        internal static string ResolvePutDownClip(PlayerPosture posture) => posture switch
+        {
+            PlayerPosture.Crouching => "PutDown_Crouch",
+            PlayerPosture.Prone => "PutDown_Prone",
+            _ => "PutDown_Low",
+        };
+
+        private static float ClipSeconds(string clip) => clip switch
+        {
+            "Pickup_Low" or "PutDown_Low" => 60f / 30f,
+            _ => 48f / 30f,
+        };
 
         public void ApplyNetworkState(
             float planarSpeed,
@@ -154,39 +229,86 @@ namespace Game.Client.Players
                 currentState = desiredState;
                 animator.CrossFadeInFixedTime(desiredState, CrossFadeSeconds);
             }
+
+            var planarSpeed = usesNetworkState ? networkSpeed : movement.PlanarSpeed;
+            var settings = movement.MovementSettings;
+            animator.speed = ResolvePlaybackSpeed(
+                desiredState,
+                planarSpeed,
+                settings.WalkSpeed,
+                settings.SprintSpeed,
+                settings.CrouchSpeed,
+                settings.ProneSpeed,
+                locomotionPlaybackScale);
         }
 
         private string ResolveDesiredState()
         {
             if (combatant != null && combatant.IsStunned)
             {
-                oneShotUntilTime = 0f;
+                ClearOneShot();
+                punchUntilTime = 0f;
+                hitUntilTime = 0f;
                 lastPosture = movement.Posture;
                 wasGrounded = usesNetworkState ? networkGrounded : movement.IsGrounded;
                 return StunnedState;
             }
 
-            if (Time.time < punchUntilTime)
+            if (Time.time < hitUntilTime)
             {
-                return PunchState;
+                return ResolveCurrentCombatClip(isHit: true);
             }
 
+            if (Time.time < punchUntilTime)
+            {
+                return ResolveCurrentCombatClip(isHit: false);
+            }
+
+            var posture = movement.Posture;
+            var settings = movement.MovementSettings;
+            var speed = usesNetworkState ? networkSpeed : movement.PlanarSpeed;
+            var move = usesNetworkState ? networkMoveLocal : movement.PlanarVelocityLocal;
+            var carrying = usesNetworkState
+                ? networkCarrying
+                : interactor != null && interactor.CarriedItem != null;
             var grounded = usesNetworkState ? networkGrounded : movement.IsGrounded;
+
             if (!grounded)
             {
-                oneShotUntilTime = 0f;
+                var leftGround = wasGrounded;
                 wasGrounded = false;
-                lastPosture = movement.Posture;
-                return AirborneState;
+                lastPosture = posture;
+                // 웅크리기·엎드리기는 콜라이더 출렁임으로 잠깐 떠도 서서 Fall/Land를 쓰지 않는다.
+                if (posture != PlayerPosture.Standing)
+                {
+                    ClearOneShot();
+                    return ResolveLocomotionClip(
+                        posture, carrying, 0f, Vector2.zero, settings.WalkSpeed, settings.SprintSpeed);
+                }
+
+                if (leftGround)
+                {
+                    PlayOneShot(ResolveJumpClip(carrying), JumpSeconds);
+                }
+
+                if (Time.time < oneShotUntilTime && IsJumpState(oneShotState))
+                {
+                    return oneShotState;
+                }
+
+                // 들고 점프 클립이 끝난 뒤에도 손 든 포즈를 유지한다(Carry_Fall 없음).
+                return carrying ? CarryJumpState : AirborneState;
             }
 
             if (!wasGrounded)
             {
                 wasGrounded = true;
-                PlayOneShot(LandState, LandSeconds);
+                if (posture == PlayerPosture.Standing)
+                {
+                    PlayOneShot(ResolveLandClip(carrying), LandSeconds);
+                }
             }
 
-            var posture = movement.Posture;
             if (posture != lastPosture)
             {
                 var transition = TransitionClip(lastPosture, posture);
@@ -197,24 +319,27 @@ namespace Game.Client.Players
                 }
             }
 
-            if (Time.time < oneShotUntilTime && !string.IsNullOrEmpty(oneShotState))
-            {
-                return oneShotState;
-            }
-
-            var settings = movement.MovementSettings;
-            var speed = usesNetworkState ? networkSpeed : movement.PlanarSpeed;
-            var move = usesNetworkState ? networkMoveLocal : movement.PlanarVelocityLocal;
-            var carrying = usesNetworkState
-                ? networkCarrying
-                : interactor != null && interactor.CarriedItem != null;
-            return ResolveLocomotionClip(
+            var locomotion = ResolveLocomotionClip(
                 posture,
                 carrying,
                 speed,
                 move,
                 settings.WalkSpeed,
                 settings.SprintSpeed);
+
+            if (Time.time < oneShotUntilTime && !string.IsNullOrEmpty(oneShotState))
+            {
+                // 집기·내려놓기 중 이동하면 바로 들고 걷기/기어가기로 넘긴다.
+                if (IsMovementInterruptible(oneShotState) && IsLocomotionMoving(locomotion))
+                {
+                    ClearOneShot();
+                    return locomotion;
+                }
+
+                return oneShotState;
+            }
+
+            return locomotion;
         }
 
         private void PlayOneShot(string state, float seconds)
@@ -222,6 +347,75 @@ namespace Game.Client.Players
             oneShotState = state;
             oneShotUntilTime = Time.time + seconds;
         }
+
+        private void ClearOneShot()
+        {
+            oneShotState = null;
+            oneShotUntilTime = 0f;
+        }
+
+        internal static string ResolveJumpClip(bool carrying) =>
+            carrying ? CarryJumpState : JumpState;
+
+        internal static string ResolveLandClip(bool carrying) =>
+            carrying ? CarryLandState : LandState;
+
+        internal static string ResolvePunchClip(
+            PlayerPosture posture,
+            float planarSpeed,
+            float walkSpeed,
+            float sprintSpeed) =>
+            ResolveCombatLocomotionClip("Punch", posture, planarSpeed, walkSpeed, sprintSpeed);
+
+        internal static string ResolveHitClip(
+            PlayerPosture posture,
+            float planarSpeed,
+            float walkSpeed,
+            float sprintSpeed) =>
+            ResolveCombatLocomotionClip("Hit", posture, planarSpeed, walkSpeed, sprintSpeed);
+
+        internal static string ResolveCombatLocomotionClip(
+            string prefix,
+            PlayerPosture posture,
+            float planarSpeed,
+            float walkSpeed,
+            float sprintSpeed)
+        {
+            if (posture == PlayerPosture.Crouching)
+            {
+                return planarSpeed > 0.15f ? $"{prefix}_Crouch_Walk" : $"{prefix}_Crouch";
+            }
+
+            if (planarSpeed >= sprintSpeed * 0.85f)
+            {
+                return $"{prefix}_Run";
+            }
+
+            if (planarSpeed >= walkSpeed * 0.35f)
+            {
+                return $"{prefix}_Walk";
+            }
+
+            return prefix;
+        }
+
+        internal static bool IsJumpState(string state) =>
+            state == JumpState || state == CarryJumpState;
+
+        internal static bool IsMovementInterruptible(string state) =>
+            !string.IsNullOrEmpty(state) &&
+            (state.StartsWith("Pickup", System.StringComparison.Ordinal) ||
+             state.StartsWith("PutDown", System.StringComparison.Ordinal) ||
+             IsLandState(state));
+
+        internal static bool IsLandState(string state) =>
+            state == LandState || state == CarryLandState;
+
+        internal static bool IsLocomotionMoving(string state) =>
+            !string.IsNullOrEmpty(state) &&
+            (state.IndexOf("Walk", System.StringComparison.Ordinal) >= 0 ||
+             state.IndexOf("Run", System.StringComparison.Ordinal) >= 0 ||
+             state.IndexOf("Crawl", System.StringComparison.Ordinal) >= 0);
 
         internal static string ResolveLocomotionClip(
             PlayerPosture posture,
@@ -238,7 +432,7 @@ namespace Game.Client.Players
             {
                 if (!moving)
                 {
-                    return carrying ? "Carry_Prone" : "Prone_Idle";
+                    return carrying ? "Carry_Prone_Idle" : "Prone_Idle";
                 }
 
                 return carrying
@@ -250,7 +444,7 @@ namespace Game.Client.Players
             {
                 if (!moving)
                 {
-                    return carrying ? "Carry_Crouch" : "Crouch_Idle_KneesUp";
+                    return carrying ? "Carry_Crouch_Idle" : "Crouch_Idle";
                 }
 
                 return carrying
@@ -261,28 +455,28 @@ namespace Game.Client.Players
                         "Carry_Crouch_Walk_Right",
                         direction)
                     : DirectionClip(
-                        "Crouch_Walk_Forward_KneesUp",
-                        "Crouch_Walk_Back_KneesUp",
-                        "Crouch_Walk_Left_KneesUp",
-                        "Crouch_Walk_Right_KneesUp",
+                        "Crouch_Walk_Forward",
+                        "Crouch_Walk_Back",
+                        "Crouch_Walk_Left",
+                        "Crouch_Walk_Right",
                         direction);
             }
 
             if (!moving)
             {
-                return carrying ? "Carry_Idle" : "Idle_Breathing";
+                return carrying ? "Carry_Idle" : "Idle";
             }
 
             if (speed >= (walkSpeed + sprintSpeed) * 0.5f)
             {
                 return carrying
-                    ? DirectionClip("Carry_Run", "Carry_Run_Back", "Carry_Run_Left", "Carry_Run_Right", direction)
-                    : DirectionClip("Run_SideArms", "Run_Back", "Run_Left", "Run_Right", direction);
+                    ? DirectionClip("Carry_Run_Forward", "Carry_Run_Back", "Carry_Run_Left", "Carry_Run_Right", direction)
+                    : DirectionClip("Run_Forward", "Run_Back", "Run_Left", "Run_Right", direction);
             }
 
             return carrying
-                ? DirectionClip("Carry_Walk", "Carry_Walk_Back", "Carry_Walk_Left", "Carry_Walk_Right", direction)
-                : DirectionClip("Walk_Wide_Clean", "Walk_Back", "Walk_Left", "Walk_Right", direction);
+                ? DirectionClip("Carry_Walk_Forward", "Carry_Walk_Back", "Carry_Walk_Left", "Carry_Walk_Right", direction)
+                : DirectionClip("Walk_Forward", "Walk_Back", "Walk_Left", "Walk_Right", direction);
         }
 
         internal static MoveDirection ResolveDirection(Vector2 localMove)
@@ -313,10 +507,76 @@ namespace Game.Client.Players
             _ => forward
         };
 
+        /// <summary>
+        /// 이동 클립만 실제 속도 / 기준 속도로 재생 배율을 맞춘다.
+        /// Idle·원샷·기절 등은 1배를 유지한다.
+        /// </summary>
+        internal static float ResolvePlaybackSpeed(
+            string state,
+            float planarSpeed,
+            float walkSpeed,
+            float sprintSpeed,
+            float crouchSpeed,
+            float proneSpeed,
+            float scale = 1f)
+        {
+            if (string.IsNullOrEmpty(state))
+            {
+                return 1f;
+            }
+
+            // Punch_Walk / Hit_Run 등은 하체가 섞여 있어도 임팩트 타이밍을 늘리지 않는다.
+            if (state.StartsWith("Punch", System.StringComparison.Ordinal) ||
+                state.StartsWith("Hit", System.StringComparison.Ordinal))
+            {
+                return 1f;
+            }
+
+            var reference = LocomotionReferenceSpeed(
+                state, walkSpeed, sprintSpeed, crouchSpeed, proneSpeed);
+            if (reference <= 0f)
+            {
+                return 1f;
+            }
+
+            var rate = (planarSpeed / reference) * Mathf.Max(0.1f, scale);
+            return Mathf.Clamp(rate, MinLocomotionPlayback, MaxLocomotionPlayback);
+        }
+
+        private static float LocomotionReferenceSpeed(
+            string state,
+            float walkSpeed,
+            float sprintSpeed,
+            float crouchSpeed,
+            float proneSpeed)
+        {
+            if (state.IndexOf("Crawl", System.StringComparison.Ordinal) >= 0)
+            {
+                return proneSpeed;
+            }
+
+            if (state.IndexOf("Crouch_Walk", System.StringComparison.Ordinal) >= 0)
+            {
+                return crouchSpeed;
+            }
+
+            if (state.IndexOf("Run", System.StringComparison.Ordinal) >= 0)
+            {
+                return sprintSpeed;
+            }
+
+            if (state.IndexOf("Walk", System.StringComparison.Ordinal) >= 0)
+            {
+                return walkSpeed;
+            }
+
+            return 0f;
+        }
+
         private static string TransitionClip(PlayerPosture from, PlayerPosture to) => (from, to) switch
         {
-            (PlayerPosture.Standing, PlayerPosture.Crouching) => "Stand_To_Crouch_KneesUp",
-            (PlayerPosture.Crouching, PlayerPosture.Standing) => "Crouch_To_Stand_KneesUp",
+            (PlayerPosture.Standing, PlayerPosture.Crouching) => "Crouch_Start",
+            (PlayerPosture.Crouching, PlayerPosture.Standing) => "Crouch_End",
             (PlayerPosture.Standing, PlayerPosture.Prone) => "Prone_Start",
             (PlayerPosture.Crouching, PlayerPosture.Prone) => "Crouch_To_Prone",
             (PlayerPosture.Prone, PlayerPosture.Standing) => "Prone_End",

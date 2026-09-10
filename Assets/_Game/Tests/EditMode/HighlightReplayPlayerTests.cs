@@ -108,16 +108,16 @@ namespace Game.Tests.EditMode
         {
             Assert.That(
                 HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.None),
-                Is.EqualTo("Idle_Breathing"));
+                Is.EqualTo("Idle"));
             Assert.That(
                 HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Crouching),
-                Is.EqualTo("Crouch_Idle_KneesUp"));
+                Is.EqualTo("Crouch_Idle"));
             Assert.That(
                 HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Prone),
                 Is.EqualTo("Crawl_Forward"));
             Assert.That(
                 HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Airborne),
-                Is.EqualTo("Fall_Flutter"));
+                Is.EqualTo("Fall"));
             Assert.That(
                 HighlightReplayPlayer.AnimationStateOf(HighlightPlayerAction.Punching),
                 Is.EqualTo("Punch"));
