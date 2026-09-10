@@ -381,8 +381,10 @@ namespace Game.Bootstrap
 
             private async UniTask OpenLobbyAsync()
             {
+                Debug.Log("[SceneTiming] Open lobby requested from Home.");
                 await loading.ShowPainted();
                 await SceneLoadSlicer.YieldFrame();
+                Debug.Log("[SceneTiming] Open lobby: cover painted, entering lobby scene.");
                 if (!network.EnterLobbyScene())
                 {
                     loading.HideImmediate();
