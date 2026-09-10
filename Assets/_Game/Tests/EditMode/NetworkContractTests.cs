@@ -159,28 +159,42 @@ namespace Game.Architecture.Tests
             string categoryId,
             bool expected)
         {
-            Assert.That(
-                MatchRuleSettings.TryCreate(
-                    60,
-                    5,
-                    1.5f,
-                    4,
-                    categoryId,
-                    out var rules,
-                    out _),
-                Is.True);
+            // Production loads the authored catalog at startup; EditMode tests must
+            // provide their own data and restore the shared catalog afterwards.
+            var previousDefinitions = Game.Core.Items.ItemCatalog.Definitions;
+            try
+            {
+                Game.Core.Items.ItemCatalog.Configure(new[]
+                {
+                    new Game.Core.Items.ItemDefinition("test_food", "food", "Test food")
+                });
+                Assert.That(
+                    MatchRuleSettings.TryCreate(
+                        60,
+                        5,
+                        1.5f,
+                        4,
+                        categoryId,
+                        out var rules,
+                        out _),
+                    Is.True);
 
-            Assert.That(
-                NetworkRunnerService.TryValidateLobbySettingsRequest(
-                    hasAuthority,
-                    hasValidSession,
-                    currentPlayerCount,
-                    maxPlayers,
-                    destructionLimit,
-                    mapId,
-                    rules,
-                    out _),
-                Is.EqualTo(expected));
+                Assert.That(
+                    NetworkRunnerService.TryValidateLobbySettingsRequest(
+                        hasAuthority,
+                        hasValidSession,
+                        currentPlayerCount,
+                        maxPlayers,
+                        destructionLimit,
+                        mapId,
+                        rules,
+                        out _),
+                    Is.EqualTo(expected));
+            }
+            finally
+            {
+                Game.Core.Items.ItemCatalog.Configure(previousDefinitions);
+            }
         }
 
         [TestCase(Game.Core.Flow.AppFlowState.Lobby)]
