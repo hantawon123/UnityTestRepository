@@ -60,6 +60,8 @@ namespace Game.Architecture.Tests
             network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 100d));
             controller.Tick(HighlightPresentationTiming.FadeSeconds);
             network.IsResultSceneLoaded = true;
+            // Observe scene readiness before advancing its display-duration clock.
+            controller.Tick(HighlightPresentationTiming.FadeSeconds);
             controller.Tick(
                 HighlightPresentationTiming.FadeSeconds +
                 NetworkResultLobbyReturnController.ResultDisplaySeconds);

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using Game.Core.Maps;
+using System.Linq;
+using Game.SOAP.Config;
 
 namespace Game.Client.Lobby
 {
@@ -21,18 +23,15 @@ namespace Game.Client.Lobby
     }
 
     /// <summary>
-    /// Category choices shown in play settings. Add entries when new assignment
-    /// categories are ready. Ids should match <see cref="Game.Core.Items.ItemCatalog"/>
-    /// categories once gameplay supports them.
+    /// Category choices read from the authored catalog; random always comes first.
     /// </summary>
     public static class PlaySettingsCategoryCatalog
     {
-        private static readonly PlaySettingsCategoryOption[] Options =
-        {
-            new(string.Empty, "랜덤"),
-        };
+        private static PlaySettingsCategoryOption[] Options => new[] { new PlaySettingsCategoryOption(string.Empty, "랜덤") }
+            .Concat(ItemCatalogSO.Load().categories.Where(c => c.enabled)
+                .Select(c => new PlaySettingsCategoryOption(c.id, c.label))).ToArray();
 
-        public static IReadOnlyList<PlaySettingsCategoryOption> All { get; } = Options;
+        public static IReadOnlyList<PlaySettingsCategoryOption> All => Options;
 
         public static int DefaultIndex => 0;
 

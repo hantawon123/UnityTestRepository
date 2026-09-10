@@ -266,24 +266,77 @@ namespace Game.Client.Interactions
                     continue;
                 }
 
+                var itemBounds = CaptureColliderBounds(itemCollider);
                 if (!combined.HasValue)
                 {
-                    combined = itemCollider.bounds;
+                    combined = itemBounds;
                     continue;
                 }
 
                 var bounds = combined.Value;
-                bounds.Encapsulate(itemCollider.bounds);
+                bounds.Encapsulate(itemBounds);
                 combined = bounds;
             }
 
-            var captured = combined ?? new Bounds(transform.position, Vector3.one * 0.04f);
-            placementCenterOffset = Quaternion.Inverse(transform.rotation) *
-                                    (captured.center - transform.position);
+            var captured = combined ?? new Bounds(Vector3.zero, Vector3.one * 0.04f);
+            placementCenterOffset = captured.center;
             placementHalfExtents = new Vector3(
                 Mathf.Max(captured.extents.x, 0.02f),
                 Mathf.Max(captured.extents.y, 0.02f),
                 Mathf.Max(captured.extents.z, 0.02f));
+        }
+
+        private Bounds CaptureColliderBounds(Collider itemCollider)
+        {
+            // Collider.bounds is empty while an assignment is inactive or held.
+            // Read the shape itself, in the item's rotated frame but at world scale.
+            var inverseRotation = Quaternion.Inverse(transform.rotation);
+            var colliderTransform = itemCollider.transform;
+            var scale = colliderTransform.lossyScale;
+            scale = new Vector3(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z));
+            if (itemCollider is SphereCollider sphere)
+            {
+                var center = inverseRotation * (colliderTransform.TransformPoint(sphere.center) - transform.position);
+                var radius = sphere.radius * Mathf.Max(scale.x, Mathf.Max(scale.y, scale.z));
+                return new Bounds(center, Vector3.one * (radius * 2f));
+            }
+
+            if (itemCollider is CapsuleCollider capsule)
+            {
+                var center = inverseRotation * (colliderTransform.TransformPoint(capsule.center) - transform.position);
+                var direction = capsule.direction;
+                var radius = capsule.radius * Mathf.Max(scale[(direction + 1) % 3], scale[(direction + 2) % 3]);
+                var halfSegment = Mathf.Max(0f, capsule.height * scale[direction] * .5f - radius);
+                var axis = Vector3.zero;
+                axis[direction] = 1f;
+                axis = inverseRotation * colliderTransform.TransformDirection(axis);
+                var extents = new Vector3(Mathf.Abs(axis.x), Mathf.Abs(axis.y), Mathf.Abs(axis.z)) * halfSegment + Vector3.one * radius;
+                return new Bounds(center, extents * 2f);
+            }
+
+            var localBounds = itemCollider switch
+            {
+                BoxCollider box => new Bounds(box.center, box.size),
+                MeshCollider mesh when mesh.sharedMesh != null => mesh.sharedMesh.bounds,
+                _ => itemCollider.bounds
+            };
+            var localShape = itemCollider is BoxCollider || itemCollider is MeshCollider;
+            Bounds? result = null;
+            for (var corner = 0; corner < 8; corner++)
+            {
+                var point = localBounds.center + Vector3.Scale(localBounds.extents, new Vector3(
+                    (corner & 1) == 0 ? -1 : 1, (corner & 2) == 0 ? -1 : 1, (corner & 4) == 0 ? -1 : 1));
+                if (localShape) point = colliderTransform.TransformPoint(point);
+                point = inverseRotation * (point - transform.position);
+                if (result.HasValue)
+                {
+                    var bounds = result.Value;
+                    bounds.Encapsulate(point);
+                    result = bounds;
+                }
+                else result = new Bounds(point, Vector3.zero);
+            }
+            return result.Value;
         }
 
         private void EnsurePlacementVolume()

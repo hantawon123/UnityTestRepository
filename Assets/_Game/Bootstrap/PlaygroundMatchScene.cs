@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Game.Client.Interactions;
 using Game.Core.Items;
@@ -41,30 +42,18 @@ namespace Game.Bootstrap
             }
 
             var items = CaptureUniqueItems(scene);
-            foreach (var definition in ItemCatalog.Definitions)
+            var catalog = ItemCatalogSO.Load();
+            var assignmentDefinitions = ItemCatalog.AssignmentDefinitions.ToArray();
+            var assignments = new HashSet<string>(assignmentDefinitions.Select(d => d.ItemId), StringComparer.Ordinal);
+            var sources = catalog.categories.Where(c => c.enabled).SelectMany(c => c.items.Where(i => i.enabled));
+            foreach (var source in sources)
             {
-                if (!items.ContainsKey(definition.ItemId))
-                {
-                    throw new InvalidOperationException(
-                        $"Playground is missing item '{definition.ItemId}'.");
-                }
-            }
-
-            var assignmentDefinitions = new ItemDefinition[ItemCatalog.AssignmentDefinitions.Count];
-            var assignments = new HashSet<string>(StringComparer.Ordinal);
-            for (var index = 0; index < assignmentDefinitions.Length; index++)
-            {
-                var assignedDefinition = ItemCatalog.AssignedDefinition(index);
-                assignmentDefinitions[index] = assignedDefinition;
-                assignments.Add(assignedDefinition.ItemId);
-
-                if (!items.ContainsKey(assignedDefinition.ItemId))
-                {
-                    var copy = CreateAssignedCopy(
-                        items[ItemCatalog.AssignedSourceDefinition(index).ItemId],
-                        assignedDefinition.ItemId);
-                    items.Add(assignedDefinition.ItemId, copy);
-                }
+                if (items.ContainsKey(source.id)) continue;
+                var sourceItem = source.prefab.GetComponent<CarryableItem>();
+                if (sourceItem == null) throw new InvalidOperationException($"{source.id}: prefab requires CarryableItem.");
+                var copy = CreateAssignedCopy(sourceItem, source.id);
+                SceneManager.MoveGameObjectToScene(copy.gameObject, scene);
+                items.Add(source.id, copy);
             }
 
             var worldObjects = new List<WorldObjectState>();
@@ -89,18 +78,14 @@ namespace Game.Bootstrap
             {
                 var definition = assignmentDefinitions[index];
                 var copy = items[definition.ItemId];
-                var source = items[ItemCatalog.AssignedSourceDefinition(index).ItemId];
-                volumes.Add(CaptureVolume(source, definition.ItemId));
+                volumes.Add(CaptureVolume(copy, definition.ItemId));
                 replayItems.Add(copy);
             }
 
             foreach (var item in worldItems)
             {
                 volumes.Add(CaptureVolume(item));
-                if (replayItems.Count < MaxReplayObjectCount)
-                {
-                    replayItems.Add(item);
-                }
+                replayItems.Add(item);
             }
 
             var ejectionPoint = FindTransform(scene, "ShredderSpot");
@@ -266,6 +251,7 @@ namespace Game.Bootstrap
                             replayObjects.Add(new WorldObjectState(
                                 item.ObjectId,
                                 new Pose(item.transform.position, item.transform.rotation)));
+                            if (replayObjects.Count == MaxReplayObjectCount) break;
                         }
                     }
 
