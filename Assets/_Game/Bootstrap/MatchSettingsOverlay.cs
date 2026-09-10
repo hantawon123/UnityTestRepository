@@ -63,7 +63,11 @@ namespace Game.Bootstrap
             chatWasEnabled = chat.enabled;
             chat.enabled = false;
             camera = UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>();
-            if (camera != null) camera.SetCursorCaptureEnabled(false);
+            if (camera != null)
+            {
+                camera.SetEscapeReleasesCursor(false);
+                camera.SetCursorCaptureEnabled(false);
+            }
             view.gameObject.SetActive(true);
             ConfigureLayout();
         }
@@ -75,6 +79,12 @@ namespace Game.Bootstrap
             if (layoutConfigured) return;
             var canvas = view.GetComponentInChildren<Canvas>(true);
             if (canvas == null) return;
+            ConfigureCanvas(canvas);
+            layoutConfigured = true;
+        }
+
+        internal static void ConfigureCanvas(Canvas canvas)
+        {
             var scaler = canvas.GetComponent<CanvasScaler>();
             scaler.referenceResolution = new Vector2(1920f, 1080f);
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
@@ -84,12 +94,9 @@ namespace Game.Bootstrap
             content.SetParent(canvas.transform, false);
             content.anchorMin = content.anchorMax = content.pivot = new Vector2(0.5f, 0.5f);
             content.sizeDelta = new Vector2(1920f, 1080f);
-            for (var i = canvas.transform.childCount - 1; i >= 0; i--)
-            {
-                var child = canvas.transform.GetChild(i);
-                if (child != content) child.SetParent(content, false);
-            }
-            layoutConfigured = true;
+            // Preserve sibling order: the background must remain behind the menu.
+            while (canvas.transform.GetChild(0) != content)
+                canvas.transform.GetChild(0).SetParent(content, false);
         }
 
         private void OnClosed()
@@ -111,6 +118,7 @@ namespace Game.Bootstrap
 
         public void Dispose()
         {
+            if (camera != null) camera.SetEscapeReleasesCursor(true);
             presenter.LeaveGameConfirmed -= Leave;
             view.Closed -= OnClosed;
             view.ConfirmDismissed -= OnPanelDismissed;

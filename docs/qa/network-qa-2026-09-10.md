@@ -56,3 +56,10 @@ Unity 테스트 로그와 XML은 작업용 문서 저장소의 `.build/lobby-pro
 - 이전 경기 SceneRoots 배열에 남은 재사용 PlayerCameraController 루트를 로비 전환의 숨김 대상에서 제외. 프레임 후반에도 이전 맵 숨김 유지. 실제 재현 해결 여부는 플레이 검증 필요.
 - 사용자 오류 두 개는 동일한 RPC_RequestThrow 거절 응답의 Player:None 대상 오류. 던지기/놓기/떨어뜨리기 RPC에 SourceIsHostPlayer를 지정해 호스트 발신자를 명시.
 - 카메라 루트가 이전 씬 배열에 남은 경우의 회귀 테스트 추가. 사용자 Unity 세션을 종료하지 않았으므로 이번 자동 테스트는 미실행.
+
+## ESC 메뉴 재현 수정 및 재검증
+
+- 메뉴가 검은 배경에 가려진 원인: Bootstrap에서 UI 자식들을 역순으로 옮겨 배경이 맨 위로 이동. 원래 형제 순서를 유지하도록 수정하고 회귀 테스트 추가.
+- ESC 닫기 후 카메라가 동일 ESC로 커서를 다시 해제하지 않도록 경기 설정에서 EscapeReleasesCursor 관리. 크기는 100% 유지.
+- 스킵 후 이전 맵 숨김은 Renderer.enabled까지 비활성화하며 원래 활성 상태를 보관/복원. 다른 참가자가 재생 중일 때 Playground 씬 자체의 존재는 유지. 실제 다중 플레이의 맵 재노출 해결 여부는 미확정.
+- 사용자가 Editor를 닫은 뒤 WebGL 대상 EditMode 검증 실행: NetworkContractTests, ResultPresentationTests, LobbyHighlightHandoffTests, NetworkMatchHudPresenterTests 총 154/154 통과. 로그: qa-menu-regression.xml / qa-menu-regression.log.

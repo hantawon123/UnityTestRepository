@@ -73,11 +73,13 @@ namespace Game.Tests.EditMode
                 disabledCollider.enabled = false;
                 Set(scope, "outgoingRenderers", new[] { renderer, hiddenRenderer });
                 Set(scope, "outgoingRendererStates", new[] { false, true });
+                Set(scope, "outgoingRendererEnabledStates", new[] { true, true });
                 Set(scope, "outgoingColliders", new[] { collider, disabledCollider });
                 Set(scope, "outgoingColliderStates", new[] { true, false });
 
                 Show(scope, true);
                 Assert.IsTrue(renderer.forceRenderingOff);
+                Assert.IsFalse(renderer.enabled);
                 Assert.IsFalse(collider.enabled);
                 // A later replay cleanup restores an occluding wall, while others
                 // are still watching. The skipped peer must keep its lobby clear.

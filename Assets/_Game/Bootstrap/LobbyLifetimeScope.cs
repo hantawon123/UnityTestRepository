@@ -87,6 +87,7 @@ namespace Game.Bootstrap
         private bool[] outgoingBehaviourStates = Array.Empty<bool>();
         private Renderer[] outgoingRenderers = Array.Empty<Renderer>();
         private bool[] outgoingRendererStates = Array.Empty<bool>();
+        private bool[] outgoingRendererEnabledStates = Array.Empty<bool>();
         private Collider[] outgoingColliders = Array.Empty<Collider>();
         private bool[] outgoingColliderStates = Array.Empty<bool>();
         private bool highlightStaging;
@@ -407,8 +408,12 @@ namespace Game.Bootstrap
                 outgoingBehaviourStates[index] = outgoingBehaviours[index].enabled;
             outgoingRenderers = outgoingMeshes.ToArray();
             outgoingRendererStates = new bool[outgoingRenderers.Length];
+            outgoingRendererEnabledStates = new bool[outgoingRenderers.Length];
             for (var index = 0; index < outgoingRenderers.Length; index++)
+            {
                 outgoingRendererStates[index] = outgoingRenderers[index].forceRenderingOff;
+                outgoingRendererEnabledStates[index] = outgoingRenderers[index].enabled;
+            }
             outgoingColliders = outgoingBodies.ToArray();
             outgoingColliderStates = new bool[outgoingColliders.Length];
             for (var index = 0; index < outgoingColliders.Length; index++)
@@ -419,7 +424,10 @@ namespace Game.Bootstrap
         {
             for (var index = 0; index < outgoingRenderers.Length; index++)
                 if (outgoingRenderers[index] != null)
+                {
                     outgoingRenderers[index].forceRenderingOff = true;
+                    outgoingRenderers[index].enabled = false;
+                }
             for (var index = 0; index < outgoingColliders.Length; index++)
                 if (outgoingColliders[index] != null)
                     outgoingColliders[index].enabled = false;
@@ -460,7 +468,10 @@ namespace Game.Bootstrap
             {
                 for (var index = 0; index < outgoingRenderers.Length; index++)
                     if (outgoingRenderers[index] != null)
+                    {
                         outgoingRenderers[index].forceRenderingOff = outgoingRendererStates[index];
+                        outgoingRenderers[index].enabled = outgoingRendererEnabledStates[index];
+                    }
                 for (var index = 0; index < outgoingColliders.Length; index++)
                     if (outgoingColliders[index] != null)
                         outgoingColliders[index].enabled = outgoingColliderStates[index];
