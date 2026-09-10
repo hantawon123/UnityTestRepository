@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using Game.Client.Match;
+using Game.Client.Settings;
+using Game.Client.Lobby;
 using Game.Client.Players;
 using Game.Client.Voice;
 using Game.Client.Common;
@@ -119,7 +121,9 @@ namespace Game.Bootstrap
                 builder.RegisterBuildCallback(c =>
                 {
                     var presenter = c.Resolve<NetworkMatchHudPresenter>();
-                    c.Resolve<NetworkInteractionSceneBridge>().BindPresentationInput(() => presenter.BlocksGameplayInput);
+                    var settings = c.Resolve<MatchSettingsOverlay>();
+                    c.Resolve<NetworkInteractionSceneBridge>().BindPresentationInput(
+                        () => presenter.BlocksGameplayInput || settings.IsOpen);
                 });
             }
 
@@ -136,6 +140,25 @@ namespace Game.Bootstrap
                         c.Resolve<PlayerProfile>()),
                     Lifetime.Scoped)
                 .As<ILobbyChatLog>();
+            var settingsObject = new GameObject("Match Settings");
+            settingsObject.transform.SetParent(transform, false);
+            settingsObject.SetActive(false);
+            var settingsView = settingsObject.AddComponent<SettingsView>();
+            settingsView.ConfigureAsLobbyOverlay();
+            builder.RegisterComponent(settingsView).As<ISettingsView>().AsSelf();
+            builder.RegisterEntryPoint<SettingsPresenter>().AsSelf()
+                .WithParameter<Action>(() => settingsObject.SetActive(false));
+            builder.Register<LobbyExitPresenter>(Lifetime.Scoped);
+            builder.RegisterEntryPoint<NetworkLobbyExitBridge>();
+            builder.RegisterEntryPoint<MatchSettingsOverlay>().AsSelf().WithParameter(chatView);
+            if (matchHudView == null)
+            {
+                builder.RegisterBuildCallback(c =>
+                {
+                    var settings = c.Resolve<MatchSettingsOverlay>();
+                    c.Resolve<NetworkInteractionSceneBridge>().BindPresentationInput(() => settings.IsOpen);
+                });
+            }
             builder.RegisterEntryPoint<MatchChatPresenter>();
             builder.RegisterEntryPoint<ChatBubbleBinder>();
 
