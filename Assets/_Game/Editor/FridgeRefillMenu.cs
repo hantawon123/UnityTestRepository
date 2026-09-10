@@ -489,6 +489,8 @@ namespace Game.Editor
             var unitBounds = Expanded(body.bounds, 0.06f);
             var scene = body.gameObject.scene;
             var explodedRoot = FindExplodedRoot(body.transform);
+            // 평대형(위가 열린 낮은 냉동고): 그림이 수평 판으로 떠 있고, 바닥 전체를 채우며, 얇은 상자는 눕힌다.
+            var chest = IsChest(body);
 
             var existingGroup = FindRefillGroup(body, explodedRoot);
             if (existingGroup != null && existingGroup.childCount > 0)
@@ -505,7 +507,7 @@ namespace Game.Editor
             var structure = new List<Renderer>();
             foreach (var renderer in inside)
             {
-                if (IsPictureProduct(renderer, frame, options.replaceAllProducts))
+                if (IsPictureProduct(renderer, frame, options.replaceAllProducts, chest))
                 {
                     removal.Add(renderer);
                 }
@@ -530,7 +532,9 @@ namespace Game.Editor
                 result.removed++;
             }
 
-            var shelves = DetectShelves(body, frame, structure);
+            // 가느다란 막대(칸막이 틀·손잡이)는 장애물이지만 선반·천장은 아니다.
+            var surfacePieces = structure.Where(r => Mathf.Min(r.bounds.size.x, r.bounds.size.z) >= 0.12f).ToList();
+            var shelves = DetectShelves(body, frame, surfacePieces);
             result.shelves = shelves.Count;
             if (shelves.Count == 0)
             {
@@ -550,7 +554,12 @@ namespace Game.Editor
             var group = GetOrCreateRefillGroup(body, explodedRoot);
             var seed = Mathf.RoundToInt(body.bounds.center.x * 73.1f + body.bounds.center.z * 31.7f) + options.seedOffset;
             var random = new System.Random(seed);
-            var rotation = Quaternion.LookRotation(frame.W, Vector3.up);
+            var yaw = Quaternion.LookRotation(frame.W, Vector3.up);
+            // 평대형에서는 얇은 상자(깊이가 높이의 절반 미만)를 눕혀 라벨이 위를 보게 한다.
+            var oriented = palette
+                .Select(p => Orient(p, yaw, frame, chest && p.LocalSize.z < p.LocalSize.y * 0.5f))
+                .ToList();
+            var maxRows = chest ? 99 : Mathf.Max(1, options.maxRows);
 
             const float sideMargin = 0.02f;
             const float frontMargin = 0.02f;
@@ -559,29 +568,29 @@ namespace Game.Editor
 
             foreach (var shelf in shelves)
             {
-                var fits = palette.Where(p => p.LocalSize.y <= shelf.Clearance - 0.02f && p.LocalSize.z <= shelf.WMax - shelf.WMin - 0.04f).ToList();
+                var fits = oriented.Where(p => p.Height <= shelf.Clearance - 0.02f && p.WExtent <= shelf.WMax - shelf.WMin - 0.04f).ToList();
                 if (fits.Count == 0)
                 {
                     continue;
                 }
 
-                var rowPitch = fits.Max(p => p.LocalSize.z) + 0.02f;
-                for (var row = 0; row < Mathf.Max(1, options.maxRows); row++)
+                var rowPitch = fits.Max(p => p.WExtent) + 0.02f;
+                for (var row = 0; row < maxRows; row++)
                 {
                     var frontLine = shelf.WMax - frontMargin - (row * rowPitch);
-                    if (frontLine - fits.Min(p => p.LocalSize.z) < shelf.WMin + 0.02f)
+                    if (frontLine - fits.Min(p => p.WExtent) < shelf.WMin + 0.02f)
                     {
                         break;
                     }
 
-                    var rowFits = fits.Where(p => frontLine - p.LocalSize.z >= shelf.WMin + 0.02f).ToList();
+                    var rowFits = fits.Where(p => frontLine - p.WExtent >= shelf.WMin + 0.02f).ToList();
                     if (rowFits.Count == 0)
                     {
                         break;
                     }
 
                     var cursor = shelf.UMin + sideMargin;
-                    PaletteItem current = null;
+                    OrientedItem current = null;
                     var runLeft = 0;
                     var guard = 0;
                     while (cursor < shelf.UMax - sideMargin && guard++ < 400)
@@ -593,9 +602,9 @@ namespace Game.Editor
                         }
 
                         var remaining = shelf.UMax - sideMargin - cursor;
-                        if (current.LocalSize.x > remaining)
+                        if (current.UExtent > remaining)
                         {
-                            var alternative = rowFits.Where(p => p.LocalSize.x <= remaining).OrderByDescending(p => p.LocalSize.x).FirstOrDefault();
+                            var alternative = rowFits.Where(p => p.UExtent <= remaining).OrderByDescending(p => p.UExtent).FirstOrDefault();
                             if (alternative == null)
                             {
                                 break;
@@ -605,11 +614,11 @@ namespace Game.Editor
                             runLeft = 1;
                         }
 
-                        var u = cursor + (current.LocalSize.x * 0.5f);
-                        var w = frontLine - (current.LocalSize.z * 0.5f);
-                        var center = frame.ToWorld(u, shelf.Y + lift + (current.LocalSize.y * 0.5f), w);
-                        var worldSize = AbsRotate(rotation, current.LocalSize);
-                        var candidate = new Bounds(center, worldSize - (Vector3.one * 0.01f));
+                        var u = cursor + (current.UExtent * 0.5f);
+                        var w = frontLine - (current.WExtent * 0.5f);
+                        var floorPoint = frame.ToWorld(u, shelf.Y + lift, w);
+                        var center = floorPoint + (Vector3.up * (current.Height * 0.5f));
+                        var candidate = new Bounds(center, current.WorldSize - (Vector3.one * 0.01f));
                         if (obstacles.Any(o => o.Intersects(candidate)))
                         {
                             cursor += 0.05f;
@@ -619,17 +628,17 @@ namespace Game.Editor
 
                         if (random.NextDouble() <= options.density)
                         {
-                            var instance = (GameObject)PrefabUtility.InstantiatePrefab(current.Prefab, scene);
+                            var instance = (GameObject)PrefabUtility.InstantiatePrefab(current.Item.Prefab, scene);
                             Undo.RegisterCreatedObjectUndo(instance, "Refill Fridge");
                             instance.transform.SetParent(group, true);
-                            instance.transform.rotation = rotation;
-                            var pivotOffset = rotation * new Vector3(current.LocalCenter.x, current.LocalMinY, current.LocalCenter.z);
-                            instance.transform.position = frame.ToWorld(u, shelf.Y + lift, w) - pivotOffset;
-                            obstacles.Add(new Bounds(center, worldSize));
+                            instance.transform.rotation = current.Rotation;
+                            // 회전된 바운드의 바닥 중앙이 선반 위 목표점에 오도록 피벗을 놓는다.
+                            instance.transform.position = floorPoint - new Vector3(current.AabbCenter.x, current.AabbMin.y, current.AabbCenter.z);
+                            obstacles.Add(new Bounds(center, current.WorldSize));
                             result.placed++;
                         }
 
-                        cursor += current.LocalSize.x + gap;
+                        cursor += current.UExtent + gap;
                         runLeft--;
                     }
                 }
@@ -640,18 +649,56 @@ namespace Game.Editor
             return result;
         }
 
-        private static Vector3 AbsRotate(Quaternion rotation, Vector3 size)
+        /// <summary>위가 열린 낮은 평대형(체스트) 냉동고인지. 높이 1.3 m 미만.</summary>
+        public static bool IsChest(Renderer body) => body.bounds.size.y < 1.3f;
+
+        /// <summary>팔레트 상품을 실제 놓을 회전으로 돌렸을 때의 월드 AABB(피벗 기준)와 냉장고 좌표계 폭·깊이.</summary>
+        private sealed class OrientedItem
         {
-            var x = rotation * new Vector3(size.x, 0f, 0f);
-            var z = rotation * new Vector3(0f, 0f, size.z);
-            return new Vector3(
-                Mathf.Abs(x.x) + Mathf.Abs(z.x),
-                size.y,
-                Mathf.Abs(x.z) + Mathf.Abs(z.z));
+            public PaletteItem Item;
+            public Quaternion Rotation;
+            public Vector3 WorldSize;
+            public Vector3 AabbCenter;
+            public Vector3 AabbMin;
+            public float UExtent;
+            public float WExtent;
+            public float Height;
+        }
+
+        private static OrientedItem Orient(PaletteItem item, Quaternion yaw, Frame frame, bool layFlat)
+        {
+            // 눕히기: 로컬 +Z(라벨 면)가 위를 보게 X축으로 -90° 돌린 뒤 정면 방향으로 yaw.
+            var rotation = layFlat ? yaw * Quaternion.Euler(-90f, 0f, 0f) : yaw;
+            var half = item.LocalSize * 0.5f;
+            var min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+            var max = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+            for (var i = 0; i < 8; i++)
+            {
+                var corner = item.LocalCenter + new Vector3(
+                    (i & 1) == 0 ? -half.x : half.x,
+                    (i & 2) == 0 ? -half.y : half.y,
+                    (i & 4) == 0 ? -half.z : half.z);
+                var rotated = rotation * corner;
+                min = Vector3.Min(min, rotated);
+                max = Vector3.Max(max, rotated);
+            }
+
+            var size = max - min;
+            return new OrientedItem
+            {
+                Item = item,
+                Rotation = rotation,
+                WorldSize = size,
+                AabbCenter = (min + max) * 0.5f,
+                AabbMin = min,
+                UExtent = Mathf.Abs(size.x * frame.U.x) + Mathf.Abs(size.z * frame.U.z),
+                WExtent = Mathf.Abs(size.x * frame.W.x) + Mathf.Abs(size.z * frame.W.z),
+                Height = size.y,
+            };
         }
 
         /// <summary>상품이 그려진 납작한 판·상자인지. replaceAll이면 Products 그룹의 생성 상품 전부.</summary>
-        private static bool IsPictureProduct(Renderer renderer, Frame frame, bool replaceAll)
+        private static bool IsPictureProduct(Renderer renderer, Frame frame, bool replaceAll, bool chest)
         {
             var go = renderer.gameObject;
             var name = go.name;
@@ -680,6 +727,13 @@ namespace Game.Editor
 
             // 냉동고식: 선반 한 칸 상품이 통째로 그려진 얇고 넓은 판(8~10 cm 두께, 폭 0.4 m 이상)
             if (depth <= 0.12f && width >= 0.4f && height >= 0.15f)
+            {
+                return true;
+            }
+
+            // 평대형: 바닥 위에 떠 있는 수평 그림 판(6 cm 두께, 0.5×1.3 m). 본체 바닥·천장은 본체 메시라 여기 안 들어온다.
+            if (chest && height <= 0.1f && width >= 0.4f && depth >= 0.4f &&
+                renderer.bounds.min.y > frame.YMin + 0.2f && renderer.bounds.max.y < frame.YMax - 0.1f)
             {
                 return true;
             }
