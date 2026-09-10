@@ -5,7 +5,9 @@ using Game.Client.Lobby;
 using Game.Client.Match;
 using Game.Client.Players;
 using Game.Client.Settings;
+using Game.Core.Match;
 using Game.Core.Ports;
+using Game.Network.Match;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -26,8 +28,10 @@ namespace Game.Bootstrap
         private readonly MatchChatView chat;
         private readonly IKeyCapture keys;
         private readonly LobbyExitPresenter exit;
+        private readonly INetworkMatchEvents events;
         private bool opened;
         private bool chatWasEnabled;
+        private MatchPhase currentPhase;
         private PlayerCameraController cameraRig;
         private PlayerMovement lockedMovement;
 
@@ -36,28 +40,41 @@ namespace Game.Bootstrap
             SettingsPresenter presenter,
             MatchChatView chat,
             IKeyCapture keys,
-            LobbyExitPresenter exit)
+            LobbyExitPresenter exit,
+            INetworkMatchEvents events)
         {
             this.view = view ?? throw new ArgumentNullException(nameof(view));
             this.presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
             this.chat = chat ?? throw new ArgumentNullException(nameof(chat));
             this.keys = keys ?? throw new ArgumentNullException(nameof(keys));
             this.exit = exit ?? throw new ArgumentNullException(nameof(exit));
+            this.events = events ?? throw new ArgumentNullException(nameof(events));
+        }
+
+        public static bool BlocksEscapeDuringPresentation(MatchPhase phase)
+        {
+            return phase == MatchPhase.Highlight || phase == MatchPhase.Result;
         }
 
         public static bool ShouldHandleEscape(
             bool textFocused,
             bool capturing,
             bool modalBlocking,
-            bool consumedEscape)
+            bool consumedEscape,
+            bool presentationBlocks = false)
         {
-            return !textFocused && !capturing && !modalBlocking && !consumedEscape;
+            return !textFocused &&
+                   !capturing &&
+                   !modalBlocking &&
+                   !consumedEscape &&
+                   !presentationBlocks;
         }
 
         public void Start()
         {
             presenter.LeaveGameConfirmed += OnLeaveGame;
             view.Closed += OnClosed;
+            events.MatchStateReceived += OnMatchStateReceived;
             BindCameraEsc(false);
         }
 
@@ -87,7 +104,8 @@ namespace Game.Bootstrap
                     PlayerMovement.IsTextInputFocused() || chat.ConsumedEscapeThisFrame,
                     keys.IsCapturing,
                     view.BlocksEscape,
-                    view.ConsumedEscapeThisFrame))
+                    view.ConsumedEscapeThisFrame,
+                    BlocksEscapeDuringPresentation(currentPhase)))
             {
                 return;
             }
@@ -105,6 +123,7 @@ namespace Game.Bootstrap
         {
             presenter.LeaveGameConfirmed -= OnLeaveGame;
             view.Closed -= OnClosed;
+            events.MatchStateReceived -= OnMatchStateReceived;
             if (opened && chat != null)
             {
                 chat.enabled = chatWasEnabled;
@@ -112,6 +131,36 @@ namespace Game.Bootstrap
 
             ReleaseMovement();
             BindCameraEsc(true);
+        }
+
+        private void OnMatchStateReceived(MatchStateSnapshot received)
+        {
+            currentPhase = received.Phase;
+            if (BlocksEscapeDuringPresentation(currentPhase) && opened)
+            {
+                CloseForPresentation();
+            }
+        }
+
+        private void CloseForPresentation()
+        {
+            if (!opened)
+            {
+                return;
+            }
+
+            opened = false;
+            presenter.Open();
+            if (chat != null)
+            {
+                chat.enabled = chatWasEnabled;
+            }
+
+            Hide();
+            ReleaseMovement();
+            SetCursorCaptured(false);
+            ClearUiSelection();
+            SetObjectPromptsVisible(true);
         }
 
         private void Open()

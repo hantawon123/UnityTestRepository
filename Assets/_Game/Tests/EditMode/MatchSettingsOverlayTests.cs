@@ -1,4 +1,5 @@
 using Game.Bootstrap;
+using Game.Core.Match;
 using NUnit.Framework;
 
 namespace Game.Architecture.Tests
@@ -28,6 +29,23 @@ namespace Game.Architecture.Tests
             Assert.That(
                 MatchSettingsOverlay.ShouldHandleEscape(false, false, false, true),
                 Is.False);
+        }
+
+        [TestCase(MatchPhase.Highlight)]
+        [TestCase(MatchPhase.Result)]
+        public void ShouldHandleEscape_IgnoresHighlightAndResult(MatchPhase phase)
+        {
+            Assert.That(MatchSettingsOverlay.BlocksEscapeDuringPresentation(phase), Is.True);
+            Assert.That(
+                MatchSettingsOverlay.ShouldHandleEscape(false, false, false, false, true),
+                Is.False);
+        }
+
+        [TestCase(MatchPhase.Hiding)]
+        [TestCase(MatchPhase.Searching)]
+        public void ShouldHandleEscape_AllowsGameplayPhases(MatchPhase phase)
+        {
+            Assert.That(MatchSettingsOverlay.BlocksEscapeDuringPresentation(phase), Is.False);
         }
     }
 }
