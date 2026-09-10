@@ -4,6 +4,8 @@ using Game.Client.Match;
 using Game.Client.Players;
 using Game.Client.Voice;
 using Game.Client.Common;
+using Game.Client.Lobby;
+using Game.Client.Settings;
 using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Match;
@@ -132,6 +134,18 @@ namespace Game.Bootstrap
                 .As<ILobbyChatLog>();
             builder.RegisterEntryPoint<MatchChatPresenter>();
             builder.RegisterEntryPoint<ChatBubbleBinder>();
+
+            var settingsObject = new GameObject("Match Settings");
+            settingsObject.transform.SetParent(transform, false);
+            settingsObject.SetActive(false);
+            var settingsView = settingsObject.AddComponent<SettingsView>();
+            settingsView.ConfigureAsLobbyOverlay();
+            builder.RegisterComponent(settingsView).As<ISettingsView>().AsSelf();
+            builder.RegisterEntryPoint<SettingsPresenter>().AsSelf()
+                .WithParameter<Action>(() => settingsObject.SetActive(false));
+            builder.Register<LobbyExitPresenter>(Lifetime.Scoped);
+            builder.RegisterEntryPoint<NetworkLobbyExitBridge>();
+            builder.RegisterEntryPoint<MatchSettingsOverlay>().WithParameter(chatView);
 
             // Registered beside the asset, which the project scope has no
             // reference to. Its own check rather than the voice one below,
