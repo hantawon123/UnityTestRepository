@@ -1,6 +1,7 @@
 using Game.Client.Home;
 using Game.Client.Interactions;
 using Game.Client.Match;
+using Game.Core.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -117,6 +118,42 @@ namespace Game.Client
             ToggleKeyLabel
         };
 
+        private static readonly ControlAction[] DefaultBindings =
+        {
+            ControlAction.PrimaryAction,
+            ControlAction.Crouch,
+            ControlAction.Prone,
+            ControlAction.ToggleView,
+            ControlAction.Sprint,
+            ControlAction.Jump
+        };
+
+        private static readonly ControlAction[] CarryingBindings =
+        {
+            ControlAction.PlacementMode,
+            ControlAction.PrimaryAction,
+            ControlAction.Interact,
+            ControlAction.Crouch,
+            ControlAction.Prone,
+            ControlAction.ToggleView,
+            ControlAction.Sprint,
+            ControlAction.Jump
+        };
+
+        private static readonly ControlAction[] PlacingBindings =
+        {
+            ControlAction.PlacementMode,
+            ControlAction.PrimaryAction,
+            ControlAction.RotateLeft,
+            ControlAction.RaiseObject,
+            ControlAction.Crouch,
+            ControlAction.Prone,
+            ControlAction.ToggleView,
+            ControlAction.Sprint,
+            ControlAction.Jump
+        };
+
+        private static ControlSettingsSystem sharedSettings;
         private static int lastToggleFrame = -1;
         private CanvasGroup fade;
         private PlayerInteractor localInteractor;
@@ -142,11 +179,110 @@ namespace Game.Client
             LabelsFor(isCarrying ? Mode.Carrying : Mode.Default);
 
         public static string[] LabelsFor(Mode guideMode) =>
+            LabelsFor(guideMode, sharedSettings != null ? sharedSettings.Current : default, bound: sharedSettings != null);
+
+        public static string[] LabelsFor(Mode guideMode, ControlSettings settings)
+        {
+            return LabelsFor(guideMode, settings, bound: true);
+        }
+
+        /// <summary>
+        /// Hands the 컨트롤 tab's applied keys to every guide. Pass null to
+        /// fall back to the built-in labels, as tests do.
+        /// </summary>
+        public static void UseSettings(ControlSettingsSystem settings)
+        {
+            if (sharedSettings != null)
+            {
+                sharedSettings.Changed -= OnSharedSettingsChanged;
+            }
+
+            sharedSettings = settings;
+            if (sharedSettings != null)
+            {
+                sharedSettings.Changed += OnSharedSettingsChanged;
+            }
+
+            RefreshBoundGuides();
+        }
+
+        private static string[] LabelsFor(Mode guideMode, ControlSettings settings, bool bound)
+        {
+            if (!bound)
+            {
+                return BuiltInLabelsFor(guideMode);
+            }
+
+            var bindings = BindingsFor(guideMode);
+            var labels = new string[bindings.Length + 1];
+            for (var index = 0; index < bindings.Length; index++)
+            {
+                labels[index] = LabelForBinding(guideMode, bindings[index], settings);
+            }
+
+            labels[labels.Length - 1] = ControlCatalog.KeyLabel(settings.Get(ControlAction.ToggleKeyGuide));
+            return labels;
+        }
+
+        private static string[] BuiltInLabelsFor(Mode guideMode) =>
             guideMode == Mode.Placing
                 ? PlacingLabels
                 : guideMode == Mode.Carrying
                     ? CarryingLabels
                     : Labels;
+
+        private static ControlAction[] BindingsFor(Mode guideMode) =>
+            guideMode == Mode.Placing
+                ? PlacingBindings
+                : guideMode == Mode.Carrying
+                    ? CarryingBindings
+                    : DefaultBindings;
+
+        private static string LabelForBinding(Mode guideMode, ControlAction action, ControlSettings settings)
+        {
+            if (guideMode == Mode.Placing && action == ControlAction.RotateLeft)
+            {
+                return CombinedKeyLabel(
+                    settings.Get(ControlAction.RotateLeft),
+                    settings.Get(ControlAction.RotateRight));
+            }
+
+            if (guideMode == Mode.Placing && action == ControlAction.RaiseObject)
+            {
+                var raise = settings.Get(ControlAction.RaiseObject);
+                var lower = settings.Get(ControlAction.LowerObject);
+                if (IsScrollCode(raise) && IsScrollCode(lower))
+                {
+                    return ScrollKeyLabel;
+                }
+
+                return CombinedKeyLabel(raise, lower);
+            }
+
+            return ControlCatalog.KeyLabel(settings.Get(action));
+        }
+
+        private static string CombinedKeyLabel(string leftCode, string rightCode) =>
+            $"{ControlCatalog.KeyLabel(leftCode)} / {ControlCatalog.KeyLabel(rightCode)}";
+
+        private static bool IsScrollCode(string code) =>
+            code == ControlCatalog.ScrollUp || code == ControlCatalog.ScrollDown;
+
+        private static void OnSharedSettingsChanged(ControlSettings _) => RefreshBoundGuides();
+
+        private static void RefreshBoundGuides()
+        {
+            var guides = UnityEngine.Object.FindObjectsByType<KeySettingGuideView>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (var index = 0; index < guides.Length; index++)
+            {
+                if (guides[index] != null)
+                {
+                    guides[index].ApplyStyle();
+                }
+            }
+        }
 
         public static Vector2 PanelSizeFor(bool isCarrying) =>
             PanelSizeFor(isCarrying ? Mode.Carrying : Mode.Default);
@@ -332,8 +468,37 @@ namespace Game.Client
 
         private static bool WasTogglePressed()
         {
-            var keyboard = Keyboard.current;
-            return keyboard != null && keyboard.lKey.wasPressedThisFrame;
+            var code = sharedSettings != null
+                ? sharedSettings.Current.Get(ControlAction.ToggleKeyGuide)
+                : "l";
+            return WasBoundKeyPressed(code);
+        }
+
+        private static bool WasBoundKeyPressed(string code)
+        {
+            if (string.IsNullOrEmpty(code))
+            {
+                return false;
+            }
+
+            switch (code)
+            {
+                case ControlCatalog.MouseLeft:
+                    return Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
+                case ControlCatalog.MouseRight:
+                    return Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame;
+                case ControlCatalog.MouseMiddle:
+                    return Mouse.current != null && Mouse.current.middleButton.wasPressedThisFrame;
+                default:
+                    var keyboard = Keyboard.current;
+                    if (keyboard == null)
+                    {
+                        return false;
+                    }
+
+                    var control = keyboard.TryGetChildControl<UnityEngine.InputSystem.Controls.ButtonControl>(code);
+                    return control != null && control.wasPressedThisFrame;
+            }
         }
 
         private static bool IsInputBlocked()
@@ -553,7 +718,7 @@ namespace Game.Client
 
         private static string IconResourceFor(string label)
         {
-            if (label == ClickKeyLabel)
+            if (label == ClickKeyLabel || label == "좌클릭")
             {
                 return LeftClickIconResource;
             }
@@ -563,7 +728,7 @@ namespace Game.Client
                 return RightClickIconResource;
             }
 
-            if (label == ScrollKeyLabel)
+            if (label == ScrollKeyLabel || label == "스크롤 ↑" || label == "스크롤 ↓")
             {
                 return ScrollIconResource;
             }
@@ -573,7 +738,7 @@ namespace Game.Client
 
         private static float KeyChipFontSizeFor(string label)
         {
-            return label == RotateYawKeyLabel
+            return !string.IsNullOrEmpty(label) && (label == RotateYawKeyLabel || label.Contains(" / "))
                 ? CompactKeyChipFontSize
                 : HidingActiveHudView.KeyChipFontSize;
         }

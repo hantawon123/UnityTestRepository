@@ -238,7 +238,9 @@ namespace Game.Bootstrap
                     views[avatar] = view;
                 }
 
-                view.SetNickname(presentation.NameplateName(avatar.PlayerId, avatar.Nickname.ToString()));
+                view.SetNickname(IsLocalAvatar(avatar)
+                    ? string.Empty
+                    : presentation.Name(avatar.PlayerId, avatar.Nickname.ToString()));
             }
         }
 
@@ -253,6 +255,11 @@ namespace Game.Bootstrap
             }
 
             views.Clear();
+        }
+
+        private static bool IsLocalAvatar(PlayerAvatar avatar)
+        {
+            return avatar.Object != null && avatar.Object.IsValid && avatar.IsOwner;
         }
     }
 

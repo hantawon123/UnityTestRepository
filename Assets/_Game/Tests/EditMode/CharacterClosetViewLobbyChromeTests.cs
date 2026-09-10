@@ -48,6 +48,8 @@ namespace Game.Architecture.Tests
                         -CharacterClosetStyle.Overlay.LockerMargin.x,
                         -CharacterClosetStyle.Overlay.LockerMargin.y)));
 
+                Assert.That(Find(root, "BackButton"), Is.Null);
+
                 var reset = Find(root, "ResetButton").GetComponent<RectTransform>();
                 Assert.That(reset.parent.name, Is.EqualTo("Panel"));
                 Assert.That(
@@ -72,6 +74,7 @@ namespace Game.Architecture.Tests
                 Assert.That(Find(root, "Glow"), Is.Null);
                 Assert.That(Find(root, "Background"), Is.Not.Null);
                 Assert.That(Find(root, "CategoryRail").parent.name, Is.EqualTo("ClosetCanvas"));
+                Assert.That(Find(root, "BackButton"), Is.Not.Null);
             }
             finally
             {

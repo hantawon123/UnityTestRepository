@@ -1786,6 +1786,7 @@ namespace Fusion.Editor {
 
 namespace Fusion.Editor {
   using System;
+  using System.Collections.Generic;
   using System.IO;
   using UnityEditor;
   using UnityEditor.Compilation;
@@ -1812,10 +1813,17 @@ namespace Fusion.Editor {
 
     static void ShutdownRunners() {
       var runners = NetworkRunner.GetInstancesEnumerator();
+      var snapshot = new List<NetworkRunner>();
 
       while (runners.MoveNext()) {
         if (runners.Current) {
-          runners.Current.Shutdown();
+          snapshot.Add(runners.Current);
+        }
+      }
+
+      for (var index = 0; index < snapshot.Count; index++) {
+        if (snapshot[index]) {
+          snapshot[index].Shutdown();
         }
       }
     }

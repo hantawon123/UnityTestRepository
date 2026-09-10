@@ -102,6 +102,7 @@ namespace Game.Bootstrap
             // resize; a test container must not touch one.
             builder.RegisterEntryPoint<GraphicsSettingsStartup>();
             builder.RegisterEntryPoint<CameraSettingsBinder>();
+            builder.RegisterEntryPoint<KeySettingGuideBinder>();
             builder.RegisterEntryPoint<NetworkInterfaceSettings>();
 
             // Built here rather than in RegisterServices: the device identifier

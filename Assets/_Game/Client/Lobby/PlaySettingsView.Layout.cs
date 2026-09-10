@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.Client.Home;
+using Game.Client.Settings;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
 using UnityEngine;
@@ -18,6 +19,8 @@ namespace Game.Client.Lobby
         private Button categoryPrevButton;
         private Button categoryNextButton;
         private Button applyButton;
+        private Button revertButton;
+        private Text revertLabel;
         private Image mapPreviewImage;
         private RectTransform settingsContent;
         private ScrollRect bodyScroll;
@@ -40,6 +43,9 @@ namespace Game.Client.Lobby
                     CacheRoomCodeRefs(content);
                     CacheMapAreaRefs(content);
                     CacheMapScrollRefs();
+                    CacheDurationSliderRefs(content);
+                    CacheApplyRefs();
+                    CacheRevertRefs();
                 }
 
                 return;
@@ -47,6 +53,8 @@ namespace Game.Client.Lobby
 
             layoutBuilt = true;
             BuildLayout((RectTransform)panel.transform);
+            BindRuleControls();
+            BindDurationSliders();
         }
 
         private static bool IsCurrentLayout(Transform root)
@@ -251,11 +259,13 @@ namespace Game.Client.Lobby
             header.offsetMin = new Vector2(0f, -PlaySettingsStyle.HeaderHeight);
             header.offsetMax = Vector2.zero;
             CreateModalTitle(header, "게임 설정");
+            revertButton = CreateRevertButton(header);
 
             var footer = CreateRect("Footer", root);
             Anchor(footer, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f));
             footer.offsetMin = Vector2.zero;
             footer.offsetMax = new Vector2(0f, PlaySettingsStyle.FooterHeight);
+            applyWarning = CreateApplyWarning(footer);
             applyButton = CreateApplyButton(footer);
 
             var body = CreateRect("Body", root);
@@ -332,8 +342,24 @@ namespace Game.Client.Lobby
                 out maxPlayersPlusButton);
             BuildCounterRow(settingsContent, "파괴 기능 횟수", out destructionMinusButton, out destructionLimitText,
                 out destructionPlusButton);
-            BuildRuleRow(settingsContent, "숨기는 시간", 0);
-            BuildRuleRow(settingsContent, "찾는 시간", 1);
+            BuildDurationSliderRow(
+                settingsContent,
+                "숨기는 시간",
+                "HidingDuration",
+                MatchRuleSettings.MinHidingDurationSeconds,
+                MatchRuleSettings.MaxHidingDurationSeconds,
+                MatchRuleSettings.DefaultHidingDurationSeconds,
+                out hidingSlider,
+                out hidingValue);
+            BuildDurationSliderRow(
+                settingsContent,
+                "찾는 시간",
+                "SearchingDuration",
+                MatchRuleSettings.MinSearchingDurationSeconds,
+                MatchRuleSettings.MaxSearchingDurationSeconds,
+                MatchRuleSettings.DefaultSearchingDurationSeconds,
+                out searchingSlider,
+                out searchingValue);
             BuildRuleRow(settingsContent, "달리는 속도", 2);
             BuildRuleRow(settingsContent, "기절 펀치 횟수", 3);
         }
@@ -530,6 +556,151 @@ namespace Game.Client.Lobby
             ruleMinus.Add(minus);
             rulePlus.Add(plus);
             ruleValues.Add(value);
+        }
+
+        private void CacheDurationSliderRefs(RectTransform content)
+        {
+            CacheDurationSlider(content, "HidingDuration", out hidingSlider, out hidingValue);
+            CacheDurationSlider(content, "SearchingDuration", out searchingSlider, out searchingValue);
+        }
+
+        private static void CacheDurationSlider(
+            RectTransform content,
+            string name,
+            out Slider slider,
+            out Text value)
+        {
+            slider = null;
+            value = null;
+            var row = FindDeepChild(content, name + "Row");
+            if (row == null)
+            {
+                return;
+            }
+
+            var sliderTransform = row.Find("Slider");
+            if (sliderTransform != null)
+            {
+                slider = sliderTransform.GetComponent<Slider>();
+            }
+
+            var valueTransform = row.Find("Value");
+            if (valueTransform != null)
+            {
+                value = valueTransform.GetComponent<Text>();
+            }
+        }
+
+        private void BuildDurationSliderRow(
+            RectTransform parent,
+            string label,
+            string name,
+            int min,
+            int max,
+            int defaultValue,
+            out Slider slider,
+            out Text value)
+        {
+            var row = CreateLayoutRow(parent, PlaySettingsStyle.RowHeight);
+            row.name = name + "Row";
+            CreateBodyText(row, label, new Vector2(0f, 0f),
+                new Vector2(PlaySettingsStyle.Layout.LabelAreaRatio, 1f), Vector2.zero, Vector2.zero);
+
+            var valueRect = CreateRect("Value", row);
+            Anchor(valueRect, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
+            valueRect.anchoredPosition = Vector2.zero;
+            valueRect.sizeDelta = new Vector2(
+                PlaySettingsStyle.Layout.DurationValueWidth, PlaySettingsStyle.RowHeight);
+            value = valueRect.gameObject.AddComponent<Text>();
+            value.font = BodyFont();
+            value.fontSize = PlaySettingsStyle.FontSize.Body;
+            value.color = PlaySettingsStyle.Palette.Text;
+            value.alignment = TextAnchor.MiddleRight;
+            value.raycastTarget = false;
+            ApplySingleLine(value);
+
+            var root = CreateRect("Slider", row);
+            Anchor(root, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
+            root.anchoredPosition = new Vector2(
+                -(PlaySettingsStyle.Layout.DurationValueWidth + SettingsStyle.Slider.PercentGap),
+                0f);
+            root.sizeDelta = new Vector2(SettingsStyle.Slider.TrackSize.x, SettingsStyle.Slider.HitHeight);
+            var hit = root.gameObject.AddComponent<Image>();
+            hit.color = Color.clear;
+            hit.raycastTarget = true;
+
+            var track = CreateRect("Track", root);
+            Anchor(track, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0.5f, 0.5f));
+            track.anchoredPosition = Vector2.zero;
+            track.sizeDelta = new Vector2(0f, SettingsStyle.Slider.TrackSize.y);
+            var trackImage = track.gameObject.AddComponent<Image>();
+            trackImage.sprite = HomeUiFonts.Rounded(PlaySettingsStyle.Layout.SliderTrackRadius);
+            trackImage.type = Image.Type.Sliced;
+            trackImage.pixelsPerUnitMultiplier = 1f;
+            trackImage.color = SettingsStyle.Palette.SliderTrack;
+            trackImage.raycastTarget = false;
+
+            var fillArea = CreateRect("FillArea", root);
+            Anchor(fillArea, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0.5f, 0.5f));
+            fillArea.anchoredPosition = Vector2.zero;
+            fillArea.sizeDelta = new Vector2(0f, SettingsStyle.Slider.TrackSize.y);
+
+            var fill = CreateRect("Fill", fillArea);
+            Stretch(fill);
+            var fillImage = fill.gameObject.AddComponent<Image>();
+            fillImage.sprite = HomeUiFonts.Rounded(PlaySettingsStyle.Layout.SliderTrackRadius);
+            fillImage.type = Image.Type.Sliced;
+            fillImage.pixelsPerUnitMultiplier = 1f;
+            fillImage.color = SettingsStyle.Palette.SliderFill;
+            fillImage.raycastTarget = false;
+
+            var handleArea = CreateRect("HandleArea", root);
+            Anchor(handleArea, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0.5f, 0.5f));
+            handleArea.anchoredPosition = Vector2.zero;
+            handleArea.sizeDelta = new Vector2(
+                -SettingsStyle.Slider.HandleDiameter, SettingsStyle.Slider.HandleDiameter);
+            AddDefaultMark(handleArea, min, max, defaultValue);
+
+            var handle = CreateRect("Handle", handleArea);
+            Anchor(handle, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0.5f, 0.5f));
+            handle.anchoredPosition = Vector2.zero;
+            handle.sizeDelta = new Vector2(SettingsStyle.Slider.HandleDiameter, 0f);
+            var handleImage = handle.gameObject.AddComponent<Image>();
+            handleImage.sprite = HomeUiFonts.CircleSprite;
+            handleImage.type = Image.Type.Simple;
+            handleImage.color = SettingsStyle.Palette.SliderHandle;
+            handleImage.raycastTarget = true;
+
+            slider = root.gameObject.AddComponent<Slider>();
+            slider.fillRect = fill;
+            slider.handleRect = handle;
+            slider.targetGraphic = handleImage;
+            slider.direction = Slider.Direction.LeftToRight;
+            slider.minValue = min;
+            slider.maxValue = max;
+            slider.wholeNumbers = true;
+            slider.transition = Selectable.Transition.None;
+            slider.navigation = new Navigation { mode = Navigation.Mode.None };
+        }
+
+        private static void AddDefaultMark(RectTransform handleArea, int min, int max, int defaultValue)
+        {
+            if (max <= min)
+            {
+                return;
+            }
+
+            var t = Mathf.InverseLerp(min, max, defaultValue);
+            var mark = CreateRect("DefaultMark", handleArea);
+            Anchor(mark, new Vector2(t, 0.5f), new Vector2(t, 0.5f), new Vector2(0.5f, 0.5f));
+            mark.anchoredPosition = Vector2.zero;
+            mark.sizeDelta = new Vector2(
+                PlaySettingsStyle.Layout.DefaultMarkWidth,
+                PlaySettingsStyle.Layout.DefaultMarkHeight);
+            var image = mark.gameObject.AddComponent<Image>();
+            image.color = PlaySettingsStyle.Palette.DefaultMark;
+            image.raycastTarget = false;
+            mark.SetAsFirstSibling();
         }
 
         private void BuildControlGroup(
@@ -815,6 +986,136 @@ namespace Game.Client.Lobby
             return image;
         }
 
+        private void CacheApplyRefs()
+        {
+            if (panel == null)
+            {
+                return;
+            }
+
+            var footer = panel.transform.Find("Footer");
+            if (footer == null)
+            {
+                return;
+            }
+
+            var buttonTransform = footer.Find("ApplyButton");
+            if (buttonTransform != null)
+            {
+                applyButton = buttonTransform.GetComponent<Button>();
+                applyFill = buttonTransform.GetComponent<Image>();
+                var labelTransform = buttonTransform.Find("Text");
+                if (labelTransform != null)
+                {
+                    applyLabel = labelTransform.GetComponent<Text>();
+                    if (applyLabel != null)
+                    {
+                        applyLabel.font = MediumFont();
+                    }
+                }
+            }
+
+            var warningTransform = footer.Find("ApplyWarning");
+            if (warningTransform != null)
+            {
+                applyWarning = warningTransform.GetComponent<Text>();
+            }
+
+            RefreshApplyChrome();
+        }
+
+        private void CacheRevertRefs()
+        {
+            if (panel == null)
+            {
+                return;
+            }
+
+            var header = panel.transform.Find("Header");
+            if (header == null)
+            {
+                return;
+            }
+
+            var buttonTransform = header.Find("RevertButton");
+            if (buttonTransform == null)
+            {
+                return;
+            }
+
+            revertButton = buttonTransform.GetComponent<Button>();
+            var labelTransform = buttonTransform.Find("Text");
+            if (labelTransform != null)
+            {
+                revertLabel = labelTransform.GetComponent<Text>();
+            }
+
+            RefreshRevertChrome();
+        }
+
+        private Button CreateRevertButton(RectTransform header)
+        {
+            var rect = CreateRect("RevertButton", header);
+            rect.anchorMin = rect.anchorMax = new Vector2(1f, 0.5f);
+            rect.pivot = new Vector2(1f, 0.5f);
+            rect.anchoredPosition = new Vector2(-PlaySettingsStyle.Layout.RevertRightMargin, 0f);
+            rect.sizeDelta = new Vector2(0f, PlaySettingsStyle.Layout.RevertHeight);
+
+            var hit = rect.gameObject.AddComponent<Image>();
+            hit.color = Color.clear;
+            hit.raycastTarget = true;
+
+            var labelRect = CreateRect("Text", rect);
+            Stretch(labelRect);
+
+            revertLabel = labelRect.gameObject.AddComponent<Text>();
+            revertLabel.text = PlaySettingsStyle.Layout.RevertLabel;
+            revertLabel.font = BodyFont();
+            revertLabel.fontSize = PlaySettingsStyle.FontSize.Revert;
+            revertLabel.color = Color.white;
+            revertLabel.alignment = TextAnchor.MiddleRight;
+            revertLabel.raycastTarget = false;
+            revertLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+            revertLabel.verticalOverflow = VerticalWrapMode.Overflow;
+
+            var textWidth = Mathf.Max(revertLabel.preferredWidth, 64f);
+            rect.sizeDelta = new Vector2(textWidth, PlaySettingsStyle.Layout.RevertHeight);
+
+            var button = rect.gameObject.AddComponent<Button>();
+            button.targetGraphic = revertLabel;
+            button.transition = Selectable.Transition.ColorTint;
+            var colors = button.colors;
+            colors.normalColor = PlaySettingsStyle.Palette.RevertLabel;
+            colors.highlightedColor = PlaySettingsStyle.Palette.TextHover;
+            colors.pressedColor = PlaySettingsStyle.Palette.TextHover;
+            colors.selectedColor = PlaySettingsStyle.Palette.RevertLabel;
+            colors.disabledColor = PlaySettingsStyle.Palette.ApplyOffLabel;
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
+            return button;
+        }
+
+        private static Text CreateApplyWarning(RectTransform footer)
+        {
+            var rect = CreateRect("ApplyWarning", footer);
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(0f, 52f);
+            rect.sizeDelta = new Vector2(PlaySettingsStyle.ModalSize.x - 80f, 28f);
+
+            var label = rect.gameObject.AddComponent<Text>();
+            label.text = "적용되지 않은 변경사항이 있습니다!";
+            label.font = BodyFont();
+            label.fontSize = PlaySettingsStyle.FontSize.ApplyWarning;
+            label.color = PlaySettingsStyle.Palette.ApplyWarning;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.raycastTarget = false;
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            label.verticalOverflow = VerticalWrapMode.Overflow;
+            label.gameObject.SetActive(false);
+            return label;
+        }
+
         private Button CreateApplyButton(RectTransform footer)
         {
             var paddingX = PlaySettingsStyle.ApplyPaddingHorizontal;
@@ -825,28 +1126,30 @@ namespace Game.Client.Lobby
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
 
-            var fill = rect.gameObject.AddComponent<Image>();
-            fill.type = Image.Type.Sliced;
-            fill.color = PlaySettingsStyle.Palette.ApplyFill;
+            applyFill = rect.gameObject.AddComponent<Image>();
+            applyFill.type = Image.Type.Sliced;
+            applyFill.color = PlaySettingsStyle.Palette.ApplyOffFill;
 
             var button = rect.gameObject.AddComponent<Button>();
-            button.targetGraphic = fill;
+            button.targetGraphic = applyFill;
+            button.interactable = false;
+            button.transition = Selectable.Transition.None;
 
             var labelRect = CreateRect("Text", rect);
             Stretch(labelRect);
 
-            var label = labelRect.gameObject.AddComponent<Text>();
-            label.text = "적용하기";
-            label.font = MediumFont();
-            label.fontSize = fontSize;
-            label.color = PlaySettingsStyle.Palette.Text;
-            label.alignment = TextAnchor.MiddleCenter;
-            label.raycastTarget = false;
-            label.horizontalOverflow = HorizontalWrapMode.Overflow;
-            label.verticalOverflow = VerticalWrapMode.Overflow;
+            applyLabel = labelRect.gameObject.AddComponent<Text>();
+            applyLabel.text = "적용하기";
+            applyLabel.font = MediumFont();
+            applyLabel.fontSize = fontSize;
+            applyLabel.color = PlaySettingsStyle.Palette.ApplyOffLabel;
+            applyLabel.alignment = TextAnchor.MiddleCenter;
+            applyLabel.raycastTarget = false;
+            applyLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+            applyLabel.verticalOverflow = VerticalWrapMode.Overflow;
 
-            var textWidth = Mathf.Max(label.preferredWidth, 128f);
-            var textHeight = Mathf.Max(label.preferredHeight, fontSize);
+            var textWidth = Mathf.Max(applyLabel.preferredWidth, 128f);
+            var textHeight = Mathf.Max(applyLabel.preferredHeight, fontSize);
             var height = textHeight + (paddingY * 2f);
             rect.sizeDelta = new Vector2(textWidth + (paddingX * 2f), height);
             rect.anchoredPosition = Vector2.zero;
@@ -854,7 +1157,7 @@ namespace Game.Client.Lobby
             var radius = Mathf.Min(
                 PlaySettingsStyle.ApplyButtonRadius,
                 Mathf.Max(8, Mathf.FloorToInt((height * 0.5f) - 1f)));
-            fill.sprite = HomeUiFonts.Rounded(radius);
+            applyFill.sprite = HomeUiFonts.Rounded(radius);
             return button;
         }
 

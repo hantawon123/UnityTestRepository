@@ -123,9 +123,10 @@ namespace Game.Client.Settings
         public event Action LeaveGameRequested;
 
         /// <summary>
-        /// Lobby overlay: no feedback row, and 게임 나가기 at the panel's
-        /// bottom left. Call before the first activation when this view is
-        /// built in code rather than placed in the Settings scene.
+        /// Lobby overlay: no feedback row, no ← 이전, and 게임 나가기 as
+        /// white text where that arrow sat. Call before the first activation
+        /// when this view is built in code rather than placed in the Settings
+        /// scene.
         /// </summary>
         public void ConfigureAsLobbyOverlay()
         {
@@ -256,7 +257,19 @@ namespace Game.Client.Settings
                 feedbackRow.SetActive(false);
             }
 
-            EnsureLeaveGameButton();
+            var back = canvasRoot != null ? canvasRoot.Find("BackButton") : null;
+            if (back != null)
+            {
+                back.gameObject.SetActive(false);
+            }
+
+            var plate = panel != null ? panel.Find("LeaveGameButton") : null;
+            if (plate != null)
+            {
+                plate.gameObject.SetActive(false);
+            }
+
+            EnsureLeaveGameLabel();
         }
 
         /// <summary>
@@ -276,6 +289,8 @@ namespace Game.Client.Settings
             {
                 rightIcon = Resources.Load<Sprite>(SettingsStyle.ArrowRightIconResource);
             }
+
+            closeIcon = SettingsStyle.LoadCloseIcon(closeIcon);
         }
 
         /// <summary>
@@ -390,6 +405,12 @@ namespace Game.Client.Settings
 
         private void CreateBackButton(RectTransform canvas)
         {
+            if (lobbyOverlay)
+            {
+                EnsureLeaveGameLabel();
+                return;
+            }
+
             var rect = CreateRect("BackButton", canvas);
             SetAnchor(rect, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f));
             rect.anchoredPosition = SettingsStyle.Back.Position;
@@ -541,30 +562,29 @@ namespace Game.Client.Settings
             applyButton = AddPlateButton(apply, applyFill, () => ApplyRequested?.Invoke());
         }
 
-        private void EnsureLeaveGameButton()
+        private void EnsureLeaveGameLabel()
         {
-            if (leaveGameButton != null || panel == null)
+            if (leaveGameButton != null || canvasRoot == null)
             {
                 return;
             }
 
-            leaveGameButton = CreatePlate(
-                panel,
-                "LeaveGameButton",
-                SettingsStyle.Buttons.LeaveLeft,
+            var rect = CreateRect("LeaveGameLabel", canvasRoot);
+            SetAnchor(rect, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f));
+            rect.anchoredPosition = SettingsStyle.Back.Position;
+            rect.sizeDelta = SettingsStyle.Back.LeaveSize;
+            AddImage(rect, Color.clear, raycastTarget: true);
+
+            var label = CreateText(
+                "Label",
+                rect,
                 SettingsStyle.Buttons.LeaveLabel,
-                null,
-                out var fill,
-                out var label,
-                out _);
-            fill.color = Color.white;
-            label.color = SettingsStyle.Palette.ApplyOnLabel;
-            var gradient = leaveGameButton.gameObject.AddComponent<UiLinearGradient>();
-            gradient.Bind(
-                SettingsStyle.Palette.LeaveGameStart,
-                SettingsStyle.Palette.LeaveGameEnd,
-                alongVertical: false);
-            AddPlateButton(leaveGameButton, fill, () => LeaveGameRequested?.Invoke());
+                SettingsStyle.Back.FontSize,
+                Color.white,
+                TextAlignmentOptions.MidlineLeft);
+            Stretch(label.rectTransform);
+            AddTintButton(rect, label, Color.white, () => LeaveGameRequested?.Invoke());
+            leaveGameButton = rect;
         }
 
         /// <summary>

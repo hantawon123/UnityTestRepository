@@ -59,6 +59,7 @@ namespace Game.Client.Lobby
 
             selectedMapIndex = index;
             RefreshMapSelection(scrollIntoView: true);
+            RefreshApplyChrome();
         }
 
         private void RefreshMapSelection(bool scrollIntoView)

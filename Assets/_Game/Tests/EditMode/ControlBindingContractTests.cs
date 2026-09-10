@@ -91,7 +91,7 @@ namespace Game.Architecture.Tests
             var spare = new[]
             {
                 "b", "h", "i", "j", "k", "l", "m", "n",
-                "o", "p", "r", "t", "u", "x", "y", "f1", "f2"
+                "o", "p", "r", "t", "u", "x", "y", "f1", "f2", "f3"
             };
             var rows = Enum.GetValues(typeof(ControlAction));
             Assert.That(
