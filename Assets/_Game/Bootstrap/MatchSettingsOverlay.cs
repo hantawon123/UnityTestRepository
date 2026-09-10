@@ -24,6 +24,8 @@ namespace Game.Bootstrap
         private bool layoutConfigured;
         private int dismissedFrame = -1;
         private int restoreCursorFrame = -1;
+        private bool ownsGameplayCursor;
+        private float nextCursorDiagnostic;
         public bool IsOpen { get; private set; }
 
         public MatchSettingsOverlay(SettingsView view, SettingsPresenter presenter,
@@ -46,6 +48,19 @@ namespace Game.Bootstrap
 
         public void Tick()
         {
+            if (ownsGameplayCursor && !IsOpen && network.IsRuntimeReady &&
+                !network.IsWaitingForMatch && !network.IsHighlightInProgress && !network.IsResultSceneLoaded &&
+                Application.isFocused && !PlayerMovement.IsTextInputFocused() &&
+                (Keyboard.current == null || !Keyboard.current.escapeKey.isPressed) &&
+                (Cursor.lockState != CursorLockMode.Locked || Cursor.visible) && camera != null)
+            {
+                camera.SetCursorCaptureEnabled(true);
+                if (Time.unscaledTime >= nextCursorDiagnostic)
+                {
+                    nextCursorDiagnostic = Time.unscaledTime + 1f;
+                    Debug.Log($"[QA-Cursor] maintained gameplay capture frame={Time.frameCount} lock={Cursor.lockState} visible={Cursor.visible}");
+                }
+            }
             if (restoreCursorFrame >= 0 && Time.frameCount > restoreCursorFrame)
             {
                 restoreCursorFrame = -1;
@@ -75,6 +90,7 @@ namespace Game.Bootstrap
             if (!network.IsRuntimeReady || PlayerMovement.IsTextInputFocused() ||
                 Keyboard.current == null || !Keyboard.current.escapeKey.wasPressedThisFrame) return;
             restoreCursorFrame = -1;
+            ownsGameplayCursor = false;
             IsOpen = true;
             chatWasEnabled = chat.enabled;
             chat.enabled = false;
@@ -124,6 +140,7 @@ namespace Game.Bootstrap
             if (chat != null) chat.enabled = chatWasEnabled;
             if (camera != null && !network.IsResultSceneLoaded && !network.IsHighlightInProgress)
                 camera.SetCursorCaptureEnabled(true);
+            ownsGameplayCursor = true;
             restoreCursorFrame = Time.frameCount;
             MatchTransitionDiagnostics.Dump("settings-closed");
         }
@@ -133,6 +150,7 @@ namespace Game.Bootstrap
             if (!IsOpen) return;
             view.gameObject.SetActive(false);
             restoreCursorFrame = -1;
+            ownsGameplayCursor = false;
             exit.RequestLeave();
         }
 

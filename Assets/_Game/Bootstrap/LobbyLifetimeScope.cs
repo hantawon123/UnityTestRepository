@@ -401,7 +401,8 @@ namespace Game.Bootstrap
             {
                 // Assigned items are roots too, and may have been destroyed during the match.
                 // The gameplay rig is transferred to Lobby but remains in the old root snapshot.
-                if (root == null || root.GetComponent<PlayerCameraController>() != null) continue;
+                if (root == null || root.GetComponent<PlayerCameraController>() != null ||
+                    (root.GetComponent<Camera>() != null && root.scene == gameObject.scene)) continue;
                 outgoingMeshes.AddRange(root.GetComponentsInChildren<Renderer>(true));
                 outgoingBodies.AddRange(root.GetComponentsInChildren<Collider>(true));
                 foreach (var behaviour in root.GetComponentsInChildren<Behaviour>(true))
@@ -512,9 +513,23 @@ namespace Game.Bootstrap
         {
             var rig = FindFirstObjectByType<PlayerCameraController>(FindObjectsInactive.Include);
             if (rig == null) rig = Instantiate(cameraRigPrefab);
-            if (highlightStaging && rig.gameObject.scene != gameObject.scene &&
-                rig.transform.parent == null)
-                SceneManager.MoveGameObjectToScene(rig.gameObject, gameObject.scene);
+            if (highlightStaging)
+            {
+                // Keep the Brain/output paired with the rig through replay -> lobby.
+                // Replacing only the output camera can leave the lobby viewing the replay pose.
+                var output = Camera.main;
+                if (output != null && output.gameObject.scene != gameObject.scene && output.transform.parent == null)
+                {
+                    foreach (var root in sceneRoots)
+                        if (root != null)
+                            foreach (var other in root.GetComponentsInChildren<Camera>(true))
+                                other.enabled = false;
+                    SceneManager.MoveGameObjectToScene(output.gameObject, gameObject.scene);
+                    Debug.Log($"[QA-Transition] transferred output camera={output.GetInstanceID()} with rig={rig.GetInstanceID()}");
+                }
+                if (rig.gameObject.scene != gameObject.scene && rig.transform.parent == null)
+                    SceneManager.MoveGameObjectToScene(rig.gameObject, gameObject.scene);
+            }
             rig.BindSettings(settings);
             rig.RequireExplicitFollowTarget();
         }

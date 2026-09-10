@@ -22,13 +22,15 @@ namespace Game.Tests.EditMode
             sharedRig.SetActive(false);
             sharedRig.AddComponent<Game.Client.Cameras.PlayerCameraController>();
             var sharedCamera = sharedRig.AddComponent<Camera>();
+            var transferredOutput = new GameObject("Transferred output camera");
+            var outputCamera = transferredOutput.AddComponent<Camera>();
             try
             {
                 var lobby = lobbyRoot.AddComponent<LobbyLifetimeScope>();
                 var playground = playgroundRoot.AddComponent<PlaygroundLifetimeScope>();
                 Set(lobby, "sceneRoots", destroyedLobbyRoot ? new[] { destroyedItem, lobbyObject } : new[] { lobbyObject });
                 typeof(PlaygroundLifetimeScope).GetField("sceneRoots", BindingFlags.Instance | BindingFlags.NonPublic)
-                    .SetValue(playground, new[] { destroyedItem, mapObject, sharedRig });
+                    .SetValue(playground, new[] { destroyedItem, mapObject, sharedRig, transferredOutput });
                 Object.DestroyImmediate(destroyedItem);
 
                 Assert.DoesNotThrow(() => typeof(LobbyLifetimeScope)
@@ -41,11 +43,14 @@ namespace Game.Tests.EditMode
                 Assert.That(lobbyObject.GetComponent<Renderer>().forceRenderingOff, Is.False);
                 Assert.That(mapObject.GetComponent<Renderer>().forceRenderingOff, Is.True);
                 Assert.That(mapObject.GetComponent<Collider>().enabled, Is.False);
+                Assert.That(outputCamera.enabled, Is.True,
+                    "The output camera already in Lobby must remain enabled with its rig.");
                 Assert.That(sharedCamera.enabled, Is.True,
                     "The transferred lobby rig must not be disabled with the outgoing map.");
             }
             finally
             {
+                Object.DestroyImmediate(transferredOutput);
                 Object.DestroyImmediate(sharedRig);
                 Object.DestroyImmediate(destroyedItem);
                 Object.DestroyImmediate(mapObject);
