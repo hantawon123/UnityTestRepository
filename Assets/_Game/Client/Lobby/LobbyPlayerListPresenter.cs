@@ -28,6 +28,13 @@ namespace Game.Client.Lobby
         public void BindPresentation(Game.Core.Settings.InterfacePresentation value) =>
             presentation = value;
         private IDisposable refreshSubscription;
+
+        /// <summary>
+        /// The last thing the room said about itself, so that a name arriving
+        /// on its own can redraw the rows without waiting for the room to
+        /// change too.
+        /// </summary>
+        private (IReadOnlyList<LobbyParticipant> Participants, bool IsLocalHost, PlaySettingsDraft Settings)? latest;
         private string pendingPlayerId;
         private PendingConfirm pending;
 
@@ -57,7 +64,7 @@ namespace Game.Client.Lobby
         {
             confirmView.Hide();
 
-            if (presentation != null) presentation.Changed += CancelPending;
+            if (presentation != null) presentation.Changed += OnPresentationChanged;
             view.KickClicked += OnKickClicked;
             view.InviteClicked += OnInviteClicked;
             view.ReportClicked += OnReportClicked;
@@ -73,19 +80,54 @@ namespace Game.Client.Lobby
                         (Participants: participants, IsLocalHost: isLocalHost, Settings: settings))
                 .Subscribe(state =>
                 {
-                    var people = state.Participants ?? Array.Empty<LobbyParticipant>();
-                    view.SetParticipants(
-                        people,
-                        state.IsLocalHost,
-                        hostSession.LocalPlayerId);
-                    countView.SetCount(people.Count, state.Settings.MaxPlayers);
-                    BindFriends();
+                    latest = state;
+                    Draw();
                 });
+        }
+
+        /// <summary>
+        /// What a name change means here: the rows say who everybody is, so
+        /// they have to be written again.
+        /// </summary>
+        /// <remarks>
+        /// A player's name arrives a moment after they do — the owner has to
+        /// say whether it is their own or a pseudonym, and until they have,
+        /// there is no name to show. Without this the list keeps the blank it
+        /// was drawn with, which is what a joining player used to see for the
+        /// whole time they were in the room.
+        /// <para>
+        /// Also closes a kick or a hand-over that was waiting on an answer.
+        /// Whoever it named may be going by something else now, and a
+        /// confirmation that says a name nobody can see is worse than one
+        /// dismissed.
+        /// </para>
+        /// </remarks>
+        private void OnPresentationChanged()
+        {
+            CancelPending();
+            Draw();
+        }
+
+        private void Draw()
+        {
+            if (!latest.HasValue)
+            {
+                return;
+            }
+
+            var state = latest.Value;
+            var people = state.Participants ?? Array.Empty<LobbyParticipant>();
+            view.SetParticipants(
+                people,
+                state.IsLocalHost,
+                hostSession.LocalPlayerId);
+            countView.SetCount(people.Count, state.Settings.MaxPlayers);
+            BindFriends();
         }
 
         public void Dispose()
         {
-            if (presentation != null) presentation.Changed -= CancelPending;
+            if (presentation != null) presentation.Changed -= OnPresentationChanged;
             view.KickClicked -= OnKickClicked;
             view.InviteClicked -= OnInviteClicked;
             view.ReportClicked -= OnReportClicked;
