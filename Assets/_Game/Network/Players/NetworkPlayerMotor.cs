@@ -222,7 +222,7 @@ namespace Game.Network.Players
                 SprintMultiplier);
             kcc.SetInputDirection(direction);
 
-            if (grounded &&
+            if (grounded && Posture == PlayerPosture.Standing &&
                 input.WasPressed(NetworkPlayerButton.Jump, PreviousButtons))
             {
                 var gravity = -Physics.gravity.y * settings.GravityMultiplier;
@@ -401,12 +401,6 @@ namespace Game.Network.Players
                 current = current == PlayerPosture.Prone
                     ? PlayerPosture.Standing
                     : PlayerPosture.Prone;
-            }
-
-            if (input.WasPressed(NetworkPlayerButton.Jump, previous) &&
-                current != PlayerPosture.Standing)
-            {
-                current = PlayerPosture.Standing;
             }
 
             return current;

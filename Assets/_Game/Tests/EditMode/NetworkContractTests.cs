@@ -894,6 +894,16 @@ namespace Game.Architecture.Tests
                 Is.EqualTo(2f));
         }
 
+        [TestCase(PlayerPosture.Crouching)]
+        [TestCase(PlayerPosture.Prone)]
+        public void NetworkPlayer_JumpDoesNotStandUpFromLowPosture(PlayerPosture posture)
+        {
+            var input = NetworkPlayerInput.FromIntent(new PlayerInputIntent(
+                0f, 0f, 0f, PlayerInputButtons.Jump));
+            Assert.That(NetworkPlayerMotor.ResolvePosture(posture, true, input, default),
+                Is.EqualTo(posture));
+        }
+
         [Test]
         public void NetworkPlayer_SprintSpeedUsesRoomMultiplier()
         {
