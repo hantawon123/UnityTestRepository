@@ -277,13 +277,21 @@ MonoBehaviour:
   - Fall
   - Land
   - Crouch_Idle
-  - Crouch_Walk_Forward
   - Crouch_Start
   - Crouch_End
+  - Crouch_Walk_Forward
+  - Crouch_Walk_Back
   - Crouch_Walk_Left
   - Crouch_Walk_Right
-  - Crouch_Walk_Back
-  - Pickup_Low
+  - Crouch_To_Prone
+  - Prone_Idle
+  - Prone_Start
+  - Prone_End
+  - Crawl_Forward
+  - Crawl_Back
+  - Crawl_Left
+  - Crawl_Right
+  - Prone_To_Crouch
   - Carry_Idle
   - Carry_Walk_Forward
   - Carry_Walk_Back
@@ -303,23 +311,68 @@ MonoBehaviour:
   - Carry_Crawl_Back
   - Carry_Crawl_Left
   - Carry_Crawl_Right
+  - Carry_Jump
+  - Carry_Land
+  - PutUp_TwoHands
+  - Carry_TwoHands
+  - Carry_TwoHands_Walk_Forward
+  - Carry_TwoHands_Walk_Back
+  - Carry_TwoHands_Walk_Left
+  - Carry_TwoHands_Walk_Right
+  - Carry_TwoHands_Run_Forward
+  - Carry_TwoHands_Run_Back
+  - Carry_TwoHands_Run_Left
+  - Carry_TwoHands_Run_Right
+  - Carry_TwoHands_Crouch_Idle
+  - Carry_TwoHands_Crouch_Walk_Forward
+  - Carry_TwoHands_Crouch_Walk_Back
+  - Carry_TwoHands_Crouch_Walk_Left
+  - Carry_TwoHands_Crouch_Walk_Right
+  - Carry_TwoHands_Prone_Idle
+  - Carry_TwoHands_Crawl_Forward
+  - Carry_TwoHands_Crawl_Back
+  - Carry_TwoHands_Crawl_Left
+  - Carry_TwoHands_Crawl_Right
+  - Carry_TwoHands_Jump
+  - Carry_TwoHands_Land
+  - Throw_TwoHands
+  - Throw_TwoHands_Walk
+  - Throw_TwoHands_Run
+  - Throw_TwoHands_Crouch
+  - Throw_TwoHands_Crouch_Walk
+  - Throw_TwoHands_Prone
+  - Throw_TwoHands_Crawl
+  - Carry_TwoHands_Crouch_Start
+  - Carry_TwoHands_Crouch_End
+  - Carry_TwoHands_Prone_Start
+  - Carry_TwoHands_Prone_End
+  - Carry_TwoHands_Crouch_To_Prone
+  - Carry_TwoHands_Prone_To_Crouch
+  - PutUp_TwoHands_Crouch
+  - PutDown_TwoHands_Crouch
+  - PutUp_TwoHands_Prone
+  - PutDown_TwoHands_Prone
+  - PutDown_TwoHands
+  - Pickup_Low
+  - Pickup_Crouch
+  - Pickup_Prone
   - PutDown_Low
+  - PutDown_Crouch
+  - PutDown_Prone
   - Throw
-  - Prone_Start
-  - Prone_Idle
-  - Crawl_Forward
-  - Crawl_Back
-  - Crawl_Left
-  - Crawl_Right
-  - Prone_End
-  - Crouch_To_Prone
-  - Prone_To_Crouch
   - Punch
+  - Punch_Walk
+  - Punch_Run
+  - Punch_Crouch
+  - Punch_Crouch_Walk
   - Hit
+  - Hit_Walk
+  - Hit_Run
+  - Hit_Crouch
+  - Hit_Crouch_Walk
   - Stun_Start
   - Stun_Idle
   - Stun_End
-  - Carry_Jump
 --- !u!1001 &869939381
 PrefabInstance:
   m_ObjectHideFlags: 0
