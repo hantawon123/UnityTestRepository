@@ -61,7 +61,8 @@ namespace Game.Bootstrap
                     Debug.Log($"[QA-Cursor] maintained gameplay capture frame={Time.frameCount} lock={Cursor.lockState} visible={Cursor.visible}");
                 }
             }
-            if (restoreCursorFrame >= 0 && Time.frameCount > restoreCursorFrame)
+            if (restoreCursorFrame >= 0 && Time.frameCount > restoreCursorFrame &&
+                (Keyboard.current == null || !Keyboard.current.escapeKey.isPressed))
             {
                 restoreCursorFrame = -1;
                 if (!IsOpen && Application.isFocused && !network.IsResultSceneLoaded &&
@@ -70,6 +71,8 @@ namespace Game.Bootstrap
                     if (camera != null)
                     {
                         camera.SetEscapeReleasesCursor(false);
+                        // Force a fresh native capture after the Escape event has finished.
+                        Cursor.lockState = CursorLockMode.None;
                         camera.SetCursorCaptureEnabled(true);
                     }
                     Debug.Log($"[QA-Cursor] deferred restore frame={Time.frameCount} lock={Cursor.lockState} focus={Application.isFocused} rig={(camera == null ? 0 : camera.GetInstanceID())}");

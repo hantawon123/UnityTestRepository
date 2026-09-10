@@ -331,7 +331,9 @@ namespace Game.Bootstrap
             if (replayPlayer == null || replayIndex != index)
             {
                 var changedHighlight = replayPlayer != null && replayIndex != index;
-                cameraDirector?.ClearOccluders();
+                // Dispose the previous high-priority replay camera before replacing its owner.
+                cameraDirector?.Dispose();
+                cameraDirector = null;
                 replayPlayer = null;
                 replayIndex = index;
                 appliedBodyTime = 0d;

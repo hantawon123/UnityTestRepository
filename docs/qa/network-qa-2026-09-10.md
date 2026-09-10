@@ -78,3 +78,13 @@ Unity 테스트 로그와 XML은 작업용 문서 저장소의 `.build/lobby-pro
 - 로비 진입 시 PlayerCameraController만 옮기던 처리에 기존 Camera.main도 함께 이관. 리플레이가 사용하던 출력/Brain과 리그 연결을 유지하고 별도 로비 카메라와의 교체 방지. 이관된 출력은 이전 씬 캐시의 숨김 대상에서 제외.
 - ESC 닫기 순간과 다음 프레임은 실제 로그에서 Locked. 이후 게임 입력 소유 중 잠금/커서 표시가 바뀌면 다시 캡처하도록 보완. 포커스 이탈/채팅/설정/결과/대기 중 제외. 원래 잠금이 풀리는 정확한 외부 시점은 아직 미확정.
 - WebGL 대상 Unity EditMode 165/165 통과 (qa-camera-handoff.xml). 실제 두 증상의 재현 해소 확인은 별도이며 통과로 간주하지 않음.
+
+
+## Space → Tab 재발 원인 및 수정
+
+- 최신 재현 qa-repro-after-camera-transfer.log에서 출력 카메라 이관은 실행됐으나, 로비에서 출력이 첫 리플레이 위치에 계속 고정. 로비 플레이어/리그 위치는 정상이며 Playground House/Floor drawable=0.
+- 원인: 다음 하이라이트로 전환할 때 기존 HighlightCameraDirector의 가림 처리만 해제하고 객체를 덮어써서 priority 100의 HighlightReplayCameraRig가 남음. Tab은 마지막 director만 정리하므로 이전 카메라가 계속 시점을 점유.
+- 전환 시 이전 director.Dispose() 후 참조를 비우도록 수정. Client 소스 수정 없음.
+- 실제 Cinemachine 리그를 생성하고 Space 이후 다음 Tick 및 Tab 경로를 검증하는 회귀 테스트 추가. 동일 테스트가 수정 전 실패(qa-replay-before.xml), 수정 후 통과. 관련 Unity WebGL 대상 EditMode 총 166/166 통과(qa-replay-dispose-v2.xml).
+- ESC: 로그에는 Locked이며 이후 잠금 해제를 감지한 기록도 없어 네이티브 커서 문제의 정확한 원인은 미확정. ESC 키를 놓은 이후 None → Locked로 새 캡처하도록 보완. 배치 테스트는 실제 하드웨어 커서와 시점 회전의 재현 해소를 검증하지 않음. 사용자 Editor 플레이 재확인 필요.
+- MR 생성 없이 현재 QA 브랜치 커밋/푸시. 결과 화면 공격 입력은 기존 합의대로 보류.
