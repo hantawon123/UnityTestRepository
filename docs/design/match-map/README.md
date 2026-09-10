@@ -43,3 +43,18 @@
   - → 열리는 가구 태스크(문서 T7, 미발급)는 음료 냉장고 3종을 대상으로 범위를 잡을 수 있다.
 - **데모 씬**: `PolygonShops/Scenes/Demo.unity`(쇼핑몰·소형 매장·버거·사냥용품점·주차장, 렌더러 10,709), `Demo_Lite`, `Overview`; `PolygonMapsPlaza/Scenes/Demo.unity`(도심 블록, 렌더러 11,424). 슈퍼마켓 구역은 Shops 데모의 `Mall_Downstairs_Props` 아래 (18, 1, -5) 부근, 진열대 25개 밀집.
 - **다음(903)**: 데모의 슈퍼마켓 구역(약 8×9 m 진열대 블록 + 계산대)을 참고해 우리 규모(로비 2~3배, 6인)로 레이아웃 도면 작성. 창고(`Prop_Warehouse`)·하역장·사무실·화장실(Plaza의 Toilet 프리팹 세트) 존을 붙인다.
+
+### 3. 조립 씬과 에디터 도구 (2026-09-10, 904)
+
+- 조립 씬 `Assets/_Game/Content/Scenes/MartBuild.unity`. 데모 씬(쇼핑몰·플라자)에서 필요한 매장을 복사해 와 조립(루트 오브젝트 약 1만 개, 팩 프리팹 인스턴스). 씬 안에서 필요한 구역만 골라 온 것이라 원본 데모 씬은 그대로.
+- **합쳐진 소품 분해** `Game/Match Map/Explode Merged Props…` (`MergedPropExplodeMenu.cs`): Synty의 Preset/Insert/Stacked 프리팹은 진열대+상품, 상자 더미가 한 메시라 플레이어가 개별 상품과 상호작용할 수 없다. 메시를 정점 위치 용접→연결 조각으로 나눠 팩의 개별 프리팹과 형태 매칭해 프리팹 인스턴스로 세운다.
+  - 매칭: 회전 불변 지표(정점 수·중심 거리 분포)로 후보를 고르고 Y회전 탐색 → 실패 시 임의 3D 회전(PCA 초기값 + ICP). 여러 조각 프리팹(꽃다발=화분+꽃, 파인애플=과육+잎, 팔레트)은 가장 큰 조각으로 위치·회전을 잡고 나머지 조각이 예측 위치에 있는지 검증해 통째로 잡는다.
+  - 팩에 없는 모양(인서트 전용 병·캔·상자)은 조각 지오메트리로 생성 프리팹을 만들어 `Assets/_Game/Content/MatchMap/GeneratedProps/`에 저장·재사용(BoxCollider 포함).
+  - 결과는 `<원본>_Exploded/{Structure, Products}`. 구조물 판정: Products/Food 폴더는 상품, 생성 프리팹은 크기(0.6 m/0.03 m³), 팩 Props는 키워드(Stand·Shelf·Rack·Aisle·Checkout·Fridge·Freezer·Display·Pallet·Trolley·Cart·Counter·Table·Cabinet·Kiosk) 또는 1.2 m.
+  - 일괄 처리는 `(Background)` 메뉴(에디터 틱마다 하나씩, 에디터가 멈추지 않음). `Revert All Exploded`로 되돌리기, `Reclassify`로 분류만 재적용.
+  - **필수 설정**: Synty 모델 FBX의 Read/Write를 켰다(1,965개). 꺼진 상태에서 대량 처리하면 Unity가 CPU 메시 데이터를 해제해 카탈로그를 못 읽고 전부 생성 프리팹이 되는 사고가 있었다. 메시 콜라이더 조준(907)에도 필요.
+  - 결과(씬 전체 243개): 상품 10,607개(팩 프리팹 1,684·생성 8,923), 구조물 1,287개, 생성 프리팹 511종. 꽃다발 54·파인애플 32·창고 상자 46은 팩 프리팹. 팔레트 스택은 판재로 부서져 제외(`Pallet` 이름). 양배추 일부는 크기 변형으로 미매칭 → 수동 처리.
+  - 성능 주의: 활성 렌더러 약 2.4만 개. 906/907에서 상호작용 물건만 남기고 나머지는 Static 배칭.
+- **인접 복제** `Game/Match Map/Duplicate Adjacent/…` (`DuplicateAdjacentMenu.cs`): 선택 조각을 로컬 축 방향으로 자기 크기만큼 옆에 복제(Alt+Shift+방향키, PgUp/PgDn). 천장·바닥 타일 붙이기용, 프리팹 연결 유지.
+- **선택을 프리팹으로** `Game/Match Map/Make Prefab From Selection…` (`MakePrefabFromSelectionMenu.cs`, Ctrl+Shift+Alt+P): 선택 묶음을 `Assets/_Game/Content/Prefabs/Mart/<이름>.prefab`으로 저장·연결. 피벗은 바닥 중앙, 종류별(Modules/Env/Props) 하위 그룹 옵션.
+- 로비 로우폴리 변환기(`LobbyLowPolyTestMenu.cs`)도 912 대비로 함께 보관.
