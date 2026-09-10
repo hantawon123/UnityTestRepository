@@ -109,7 +109,7 @@ namespace Game.Client.Interactions
         private float holdHeightBelowEyes = 0.55f;
 
         [SerializeField, Tooltip("소지 물건의 좌우 치우침 (+ 오른쪽)")]
-        private float holdSideOffset = 0.25f;
+        private float holdSideOffset = 0f;
 
         public CarryableItem CarriedItem { get; private set; }
 

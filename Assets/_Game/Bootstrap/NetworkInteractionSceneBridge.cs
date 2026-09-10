@@ -316,6 +316,9 @@ namespace Game.Bootstrap
 
         private void ApplyObjectStates()
         {
+            // Result presentation detaches held items. Frozen match snapshots must not reattach them.
+            if (network.IsResultSceneLoaded) return;
+
             var checkHeldState = Time.unscaledTimeAsDouble >= nextHeldStateCheckAt;
             if (checkHeldState) nextHeldStateCheckAt = Time.unscaledTimeAsDouble + 0.5d;
             for (var index = 0; index < objectStates.Length; index++)
