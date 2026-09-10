@@ -4,6 +4,7 @@ using Game.Client.Players;
 using Game.Core.Lobby;
 using R3;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using VContainer.Unity;
 
@@ -40,6 +41,7 @@ namespace Game.Client.Lobby
         private readonly LobbyExitPresenter exit;
         private readonly ILobbyShortcutOverlay shortcuts;
         private readonly Action shortcutClose;
+        private readonly Action playSettingsClose;
         private IDisposable hostSubscription;
         private PlayerCameraController cameraRig;
         private PlayerMovement lockedMovement;
@@ -94,6 +96,7 @@ namespace Game.Client.Lobby
             this.shortcuts = shortcuts
                 ?? throw new ArgumentNullException(nameof(shortcuts));
             shortcutClose = this.shortcuts.RequestClose;
+            playSettingsClose = this.playSettings.RequestClose;
         }
 
         public void Start()
@@ -255,6 +258,7 @@ namespace Game.Client.Lobby
             view.SetVisible(false);
             SetCursorCaptured(true);
             ReleaseMovement();
+            ClearUiSelection();
         }
 
         /// <remarks>
@@ -293,7 +297,7 @@ namespace Game.Client.Lobby
             SetCursorCaptured(false);
             LockMovement();
             openedFromWorld = true;
-            StepAsideFor(playSettings.RequestClose);
+            StepAsideFor(playSettingsClose);
             playSettings.RequestOpen();
         }
 
@@ -302,7 +306,7 @@ namespace Game.Client.Lobby
         /// player is still in the menu, and re-capturing the cursor here would
         /// hand them a settings screen they cannot click.
         /// </remarks>
-        private void OnPlaySettingsClicked() => StepAsideFor(playSettings.RequestClose);
+        private void OnPlaySettingsClicked() => StepAsideFor(playSettingsClose);
 
         /// <summary>
         /// Opens a 1 / 2 overlay from the room. Closing it returns to
@@ -385,8 +389,10 @@ namespace Game.Client.Lobby
         {
             // Play settings refuses to leave while a draft is still dirty. A
             // close request that still arrives must not recapture the cursor,
-            // or 적용하기 becomes unreachable.
-            if (playSettings.HasUnappliedChanges)
+            // or 적용하기 becomes unreachable. Only that screen: a dirty draft
+            // left in the background must not keep Esc from returning the
+            // mouse to the room.
+            if (closeOpenScreen == playSettingsClose && playSettings.HasUnappliedChanges)
             {
                 SetCursorCaptured(false);
                 LockMovement();
@@ -460,6 +466,14 @@ namespace Game.Client.Lobby
 
             rig.SetEscapeReleasesCursor(false);
             rig.SetCursorCaptureEnabled(captured);
+        }
+
+        private static void ClearUiSelection()
+        {
+            if (EventSystem.current != null)
+            {
+                EventSystem.current.SetSelectedGameObject(null);
+            }
         }
 
         private void LockMovement()

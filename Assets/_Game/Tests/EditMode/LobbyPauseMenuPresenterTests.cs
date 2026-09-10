@@ -295,6 +295,23 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void SettingsFromWorld_ThenClose_IgnoresUnappliedPlaySettings()
+        {
+            using var fixture = new Fixture();
+            var requested = 0;
+            fixture.Presenter.SettingsOpenRequested += () => requested++;
+            fixture.Presenter.Start();
+            fixture.Presenter.OpenSettingsScreen(() => { }, fromWorld: true);
+            fixture.Settings.UnappliedChanges = true;
+
+            fixture.Presenter.OnScreenClosed();
+            fixture.Presenter.HandleEscape();
+
+            Assert.That(requested, Is.EqualTo(1));
+            Assert.That(fixture.Menu.IsOpen, Is.False);
+        }
+
+        [Test]
         public void Escape_WhileShortcutOpen_ClosesItWithoutLeaving()
         {
             using var fixture = new Fixture();
