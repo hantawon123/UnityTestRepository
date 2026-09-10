@@ -1,6 +1,6 @@
 using System.Text;
 using Game.Client.Cameras;
-using Game.Client.Players;
+using Game.Network.Players;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
