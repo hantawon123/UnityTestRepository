@@ -41,6 +41,15 @@ namespace Game.Client.Interactions
 
         private bool interactionPromptVisible = true;
 
+        public bool InteractionPromptsAllowed => interactionPromptVisible;
+
+        /// <summary>
+        /// World prompts (방 설정, 물건 잡기, 배치) stay off while a menu owns
+        /// the mouse. A free cursor is that menu.
+        /// </summary>
+        public static bool CanShowWorldPrompt(bool hudVisible, bool promptEnabled, bool cursorLocked) =>
+            hudVisible && promptEnabled && cursorLocked;
+
         public void SetHudVisible(bool visible)
         {
             hudVisible = visible;
@@ -420,7 +429,10 @@ namespace Game.Client.Interactions
 
         private void RefreshInteractionCue()
         {
-            var nextHighlight = HudVisible &&
+            var nextHighlight = CanShowWorldPrompt(
+                                    HudVisible,
+                                    interactionPromptVisible,
+                                    Cursor.lockState == CursorLockMode.Locked) &&
                                 aimedTarget is CarryableItem item &&
                                 CarriedItem == null &&
                                 item.CanInteract(this)
@@ -456,8 +468,10 @@ namespace Game.Client.Interactions
             actionColor = Color.white;
             worldAnchor = null;
 
-            if (!HudVisible ||
-                !interactionPromptVisible ||
+            if (!CanShowWorldPrompt(
+                    HudVisible,
+                    interactionPromptVisible,
+                    Cursor.lockState == CursorLockMode.Locked) ||
                 placementController is { IsPlacing: true } ||
                 aimedTarget is not IInteractable interactable ||
                 !interactable.CanInteract(this) ||

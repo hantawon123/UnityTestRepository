@@ -114,5 +114,14 @@ namespace Game.Architecture.Tests
                 InteractionPromptView.ScaleFromDistance(100f),
                 Is.EqualTo(1f));
         }
+
+        [Test]
+        public void WorldPrompt_StaysOffWhenTheCursorIsFree()
+        {
+            Assert.That(PlayerInteractor.CanShowWorldPrompt(true, true, true), Is.True);
+            Assert.That(PlayerInteractor.CanShowWorldPrompt(true, true, false), Is.False);
+            Assert.That(PlayerInteractor.CanShowWorldPrompt(true, false, true), Is.False);
+            Assert.That(PlayerInteractor.CanShowWorldPrompt(false, true, true), Is.False);
+        }
     }
 }

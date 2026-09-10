@@ -312,6 +312,15 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void ObjectPrompts_HideWhileAnyLobbyModalIsOpen()
+        {
+            Assert.That(LobbyPauseMenuPresenter.ShowsObjectPrompts(false, false), Is.True);
+            Assert.That(LobbyPauseMenuPresenter.ShowsObjectPrompts(true, false), Is.False);
+            Assert.That(LobbyPauseMenuPresenter.ShowsObjectPrompts(false, true), Is.False);
+            Assert.That(LobbyPauseMenuPresenter.ShowsObjectPrompts(true, true), Is.False);
+        }
+
+        [Test]
         public void Escape_WhileShortcutOpen_ClosesItWithoutLeaving()
         {
             using var fixture = new Fixture();

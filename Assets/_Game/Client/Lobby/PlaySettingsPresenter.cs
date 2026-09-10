@@ -104,7 +104,6 @@ namespace Game.Client.Lobby
             isOpen = false;
             view.SetVisible(false);
             view.SetUnappliedWarningVisible(false);
-            SetInteractionPromptVisible(true);
         }
 
         private void Apply()

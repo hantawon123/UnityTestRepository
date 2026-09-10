@@ -1,5 +1,6 @@
 using System;
 using Game.Client.Cameras;
+using Game.Client.Interactions;
 using Game.Client.Players;
 using Game.Core.Lobby;
 using R3;
@@ -147,6 +148,7 @@ namespace Game.Client.Lobby
             {
                 SetCursorCaptured(false);
                 LockMovement();
+                RefreshObjectPrompts();
             }
 
             if (Keyboard.current == null)
@@ -238,6 +240,7 @@ namespace Game.Client.Lobby
 
             SetCursorCaptured(false);
             LockMovement();
+            RefreshObjectPrompts();
         }
 
         /// <summary>
@@ -259,6 +262,7 @@ namespace Game.Client.Lobby
             SetCursorCaptured(true);
             ReleaseMovement();
             ClearUiSelection();
+            RefreshObjectPrompts();
         }
 
         /// <remarks>
@@ -275,6 +279,7 @@ namespace Game.Client.Lobby
             view.SetVisible(false);
             SetCursorCaptured(false);
             LockMovement();
+            RefreshObjectPrompts();
         }
 
         /// <summary>
@@ -299,6 +304,7 @@ namespace Game.Client.Lobby
             openedFromWorld = true;
             StepAsideFor(playSettingsClose);
             playSettings.RequestOpen();
+            RefreshObjectPrompts();
         }
 
         /// <remarks>
@@ -365,6 +371,7 @@ namespace Game.Client.Lobby
             }
 
             shortcuts.Show(kind);
+            RefreshObjectPrompts();
         }
 
         private bool HasForeignScreen =>
@@ -396,6 +403,7 @@ namespace Game.Client.Lobby
             {
                 SetCursorCaptured(false);
                 LockMovement();
+                RefreshObjectPrompts();
                 return;
             }
 
@@ -414,6 +422,7 @@ namespace Game.Client.Lobby
 
             closeOpenScreen = null;
             view.SetVisible(true);
+            RefreshObjectPrompts();
         }
 
         /// <remarks>
@@ -448,6 +457,7 @@ namespace Game.Client.Lobby
             view.SetVisible(false);
             ReleaseMovement();
             SetCursorCaptured(false);
+            RefreshObjectPrompts();
             exit.RequestLeave();
         }
 
@@ -473,6 +483,29 @@ namespace Game.Client.Lobby
             if (EventSystem.current != null)
             {
                 EventSystem.current.SetSelectedGameObject(null);
+            }
+        }
+
+        private void RefreshObjectPrompts()
+        {
+            SetObjectPromptsVisible(ShowsObjectPrompts(view.IsOpen, closeOpenScreen != null));
+        }
+
+        /// <summary>
+        /// World key chips on the plan board, carryables and placement stay
+        /// off for as long as a lobby modal is up.
+        /// </summary>
+        public static bool ShowsObjectPrompts(bool pauseMenuOpen, bool overlayOpen) =>
+            !pauseMenuOpen && !overlayOpen;
+
+        private static void SetObjectPromptsVisible(bool visible)
+        {
+            var interactors = UnityEngine.Object.FindObjectsByType<PlayerInteractor>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (var index = 0; index < interactors.Length; index++)
+            {
+                interactors[index].SetInteractionPromptVisible(visible);
             }
         }
 
