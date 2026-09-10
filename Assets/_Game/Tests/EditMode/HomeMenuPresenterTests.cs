@@ -101,9 +101,15 @@ namespace Game.Tests.EditMode
             Assert.That(view.FriendListVisible, Is.True);
             Assert.That(view.FriendSearchVisible, Is.False);
 
+            // The button that opened the panel closes it again. It used to
+            // re-open what was already open, so the only way out was to press
+            // something else.
+            view.Raise(HomeMenuAction.Friends);
+            Assert.That(view.FriendListVisible, Is.False);
+            Assert.That(view.FriendSearchVisible, Is.False);
+
             view.Raise(HomeMenuAction.Friends);
             Assert.That(view.FriendListVisible, Is.True);
-            Assert.That(view.FriendSearchVisible, Is.False);
         }
 
         [Test]
@@ -185,6 +191,11 @@ namespace Game.Tests.EditMode
             Assert.That(view.ProfileSettingsVisible, Is.True);
             Assert.That(view.FriendListVisible, Is.False);
             Assert.That(view.Nickname, Is.EqualTo("사용자닉네임"));
+
+            // Pressing the chip again closes it, as pressing the globe again
+            // closes the region panel.
+            view.Raise(HomeMenuAction.ProfileSettings);
+            Assert.That(view.ProfileSettingsVisible, Is.False);
 
             view.Raise(HomeMenuAction.ProfileSettings);
             Assert.That(view.ProfileSettingsVisible, Is.True);
