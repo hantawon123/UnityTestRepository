@@ -111,6 +111,11 @@ namespace Game.Client.Match
         [SerializeField]
         private DestroyedItemsHudView destroyedItemsHudView;
 
+        [SerializeField]
+        private MatchUrgencyBorderView urgencyBorderView;
+
+        private MatchPhase currentPhase;
+        private double lastRemainingSeconds = 999d;
         private int remainingDestructionUses = -1;
         private int destroyedItemPlayerCount;
         private IReadOnlyList<PlayerItemStatusSnapshot> destroyedItemStatuses =
@@ -149,6 +154,8 @@ namespace Game.Client.Match
             HideVitals();
             EnsureDestroyedItemsHud();
             destroyedItemsHudView?.Hide();
+            EnsureUrgencyBorder();
+            urgencyBorderView?.Hide();
             EnsureDestructionUsesText();
             EnsureHighlightHud();
             HideVoiceButton();
@@ -157,6 +164,7 @@ namespace Game.Client.Match
 
         public void SetPhase(MatchPhase phase, string hidingPlayerName)
         {
+            currentPhase = phase;
             SetHighlightOnly(phase == MatchPhase.Highlight);
             if (phase != MatchPhase.Highlight)
             {
@@ -165,6 +173,7 @@ namespace Game.Client.Match
 
             phaseView?.SetPhase(phase, hidingPlayerName);
             RefreshKeyGuide(phase);
+            RefreshUrgencyBorder();
         }
 
         private void SetHighlightOnly(bool value)
@@ -189,7 +198,8 @@ namespace Game.Client.Match
                     (hidingActiveHudView != null && graphic.transform.IsChildOf(hidingActiveHudView.transform)) ||
                     (hidingWaitHudView != null && graphic.transform.IsChildOf(hidingWaitHudView.transform)) ||
                     (vitalsHudView != null && graphic.transform.IsChildOf(vitalsHudView.transform)) ||
-                    (keySettingGuideView != null && graphic.transform.IsChildOf(keySettingGuideView.transform)))
+                    (keySettingGuideView != null && graphic.transform.IsChildOf(keySettingGuideView.transform)) ||
+                    (urgencyBorderView != null && graphic.transform.IsChildOf(urgencyBorderView.transform)))
                     continue;
                 hiddenGraphics[graphic] = graphic.enabled;
                 graphic.enabled = false;
@@ -230,6 +240,7 @@ namespace Game.Client.Match
         {
             showEndCountdown = true;
             timerView?.SetResult(headline, subtitle);
+            urgencyBorderView?.Hide();
             LateUpdate();
         }
 
@@ -247,7 +258,9 @@ namespace Game.Client.Match
 
         public void SetRemainingSeconds(double remainingSeconds)
         {
+            lastRemainingSeconds = remainingSeconds;
             timerView?.SetRemainingSeconds(remainingSeconds);
+            RefreshUrgencyBorder();
         }
 
         public void SetHighlightHud(bool visible, string subtitle, IReadOnlyList<float> barFills)
@@ -498,6 +511,36 @@ namespace Game.Client.Match
             }
 
             destroyedItemsHudView.Show(destroyedItemPlayerCount, destroyedItemStatuses);
+        }
+
+        private void RefreshUrgencyBorder()
+        {
+            EnsureUrgencyBorder();
+            if (urgencyBorderView == null)
+            {
+                return;
+            }
+
+            if (currentPhase == MatchPhase.Searching && MatchTimerView.IsWarning(lastRemainingSeconds))
+            {
+                urgencyBorderView.Show();
+                return;
+            }
+
+            urgencyBorderView.Hide();
+        }
+
+        private void EnsureUrgencyBorder()
+        {
+            if (urgencyBorderView == null)
+            {
+                urgencyBorderView = GetComponentInChildren<MatchUrgencyBorderView>(true);
+            }
+
+            if (urgencyBorderView == null)
+            {
+                urgencyBorderView = MatchUrgencyBorderView.Create(transform);
+            }
         }
 
         private void EnsureHidingIntro()

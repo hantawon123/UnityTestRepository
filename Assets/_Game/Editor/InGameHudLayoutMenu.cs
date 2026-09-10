@@ -74,6 +74,7 @@ namespace Game.Editor
                 EnsureHidingWaitHud(hud);
                 EnsureVitalsHud(hud);
                 EnsureDestroyedItemsHud(hud);
+                EnsureUrgencyBorder(hud);
                 EnsureVoiceButton(hud);
                 EnsureWaitingSpawnPoints(scene);
 
@@ -461,6 +462,30 @@ namespace Game.Editor
 
             property.objectReferenceValue = view;
             serialized.ApplyModifiedPropertiesWithoutUndo();
+            view.Hide();
+        }
+
+        private static void EnsureUrgencyBorder(NetworkMatchHudView hud)
+        {
+            var serialized = new SerializedObject(hud);
+            var property = serialized.FindProperty("urgencyBorderView");
+            var view = property.objectReferenceValue as MatchUrgencyBorderView;
+            if (view == null)
+            {
+                view = hud.GetComponentInChildren<MatchUrgencyBorderView>(true);
+            }
+
+            if (view == null)
+            {
+                view = MatchUrgencyBorderView.Create(hud.transform);
+            }
+
+            property.objectReferenceValue = view;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var viewSerialized = new SerializedObject(view);
+            viewSerialized.FindProperty("previewOnAwake").boolValue = false;
+            viewSerialized.ApplyModifiedPropertiesWithoutUndo();
             view.Hide();
         }
 
