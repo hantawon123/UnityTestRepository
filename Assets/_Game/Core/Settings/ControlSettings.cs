@@ -250,6 +250,40 @@ namespace Game.Core.Settings
         /// <summary>Shown for <see cref="Unbound"/>.</summary>
         public const string UnboundLabel = "없음";
 
+        /// <summary>
+        /// Keys the game listens to outside the input asset, which no row may
+        /// take. Each with the name of what holds it, for the refusal.
+        /// </summary>
+        /// <remarks>
+        /// 숨기기 완료 reads <c>Keyboard.current.yKey</c> directly in the match
+        /// HUD rather than through an action, so nothing here can move it and
+        /// the screen must not offer to. A row put on Y would fire both — the
+        /// row's action and the end of the player's hiding turn — on one press.
+        /// </remarks>
+        private static readonly (string Code, string Holder)[] Reserved =
+        {
+            ("y", "숨기기 완료")
+        };
+
+        /// <summary>
+        /// Whether a key belongs to something this screen cannot move, and
+        /// what that is.
+        /// </summary>
+        public static bool IsReserved(string code, out string holder)
+        {
+            foreach (var entry in Reserved)
+            {
+                if (string.Equals(entry.Code, code, StringComparison.Ordinal))
+                {
+                    holder = entry.Holder;
+                    return true;
+                }
+            }
+
+            holder = null;
+            return false;
+        }
+
         public const string MouseLeft = "mouseLeft";
         public const string MouseRight = "mouseRight";
         public const string MouseMiddle = "mouseMiddle";
@@ -363,6 +397,12 @@ namespace Game.Core.Settings
                 var code = result.Get(action);
                 if (string.IsNullOrEmpty(code))
                 {
+                    continue;
+                }
+
+                if (IsReserved(code, out _))
+                {
+                    result = result.With(action, Unbound);
                     continue;
                 }
 

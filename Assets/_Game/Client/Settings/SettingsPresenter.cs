@@ -498,7 +498,16 @@ namespace Game.Client.Settings
 
                 if (!string.IsNullOrEmpty(code))
                 {
-                    if (controlDraft.TryRebind(action, code, out var moved, out var holder))
+                    // Refused the same way a key another row holds is: named,
+                    // so the player knows it is not theirs to give.
+                    if (ControlCatalog.IsReserved(code, out var reservedBy))
+                    {
+                        view.ShowNotice(
+                            SettingsStyle.Controls.InUseTitle,
+                            SettingsStyle.Controls.InUseMessage(
+                                ControlCatalog.KeyLabel(code), reservedBy));
+                    }
+                    else if (controlDraft.TryRebind(action, code, out var moved, out var holder))
                     {
                         controlDraft = moved;
                     }

@@ -867,6 +867,36 @@ namespace Game.Architecture.Tests
         }
 
         /// <summary>
+        /// Y ends the player's hiding turn, read straight off the keyboard by
+        /// the match HUD. No row may take it, and the refusal says who has it.
+        /// </summary>
+        [Test]
+        public void AReservedKey_IsRefused_AndWhatHoldsItIsNamed()
+        {
+            using var presenter = Started();
+
+            view.ClickKey(ControlAction.Jump);
+            keyCapture.Press("y");
+
+            Assert.That(presenter.ControlDraft.Get(ControlAction.Jump), Is.EqualTo("space"));
+            Assert.That(view.Notices.Count, Is.EqualTo(1));
+            Assert.That(view.Notices[0], Does.Contain("숨기기 완료"));
+            Assert.That(view.Listening, Is.Null);
+        }
+
+        [Test]
+        public void NoRow_ShipsOnAReservedKey()
+        {
+            foreach (ControlAction action in Enum.GetValues(typeof(ControlAction)))
+            {
+                Assert.That(
+                    ControlCatalog.IsReserved(ControlCatalog.Defaults.Get(action), out var holder),
+                    Is.False,
+                    $"{action} ships on a key that belongs to {holder}.");
+            }
+        }
+
+        /// <summary>
         /// Nothing is taken from anybody: the key stays where it was and the
         /// row that asked for it keeps what it had.
         /// </summary>
