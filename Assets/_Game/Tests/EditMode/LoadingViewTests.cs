@@ -28,6 +28,7 @@ namespace Game.Architecture.Tests
         public void Show_FitsBgLoadingToWidthAndWritesLoadingUnderIt()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            ((RectTransform)canvas.transform).sizeDelta = HomeStyle.ReferenceResolution;
             try
             {
                 var view = LoadingView.Create(canvas.transform);

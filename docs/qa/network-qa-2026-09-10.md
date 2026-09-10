@@ -127,3 +127,14 @@ Unity 테스트 로그와 XML은 작업용 문서 저장소의 `.build/lobby-pro
 - 제거 직후 HUD 표시/숨김 및 비활성화 회귀 테스트 3개: 수정 전 3개 실패, 수정 후 통과. 테스트는 실제 오브젝트 제거로 씬 정리 후의 참조 상태를 재현하며 실제 다중 접속 씬 전환 전체를 자동 재현한 것은 아님.
 - 함께 실행한 기존 소지자 복구 테스트는 수정 전에도 EditMode의 Rigidbody 보간 후 Transform 동기화를 즉시 기대해 실패. 실제 권한 적용 위치인 Rigidbody.position을 검사하도록 수정. 생산 물리 코드는 변경하지 않음.
 - 최종 Unity EditMode 소지 상태 복구·상호작용 안내·네트워크 계약 테스트 121/121 통과 (qa-destroyed-target-final.xml). WebGL 빌드/배포 및 MR 생성 없음.
+
+
+## EditMode 테스트 현행화
+
+- EditMode 137개 C# 파일의 테스트 목록과 실패 11건을 현재 구현에 대조. 폐기된 사운드 빈 탭 전제의 `SettingsPresenterTests.Reset_OnATabWithNoRows_DoesNothing` 1개 제거. 실제 사운드 초기화/저장 테스트 유지. 구버전 토큰·방 설정 호환성, 호스트 복구 및 그림자 고정 회귀 검증은 현재 경로가 있으므로 유지.
+- `Bubble_SitsAboveNameplate`는 닉네임 TMP 머티리얼 생성과 프레임 갱신을 사용하는 런타임 테스트이므로 EditMode에서 PlayMode의 InterfaceRuntimeSmokeTests로 이동. 실제 프레임 후 말풍선 하단과 이름 영역 상단 사이의 간격 검증. 오류 로그 무시나 성공 처리로 우회하지 않음.
+- SessionPropertyMapperTests의 잘못 붙은 TestCase 4개를 원래의 InvalidPackedRules 테스트로 이동. 버전 1/2 시간 단위 호환성 검사 및 잘못된 입력 검사 모두 유지.
+- Settings/CharacterCloset UI 테스트의 Awake 초기화 명시, Loading 테스트 캔버스 해상도 설정, PlaySettings 테스트 부모 RectTransform 보완. 실제 UI 레이아웃/입력/게임 코드는 변경하지 않음.
+- 기존 입력 테스트의 조건 미충족 Assert.Pass를 명시적 Ignore로 변경. 실제 커서 잠금에 실패하는 무화면 실행도 이유와 함께 건너뜀. 검증하지 않은 항목을 통과로 집계하지 않음.
+- 최종 전체 EditMode: 1,324개 중 1,322 통과 / 0 실패 / 2 건너뜀(무화면 커서 잠금, 기존 화면 캡처 테스트). 결과: qa-editmode-cleanup-final.xml.
+- 이동한 PlayMode 말풍선 검증: 1/1 통과(qa-chat-bubble-playmode.xml). MR 및 배포 없음.
