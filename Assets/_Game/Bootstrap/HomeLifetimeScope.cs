@@ -36,11 +36,11 @@ namespace Game.Bootstrap
             builder.Register<NetworkHomeApplicationHost>(Lifetime.Scoped)
                 .As<IHomeApplicationHost>();
             builder.RegisterEntryPoint<RoomBrowserWarmup>();
-            builder.RegisterEntryPoint<CreateRoomWarmup>();
             builder.RegisterEntryPoint<RegionSwitcher>();
             builder.RegisterComponent(homeMenuView).As<IHomeMenuView>();
 
             builder.RegisterEntryPoint<HomeMenuPresenter>();
+            builder.RegisterEntryPoint<CreateRoomWarmup>();
             builder.RegisterEntryPoint<HomeExitNotice>().WithParameter(homeMenuView);
 
             // Carries this panel's requests to the backend and its answers
@@ -128,10 +128,13 @@ namespace Game.Bootstrap
         /// a scene being read off disk.
         /// </summary>
         /// <remarks>
-        /// The room browser used to do this, from a create form it no longer
-        /// has. Nothing forces the preload to be used: closing the form leaves a
-        /// finished load sitting as a cache, and leaving Home releases it with
-        /// the session.
+        /// The load is parked short of activation and cannot be cancelled —
+        /// Unity would have to activate the scene to let it go, and that runs
+        /// the lobby. So it is left where it is, and the room entry that
+        /// follows consumes it. Unity runs scene loads one at a time, which
+        /// means nothing else may need a fresh load while this is parked; the
+        /// frontend coordinator keeps every menu screen loaded from Home for
+        /// exactly that reason.
         /// </remarks>
         private sealed class CreateRoomWarmup : IStartable, System.IDisposable
         {
@@ -378,8 +381,10 @@ namespace Game.Bootstrap
 
             private async UniTask OpenLobbyAsync()
             {
+                Debug.Log("[SceneTiming] Open lobby requested from Home.");
                 await loading.ShowPainted();
                 await SceneLoadSlicer.YieldFrame();
+                Debug.Log("[SceneTiming] Open lobby: cover painted, entering lobby scene.");
                 if (!network.EnterLobbyScene())
                 {
                     loading.HideImmediate();

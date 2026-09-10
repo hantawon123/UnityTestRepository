@@ -403,6 +403,34 @@ namespace Game.Architecture.Tests
             Assert.That(view.Opacity, Is.Zero, "Leaving before placement must not leave a black screen.");
         }
 
+        [Test]
+        public void LobbyEntry_LoadingCoverStaysUnobscuredUntilCameraIsReady()
+        {
+            var view = new EntryTransitionSpy();
+            var loading = new Game.Client.Common.LoadingOverlay();
+            loading.Show();
+            var binder = new Game.Bootstrap.LobbyPlayerCameraBinder(
+                new NetworkRunnerService(null, null, null, null, null, null), view, loading);
+
+            binder.UpdateEntryTransition(false, 100);
+            Assert.That(view.Opacity, Is.Zero);
+            binder.UpdateEntryTransition(true, 101);
+            Assert.That(view.Opacity, Is.Zero, "Camera settling must not cover the loading artwork.");
+            binder.UpdateEntryTransition(true, 102);
+            Assert.That(view.Opacity, Is.Zero);
+            binder.UpdateEntryTransition(false, 103);
+            Assert.That(loading.IsPresented, Is.True, "Lost readiness must retain the same cover.");
+            binder.UpdateEntryTransition(true, 104);
+            Assert.That(view.Opacity, Is.Zero);
+            binder.UpdateEntryTransition(true, 106,
+                Game.Client.Lobby.LobbySceneFade.DurationSeconds * 0.5f);
+            Assert.That(view.Opacity, Is.Zero, "The fade must not draw over the loading canvas.");
+            Assert.That(loading.IsPresented, Is.True);
+            binder.UpdateEntryTransition(true, 107, Game.Client.Lobby.LobbySceneFade.DurationSeconds);
+            Assert.That(view.Opacity, Is.Zero);
+            Assert.That(loading.IsPresented, Is.False, "Only completed entry releases the cover.");
+        }
+
         private sealed class EntryTransitionSpy : Game.Client.Match.IHighlightTransitionView
         {
             public float Opacity { get; private set; }

@@ -71,6 +71,20 @@ namespace Game.Client.Common
             }
 
             Stretch((RectTransform)rootObject.transform);
+            // Scene takeover briefly disables both outgoing and incoming
+            // cameras. A ScreenSpaceOverlay canvas alone does not prevent the
+            // Game view's "No cameras rendering" message during that gap.
+            // This untagged camera draws only a background, below scene cameras,
+            // and shares the persistent loading root's lifetime.
+            var backgroundCamera = rootObject.AddComponent<Camera>();
+            backgroundCamera.enabled = false;
+            backgroundCamera.cullingMask = 0;
+            backgroundCamera.clearFlags = CameraClearFlags.SolidColor;
+            backgroundCamera.backgroundColor = Color.black;
+            backgroundCamera.depth = -100f;
+            backgroundCamera.allowHDR = false;
+            backgroundCamera.allowMSAA = false;
+            backgroundCamera.useOcclusionCulling = false;
             var view = rootObject.AddComponent<LoadingView>();
             view.WarmUp();
             return view;
@@ -636,6 +650,12 @@ namespace Game.Client.Common
 
         private void SetVisualsVisible(bool visible)
         {
+            var backgroundCamera = GetComponent<Camera>();
+            if (backgroundCamera != null)
+            {
+                backgroundCamera.enabled = visible;
+            }
+
             var canvas = GetComponent<Canvas>();
             if (canvas != null)
             {

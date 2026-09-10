@@ -630,11 +630,15 @@ namespace Game.Bootstrap
         internal void UpdateEntryTransition(bool ready, int frame, float deltaSeconds = 0f)
         {
             if (entryComplete) return;
+            // The IMGUI fade renders over the loading canvas. Keep it clear
+            // through every readiness phase, not only while waiting for an
+            // avatar, or the loading art flashes black and then reappears.
+            var loadingPresented = loading != null && loading.IsPresented;
             if (!ready)
             {
                 readyFrame = -1;
                 fadeInElapsed = 0f;
-                if (loading != null && loading.IsPresented)
+                if (loadingPresented)
                 {
                     entryCover.SetOpacity(0f);
                 }
@@ -650,12 +654,12 @@ namespace Game.Bootstrap
             // target before revealing it. Lost readiness restarts this wait.
             if (frame - readyFrame < 2)
             {
-                entryCover.SetOpacity(1f);
+                entryCover.SetOpacity(loadingPresented ? 0f : 1f);
                 return;
             }
 
             fadeInElapsed += Mathf.Max(0f, deltaSeconds);
-            entryCover.SetOpacity(LobbySceneFade.FadeInOpacity(fadeInElapsed));
+            entryCover.SetOpacity(loadingPresented ? 0f : LobbySceneFade.FadeInOpacity(fadeInElapsed));
             if (!LobbySceneFade.IsComplete(fadeInElapsed))
             {
                 return;
