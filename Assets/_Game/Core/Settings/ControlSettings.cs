@@ -255,14 +255,29 @@ namespace Game.Core.Settings
         /// take. Each with the name of what holds it, for the refusal.
         /// </summary>
         /// <remarks>
-        /// 숨기기 완료 reads <c>Keyboard.current.yKey</c> directly in the match
-        /// HUD rather than through an action, so nothing here can move it and
-        /// the screen must not offer to. A row put on Y would fire both — the
-        /// row's action and the end of the player's hiding turn — on one press.
+        /// These are read straight off <c>Keyboard.current</c> rather than
+        /// through an action — 숨기기 완료 in the match HUD, the lobby's 1 and 2
+        /// shortcuts and Esc in its pause menu — so nothing here can move them
+        /// and the screen must not offer to. A row put on one would fire both,
+        /// the row's action and the shortcut, on a single press.
+        /// <para>
+        /// The number pad is listed beside the digits because the lobby reads
+        /// both for the same shortcut.
+        /// </para>
+        /// <para>
+        /// Esc never reaches this list from a live capture — <c>UnityKeyCapture</c>
+        /// answers it as "never mind" — but a save written by a build that let
+        /// it through still has to be repaired.
+        /// </para>
         /// </remarks>
         private static readonly (string Code, string Holder)[] Reserved =
         {
-            ("y", "숨기기 완료")
+            ("y", "숨기기 완료"),
+            ("1", "캐릭터 단축키"),
+            ("numpad1", "캐릭터 단축키"),
+            ("2", "참가자 목록 단축키"),
+            ("numpad2", "참가자 목록 단축키"),
+            ("escape", "환경설정 메뉴")
         };
 
         /// <summary>

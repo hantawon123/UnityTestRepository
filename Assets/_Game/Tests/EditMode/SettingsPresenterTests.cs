@@ -870,17 +870,22 @@ namespace Game.Architecture.Tests
         /// Y ends the player's hiding turn, read straight off the keyboard by
         /// the match HUD. No row may take it, and the refusal says who has it.
         /// </summary>
-        [Test]
-        public void AReservedKey_IsRefused_AndWhatHoldsItIsNamed()
+        [TestCase("y", "숨기기 완료")]
+        [TestCase("1", "캐릭터 단축키")]
+        [TestCase("numpad1", "캐릭터 단축키")]
+        [TestCase("2", "참가자 목록 단축키")]
+        [TestCase("numpad2", "참가자 목록 단축키")]
+        [TestCase("escape", "환경설정 메뉴")]
+        public void AReservedKey_IsRefused_AndWhatHoldsItIsNamed(string code, string holder)
         {
             using var presenter = Started();
 
             view.ClickKey(ControlAction.Jump);
-            keyCapture.Press("y");
+            keyCapture.Press(code);
 
             Assert.That(presenter.ControlDraft.Get(ControlAction.Jump), Is.EqualTo("space"));
             Assert.That(view.Notices.Count, Is.EqualTo(1));
-            Assert.That(view.Notices[0], Does.Contain("숨기기 완료"));
+            Assert.That(view.Notices[0], Does.Contain(holder));
             Assert.That(view.Listening, Is.Null);
         }
 
