@@ -10,6 +10,17 @@ package com.ssafy.d205.domain.feedback.repository;
 public interface FeedbackRow {
 
     /**
+     * 피드백 한 건의 식별자(user_feedback_seq).
+     *
+     * <p>건별 숨김·삭제가 가리킬 대상입니다(S15P21D205-900).
+     *
+     * <p>아래 {@code authorUserId} 와 달리 내부 순번을 그대로 내보냅니다. users_seq 를
+     * 감추는 이유는 가입자 수가 드러나기 때문인데, 이 값이 드러내는 것은 들어온 피드백
+     * 수이고 그것은 로그인한 운영자만 보는 화면에서 감출 값이 아닙니다.
+     */
+    Integer getId();
+
+    /**
      * 쓴 사람의 공개 식별자. <b>탈퇴했으면 null 입니다.</b>
      *
      * <p>users_seq 가 아니라 public_id 를 내보냅니다. 운영자 화면도 결국 브라우저이고,

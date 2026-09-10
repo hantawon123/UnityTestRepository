@@ -212,6 +212,27 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void RoomDisconnect_ShowsLoadingWhenReturningHome()
+        {
+            using var room = new Game.Core.Lobby.RoomBrowserSystem();
+            var flow = new Game.Core.Flow.AppFlowSystem();
+            flow.TryTransitionTo(Game.Core.Flow.AppFlowState.Lobby);
+            var application = new DisconnectApplicationSpy();
+            var loading = new DisconnectLoadingSpy();
+            using var controller = new Game.Bootstrap.NetworkRoomDisconnectController(
+                new NetworkRunnerService(null, null, null, null, null, null),
+                room,
+                flow,
+                application,
+                loading);
+            controller.Start();
+            room.RoomClosed(Game.Core.Rooms.RoomExitReason.Left);
+            controller.Tick();
+            Assert.That(loading.ShowCalls, Is.EqualTo(1));
+            Assert.That(application.HomeCount, Is.EqualTo(1));
+        }
+
+        [Test]
         public void RoomDisconnect_VoluntaryDepartureAlsoWaitsForTick_AndDisposalStopsNavigation()
         {
             using var room = new Game.Core.Lobby.RoomBrowserSystem();
@@ -322,6 +343,16 @@ namespace Game.Architecture.Tests
             }
 
             public void OpenLobby() { }
+        }
+
+        private sealed class DisconnectLoadingSpy : Game.Client.Common.ILoadingOverlay
+        {
+            public int ShowCalls { get; private set; }
+            public bool IsPresented => ShowCalls > 0;
+            public void Show() => ShowCalls++;
+            public void Hide() { }
+            public void HideImmediate() { }
+            public void Attach(Game.Client.Common.ILoadingView view) { }
         }
 
         [Test]

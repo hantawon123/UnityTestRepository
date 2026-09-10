@@ -1,6 +1,8 @@
+using Cysharp.Threading.Tasks;
 using Game.Client.Home;
 using Game.Client.Match;
 using Game.Client.Rooms;
+using Game.Client.Common;
 using Game.Network.Session;
 using UnityEngine;
 using VContainer;
@@ -64,13 +66,16 @@ namespace Game.Bootstrap
             private readonly NetworkRunnerService network;
             private readonly FrontendSceneCoordinator scenes;
             private readonly UnityHomeApplicationHost fallback = new();
+            private readonly ILoadingOverlay loading;
 
             public NetworkRoomApplicationHost(
                 NetworkRunnerService network,
-                FrontendSceneCoordinator scenes)
+                FrontendSceneCoordinator scenes,
+                ILoadingOverlay loading)
             {
                 this.network = network;
                 this.scenes = scenes;
+                this.loading = loading;
             }
 
             public void Quit() => fallback.Quit();
@@ -95,8 +100,16 @@ namespace Game.Bootstrap
 
             public void OpenLobby()
             {
+                OpenLobbyAsync().Forget(exception => Debug.LogException(exception));
+            }
+
+            private async UniTask OpenLobbyAsync()
+            {
+                await loading.ShowPainted();
+                await SceneLoadSlicer.YieldFrame();
                 if (!network.EnterLobbyScene())
                 {
+                    loading.HideImmediate();
                     Debug.LogError(
                         "[Session] Cannot enter Lobby without a running room session.");
                 }

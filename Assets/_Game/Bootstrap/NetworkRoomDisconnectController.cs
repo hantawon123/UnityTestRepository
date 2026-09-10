@@ -1,4 +1,5 @@
 using System;
+using Game.Client.Common;
 using Game.Client.Home;
 using Game.Core.Flow;
 using Game.Core.Lobby;
@@ -16,16 +17,18 @@ namespace Game.Bootstrap
         private readonly RoomBrowserSystem room;
         private readonly AppFlowSystem flow;
         private readonly IHomeApplicationHost application;
+        private readonly ILoadingOverlay loading;
         private IDisposable subscription;
         private bool pending;
 
         public NetworkRoomDisconnectController(NetworkRunnerService network, RoomBrowserSystem room,
-            AppFlowSystem flow, IHomeApplicationHost application)
+            AppFlowSystem flow, IHomeApplicationHost application, ILoadingOverlay loading = null)
         {
             this.network = network ?? throw new ArgumentNullException(nameof(network));
             this.room = room ?? throw new ArgumentNullException(nameof(room));
             this.flow = flow ?? throw new ArgumentNullException(nameof(flow));
             this.application = application ?? throw new ArgumentNullException(nameof(application));
+            this.loading = loading;
         }
 
         public void Start() => subscription = room.LastExit.Subscribe(reason =>
@@ -43,7 +46,11 @@ namespace Game.Bootstrap
             var destination = room.LastExit.CurrentValue == RoomExitReason.Kicked
                 ? AppFlowState.RoomBrowser : AppFlowState.Home;
             if (!flow.TryExitSession(destination)) return;
-            if (destination == AppFlowState.Home) application.OpenHome();
+            if (destination == AppFlowState.Home)
+            {
+                loading?.Show();
+                application.OpenHome();
+            }
             else application.OpenRoomBrowser();
         }
 

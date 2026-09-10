@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Client.Cameras;
 using Game.Client.Interactions;
 using Game.Client.Home;
+using Game.Client.Common;
 using Game.Client.Lobby;
 using Game.Client.Match;
 using Game.Client.Players;
@@ -524,6 +525,7 @@ namespace Game.Bootstrap
     {
         private readonly NetworkRunnerService network;
         private readonly IHighlightTransitionView entryCover;
+        private readonly ILoadingOverlay loading;
         private PlayerAvatar boundAvatar;
         private PlayerCameraController boundRig;
         private int readyFrame = -1;
@@ -531,10 +533,14 @@ namespace Game.Bootstrap
         private float fadeInElapsed;
         private double startedAt;
 
-        public LobbyPlayerCameraBinder(NetworkRunnerService network, IHighlightTransitionView entryCover)
+        public LobbyPlayerCameraBinder(
+            NetworkRunnerService network,
+            IHighlightTransitionView entryCover,
+            ILoadingOverlay loading = null)
         {
             this.network = network ?? throw new ArgumentNullException(nameof(network));
             this.entryCover = entryCover ?? throw new ArgumentNullException(nameof(entryCover));
+            this.loading = loading;
         }
 
         public void Start()
@@ -568,7 +574,15 @@ namespace Game.Bootstrap
             {
                 readyFrame = -1;
                 fadeInElapsed = 0f;
-                entryCover.SetOpacity(1f);
+                if (loading != null && loading.IsPresented)
+                {
+                    entryCover.SetOpacity(0f);
+                }
+                else
+                {
+                    entryCover.SetOpacity(1f);
+                }
+
                 return;
             }
             if (readyFrame < 0) readyFrame = frame;
@@ -589,6 +603,7 @@ namespace Game.Bootstrap
 
             entryComplete = true;
             entryCover.SetOpacity(0f);
+            loading?.Hide();
             var covers = UnityEngine.Object.FindObjectsByType<HighlightTransitionView>(
                 FindObjectsInactive.Include,
                 FindObjectsSortMode.None);
@@ -608,6 +623,11 @@ namespace Game.Bootstrap
                 return;
             }
 
+            if (loading != null)
+            {
+                return;
+            }
+
             var remaining = network.StartCountdownRemaining;
             if (remaining <= 0d || remaining > LobbySceneFade.DurationSeconds)
             {
@@ -623,6 +643,7 @@ namespace Game.Bootstrap
             if (!entryComplete)
             {
                 entryCover.SetOpacity(0f);
+                loading?.HideImmediate();
             }
         }
 
