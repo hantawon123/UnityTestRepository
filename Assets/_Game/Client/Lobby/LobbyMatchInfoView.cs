@@ -6,7 +6,8 @@ using UnityEngine.UI;
 namespace Game.Client.Lobby
 {
     /// <summary>
-    /// Read-only category and map card in the lobby's top-right corner.
+    /// Read-only category and map card in the lobby's top-left, lined up with
+    /// the chat input.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class LobbyMatchInfoView : MonoBehaviour
@@ -14,7 +15,9 @@ namespace Game.Client.Lobby
         public const string RootName = "MatchInfo";
         public const string CategoryCaption = "카테고리";
         public const float MarginTop = 60f;
-        public const float MarginRight = 44f;
+
+        /// <summary>Same left inset as <see cref="Match.MatchChatView.Margin"/>.</summary>
+        public const float MarginLeft = 24f;
         public const float Width = 320f;
         public const float FontSize = 18f;
         public const float Padding = 16f;
@@ -220,9 +223,9 @@ namespace Game.Client.Lobby
         private void PlacePanel()
         {
             var rect = (RectTransform)transform;
-            rect.anchorMin = rect.anchorMax = new Vector2(1f, 1f);
-            rect.pivot = new Vector2(1f, 1f);
-            rect.anchoredPosition = new Vector2(-MarginRight, -MarginTop);
+            rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(MarginLeft, -MarginTop);
             rect.sizeDelta = new Vector2(Width, PanelHeight);
         }
 
