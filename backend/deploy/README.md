@@ -15,6 +15,7 @@ EC2가 날아가면 같이 사라집니다.
 | `mysql/init/01-analytics-grant.sh` | (compose.local 이 마운트, 테스트가 복사) | 앱 계정에 분석 스키마 권한 |
 | `mysql/init/02-analytics-accounts.sh` | (같음) | Metabase 용 읽기 계정 `d205_reader` 와 설정 저장용 `metabase` 계정 |
 | `metabase/provision_dashboards.py` | (서버에서 실행) | `docs/analytics-dashboards.md` 의 쿼리로 Metabase 질문·대시보드 생성 |
+| `reset-analytics.sh` | (서버에서 실행) | 쌓인 플레이 로그를 백업하고 비웁니다 |
 
 파이프라인 정의는 이 디렉터리가 아니라 `../Jenkinsfile`에 있습니다.
 
@@ -188,6 +189,28 @@ ssh -t d205 "MB_USER=<Metabase 관리자 이메일> python3 /tmp/provision_dashb
 비밀번호는 물어봅니다. 8443 이 아니라 컨테이너 옆 `127.0.0.1:3000` 으로 붙으므로 Basic Auth 는
 지나지 않습니다. 무엇을 만들지 먼저 보려면 `--dry-run`, 화면을 읽는 법은
 `docs/analytics-dashboards.md` 입니다.
+
+### 플레이 로그 지우기
+
+`game_event` 에는 보존 기간도 자동 삭제도 없습니다. 디스크가 찰 때까지 쌓이고, 게임 DB 와
+같은 디스크라 그때는 게임 API 도 같이 멈춥니다. 플레이테스트 사이에 비우려면:
+
+```
+scp backend/deploy/reset-analytics.sh d205:/tmp/
+ssh -t d205 'bash /tmp/reset-analytics.sh'
+```
+
+`-t` 가 필요합니다. 지우기 전에 `yes` 를 직접 입력받는데 tty 가 없으면 진행하지 않습니다.
+자동화에서 부를 때만 `--yes` 를 주세요. 얼마나 쌓였는지만 보려면 `--dry-run` 입니다.
+
+백업이 먼저이고 실패하면 거기서 멈춥니다. 백업 없이 지우는 경로는 없습니다. 파일은 배포
+디렉터리 바깥인 `/home/ubuntu/d205-backups/` 에 남습니다 - 재배포가 그 안을 건드리지 않게
+하려는 것이고, 같은 디스크이므로 디스크 장애까지 막아주지는 않습니다.
+
+지우는 것은 `game_event` 한 테이블뿐입니다. `flyway_schema_history` 를 같이 지우면 다음
+배포가 V1~V4 를 처음부터 다시 실행하려다 실패합니다. 뷰는 실체화가 아니라 원본을 그때그때
+읽으므로 따로 비울 것이 없고, Metabase 의 질문·대시보드는 `metabase` 스키마에 따로 있어
+그대로 남습니다.
 
 Jenkins 설치:
 

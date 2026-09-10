@@ -265,6 +265,24 @@ namespace Game.Client.Match
             }
         }
 
+        /// <summary>
+        /// Lets go of the presentation, which outlives this view.
+        /// </summary>
+        /// <remarks>
+        /// It is a project-wide object and its event would otherwise keep
+        /// calling a view whose objects are gone. On destroy rather than on
+        /// disable: a view that is switched off still has its lines and should
+        /// have them right when it comes back.
+        /// </remarks>
+        private void OnDestroy()
+        {
+            if (presentation != null)
+            {
+                presentation.Changed -= Redraw;
+                presentation = null;
+            }
+        }
+
         private void OnDisable()
         {
             if (inputField != null)
@@ -387,13 +405,45 @@ namespace Game.Client.Match
         }
 
         private Game.Core.Settings.InterfacePresentation presentation;
+
+        /// <summary>
+        /// The lines currently on screen, kept so a name that changes can be
+        /// written again over the messages already there.
+        /// </summary>
+        private IReadOnlyList<LobbyChatMessage> shown = Array.Empty<LobbyChatMessage>();
         [VContainer.Inject]
-        public void BindPresentation(Game.Core.Settings.InterfacePresentation value) => presentation = value;
+        /// <summary>
+        /// Whose names to show, and being told when that answer changes.
+        /// </summary>
+        /// <remarks>
+        /// Redrawing on the change is what keeps a name off the screen after
+        /// its owner has asked for it to be. A player who chats under their own
+        /// name and then turns 스트리머 모드 on would otherwise leave every line
+        /// they had already sent standing with their real name on it, which is
+        /// the moment the setting is most likely to be turned on.
+        /// </remarks>
+        public void BindPresentation(Game.Core.Settings.InterfacePresentation value)
+        {
+            if (presentation != null)
+            {
+                presentation.Changed -= Redraw;
+            }
+
+            presentation = value;
+
+            if (presentation != null)
+            {
+                presentation.Changed += Redraw;
+            }
+        }
+
+        private void Redraw() => SetMessages(shown);
 
         public void SetMessages(IReadOnlyList<LobbyChatMessage> messages)
         {
             EnsureLayout();
             var list = messages ?? Array.Empty<LobbyChatMessage>();
+            shown = list;
             var first = Mathf.Max(0, list.Count - VisibleMessageCount);
             var visibleCount = list.Count - first;
             var font = ResolveFont();

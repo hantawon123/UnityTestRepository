@@ -309,6 +309,10 @@ namespace Game.Bootstrap
             builder.Register<HomeMenuSystem>(Lifetime.Singleton);
             builder.Register<FriendListSystem>(Lifetime.Singleton);
             builder.Register<InterfacePresentation>(Lifetime.Singleton);
+
+            // One pseudonym for the whole visit, so the room list and the room
+            // itself call a player the same thing.
+            builder.Register<PublishedPlayerName>(Lifetime.Singleton);
             builder.Register<FriendSearchSystem>(Lifetime.Singleton);
 
             // Registered here so every container has one, with a store that
@@ -388,7 +392,8 @@ namespace Game.Bootstrap
                         c.Resolve<PlayerSpawner>(),
                         c.Resolve<PlayerProfile>(),
                         networkScenes,
-                        c.Resolve<ServerRegionSystem>()),
+                        c.Resolve<ServerRegionSystem>(),
+                        c.Resolve<PublishedPlayerName>()),
                     Lifetime.Singleton)
                 .AsSelf()
                 .As<IRoomSessionProbe>()
