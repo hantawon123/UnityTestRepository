@@ -212,7 +212,7 @@ namespace Game.Network.Match
 
             _state = state;
             _lastPublishedStarted = state.IsStarted;
-            PublishRoomStatus(state.IsStarted);
+            PublishRoomStatus();
 
             _playing.Clear();
 
@@ -241,17 +241,26 @@ namespace Game.Network.Match
         /// browser can show it as one nobody can join.
         /// </summary>
         /// <remarks>
+        /// A room is playing from the moment the host presses start, not from
+        /// the moment the countdown ends: those ten seconds are part of the
+        /// match starting, and a list that still says "waiting" through them
+        /// invites someone into a room that is already on its way to the map.
+        /// A countdown that gets called off puts the room back to waiting.
+        /// <para>
         /// Only the authority writes it, and only when the answer changes: a
         /// session property update is a round trip to the cloud, and this is
-        /// published on every replication of the match state.
+        /// asked on every tick and every replication of the match state.
+        /// </para>
         /// <para>
         /// A failed update is not worth failing a match start over. The room
         /// stays listed as waiting, someone tries to enter, and the session
         /// refuses them — which is the same outcome, reached less kindly.
         /// </para>
         /// </remarks>
-        private void PublishRoomStatus(bool playing)
+        private void PublishRoomStatus()
         {
+            var playing = HasStartedMatch || IsStartPending;
+
             if (_publishedRoomStatus == playing)
             {
                 return;
@@ -436,6 +445,11 @@ namespace Game.Network.Match
         public void PublishSimulationTick()
         {
             AdvanceStartCountdown();
+
+            // The countdown is not part of the replicated line-up, so starting
+            // or calling one off raises no line-up change for the listing to
+            // ride along with. Asked here instead, where the countdown is run.
+            PublishRoomStatus();
             SimulationTick?.Invoke();
             if (_session != null && _state != null)
             {

@@ -123,6 +123,32 @@ namespace Game.Architecture.Tests
             Assert.That(SessionPropertyMapper.ReadPackedMatchRules(payload, previous), Is.EqualTo(previous));
         }
 
+        /// <summary>
+        /// The lobby only ever sees the keys a room was created with, so the
+        /// status key has to exist before any match starts or the room list
+        /// can never say a room is playing.
+        /// </summary>
+        [Test]
+        public void CreateRequest_ListsPlayingAsFalse_SoTheLobbyCanWatchIt()
+        {
+            var properties = SessionPropertyMapper.BuildForStart(
+                SessionRequest.Create("ROOM01", "방", "Playground", 6, null), "host");
+
+            Assert.That(properties.ContainsKey(SessionPropertyKeys.Playing), Is.True);
+            Assert.That((bool)properties[SessionPropertyKeys.Playing], Is.False);
+            Assert.That(properties.Count, Is.LessThanOrEqualTo(10));
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void RoomStatus_TouchesOnlyThePlayingKey(bool playing)
+        {
+            var properties = SessionPropertyMapper.BuildRoomStatus(playing);
+
+            Assert.That(properties.Count, Is.EqualTo(1));
+            Assert.That((bool)properties[SessionPropertyKeys.Playing], Is.EqualTo(playing));
+        }
+
         [Test]
         public void LobbySettings_SerializesUnlimitedDestructionDistinctly()
         {

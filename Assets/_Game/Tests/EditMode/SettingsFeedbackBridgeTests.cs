@@ -17,6 +17,12 @@ namespace Game.Architecture.Tests
     /// somebody who filled five hundred characters and lost them to a timeout
     /// does not write them a second time.
     /// <para>
+    /// <b>There is no presenter here.</b> Only the bridge is wired to the fake screen,
+    /// so nothing opens or closes the writing panel and its visibility means nothing.
+    /// What these tests watch is what the bridge asks the screen to do:
+    /// <see cref="FakeSettingsView.SentCalls"/>, the notices, and 보내기.
+    /// </para>
+    /// <para>
     /// The sends here complete inline: a UniTask that is already finished
     /// resumes its awaiter synchronously, so an assertion straight after the
     /// press sees the answer. Where the wait itself matters, a
@@ -43,7 +49,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void Sent_TakesThePanelDownAndThanks()
+        public void Sent_AsksTheScreenToCloseAndThanks()
         {
             using var bridge = Started();
             view.Feedback();
@@ -52,7 +58,7 @@ namespace Game.Architecture.Tests
 
             Assert.That(gateway.Calls, Is.EqualTo(1));
             Assert.That(gateway.LastMessage, Is.EqualTo("소리가 너무 작아요"));
-            Assert.That(view.FeedbackVisible, Is.False);
+            Assert.That(view.SentCalls, Is.EqualTo(1), "성공만 패널을 내립니다.");
             Assert.That(view.Notices, Is.EqualTo(new[] { SettingsStyle.FeedbackSentMessage }));
         }
 
@@ -67,7 +73,7 @@ namespace Game.Architecture.Tests
 
             view.SubmitFeedback("소리가 너무 작아요");
 
-            Assert.That(view.FeedbackVisible, Is.True, "What was written must survive a refusal.");
+            Assert.That(view.SentCalls, Is.Zero, "거절은 패널을 내리지 않습니다 - 쓴 글이 사라집니다.");
             Assert.That(view.SubmitEnabled, Is.True, "Retrying the same text has to be possible.");
             Assert.That(
                 view.Notices,
@@ -123,7 +129,7 @@ namespace Game.Architecture.Tests
             view.SubmitFeedback("떠나는 중");
 
             Assert.That(view.Notices, Is.Empty);
-            Assert.That(view.FeedbackVisible, Is.True);
+            Assert.That(view.SentCalls, Is.Zero);
         }
 
         [Test]
@@ -143,7 +149,39 @@ namespace Game.Architecture.Tests
             Assert.That(gateway.Calls, Is.EqualTo(1));
 
             gateway.Pending.TrySetResult(BackendResult.Success());
-            Assert.That(view.FeedbackVisible, Is.False);
+            Assert.That(view.SentCalls, Is.EqualTo(1), "한 번 보냈고 한 번 닫습니다.");
+        }
+
+        [Test]
+        public void ASendIsNotTiedToTheScreen()
+        {
+            using var bridge = Started();
+            view.Feedback();
+
+            view.SubmitFeedback("화면 수명과 무관해야 합니다");
+
+            Assert.That(
+                gateway.TokenCanBeCancelled,
+                Is.False,
+                "화면이 사라질 때 취소되는 토큰을 넘기면 안 됩니다.");
+        }
+
+        [Test]
+        public void LeavingRightAfterPressingSend_StillReachesTheServer()
+        {
+            // 보내기를 누르고 곧바로 나가는 경우입니다. 요청은 이미 나갔고, 답이 와도
+            // 알릴 화면이 없으므로 화면은 건드리지 않습니다.
+            gateway.Pending = new UniTaskCompletionSource<BackendResult>();
+
+            var bridge = Started();
+            view.Feedback();
+            view.SubmitFeedback("나가면서 보낸 글");
+            bridge.Dispose();
+
+            gateway.Pending.TrySetResult(BackendResult.Success());
+
+            Assert.That(gateway.Calls, Is.EqualTo(1), "요청은 나가 있어야 합니다.");
+            Assert.That(view.Notices, Is.Empty, "사라진 화면에 안내를 띄우지 않습니다.");
         }
 
         [Test]
@@ -182,10 +220,21 @@ namespace Game.Architecture.Tests
             /// <summary>Set to keep a send in flight until the test finishes it.</summary>
             public UniTaskCompletionSource<BackendResult> Pending { get; set; }
 
+            /// <summary>
+            /// Whether the token handed in could ever be cancelled.
+            /// </summary>
+            /// <remarks>
+            /// <see cref="CancellationToken.None"/> answers false. That is the point:
+            /// a send must not be tied to the screen's lifetime, or leaving right after
+            /// pressing 보내기 throws away what was written.
+            /// </remarks>
+            public bool TokenCanBeCancelled { get; private set; }
+
             public UniTask<BackendResult> SendAsync(string message, CancellationToken cancellation)
             {
                 Calls++;
                 LastMessage = message;
+                TokenCanBeCancelled = cancellation.CanBeCanceled;
 
                 return Pending != null ? Pending.Task : UniTask.FromResult(Answer);
             }

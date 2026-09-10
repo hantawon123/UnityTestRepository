@@ -153,8 +153,13 @@ namespace Game.Architecture.Tests
             Assert.That(transport.Connections[1].Sent[0], Does.Contain("\"type\":\"HELLO\""));
             Assert.That(states, Is.EqualTo(new[]
             {
-                NotificationLinkState.Connected,      // ReadOnlyReactiveProperty replays the current value
+                // 구독 시점의 현재 값이 재생됩니다. 그 시점은 소켓만 열린 상태이고
+                // HELLO_ACK 은 바로 아래에서 오므로 Connecting 입니다 -
+                // AnOpenSocket_IsOnlyConnectingUntilTheServerAnswers 와 같은 규칙입니다.
+                NotificationLinkState.Connecting,
+                NotificationLinkState.Connected,
                 NotificationLinkState.Disconnected,
+                // 두 번째 소켓도 인사만 보낸 상태라 아직 Connecting 입니다.
                 NotificationLinkState.Connecting
             }));
         }
