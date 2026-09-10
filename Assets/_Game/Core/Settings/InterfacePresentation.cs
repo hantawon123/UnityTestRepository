@@ -8,10 +8,34 @@ namespace Game.Core.Settings
     // Presentation policy only: identity and gameplay data remain unchanged.
     public sealed class InterfacePresentation : IDisposable
     {
+        /// <summary>
+        /// What a player has published about their own name: whether they have
+        /// said anything yet, and the pseudonym to use if they are in
+        /// 스트리머 모드.
+        /// </summary>
+        /// <remarks>
+        /// Three states rather than two, because "has not said yet" is not the
+        /// same as "real name". A late joiner hears nothing for a moment, and
+        /// showing a streamer's real name for that moment is the one thing the
+        /// setting exists to prevent — so nothing is shown until they speak.
+        /// </remarks>
+        private readonly struct Published
+        {
+            public Published(bool real, string pseudonym)
+            {
+                Real = real;
+                Pseudonym = pseudonym;
+            }
+
+            public bool Real { get; }
+
+            public string Pseudonym { get; }
+        }
+
         private readonly InterfaceSettingsSystem settings;
         private readonly FriendListSystem friends;
         private readonly RoomBrowserSystem room;
-        private readonly Dictionary<string, bool> permissions = new();
+        private readonly Dictionary<string, Published> published = new();
         public event Action Changed;
         public InterfacePresentation(InterfaceSettingsSystem settings, FriendListSystem friends, RoomBrowserSystem room)
         {
@@ -31,27 +55,79 @@ namespace Game.Core.Settings
         }
         public bool ShowsChat(string playerId) => playerId == room.LocalPlayerId.CurrentValue ||
             !settings.Current.IsOn(InterfaceOption.ChatScope) || IsFriend(playerId);
+
+        /// <summary>
+        /// What to call somebody, everywhere a name is read: the nameplate, the
+        /// participant list, a chat line, the hiding notice, a highlight's
+        /// title.
+        /// </summary>
+        /// <remarks>
+        /// 스트리머 모드 only. Whether this player wants to see the nameplates
+        /// at all is a separate question and a separate method — see
+        /// <see cref="NameplateName"/> — because it is about this screen and
+        /// must not reach the chat log, where a message with no sender would
+        /// read as nobody's.
+        /// <para>
+        /// A player's own name is never replaced. Hiding it from them would
+        /// cost them the ability to find their own message in the chat, and
+        /// the mode is there to keep a name from the room, not from the person
+        /// whose name it is.
+        /// </para>
+        /// </remarks>
         public string Name(string playerId, string nickname)
         {
             if (playerId == room.LocalPlayerId.CurrentValue)
-                return settings.Current.Get(InterfaceOption.OwnNickname) == InterfaceCatalog.Off ? string.Empty : nickname;
-            var scope = settings.Current.Get(InterfaceOption.PlayerNames);
-            return permissions.TryGetValue(playerId ?? string.Empty, out var allowed) && allowed &&
-                scope != InterfaceCatalog.Off && (scope != InterfaceCatalog.FriendsOnly || IsFriend(playerId))
-                ? nickname : string.Empty;
+            {
+                return nickname;
+            }
+
+            if (!published.TryGetValue(playerId ?? string.Empty, out var said))
+            {
+                return string.Empty;
+            }
+
+            return said.Real ? nickname : said.Pseudonym;
         }
-        public void SetPermission(string playerId, bool allowed)
+
+        /// <summary>
+        /// What to write over a character's head, which is nothing at all when
+        /// this player has turned the nameplates off.
+        /// </summary>
+        public string NameplateName(string playerId, string nickname) =>
+            settings.Current.IsOn(InterfaceOption.PlayerNames)
+                ? Name(playerId, nickname)
+                : string.Empty;
+
+        /// <summary>
+        /// Takes down what a player has said about their own name: their real
+        /// one, or the pseudonym they are going by.
+        /// </summary>
+        public void SetPublishedName(string playerId, bool real, string pseudonym)
         {
             if (string.IsNullOrEmpty(playerId)) return;
-            if (permissions.TryGetValue(playerId, out var previous) && previous == allowed) return;
-            permissions[playerId] = allowed;
+            var next = new Published(real, pseudonym ?? string.Empty);
+            if (published.TryGetValue(playerId, out var previous)
+                && previous.Real == next.Real
+                && string.Equals(previous.Pseudonym, next.Pseudonym, StringComparison.Ordinal))
+            {
+                return;
+            }
+            published[playerId] = next;
             Refresh();
         }
+
+        /// <summary>Forgets a player's name, which is how a late joiner starts.</summary>
+        public void ClearPublishedName(string playerId)
+        {
+            if (string.IsNullOrEmpty(playerId) || !published.Remove(playerId)) return;
+            Refresh();
+        }
+
         public void ClearPermissions() => ClearPermissions(notify: true);
 
         public void ClearPermissions(bool notify)
         {
-            permissions.Clear();
+            published.Clear();
             if (notify)
             {
                 Refresh();

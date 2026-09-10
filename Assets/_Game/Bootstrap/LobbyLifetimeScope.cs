@@ -205,6 +205,13 @@ namespace Game.Bootstrap
             builder.RegisterComponent(voiceView).As<IVoiceView>();
             builder.RegisterInstance(inputActions);
 
+            // Registered beside the asset, which the project scope has no
+            // reference to. Puts the player's chosen keys on it as the lobby
+            // comes up, and again whenever the 컨트롤 tab settles on new ones.
+            builder.RegisterInstance<IControlBindingApplier>(
+                new InputSystemControlBindingApplier(inputActions));
+            builder.RegisterEntryPoint<ControlBindingBridge>();
+
             // An entry point because it mirrors the per-session rig every frame,
             // and a plain registration would never be ticked.
             builder.RegisterEntryPoint<NetworkVoiceControl>().As<IVoiceControl>();

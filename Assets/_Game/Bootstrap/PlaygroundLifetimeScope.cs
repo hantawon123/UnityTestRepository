@@ -133,6 +133,16 @@ namespace Game.Bootstrap
             builder.RegisterEntryPoint<MatchChatPresenter>();
             builder.RegisterEntryPoint<ChatBubbleBinder>();
 
+            // Registered beside the asset, which the project scope has no
+            // reference to. Its own check rather than the voice one below,
+            // because the keys matter to a match that has no microphone in it.
+            if (inputActions != null)
+            {
+                builder.RegisterInstance<IControlBindingApplier>(
+                    new InputSystemControlBindingApplier(inputActions));
+                builder.RegisterEntryPoint<ControlBindingBridge>();
+            }
+
             // The rig on the runner keeps carrying voice through the match on
             // its own. What the match lacks is a way to speak to it, so the
             // control and the button are what get registered here. The mute
@@ -228,7 +238,7 @@ namespace Game.Bootstrap
                     views[avatar] = view;
                 }
 
-                view.SetNickname(presentation.Name(avatar.PlayerId, avatar.Nickname.ToString()));
+                view.SetNickname(presentation.NameplateName(avatar.PlayerId, avatar.Nickname.ToString()));
             }
         }
 
