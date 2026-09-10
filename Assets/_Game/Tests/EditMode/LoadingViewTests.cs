@@ -77,6 +77,34 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void LoadingCamera_CoversSceneCameraGapsOnlyWhilePresented()
+        {
+            var view = LoadingView.Create(null);
+            try
+            {
+                var camera = view.GetComponent<Camera>();
+                Assert.That(camera, Is.Not.Null);
+                Assert.That(camera.enabled, Is.False);
+                Assert.That(camera.cullingMask, Is.Zero);
+                Assert.That(camera.clearFlags, Is.EqualTo(CameraClearFlags.SolidColor));
+                Assert.That(camera.depth, Is.LessThan(0f));
+                Assert.That(camera.CompareTag("MainCamera"), Is.False);
+                Assert.That(view.GetComponent<AudioListener>(), Is.Null);
+
+                view.Show();
+                Assert.That(camera.isActiveAndEnabled, Is.True);
+                view.Show();
+                Assert.That(view.GetComponents<Camera>(), Has.Length.EqualTo(1));
+                view.HideImmediate();
+                Assert.That(camera.enabled, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(view.gameObject);
+            }
+        }
+
+        [Test]
         public void LetterBounce_MovesOneLetterAtATime()
         {
             Assert.That(LoadingView.LetterBounce(0, 3, 0f), Is.EqualTo(0f).Within(0.01f));
