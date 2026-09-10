@@ -86,3 +86,14 @@
   - **코드(다중 파쇄기 지원)**: 씬 캡처가 `ShredderSpot` 이름 전부를 모아 `NetworkMatchRuntimeConfiguration.ShredderEjectionPoses`로 넘기고, `INetworkMatchAuthority.BindMatchSession`이 목록을 받는다. 서버 `MatchStarter.TryUseShredder`는 RPC를 바꾸지 않고 **요청한 플레이어와 상호작용 거리 안에서 가장 가까운 튕김 지점**을 고른다(`TrySelectShredderEjectionPose`). 전제: 두 파쇄기가 상호작용 거리 안에 겹치지 않게 배치. HUD 마커는 카메라(로컬 플레이어)에서 가장 가까운 파쇄기를 가리킨다. 기존 단일 `ShredderEjectionPose`는 첫 파쇄기를 가리켜 Playground 호환.
   - 검증: EditMode 테스트 `ShredderSelection_*` 2개, `Configuration_ExposesEveryShredderEjectionPose_*` 추가.
 - 남은 것: 탈출 지점 마커(913, 규칙 파트와 이름 협의), 마트 씬 LifetimeScope와 `NetworkScenes` 연결(910) 후 실제 플레이로 파쇄기 두 대 동작 확인.
+
+### 6. 냉장고·냉동고 상품 채우기 (2026-09-11, 907 선행)
+
+- **문제**: Synty 냉동고 `Freezer_03`은 유리문 뒤 선반 5칸 상품이 문 하나당 8 cm 두께 판 한 장에 그림으로 그려져 있고, 벽 냉장고 `Wall_Fridge_02` 프리셋에는 3 cm 두께 납작 상자가 많다. 플레이어가 집을 수 있는 물건이 아니라서 실제 상품 프리팹으로 바꿔야 한다. 음료 냉장고·델리 냉장고는 이미 3D 물건이라 그대로 둔다.
+- **도구** `Game > Match Map > Refill Fridge (Selected)…` ([FridgeRefillMenu.cs](../../../Assets/_Game/Editor/FridgeRefillMenu.cs)): 선택한 냉장고(또는 그 안의 조각)를 대상으로
+  1. 정면 = 본체 메시에서 정점이 적은(뚫린) 면, 선반 = 본체·구조 조각의 위를 보는 면을 1 cm 높이 단위로 묶고 가로 8 cm 이상 끊기면 칸을 나눔. 위 여유는 그 위 첫 아래보기 면(선반 밑·천장)까지.
+  2. 그림 상품 판정: 폭 0.4 m 이상·두께 12 cm 이하 판(냉동고), 두께 4 cm 이하로 세워진 납작 상자(벽 냉장고, 얇은 축이 깊이 방향인 것만 → 칸막이 제외). 치우는 대신 비활성화 + 이름 뒤 `[RefillHidden]`.
+  3. 팔레트(냉동: 상자 `Product_09~14/31~36`·통 `06/17/18/19/39/40`·도시락 트레이 / 냉장: 우유·저그·카톤·병·통·치즈·캔 / 음료)에서 2~5개씩 묶어 무작위로, 앞줄부터 최대 N줄, 남은 3D 물건·칸막이·문은 장애물로 피함. 결과는 `…_Exploded/Refill`(없으면 `<본체>_Refill` 루트) 아래 프리팹 인스턴스.
+  4. `Revert Fridge Refill (Selected)`로 원상복구. 이미 채운 냉장고는 다시 채우지 않음(먼저 되돌리기).
+- **적용 결과(경계 안 전부)**: 냉동고 14대(판 10장씩 → 78~91개), 벽 냉장고 3대(납작 상자 10~12개 → 168~191개), 평대 냉동고 2대(비어 있던 것 → 23개씩). 총 **19대, 배치 1,804개, 숨김 174개**, 활성 렌더러 약 20.2k. 옵션은 기본값(2줄, 밀도 1, 3D 잔존 물건 유지).
+- **주의**: 평대 냉동고 `Freezer_01/02`는 유리 미닫이문이 아직 있어 안의 물건과 상호작용하려면 유리 제거 또는 문 열기 필요. 상품 프리팹은 convex 메시 콜라이더를 갖고 있어 907에서 상호작용 대상 정리와 함께 콜라이더 정책을 정한다.
