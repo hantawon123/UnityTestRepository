@@ -75,6 +75,75 @@ docker exec d205-mysql mysql -uroot -p"$PW" -t "$DB" 2>/dev/null -e \
      FROM flyway_schema_history ORDER BY installed_rank;' \
   || echo '조회 실패 (마이그레이션이 아직 적용되지 않았을 수 있습니다)'
 
+# 조회 하나를 돌리고, 실패하면 서버가 준 말을 그대로 보여줍니다.
+#
+# 처음에는 stderr 를 버리고 "테이블이 없습니다" 같은 문구를 대신 찍었습니다. 그것이
+# 거짓말을 했습니다 - game_event 가 멀쩡히 있는데도 "아직 없습니다"가 나왔고, 진짜
+# 이유(아래 주석)는 버려져 있었습니다. 실패 사유를 지어내지 말고 받은 것을 보여줍니다.
+#
+# SQL 안에는 한글을 쓰지 않습니다. docker exec 로 넘긴 UTF-8 식별자를 컨테이너 안
+# 클라이언트가 다른 문자셋으로 읽어 구문 오류가 납니다. 설명은 바깥 echo 로 답니다.
+# stderr 만 파일로 받고 stdout 은 그대로 흘립니다. /dev/tty 로 되돌리면 안 됩니다 -
+# ssh 가 tty 없이 실행하므로 그 자리에서 죽습니다.
+#
+# --default-character-set=utf8mb4 가 없으면 한글 값이 물음표로 나옵니다. 컨테이너 안
+# 클라이언트의 기본 문자셋이 한글을 못 담아서 커넥션 단계에서 버리는 것이고, 터미널
+# 문제가 아닙니다(깨진 바이트가 아니라 깔끔한 ? 가 나오는 것이 그 증거). 대시보드
+# 이름이 한글이라 이것이 없으면 어느 대시보드인지 알 수 없습니다.
+ask() {
+    local schema=$1 sql=$2
+    docker exec d205-mysql mysql -uroot -p"$PW" --default-character-set=utf8mb4 \
+        -t "$schema" -e "$sql" 2>/tmp/verify-sql.err && return 0
+    echo "  조회 실패:"
+    grep -v 'Using a password' /tmp/verify-sql.err | sed 's/^/    /'
+}
+
+echo
+echo "=== 분석 스키마 (d205_analytics) ==="
+# 게임 DB 와 같은 인스턴스의 다른 스키마입니다. 여기가 비어 있어도 게임은 멀쩡히
+# 돌아가므로, 보러 오지 않으면 수집이 멎은 것을 아무도 모릅니다.
+echo "[Flyway]"
+ask d205_analytics \
+  'SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank;'
+
+# 뷰 셋은 V2·V3·V4 가 만듭니다. 대시보드 여덟 화면이 전부 이 뷰를 읽으므로, 없으면
+# 화면은 떠도 값이 나오지 않습니다.
+echo "[뷰]"
+ask d205_analytics \
+  "SELECT table_name FROM information_schema.views WHERE table_schema = 'd205_analytics';"
+
+echo
+echo "--- 수집된 이벤트 (rows=행, matches=경기) ---"
+# schema_ver 로 나눠 셉니다. v2 가 없으면 새 Unity 빌드가 아직 배포되지 않은 것이고,
+# 그때는 대시보드가 비어 있는 것이 정상입니다. 뷰가 schema_ver = 2 만 읽습니다.
+ask d205_analytics \
+  'SELECT schema_ver, COUNT(*) AS rows_in, COUNT(DISTINCT match_id) AS matches,
+          MIN(received_at) AS first_at, MAX(received_at) AS last_at
+     FROM game_event GROUP BY schema_ver ORDER BY schema_ver;'
+
+# 분석에 실제로 쓸 수 있는 경기 수. 시작·종료가 다 있고 예정 건수와 맞고 중단이
+# 아닌 것만 셉니다. 받은 경기가 있는데 complete 가 0 이면 전송이 중간에 끊기고 있습니다.
+echo "--- 완전 수신된 경기 ---"
+ask d205_analytics \
+  'SELECT SUM(upload_complete) AS complete, COUNT(*) AS total
+     FROM match_analysis_summary;'
+
+echo
+echo "=== 대시보드 질문 (Metabase) ==="
+# Metabase 는 자기 설정을 같은 MySQL 의 metabase 스키마에 둡니다. API 로 물으면 관리자
+# 로그인이 필요하지만 여기서는 이미 root 로 붙어 있으므로 그냥 읽습니다.
+#
+# provision_dashboards.py 가 만드는 것은 대시보드 하나와 질문 여덟 개입니다. 카드 수가
+# 여덟보다 적으면 스크립트가 도중에 멈춘 것입니다.
+#
+# 테이블 이름은 Metabase 버전에 딸린 것이라 우리가 정하지 않습니다. 못 찾으면 실패가
+# 그대로 찍히므로, 그때는 SHOW TABLES 로 이름부터 확인하면 됩니다.
+ask metabase \
+  'SELECT d.name AS dashboard, COUNT(c.id) AS cards, d.updated_at AS updated
+     FROM report_dashboard d
+     LEFT JOIN report_dashboardcard c ON c.dashboard_id = d.id
+    WHERE d.archived = 0 GROUP BY d.id, d.name, d.updated_at;'
+
 echo
 echo "=== 인증서 만료 ==="
 sudo certbot certificates 2>/dev/null | grep -E 'Certificate Name|Expiry' || echo '확인 실패'
