@@ -353,11 +353,11 @@ namespace Game.Client.Common
 
             var canvasSize = ResolveCanvasSize();
             var graphicSize = FitGraphicSize(canvasSize.x, canvasSize.y, AspectOf(sprite));
-            var labelBlock = LabelGap + LabelSize.y;
             Place(
                 graphic,
-                new Vector2(0.5f, 0.5f),
-                new Vector2(0f, labelBlock * 0.5f),
+                new Vector2(0.5f, 1f),
+                new Vector2(0.5f, 1f),
+                Vector2.zero,
                 graphicSize);
 
             if (label == null)
@@ -366,10 +366,10 @@ namespace Game.Client.Common
             }
 
             var labelRect = label.rectTransform;
-            labelRect.anchorMin = new Vector2(0.5f, 0.5f);
-            labelRect.anchorMax = new Vector2(0.5f, 0.5f);
+            labelRect.anchorMin = new Vector2(0.5f, 1f);
+            labelRect.anchorMax = new Vector2(0.5f, 1f);
             labelRect.pivot = new Vector2(0.5f, 1f);
-            labelRect.anchoredPosition3D = new Vector3(0f, (-graphicSize.y + labelBlock) * 0.5f - LabelGap, 0f);
+            labelRect.anchoredPosition3D = new Vector3(0f, -graphicSize.y - LabelGap, 0f);
             labelRect.sizeDelta = LabelSize;
             labelRect.SetAsLastSibling();
         }
@@ -709,12 +709,13 @@ namespace Game.Client.Common
         private static void Place(
             RectTransform rect,
             Vector2 anchor,
+            Vector2 pivot,
             Vector2 anchoredPosition,
             Vector2 size)
         {
             rect.anchorMin = anchor;
             rect.anchorMax = anchor;
-            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.pivot = pivot;
             rect.anchoredPosition3D = new Vector3(anchoredPosition.x, anchoredPosition.y, 0f);
             rect.sizeDelta = size;
         }

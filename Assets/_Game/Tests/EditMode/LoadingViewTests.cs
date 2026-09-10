@@ -52,6 +52,10 @@ namespace Game.Architecture.Tests
                     HomeStyle.ReferenceResolution.x,
                     HomeStyle.ReferenceResolution.y,
                     LoadingView.AspectOf(graphic.GetComponent<Image>().sprite));
+                Assert.That(graphic.anchorMin, Is.EqualTo(new Vector2(0.5f, 1f)));
+                Assert.That(graphic.anchorMax, Is.EqualTo(new Vector2(0.5f, 1f)));
+                Assert.That(graphic.pivot, Is.EqualTo(new Vector2(0.5f, 1f)));
+                Assert.That(graphic.anchoredPosition, Is.EqualTo(Vector2.zero));
                 Assert.That(graphic.sizeDelta, Is.EqualTo(expected));
 
                 var label = view.transform.Find("Content/Label")?.GetComponent<TMPro.TMP_Text>();
@@ -61,10 +65,10 @@ namespace Game.Architecture.Tests
                 Assert.That(label.color, Is.EqualTo(Color.white));
                 Assert.That(label.font, Is.EqualTo(HomeUiFonts.ApplyMedium()));
                 Assert.That(label.rectTransform.pivot, Is.EqualTo(new Vector2(0.5f, 1f)));
+                Assert.That(label.rectTransform.anchorMin, Is.EqualTo(new Vector2(0.5f, 1f)));
                 Assert.That(
                     label.rectTransform.anchoredPosition.y,
-                    Is.EqualTo((-expected.y + LoadingView.LabelGap + LoadingView.LabelSize.y) * 0.5f - LoadingView.LabelGap)
-                        .Within(0.01f));
+                    Is.EqualTo(-expected.y - LoadingView.LabelGap).Within(0.01f));
             }
             finally
             {
