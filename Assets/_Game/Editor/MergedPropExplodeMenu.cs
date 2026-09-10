@@ -344,6 +344,8 @@ namespace Game.Editor
             var mesh = filter.sharedMesh;
             var components = SplitComponents(mesh, out var welded);
             var sourcePrefabName = SourcePrefabName(source);
+            // 분해 대상이 카탈로그에도 있는 프리팹(예: 물건이 든 상자)이면 자기 자신과 통째로 매칭되지 않게 뺀다.
+            excludedPrefab = PrefabUtility.GetCorrespondingObjectFromOriginalSource(source);
 
             var root = new GameObject(source.name + "_Exploded");
             Undo.RegisterCreatedObjectUndo(root, "Explode Merged Prop");
@@ -459,6 +461,13 @@ namespace Game.Editor
             Debug.Log($"[Explode] {source.name}: 조각 {count}개 → 팩 프리팹 {matched}개, 생성 프리팹 {generated}개" +
                       $"{(leftoverComponents.Count > 0 ? $", 부스러기 {leftoverComponents.Count}개는 Leftover" : "")}. {summary}", root);
             return root;
+        }
+
+        private static GameObject excludedPrefab;
+
+        private static bool IsExcluded(CatalogEntry entry)
+        {
+            return excludedPrefab != null && entry.Prefab != null && entry.Prefab.name == excludedPrefab.name;
         }
 
         private sealed class Placement
@@ -584,7 +593,7 @@ namespace Game.Editor
             var anchor = parts[anchorIndex];
             foreach (var entry in multiPart)
             {
-                if (!QuickMatch(entry.Anchor, anchor))
+                if (IsExcluded(entry) || !QuickMatch(entry.Anchor, anchor))
                 {
                     continue;
                 }
@@ -646,7 +655,7 @@ namespace Game.Editor
             var bestError = float.MaxValue;
             foreach (var entry in catalog)
             {
-                if (entry.Parts.Count != 1 || !QuickMatch(entry.Anchor, target))
+                if (entry.Parts.Count != 1 || IsExcluded(entry) || !QuickMatch(entry.Anchor, target))
                 {
                     continue;
                 }
