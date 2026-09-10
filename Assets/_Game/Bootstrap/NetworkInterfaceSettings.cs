@@ -39,23 +39,16 @@ namespace Game.Bootstrap
         private readonly NetworkRunnerService network;
         private readonly InterfaceSettingsSystem settings;
         private readonly InterfacePresentation presentation;
+        private readonly PublishedPlayerName publishedName;
         private double nextRefresh;
         private bool hadSession;
 
-        /// <summary>
-        /// The name this player goes by while 스트리머 모드 is on, made once
-        /// for as long as they stay in the room.
-        /// </summary>
-        /// <remarks>
-        /// Held rather than derived each tick so that the room can talk to
-        /// somebody by the name it saw a moment ago. Dropped with the session,
-        /// which is what makes the next visit a different name.
-        /// </remarks>
-        private string pseudonym;
-
         public NetworkInterfaceSettings(NetworkRunnerService network, InterfaceSettingsSystem settings,
-            InterfacePresentation presentation)
-        { this.network = network; this.settings = settings; this.presentation = presentation; }
+            InterfacePresentation presentation, PublishedPlayerName publishedName)
+        {
+            this.network = network; this.settings = settings; this.presentation = presentation;
+            this.publishedName = publishedName;
+        }
 
         public void Tick()
         {
@@ -66,7 +59,11 @@ namespace Game.Bootstrap
                 if (hadSession)
                 {
                     presentation.ClearPermissions();
-                    pseudonym = null;
+
+                    // The visit is over, so the name it was made for is too.
+                    // The next room gets a new one, which is what keeps a
+                    // pseudonym from becoming a name somebody is known by.
+                    publishedName.ForgetPseudonym();
                 }
                 hadSession = false;
                 return;
@@ -81,11 +78,14 @@ namespace Game.Bootstrap
                     avatar.GetComponent<Game.Client.Interactions.PlayerInteractor>()?.SetInterfaceHudVisible(
                         network.IsWaitingForMatch || settings.Current.IsOn(InterfaceOption.InGameUi));
 
-                    var streaming = settings.Current.IsOn(InterfaceOption.StreamerMode);
+                    var streaming = publishedName.IsPseudonymous;
                     var mode = streaming
                         ? PlayerAvatarNaming.Pseudonymous
                         : PlayerAvatarNaming.RealName;
-                    var name = streaming ? EnsurePseudonym(avatar.UserId.ToString()) : string.Empty;
+
+                    // The same name the room list was given, so a host is not
+                    // one person in the browser and another inside.
+                    var name = streaming ? publishedName.Pseudonym : string.Empty;
                     if (avatar.NicknameVisibility != mode || avatar.NicknameViewers.ToString() != name)
                         avatar.RPC_SetNicknameVisibility(mode, name);
                 }
@@ -104,33 +104,6 @@ namespace Game.Bootstrap
                         break;
                 }
             }
-        }
-
-        /// <summary>
-        /// This visit's pseudonym, made the first time it is wanted.
-        /// </summary>
-        /// <remarks>
-        /// The account id goes into the seed beside a fresh one of our own, so
-        /// that two players who join at the same moment are unlikely to be
-        /// given the same name. What makes the name change between visits is
-        /// the fresh half; the account id on its own would give the same person
-        /// the same name for ever, which is a name they could be followed by.
-        /// </remarks>
-        private string EnsurePseudonym(string userId)
-        {
-            if (!string.IsNullOrEmpty(pseudonym))
-            {
-                return pseudonym;
-            }
-
-            var seed = Guid.NewGuid().GetHashCode();
-            if (!string.IsNullOrEmpty(userId))
-            {
-                seed ^= userId.GetHashCode();
-            }
-
-            pseudonym = Pseudonym.From(seed);
-            return pseudonym;
         }
 
         public void Dispose() => presentation.ClearPermissions(notify: false);

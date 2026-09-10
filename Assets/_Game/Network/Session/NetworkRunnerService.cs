@@ -7,6 +7,7 @@ using Fusion;
 using Fusion.Matchmaking;
 using Fusion.Sockets;
 using Game.Core.Home;
+using Game.Core.Settings;
 using Game.Core.Lobby;
 using Game.Core.Maps;
 using Game.Core.Ports;
@@ -157,6 +158,7 @@ namespace Game.Network.Session
         /// a name changed between two rooms is the name the second room sees.
         /// </remarks>
         private readonly PlayerProfile _profile;
+        private readonly PublishedPlayerName _publishedName;
 
         /// <summary>Where the authority's decision about starting is reported.</summary>
         private readonly IMatchStartSink _matchStartSink;
@@ -288,7 +290,8 @@ namespace Game.Network.Session
             PlayerSpawner spawner,
             PlayerProfile profile,
             NetworkScenes scenes = null,
-            ServerRegionSystem regions = null)
+            ServerRegionSystem regions = null,
+            PublishedPlayerName publishedName = null)
         {
             _roomListSink = roomListSink;
             _sessionSink = sessionSink;
@@ -298,7 +301,27 @@ namespace Game.Network.Session
             _profile = profile;
             _scenes = scenes;
             _regions = regions;
+            _publishedName = publishedName;
         }
+
+        /// <summary>
+        /// The name to write into the session's own properties, which the room
+        /// browser reads.
+        /// </summary>
+        /// <remarks>
+        /// A room list is read by people who have not joined and may never
+        /// join, so a host in 스트리머 모드 must not be named there. This is the
+        /// one name that leaves the room, which is why it asks
+        /// <see cref="PublishedPlayerName"/> and the roster does not: what the
+        /// other players are sent is the real name, and their screens decide
+        /// what to draw.
+        /// <para>
+        /// Falls back to the profile when nothing was injected, which is what a
+        /// test container does.
+        /// </para>
+        /// </remarks>
+        private string PublicHostNickname =>
+            SanitiseNickname(_publishedName != null ? _publishedName.Current : _profile?.Nickname);
 
         /// <summary>
         /// Longest nickname the network carries. Matches the
@@ -788,7 +811,7 @@ namespace Game.Network.Session
                 IsVisible = request.AllowCreate ? request.IsVisible : (bool?)null,
                 SessionProperties = SessionPropertyMapper.BuildForStart(
                     request,
-                    SanitiseNickname(_profile?.Nickname)),
+                    PublicHostNickname),
                 ConnectionToken = SessionConnectionTokenCodec.Encode(
                     request.Password,
                     _profile?.Nickname,
