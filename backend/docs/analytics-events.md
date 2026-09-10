@@ -1,4 +1,4 @@
-# 플레이 로그 이벤트 명세 v1
+# 플레이 로그 이벤트 명세 v2
 
 Unity 클라이언트와 백엔드가 주고받는 행동 이벤트의 규약입니다.
 
@@ -10,11 +10,13 @@ Unity 클라이언트와 백엔드가 주고받는 행동 이벤트의 규약입
 영향을 받지 않습니다. 수집 코드는 같은 Spring 앱의 `domain/analytics` 패키지에 있습니다.
 별도 서비스로 나누지 않은 이유와 나눌 시점은 지라 에픽 S15P21D205-780 에 있습니다.
 
-**구현 상태.** 서버 수집(`POST /api/v1/events`)과 저장은 구현되어 있습니다.
-Unity의 현재 구현은 **schemaVer=2, 호스트 1초 수집·경기 종료 후 전송**입니다.
-구현 범위와 필드·조회 방법은 [경기 분석 수집 v2](match-analytics.md)를 따릅니다.
-아래 v1의 19개 이벤트 전체, 10초 주기 flush, Core 포트 설계는 기존 계획이며
-현재 Unity 구현 전체를 의미하지 않습니다. v2는 시작·페이즈·위치·결과·종료 5종만 발행합니다.
+**이 문서는 v2 기준입니다.** 서버가 받는 이벤트 이름은 19개지만 클라이언트가 실제로 보내는
+것은 5종(`match_start`, `phase_change`, `position_sample`, `player_result`, `match_end`)입니다.
+v1 이 개별 행동 이벤트로 찍으려 했던 사실은 1초 위치 샘플의 누적값에서 SQL 로 유도합니다.
+5절이 그 다섯 종과 유도 방법을, 5.3 절이 아직 발행하지 않는 14개를 부록으로 담습니다.
+
+필드 구조와 파일·재전송은 [경기 분석 수집 v2](match-analytics.md), 실제 대시보드 쿼리는
+[대시보드 쿼리](analytics-dashboards.md)에 있습니다.
 
 ---
 
@@ -53,7 +55,7 @@ Unity의 현재 구현은 **schemaVer=2, 호스트 1초 수집·경기 종료 �
 | `map_id` | string | |
 | `pos_x` `pos_y` `pos_z` | float | 이벤트가 일어난 좌표 |
 | `from_host` | bool | 호스트(StateAuthority)가 보냈는지 |
-| `schema_ver` | short | 현재 `1` |
+| `schema_ver` | short | 현재 `2`. `1` 은 개별 행동 이벤트를 찍으려던 계획이고 실제 수집은 없었다 |
 | `params` | json | 이벤트별 추가 값 |
 
 **`user_public_id`는 `users_seq`가 아닙니다.** 클라이언트는 `public_id`만 알고,
@@ -112,11 +114,20 @@ Photon Fusion 이라 **이 규칙을 어기면 데이터가 통째로 못 쓰게
 이때 `user_public_id`는 그 행동의 주체이고, `from_host`는 `true`, `client_session_id`는
 호스트의 세션입니다.
 
-**호스트가 대신 보내려면 호스트가 전원의 `userId`를 알아야 합니다.** 지금은 모릅니다.
-`PlayerRegistry.IdOf`는 Photon `PlayerRef` 기반의 `"P3"` 같은 값을 돌려주고, 연결 토큰에는
-비밀번호와 닉네임만 실립니다. `PlayerAvatar`의 `Nickname`처럼 `UserId`를 `[Networked]`로
-복제하는 작업(지라 S15P21D205-864)이 선행 조건입니다. 이게 없으면 호스트 발행
-이벤트 전부의 `user_public_id`가 비어서 유저 단위 분석이 하나도 안 됩니다.
+**호스트가 대신 보내려면 호스트가 전원의 `userId`를 알아야 합니다.** 그 값은
+`MatchParticipant.UserId`에서 읽습니다(S15P21D205-864). 각 클라이언트가 연결 토큰에
+자기 계정의 `userId`를 실어 보내고, 호스트가 `PlayerAvatar.UserId`로 복제하며,
+`PlayerRoster`가 `RoomParticipant.UserId`로 옮기고 경기 시작 때 `MatchParticipant`로 넘어갑니다.
+호스트가 바뀌어도 `MatchSessionState.ParticipantUserIds`에 남아 있어 새 호스트도 같은 값을 봅니다.
+
+`PlayerRegistry.IdOf`가 돌려주는 `"P3"` 같은 값은 방 안에서만 쓰는 좌석 키라 `user_public_id`에
+넣으면 안 됩니다.
+
+**로그인하지 않은 플레이어는 `MatchParticipant.UserId`가 `null`입니다.** 그대로 보내면 서버가
+계정 없음으로 저장하고, 그 경기 안에서는 `params.seat`으로만 구분됩니다. **빈 문자열로 바꾸면
+안 됩니다** — 서버의 `userPublicId`는 UUID 형식 검사를 받고 빈 문자열은 그 검사를 통과하지
+못해 **배치 전체가 400** 이 됩니다(7절). 발행 시점에 형식을 확인해 아닌 값을 null 로 바꾸는
+이유가 그것입니다.
 
 ### 각 클라이언트가 보낸다 — 그 클라이언트만 아는 것
 
@@ -124,11 +135,20 @@ UI 클릭, 설정 변경, FPS·핑, 이탈, 조작 학습 지표, **펀치 휘�
 
 호스트가 알 수 없는 정보입니다. `from_host`는 `false`입니다.
 
+**v2 에는 이 경로가 없습니다.** 발행하는 것은 호스트뿐이고, 여기 적힌 일곱 이벤트는 아무도
+보내지 않습니다(5.3). 이 절은 그것들을 되살릴 때의 책임 규칙으로 남아 있습니다 — 호스트가
+대신 보내면 안 되는 것들의 목록입니다.
+
 펀치 휘두름이 여기 있는 이유: [PlayerCombatant](../../Assets/_Game/Client/Combat/PlayerCombatant.cs)는
 공격 반경 `OverlapSphere`에 사람이 잡혔을 때만 호스트에 `TryRequestHit`을 보냅니다. **빗나간 주먹은 호스트에
-도달하지 않습니다.** 그래서 명중률은 클라이언트의 `punch_swung`과 호스트의 `punch_hit`을
-유저·경기로 조인해서 구합니다. 빗나감을 호스트로 올리는 RPC 를 새로 만들지 않습니다.
+도달하지 않습니다.** 빗나감을 호스트로 올리는 RPC 를 새로 만들지 않습니다.
 분석 때문에 네트워크 트래픽을 늘리는 것은 순서가 뒤바뀐 것입니다.
+
+v1 은 그래서 명중률을 클라이언트의 `punch_swung`과 호스트의 `punch_hit`을 조인해 구할
+계획이었습니다. **v2 는 둘 다 없이 구합니다** — 휘두름은 `NetworkPlayerMotor`의
+`[Networked]` 카운터(`attack_sequence`)가 호스트에도 복제되어 있고, 명중은 서버가 인정한
+누적 피격 수입니다(5.2). 빗나간 주먹이 호스트에 도달하지 않는다는 사실은 그대로지만,
+휘두른 **횟수**는 도달합니다.
 
 ### `from_host`를 왜 저장하나
 
@@ -138,118 +158,169 @@ UI 클릭, 설정 변경, FPS·핑, 이탈, 조작 학습 지표, **펀치 휘�
 ### 호스트가 바뀌면 — 호스트 마이그레이션
 
 **호스트가 나가도 경기는 끊기지 않습니다.** `MatchMigrationCheckpoint`로 새 호스트가
-이어받습니다. 그래서 다음이 일어납니다.
+이어받습니다. 하지만 **로그는 이어지지 않습니다.**
 
-- 한 `match_id` 안에서 `from_host = true`인 이벤트의 `client_session_id`가 중간에 바뀝니다.
-- `match_id`가 체크포인트에 실려 있어야 새 호스트가 같은 값으로 이어 씁니다. **체크포인트에
-  안 실으면 새 호스트가 새 경기를 시작한 것처럼 보입니다.**
-- 경계에서 이벤트가 겹칠 수 있습니다. 옛 호스트가 `phase_change`를 보낸 직후 나갔고 새 호스트가
-  복원하면서 같은 전환을 다시 찍는 경우입니다. 그래서 새 호스트는 복원 직후 `host_migrated`를
-  한 번 찍고, 집계는 그 경기의 경계 전후를 의심합니다(6절).
+v2 는 표본을 뜨는 버퍼가 자기 `match_id`를 만듭니다. 그래서 이관이 일어나면:
 
-마이그레이션 자체가 실패해 경기가 정말로 끊기면 `match_end`가 없는 `match_id`가 남습니다.
-집계할 때 제외합니다.
+- 옛 호스트의 구간이 `end_reason = "Interrupted"`, `partial = true` 로 닫힙니다. 그 시점까지
+  확보한 것만 전송됩니다.
+- 새 호스트가 **다른 `match_id`** 로 새 버퍼를 시작하고, 도중부터 기록했으므로 그쪽
+  `match_start`도 `partial = true` 입니다.
+- 두 구간을 한 경기로 자동으로 합치지 않습니다. 사람이 방 코드와 시각으로 잇습니다.
+
+`host_migrated`를 찍어 한 `match_id`를 이어 쓰는 것이 v1 계획이었고, v2 는 그 이벤트를 보내지
+않습니다. 이관된 경기를 찾는 방법은 6절에 있습니다.
+
+두 구간 모두 `upload_complete = 0`이라 경기 단위 집계에서 통째로 빠집니다. 뷰가 그 열을
+`match_start` 1건, `match_end` 1건, 행 수 = `expected_events`, 그리고 **`partial = false`**
+넷의 곱으로 정의하기 때문입니다 — 건수가 다 맞아도 `partial` 하나로 걸립니다. 그것이
+의도입니다: **반쪽 경기를 섞으면 "찾는 시간이 짧다" 같은 잘못된 결론이 나옵니다.** 대신 그런
+경기가 몇 판이었는지는 1번 화면에서 셉니다.
 
 ---
 
 ## 5. 이벤트 목록 (19개)
 
-### 5.1 호스트 발행 — 경기 사실 (11)
+서버 화이트리스트(`GameEventName`)에 19개가 있습니다. **그중 v2 가 보내는 것은 5개입니다.**
+나머지 14개는 이름만 열어 둔 상태이고 5.3 절에 있습니다.
+
+화이트리스트를 5개로 줄이지 않는 이유는, 이름을 지우면 되살릴 때 서버 배포가 필요해지고
+그때 `params` 명세를 처음부터 다시 쓰게 되기 때문입니다. 받을 준비만 되어 있는 것은 비용이
+들지 않습니다.
+
+### 5.1 v2 가 발행하는 5종
+
+전부 호스트(StateAuthority)가 보냅니다. **클라이언트 발행은 v2 에 없습니다.** 발행 지점은
+[`MatchAnalyticsRecorder`](../../Assets/_Game/Bootstrap/MatchAnalyticsRecorder.cs) 하나이고,
+`Hiding`·`Searching` 단계에서만 표본을 뜹니다.
 
 | 이벤트 | `params` | 비고 |
 | --- | --- | --- |
-| `match_start` | `map_id, player_count, hide_sec, seek_sec, run_speed, stun_hits, destroy_limit, players[]` | **방 설정을 전부 박는다.** 이게 없으면 "30초일 때 vs 60초일 때"를 비교할 수 없다. `hide_sec`은 **한 사람당** 숨는 시간(기본 30)이고 Hiding 단계 길이는 `hide_sec × player_count`다. `players`는 `{seat, user_public_id}` 목록. 좌석↔유저 대응의 원본 |
-| `phase_change` | `from, to` | 모든 단계 계산의 기준점. `to`는 `MatchPhase` 이름 |
-| `final_warning` | `ends_in_ms` | Searching 마지막 30초 진입. 단계가 아니라 이벤트로 찍는다 |
-| `host_migrated` | `previous_host_user_public_id` | 새 호스트가 복원 직후 한 번. 이 경기는 경계 중복을 의심한다 |
-| `match_end` | `end_reason, duration_ms, escaped_count` | 이게 없는 경기는 분석 제외. `end_reason`은 `MatchEndReason` 이름 |
-| `player_result` | `result, held_own_item` | 좌표 = 종료 시점 위치 |
-| `item_hidden` | `item_id, owner_id` | 좌표 = 숨긴 위치. **질문 3의 핵심.** `TryRecordItemPlacement`가 신호 |
-| `item_picked_up` | `item_id, owner_id, holder_id, hidden_ago_ms` | 좌표 = 집은 위치. `holder_id ≠ owner_id`면 발견/탈취, 같으면 되찾음. `TryHoldObject`가 신호 |
-| `item_destroyed` | `item_id, owner_id, destroyer_id` | `PlayerItemDestroyed`가 신호 |
-| `punch_hit` | `attacker_id, target_id, hits_so_far` | **명중만.** 빗나감은 클라이언트의 `punch_swung`. `RegisterHit`이 `Ignored`가 아닐 때. 단, Hiding 단계의 명중은 기절 카운터를 올리지 않으므로 `hits_so_far`를 null 로 보내거나 phase ≠ Hiding 조건을 함께 둔다 |
-| `player_stunned` | `attacker_id, combat_ms, punches_landed` | `PlayerStunned`가 신호 |
+| `match_start` | `player_count, hide_sec, seek_sec, sprint_multiplier, stun_hits, destroy_limit, build_ver, partial` | **방 설정을 전부 박는다.** 이게 없으면 "30초일 때 vs 60초일 때"를 비교할 수 없다. `hide_sec`은 **한 사람당** 숨는 시간(기본 30)이고 Hiding 단계 길이는 `hide_sec × player_count`다. 맵과 방은 `params`가 아니라 공통 봉투의 `map_id`·`room_code`다. `partial`은 이 경기가 도중부터 기록됐다는 표시 |
+| `phase_change` | `from, to` | 모든 단계 계산의 기준점. 이름은 `MatchPhase` 그대로이고 첫 건은 `from = "Waiting"` |
+| `position_sample` | `seat, rotation_y, posture, grounded, attack_sequence, total_hits_received, total_stuns, item_id, item_known, item_destroyed, holder_seat, item_x, item_y, item_z, item_in_motion` | **1Hz × 인원수.** 전체 행의 대부분이 이것이고, v2 분석의 거의 전부가 여기서 나온다(5.2) |
+| `player_result` | `seat, result, total_hits_received, total_stuns` | 좌표 = 종료 시점 위치. 누적값을 다시 담는 이유는 마지막 1초 사이의 변화를 놓치지 않기 위한 것 |
+| `match_end` | `end_reason, duration_ms, partial, expected_events, dropped_samples` | 이게 없는 경기는 분석 제외. `end_reason`은 `MatchEndReason` 이름이고 중단이면 `Interrupted` |
 
-발견·탈취·되찾음을 이벤트 셋으로 나누지 않고 `item_picked_up` 하나로 둔 이유: 코드에
-그 셋을 구분하는 신호가 없습니다. 호스트 쪽 신호는 `TryHoldObject` 하나이고 구분은
-`owner_id`와 `holder_id`의 관계에서 나옵니다. 쿼리에서 갈리는 것을 발행 시점에 갈라 두면
-발행 지점 셋이 각자 어긋날 여지만 생깁니다.
+**`params`의 키는 서버가 검증하지 않습니다.** `JsonNode`로 그대로 저장하므로 이 표와 코드가
+어긋나도 400 이 나지 않고 **뷰가 조용히 NULL 을 냅니다.** 필드를 바꿀 때는 `match_analysis_*`
+뷰를 함께 고쳐야 합니다.
 
-`item_hidden`은 Hiding 단계와 Searching 단계의 재배치 양쪽에서 발생합니다. `phase`가 구분해 줍니다.
+**각 클라이언트가 자기 위치를 보내면 안 됩니다.** 호스트가 어차피 다 알고 있어서 중복이고,
+클라이언트마다 시각이 달라 같은 순간의 스냅샷이 만들어지지 않습니다.
 
-호스트 발행 지점은 `Server`(Photon 을 모르는) 계층에 둡니다. 위 신호 중 집기·상호작용
-(`RecordItemPickup`·`RecordItemInteraction`), 파괴(`RecordItemDestroyed`), 기절(`RecordPlayerStunned`)을
-이미 받고 있는 `HighlightEventRecorder` 옆이 자연스러운 자리입니다. 배치(`RecordPlacement`),
-명중(`RegisterHit`), 단계 전환, 경기 시작·종료는 그 레코더가 받지 않으므로
-`MatchSessionCoordinator`에서 따로 끌어와야 합니다.
+### 5.2 샘플에서 유도하는 사실
 
-### 5.2 호스트 발행 — 공간 (1)
+v1 이 개별 이벤트로 찍으려 했던 것 대부분이 1초 샘플의 **누적값 차분**으로 나옵니다. 유도는
+쿼리마다 새로 쓰지 않고 뷰에 한 번 적어 둡니다. JSON 을 꺼내는 일을 여덟 곳에 복사해 두면
+필드 이름이 바뀔 때 여덟 곳이 어긋납니다.
 
-| 이벤트 | 빈도 | 비고 |
+| 알고 싶은 것 | 유도 방법 | 어디에 |
 | --- | --- | --- |
-| `position_sample` | 1Hz × 인원수 | 호스트가 전원 위치를 알므로 호스트가 인원수만큼 발행 |
+| 휘두른 횟수 | `attack_sequence`의 경기 내 최댓값 − 최솟값. 플레이어 오브젝트가 경기마다 새로 생기지 않아 0 부터 시작하지 않는다 | `match_analysis_combat.swings` |
+| 명중 횟수 | `total_hits_received` 차분 | `match_analysis_combat.hits_received` |
+| 기절 횟수 | `total_stuns` 차분 | `match_analysis_combat.stuns` |
+| 숨긴 위치 | `item_known = 1 AND item_in_motion = 0` 인 샘플의 `item_x`·`item_y`·`item_z` | `match_analysis_positions` |
+| 집기·탈취 | `item_holder_seat`이 바뀐 시점. `item_holder_seat <> player_seat`이면 발견·탈취 | `match_analysis_positions` |
+| 파괴 | `item_destroyed`가 거짓→참으로 바뀐 시점 | `match_analysis_positions` |
+| 경기 중 이탈 | 그 좌석의 샘플이 종료보다 일찍 끊긴 것 | 대시보드 8번 |
+| 최종 경고 진입 | `phase_change(→Searching)` + `seek_sec` − 30초. 결정적인 값이라 기록하지 않는다 | (계산) |
 
-**각 클라이언트가 자기 위치를 보내면 안 됩니다.** 호스트가 어차피 다 알고 있어서
-중복이고, 클라이언트마다 시각이 달라 같은 순간의 스냅샷이 만들어지지 않습니다.
+**유도의 대가는 셋입니다.** 첫째, 시각이 ±1초이고 1초 사이에 일어나 끝난 일은 아예 보이지
+않습니다. 둘째, **가해자를 모릅니다** — `total_hits_received`는 맞은 쪽의 누적이라 "누가
+때렸나"가 없고 좌표 근접도로 추정할 수밖에 없습니다. 셋째, 호스트가 표본을 뜨는 두 단계
+밖은 비어 있습니다.
 
-전체 행의 약 85%가 이 이벤트입니다. **설정으로 끌 수 있어야 합니다.**
+누적값이므로 **매초 값을 SUM 하면 중복 집계됩니다.** 최종값은 `player_result`를 쓰거나 같은
+경기·좌석의 MAX 를 봅니다.
 
-### 5.3 클라이언트 발행 (7)
+### 5.3 부록 — 아직 발행하지 않는 14개
 
-| 이벤트 | `params` | 비고 |
+서버는 받지만 아무도 보내지 않습니다. **되살릴 때의 `params` 명세로 남겨 둔 것입니다.**
+`analytics-dashboards.md`에서 이것들을 읽던 쿼리 다섯 개는 영구히 비어 있어서 지웠습니다.
+
+호스트가 보낼 것 (7):
+
+| 이벤트 | `params` | 5.2 로 대체되는가 |
 | --- | --- | --- |
-| `client_session_start` | `build_ver, platform, resolution` | |
-| `scene_enter` | `scene` | `AppFlowState` 이름. 이탈 분석의 기반 |
-| `client_quit` | `scene, reason` | `reason`은 `NORMAL` / `FORCED`. **질문 7의 핵심** |
-| `first_interact` | `elapsed_since_phase_ms` | F키 첫 상호작용 성공까지. 세션당 1회 |
-| `punch_swung` | `had_target` | 주먹을 휘두른 사실. `punch_hit`과 조인해 명중률 |
-| `settings_changed` | `category, key` | **값은 넣지 않는다.** 무엇을 바꿨는지만 알면 된다 |
-| `perf_sample` | `fps_avg, fps_p1, ping_ms` | 30초마다 |
+| `final_warning` | `ends_in_ms` | 계산으로 대체. Searching 마지막 30초 진입 |
+| `host_migrated` | `previous_host_user_public_id` | **부분.** `match_start.partial`과 `upload_complete = 0`으로만 안다 |
+| `item_hidden` | `item_id, owner_id` | 위치는 대체, **시각은 ±1초.** `TryRecordItemPlacement`가 신호 |
+| `item_picked_up` | `item_id, owner_id, holder_id, hidden_ago_ms` | 대체 가능, 시각 ±1초. `TryHoldObject`가 신호 |
+| `item_destroyed` | `item_id, owner_id, destroyer_id` | 시점은 대체, **파괴자를 모름.** `PlayerItemDestroyed`가 신호 |
+| `punch_hit` | `attacker_id, target_id, hits_so_far` | 횟수는 대체, **가해자를 모름.** `RegisterHit`이 신호 |
+| `player_stunned` | `attacker_id, combat_ms, punches_landed` | 횟수는 대체, `combat_ms`는 ±1초. `PlayerStunned`가 신호 |
 
-`settings_changed`에서 값을 빼는 이유는 두 가지입니다. 노이즈가 크고,
-설정값 중에 닉네임 공개 범위처럼 개인 정보에 가까운 것이 섞여 있습니다.
+발견·탈취·되찾음을 이벤트 셋으로 나누지 않고 `item_picked_up` 하나로 둔 이유: 코드에 그 셋을
+구분하는 신호가 없습니다. 호스트 쪽 신호는 `TryHoldObject` 하나이고 구분은 `owner_id`와
+`holder_id`의 관계에서 나옵니다.
+
+각 클라이언트가 보낼 것 (7). **이쪽은 유도할 방법이 없습니다** — 호스트가 모르는 정보이고,
+v2 에는 클라이언트 발행 경로 자체가 없습니다:
+
+| 이벤트 | `params` | 없어서 못 하는 것 |
+| --- | --- | --- |
+| `client_session_start` | `build_ver, platform, resolution` | 앱 실행 수 대비 경기 수 |
+| `scene_enter` | `scene` (`AppFlowState` 이름) | 화면 단위 퍼널 |
+| `client_quit` | `scene, reason` (`NORMAL` / `FORCED`) | **질문 7 의 완전판.** 경기 전 이탈 |
+| `first_interact` | `elapsed_since_phase_ms` | **질문 6.** F키 첫 상호작용까지 걸린 시간 |
+| `punch_swung` | `had_target` | 빗나감. 호스트에 도달하지 않는다(4절) |
+| `settings_changed` | `category, key` | **질문 6.** 값은 넣지 않는다 |
+| `perf_sample` | `fps_avg, fps_p1, ping_ms` | fps·핑 전부 |
+
+`settings_changed`에서 값을 빼는 이유는 두 가지입니다. 노이즈가 크고, 설정값 중에 닉네임
+공개 범위처럼 개인 정보에 가까운 것이 섞여 있습니다.
 **"감도를 자주 바꾼다"는 사실만으로 기본값이 나쁘다는 신호는 충분합니다.**
 
-### 5.4 질문 ↔ 이벤트
+### 5.4 질문 ↔ 화면
 
-| 질문 | 답을 내는 방법 |
-| --- | --- |
-| 1 숨는 시간 | `phase_change(Hiding→Searching)`의 `match_time_ms`까지 `item_hidden`이 없는 인원 비율. 비교 축은 `match_start.hide_sec`(한 사람당 값, 기본 30초)이고 단계 전체 길이는 인원수 × 30초다 |
-| 2 죽은 구역 | `position_sample` 좌표 히트맵 |
-| 3 은신처 품질 | `item_hidden` 좌표 bin 별 건수 × `item_picked_up.hidden_ago_ms` 중앙값 |
-| 4 찾는 시간 | `item_picked_up`(`holder ≠ owner`)의 `match_time_ms` 분포 vs `match_start.seek_sec` |
-| 5 기절 3회 | `punch_hit` ÷ `punch_swung` 명중률, `player_stunned.combat_ms` |
-| 6 조작 학습 | `first_interact` 소요시간 추이, `settings_changed` 빈도 |
-| 7 이탈 지점 | `scene_enter` → `client_quit`을 `phase` 별로. 로비 이탈은 `room_code`로 묶는다 |
+쿼리는 [`analytics-dashboards.md`](analytics-dashboards.md)가 원본이고, 그 문서를
+`deploy/metabase/provision_dashboards.py`가 읽어 Metabase 화면을 만듭니다.
+
+| 질문 | 화면 | 답이 나오나 |
+| --- | --- | --- |
+| 1 숨는 시간 | 2 | ✅ 숨긴 시점을 `item_in_motion = 0`으로 잡는다 |
+| 2 죽은 구역 | 3·4 | ✅ 좌표 히트맵. 맵 그림 위에 겹치는 것은 Metabase 로 안 되고 따로 만든다 |
+| 3 은신처 품질 | 3 | ✅ |
+| 4 찾는 시간 | 5 | ✅ `item_holder_seat` 변화로 |
+| 5 기절 3회 | 6 | ✅ 명중률까지. 분모(`swings`)가 `attack_sequence`다 |
+| 6 조작 학습 | — | ❌ **화면이 없다.** `first_interact`·`settings_changed`가 필요하다 |
+| 7 이탈 지점 | 8 | ⚠️ **경기 시작 후만.** 로비·홈 이탈은 `client_quit`이 필요하다 |
 
 ---
 
 ## 6. 집계할 때 반드시 넣을 필터
 
+경기 단위 집계는 전부 `upload_complete = 1`을 깔고 갑니다. 뷰가 "시작·종료가 모두 있고,
+예정 건수와 실제 행 수가 같고, 중단 표시가 없음"을 그 한 열로 정리해 둡니다.
+
 ```sql
--- 정상 종료된 경기만
-WHERE match_id IN (
-  SELECT match_id FROM game_event WHERE event_name = 'match_end'
-)
+-- 믿을 수 있는 경기만
+SELECT match_id FROM d205_analytics.match_analysis_summary
+WHERE upload_complete = 1
 ```
 
 마이그레이션이 실패해 끊긴 경기는 이벤트가 중간에 멎어 있습니다. 이걸 섞으면
 "찾는 시간이 짧다" 같은 잘못된 결론이 나옵니다.
 
+**호스트가 바뀐 경기는 `host_migrated`로 찾을 수 없습니다.** v2 는 그 이벤트를 보내지 않고,
+호스트 이관 뒤의 구간은 **새 `match_id`의 부분 기록**으로 들어옵니다. 두 구간을 자동으로 한
+경기로 합치지 않습니다. 그래서 경계를 의심할 대상은 이렇게 찾습니다.
+
 ```sql
--- 호스트가 바뀐 경기. 경계 전후의 phase_change 중복을 의심한다
-SELECT DISTINCT match_id FROM game_event WHERE event_name = 'host_migrated'
+-- 도중부터 기록된 경기. 앞 구간이 다른 match_id 에 있거나 아예 없다
+SELECT match_id FROM game_event
+WHERE event_name = 'match_start'
+  AND params->>'$.partial' = 'true'
 ```
 
 발행 규칙이 지켜지고 있는지 주기적으로 확인합니다.
 
 ```sql
--- 경기당 1건이어야 하는 이벤트가 여러 건이면 발행 책임 분리가 깨진 것.
--- host_migrated 가 있는 경기는 경계 중복이라 여기서 제외하고 따로 본다
+-- 경기당 1건이어야 하는 이벤트가 여러 건이면 발행 책임 분리가 깨진 것
 SELECT match_id, event_name, COUNT(*)
 FROM game_event
 WHERE event_name IN ('match_start', 'match_end')
-  AND match_id NOT IN (SELECT match_id FROM game_event WHERE event_name = 'host_migrated')
 GROUP BY match_id, event_name
 HAVING COUNT(*) > 1
 ```
@@ -263,25 +334,28 @@ occurred_at)`이 DB 에서 막습니다(7절).
 
 클라이언트는 이벤트를 **모아서** 보냅니다. `POST /api/v1/events`에 배열로 넣습니다.
 
+**v2 는 경기가 끝난 뒤에 보냅니다.** 표본을 뜨는 동안에는 메모리에만 쌓고 HTTP 도 파일 I/O 도
+하지 않습니다.
+
 | 시점 | 동작 |
 | --- | --- |
-| 10초 경과 | flush |
-| 50건 누적 | flush |
-| 단계 전환 | **강제 flush** |
-| 경기 종료 | **강제 flush** |
-| 앱 종료 | **강제 flush** |
+| 표본 1초마다 | 메모리 적재만 |
+| 경기 종료·중단 | `persistentDataPath/match-analytics/<match_id>.jsonl` 로 쓰고 전송 시작 |
+| 전송 중 | 50건씩 배치, 배치 사이 200ms |
+| 앱 시작 | 남은 파일 재전송 |
 
-**이벤트마다 HTTP를 치지 않습니다.** 프레임이 튑니다.
+**이벤트마다 HTTP를 치지 않습니다.** 프레임이 튑니다. 직렬화는 발행 시점에 하고 버퍼에는
+객체가 아니라 문자열이 쌓입니다 — 50건을 한꺼번에 직렬화하면 그 프레임이 튑니다.
 
-**경기 종료 시 한 번에 몰아 보내지도 않습니다.** 질문 7이 "어느 단계에서 이탈하나"인데,
-몰아 보내는 방식은 이탈한 사람이 애초에 전송하지 않고 나가므로 이탈자 데이터만
-정확히 사라집니다. 지금 방식은 최악의 경우에도 마지막 10초치만 잃습니다.
+**경기 종료 후 전송의 대가가 질문 7 입니다.** v1 은 10초마다 flush 해서 이탈자의 마지막
+10초치만 잃는 설계였습니다. v2 는 경기가 끝나야 보내므로 **경기 전에 떠난 사람의 기록이 아예
+생기지 않습니다.** 5.4 의 질문 7 이 "경기 시작 후만"인 근본 이유가 이것이고, 8번 화면은
+호스트가 전원을 관측한다는 사실을 빌려 경기 중 이탈만 겨우 봅니다.
 
-**직렬화는 이벤트 발행 시점에** 합니다. flush 시점에 50건을 한꺼번에 직렬화하면
-그 프레임이 튑니다. 큐에는 객체가 아니라 직렬화된 문자열이 쌓입니다.
-
-전송에 실패하면 디스크에 스풀하고 다음 실행 때 재전송합니다. 시연 중 네트워크가
-한 번 튀어서 그날 데이터가 통째로 날아가는 것을 막습니다. **플레이테스트 기회는 유한합니다.**
+전송에 실패하면 파일을 남겨 다음 경기 종료나 앱 시작 때 **같은 이벤트 ID로** 재전송합니다.
+시연 중 네트워크가 한 번 튀어서 그날 데이터가 통째로 날아가는 것을 막습니다.
+**플레이테스트 기회는 유한합니다.** 보관 상한은 경기 10개이고, 400·413 을 받은 파일은
+`.rejected`로 격리해 다음 경기의 전송을 막지 않습니다.
 
 ### 재전송은 중복을 만든다
 
@@ -299,19 +373,30 @@ occurred_at)`이 DB 에서 막습니다(7절).
 
 Unity 쪽 전송 구현은 `Backend` 계층에 둡니다. `Client`가 아닙니다. `UnityWebRequest`를
 만지는 계층은 `Backend` 하나라는 것이 `_Game/README.md`의 규칙이고, 계정·친구·접속 상태가
-그렇게 되어 있습니다. `Core`에는 `IAnalyticsSink` 포트와 순수 이벤트 타입만 둡니다.
-`Server`는 `Backend`를 보지 않으므로 호스트 발행 지점이 HTTP 를 모른 채 포트에 밀어 넣을 수 있습니다.
+그렇게 되어 있습니다.
+
+**v2 에 `Core` 포트는 없습니다.** 발행 지점이 하나뿐이라 포트를 둘 이유가 없었습니다. 표본을
+뜨는 `MatchAnalyticsRecorder`는 `Bootstrap`에, 버퍼와 전송(`MatchAnalyticsBuffer`,
+`MatchAnalyticsUpload`)은 `Backend`에 있습니다. 발행 지점이 여럿으로 늘어나면 — 5.3 의
+클라이언트 발행 7종이 그렇습니다 — 그때 `Core` 포트가 필요해집니다.
 
 ### 서버는 기다리지 않는다
 
 서버는 받자마자 상한 큐에 넣고 `202`로 응답합니다. DB 쓰기를 기다리지 않습니다.
 큐가 가득 차면 이벤트를 **버립니다.** 절대 블로킹하지 않습니다.
 
-한 IP 가 분당 600요청을 넘기면 `429 RATE_LIMITED` 입니다. 클라이언트 하나는 10초마다 한 번
-(분당 6)이라 혼자서는 닿지 않습니다. 상한이 600 인 이유는 플레이테스트가 한 교실에서
-이뤄져 수십 명이 NAT 뒤의 공용 IP 하나로 보이기 때문입니다. 100명이 한 IP 뒤에 있어도
-닿지 않고, 한 IP 가 무한히 쏘는 것만 막습니다. 429 는 400 과 달리 **재전송합니다.** 배치를
-스풀에 그대로 두고 다음 flush 에 다시 보냅니다.
+한 IP 가 분당 600요청을 넘기면 `429 RATE_LIMITED` 입니다. 상한이 600 인 이유는 플레이테스트가
+한 교실에서 이뤄져 수십 명이 NAT 뒤의 공용 IP 하나로 보이기 때문입니다.
+
+**v2 의 요청은 고르게 오지 않고 경기 종료 시점에 몰립니다.** 보내는 것은 호스트 하나뿐이지만
+(다른 클라이언트는 아무것도 보내지 않습니다) 한 경기가 50건씩 쪼개져 나갑니다. 6인·8분이면
+위치 표본이 약 2,900건이라 배치가 약 60개이고, 배치 사이 200ms 를 두므로 **12초 안에 요청
+60개**입니다. 한 교실에서 다섯 경기가 동시에 끝나면 같은 IP 에서 300 요청이고, 여기에 앱
+시작 때의 스풀 재전송이 겹칠 수 있습니다.
+
+분당 600 은 그래도 남지만 v1 이 상정한 "분당 6" 과는 두 자릿수 다릅니다. 동시 경기가 열 판을
+넘어가면 상한을 올려야 합니다. 429 는 400 과 달리 **재전송합니다** — 파일을 그대로 두고 배치당
+최대 3회, 2초·4초·6초 간격으로 다시 시도합니다.
 
 서버가 배치를 거부하는 경우(400)는 대표적으로 `event_name`이 목록에 없을 때, 배열이 상한을
 넘을 때, `occurred_at`이 3절의 범위를 벗어날 때이고, 그 밖에 `params`가 JSON 객체가 아니거나
@@ -354,21 +439,30 @@ DataSource 로 실행합니다. 행은 남고 사람만 지워집니다. 경기 
 
 ## 9. 버전과 미확정 항목
 
-`schema_ver`는 현재 `1`입니다. 필드를 추가할 때는 올리고, 집계 쿼리에서 버전을
-구분합니다. **이벤트를 지우기보다 새 이름으로 추가하는 편이 안전합니다.**
+`schema_ver`는 현재 `2`입니다. 필드를 추가할 때는 올리고, 집계 쿼리에서 버전을 구분합니다.
+뷰는 `schema_ver = 2`만 읽습니다. **이벤트를 지우기보다 새 이름으로 추가하는 편이
+안전합니다** — 5.3 의 14개를 화이트리스트에 남겨 둔 이유입니다.
+
+### 정해진 것
+
+- **`position_sample`은 1Hz로 켭니다.** 전체 행의 대부분이 이것이고, 질문 2·3·4 와 5.2 의
+  유도가 전부 여기에 얹혀 있습니다. 경기당 상한은 20,000건이며 넘으면 샘플만 버리고
+  단계·종료 기록은 남깁니다(`match_end.dropped_samples`)
+- **개별 행동 이벤트는 보내지 않습니다.** 같은 사실을 누적값 차분으로 얻고, 잃는 것은
+  1초 미만의 시각과 가해자입니다(5.2)
 
 ### 확정 대기
 
 승리 조건이 절대평가(종료 시 자기 물건을 들고 있으면 성공)라 순위·점수 개념이 없습니다.
-이 규칙이 바뀌면 아래 두 이벤트의 `params`가 바뀝니다.
+이 규칙이 바뀌면 `player_result`의 `result`가 바뀝니다. 공통 봉투는 이 변경과 무관합니다.
 
-- `player_result`의 `result`
-- `match_end`의 `escaped_count`
-
-**나머지 17개와 공통 봉투는 이 변경과 무관합니다.** 파이프라인 구현을 먼저 진행하고
-이 둘만 나중에 확정합니다.
+`match_end`의 `escaped_count`는 v2 에서 보내지 않습니다. 탈출 인원은 `player_result`의
+`result`를 세어 구합니다.
 
 ### 열려 있는 결정
 
-- `position_sample`을 1Hz로 켤지. 켜면 행 수가 약 6배가 됩니다(경기당 450 → 2,600).
-  질문 2(맵의 죽은 구역)는 이것 없이 답할 수 없습니다
+- **질문 6(조작 학습)에 답할지.** `first_interact`와 `settings_changed`가 필요하고, 둘 다
+  클라이언트 발행이라 v2 에 없는 경로를 새로 만들어야 합니다. 화면도 없습니다
+- **질문 7 을 완전하게 볼지.** `client_quit`이 필요합니다. 경기 전 이탈이 안 보이는 것이
+  지금의 가장 큰 빈칸입니다
+- **`perf_sample`(fps·핑)을 수집할지.** 성능 문제가 실제로 보고되면 그때 켭니다

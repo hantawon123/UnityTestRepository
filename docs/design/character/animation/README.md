@@ -17,12 +17,12 @@
 
 | 액션명 | 용도 |
 | --- | --- |
-| `Idle_Breathing` | 제자리 숨쉬기 대기 |
-| `Walk_Wide_Clean` | 걷기 앞 |
+| `Idle` | 제자리 숨쉬기 대기 |
+| `Walk_Forward` | 걷기 앞 |
 | `Walk_Back` | 걷기 뒤 |
 | `Walk_Left` | 걷기 왼쪽 |
 | `Walk_Right` | 걷기 오른쪽 |
-| `Run_SideArms` | 달리기 앞 |
+| `Run_Forward` | 달리기 앞 |
 | `Run_Back` | 달리기 뒤 |
 | `Run_Left` | 달리기 왼쪽 |
 | `Run_Right` | 달리기 오른쪽 |
@@ -33,9 +33,9 @@
 
 | 액션명 | 용도 |
 | --- | --- |
-| `Jump_Start` | 도약 |
-| `Fall_Flutter` | 공중 유지·낙하 |
-| `Land_Matched` | 착지 |
+| `Jump` | 도약 |
+| `Fall` | 공중 유지·낙하 |
+| `Land` | 착지 |
 
 ### 웅크리기 — [S15P21D205-661](https://ssafy.atlassian.net/browse/S15P21D205-661)
 
@@ -43,13 +43,13 @@
 
 | 액션명 | 용도 |
 | --- | --- |
-| `Stand_To_Crouch_KneesUp` | 웅크리기 진입 |
-| `Crouch_Idle_KneesUp` | 웅크린 대기 |
-| `Crouch_Walk_Forward_KneesUp` | 웅크린 전진 |
-| `Crouch_Walk_Back_KneesUp` | 웅크린 후진 |
-| `Crouch_Walk_Left_KneesUp` | 웅크린 좌측 |
-| `Crouch_Walk_Right_KneesUp` | 웅크린 우측 |
-| `Crouch_To_Stand_KneesUp` | 일어서기 |
+| `Crouch_Start` | 웅크리기 진입 |
+| `Crouch_Idle` | 웅크린 대기 |
+| `Crouch_Walk_Forward` | 웅크린 전진 |
+| `Crouch_Walk_Back` | 웅크린 후진 |
+| `Crouch_Walk_Left` | 웅크린 좌측 |
+| `Crouch_Walk_Right` | 웅크린 우측 |
+| `Crouch_End` | 일어서기 |
 
 ### 엎드리기·기어가기 — [S15P21D205-677](https://ssafy.atlassian.net/browse/S15P21D205-677)
 
@@ -72,9 +72,9 @@
 
 | 액션명 | 용도 |
 | --- | --- |
-| `Attack` | 서서 때리기 |
-| `Attack_Air` | 점프 중 때리기 |
-| `Attack_Crouch` | 웅크린 채 때리기 |
+| `Punch` | 서서 때리기 |
+| `Punch_Air` | 점프 중 때리기 |
+| `Punch_Crouch` | 웅크린 채 때리기 |
 
 ### 피격·기절 — [S15P21D205-697](https://ssafy.atlassian.net/browse/S15P21D205-697)
 
@@ -83,7 +83,7 @@
 | 액션명 | 용도 |
 | --- | --- |
 | `Hit_Light` | 가벼운 피격 |
-| `Hit_Heavy` | 강한 피격 |
+| `Hit` | 강한 피격 |
 | `Stun_Start` | 기절 진입 |
 | `Stun_Idle` | 기절 유지 |
 | `Stun_End` | 기절 회복·일어나기 |
@@ -110,15 +110,15 @@
 | `Carry_Idle` | 물건 들고 대기 |
 | `Carry_Walk` / `Carry_Run` | 든 채 걷기·뛰기. 미리보기는 기존 이동에 오른팔 들기를 베이크 |
 | `Carry_Upper` | 서서 이동할 때 상체 들기 자세 |
-| `Carry_Crouch` | 웅크린 채 들기. 오리걸음은 `Carry_Crouch_Walk_*` |
-| `Carry_Prone` | 엎드린 채 들기. 기어가기는 `Carry_Crawl_*` |
+| `Carry_Crouch_Idle` | 웅크린 채 들기. 오리걸음은 `Carry_Crouch_Idle_Walk_*` |
+| `Carry_Prone_Idle` | 엎드린 채 들기. 기어가기는 `Carry_Crawl_*` |
 | `Throw` | 던지기 |
 
 ### 물건 들기 연결 규칙
 
 - `Pickup_Low`는 물건을 손에 붙이는 프레임을 기준으로, 앞뒤 몸통 흔들림을 작게 유지한다.
 - 집기 완료 시 `Carry_Idle`로 전환한다. 서서 걷기·뛰기는 `Carry_Upper`를 상체 레이어로
-  겹치고, 웅크리기·엎드리기는 각각 `Carry_Crouch`, `Carry_Prone`을 사용한다.
+  겹치고, 웅크리기·엎드리기는 각각 `Carry_Crouch_Idle`, `Carry_Prone_Idle`을 사용한다.
 - 게임 연결 시 배치와 일반 드롭은 `PutDown_*`의 물건 접촉 프레임에서 HoldPoint 부모
   연결을 해제한다. 드롭은 해당 위치에서 물리를 켜며, 배치는 배치 미리보기에서 확정한
   위치·회전으로 해제한다.

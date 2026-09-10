@@ -13,72 +13,72 @@
 - 파일명: `PlayerCapsule_CuteJump.blend`
 - 위치: `source/blender/characters/`
 - 기존 걷기·달리기·점프 액션 포함
-- 기본 선택 액션: `Jump_Cute`
+- 기본 선택 액션: `Jump`
 
 ## 기본 이동
 
 - [x] 기본 대기
-  - 파일명: `PlayerCapsule_Idle_Breathing_2s.blend`
-  - 액션명: `Idle_Breathing`
+  - 파일명: `PlayerCapsule_Idle_2s.blend`
+  - 액션명: `Idle`
   - 반복: O
   - 재생 구간: 약 2초
 - [x] 제자리 걷기
-  - 파일명: `PlayerCapsule_Walk_Wide_Clean.blend`
-  - 액션명: `Walk_Wide_Clean`
+  - 파일명: `PlayerCapsule_Walk_Forward.blend`
+  - 액션명: `Walk_Forward`
   - 반복: O
   - 재생 구간: 1~24 / 30fps
   - 비고: 25프레임 클로저. 보폭 넓힘
 - [x] 제자리 후진
-  - 파일명: `PlayerCapsule_Walk_Wide_Clean.blend`
+  - 파일명: `PlayerCapsule_Walk_Forward.blend`
   - 액션명: `Walk_Back`
   - 반복: O
   - 재생 구간: 1~24 / 30fps
-  - 비고: `Walk_Wide_Clean` 발 스윙을 뒤로 재배치. `Tools/make_first_walk_directions.py`
+  - 비고: `Walk_Forward` 발 스윙을 뒤로 재배치. `Tools/make_first_walk_directions.py`
 - [x] 제자리 좌측 걷기
-  - 파일명: `PlayerCapsule_Walk_Wide_Clean.blend`
+  - 파일명: `PlayerCapsule_Walk_Forward.blend`
   - 액션명: `Walk_Left`
   - 반복: O
   - 재생 구간: 1~24 / 30fps
   - 비고: 얼굴은 정면. Left = +localX. 발끝은 전방
 - [x] 제자리 우측 걷기
-  - 파일명: `PlayerCapsule_Walk_Wide_Clean.blend`
+  - 파일명: `PlayerCapsule_Walk_Forward.blend`
   - 액션명: `Walk_Right`
   - 반복: O
   - 재생 구간: 1~24 / 30fps
   - 비고: 얼굴은 정면. 발끝은 전방
 - [x] 전진 걷기
-  - 파일명: `PlayerCapsule_Walk_Wide_Clean.blend`
-  - 액션명: `Walk_Wide_Clean_Forward`
+  - 파일명: `PlayerCapsule_Walk_Forward.blend`
+  - 액션명: `Walk_Forward`
   - 반복: O
   - 재생 구간: 1~24 / 30fps
   - 비고: 전진 이동 포함. 사이클당 약 0.545 유닛
 - [x] 제자리 달리기
-  - 파일명: `PlayerCapsule_Run_SideArms.blend`
-  - 액션명: `Run_SideArms`
+  - 파일명: `PlayerCapsule_Run_Forward.blend`
+  - 액션명: `Run_Forward`
   - 반복: O
   - 재생 구간: 1~20 / 30fps
   - 비고: 21프레임 클로저. Unity는 중복 끝 프레임을 빼고 0~19로 루프한다
 - [x] 제자리 후진 달리기
-  - 파일명: `PlayerCapsule_Run_SideArms.blend`
+  - 파일명: `PlayerCapsule_Run_Forward.blend`
   - 액션명: `Run_Back`
   - 반복: O
   - 재생 구간: 1~20 / 30fps
-  - 비고: `Run_SideArms` 발 스윙을 뒤로 재배치. `Tools/make_first_run_directions.py`
+  - 비고: `Run_Forward` 발 스윙을 뒤로 재배치. `Tools/make_first_run_directions.py`
 - [x] 제자리 좌측 달리기
-  - 파일명: `PlayerCapsule_Run_SideArms.blend`
+  - 파일명: `PlayerCapsule_Run_Forward.blend`
   - 액션명: `Run_Left`
   - 반복: O
   - 재생 구간: 1~20 / 30fps
   - 비고: 얼굴은 정면. Left = +localX. 무릎은 앞으로만 접힘
 - [x] 제자리 우측 달리기
-  - 파일명: `PlayerCapsule_Run_SideArms.blend`
+  - 파일명: `PlayerCapsule_Run_Forward.blend`
   - 액션명: `Run_Right`
   - 반복: O
   - 재생 구간: 1~20 / 30fps
   - 비고: 얼굴은 정면. 무릎은 앞으로만 접힘
 - [x] 전진 달리기
-  - 파일명: `PlayerCapsule_Run_SideArms.blend`
-  - 액션명: `Run_SideArms_Forward`
+  - 파일명: `PlayerCapsule_Run_Forward.blend`
+  - 액션명: `Run_Forward`
   - 반복: O
   - 재생 구간: 1~20 / 30fps
   - 비고: 전진 이동 포함. 사이클당 약 0.9 유닛
@@ -89,27 +89,27 @@
 
 - [x] 귀여운 점프 — 전체 동작
   - 파일명: `PlayerCapsule_CuteJump.blend`
-  - 액션명: `Jump_Cute`
+  - 액션명: `Jump`
   - 반복: X
   - 재생 구간: 1~42 / 30fps
   - 비고: 준비→도약→공중→착지 포함. 수직 이동 포함.
 - [ ] 도약
   - 파일명:
-  - 액션명: `Jump_Start`
+  - 액션명: `Jump`
   - 반복: X
   - 비고: 기존 점프에서 분리·보완
 - [x] 공중 유지·낙하
-  - 파일명: `PlayerCapsule_Fall_Flutter.blend`
-  - 액션명: `Fall_Flutter`
+  - 파일명: `PlayerCapsule_Fall.blend`
+  - 액션명: `Fall`
   - 반복: O
   - 재생 구간: 1~48 / 30fps
   - 비고: 49프레임 클로저. 수직 이동 없음
 - [x] 착지
-  - 파일명: `PlayerCapsule_Land_Matched.blend`
-  - 액션명: `Land_Matched`
+  - 파일명: `PlayerCapsule_Land.blend`
+  - 액션명: `Land`
   - 반복: X
   - 재생 구간: 1~21 / 30fps
-  - 비고: 실제 지면 접촉 시 재생. 진입은 Fall_Flutter 1프레임, 종료는 Idle_Breathing과 맞춤
+  - 비고: 실제 지면 접촉 시 재생. 진입은 Fall 1프레임, 종료는 Idle과 맞춤
 
 
 
@@ -121,38 +121,38 @@
 
 - [x] 웅크리기 진입
   - 파일명: `PlayerCapsule_Crouch_KneesUp_Only.blend`
-  - 액션명: `Stand_To_Crouch_KneesUp`
+  - 액션명: `Crouch_Start`
   - 반복: X
   - 재생 구간: 24프레임 / 30fps
 - [x] 웅크린 대기
   - 파일명: `PlayerCapsule_Crouch_KneesUp_Only.blend`
-  - 액션명: `Crouch_Idle_KneesUp`
+  - 액션명: `Crouch_Idle`
   - 반복: O
 - [x] 웅크린 전진
   - 파일명: `PlayerCapsule_Crouch_KneesUp_Only.blend`
-  - 액션명: `Crouch_Walk_Forward_KneesUp`
+  - 액션명: `Crouch_Walk_Forward`
   - 반복: O
   - 재생 구간: 1~36 / 30fps
   - 비고: 제자리 루프. 이동은 코드에서 처리
 - [x] 웅크린 후진
   - 파일명: `PlayerCapsule_Crouch_KneesUp_Only.blend`
-  - 액션명: `Crouch_Walk_Back_KneesUp`
+  - 액션명: `Crouch_Walk_Back`
   - 반복: O
   - 재생 구간: 1~36 / 30fps
 - [x] 웅크린 좌측 이동
   - 파일명: `PlayerCapsule_Crouch_KneesUp_Only.blend`
-  - 액션명: `Crouch_Walk_Left_KneesUp`
+  - 액션명: `Crouch_Walk_Left`
   - 반복: O
   - 재생 구간: 1~36 / 30fps
   - 비고: 캐릭터 기준 Left = +localX
 - [x] 웅크린 우측 이동
   - 파일명: `PlayerCapsule_Crouch_KneesUp_Only.blend`
-  - 액션명: `Crouch_Walk_Right_KneesUp`
+  - 액션명: `Crouch_Walk_Right`
   - 반복: O
   - 재생 구간: 1~36 / 30fps
 - [x] 웅크린 상태에서 일어서기
   - 파일명: `PlayerCapsule_Crouch_KneesUp_Only.blend`
-  - 액션명: `Crouch_To_Stand_KneesUp`
+  - 액션명: `Crouch_End`
   - 반복: X
   - 재생 구간: 24프레임 / 30fps
 
@@ -203,16 +203,16 @@
 
 ## 공격
 
-- [ ] 기본 때리기
-  - 파일명:
-  - 액션명: `Attack`
+- [x] 기본 때리기
+  - 파일명: `FirstPlayerCapsule_Punch.fbx`
+  - 액션명: `Punch`
 - [ ] 점프하면서 때리기
   - 파일명:
-  - 액션명: `Attack_Air`
+  - 액션명: `Punch_Air`
   - 비고: 전용 액션 또는 상체 레이어 조합 검토
 - [ ] 웅크린 상태에서 때리기
   - 파일명:
-  - 액션명: `Attack_Crouch`
+  - 액션명: `Punch_Crouch`
   - 비고: 전용 액션 또는 상체 레이어 조합 검토
 
 
@@ -224,23 +224,22 @@
   - 액션명: `Hit_Light`
 - [ ] 강한 피격
   - 파일명:
-  - 액션명: `Hit_Heavy`
+  - 액션명: `Hit`
 - [ ] 배 피격 — 부위별 판정이 있을 때
   - 파일명:
   - 액션명: `Hit_Body`
-- [ ] 머리 피격 — 부위별 판정이 있을 때
-  - 파일명:
-  - 액션명: `Hit_Head`
-- [ ] 기절 진입
-  - 파일명:
+- [x] 머리 피격 — 부위별 판정이 있을 때
+  - 파일명: `FirstPlayerCapsule_Hit.fbx`
+  - 액션명: `Hit`
+- [x] 기절 진입
+  - 파일명: `FirstPlayerCapsule_Stun_Start.fbx`
   - 액션명: `Stun_Start`
-  - 비고: 애니메이션 / 래그돌 방식 결정 필요
-- [ ] 기절 유지
-  - 파일명:
+- [x] 기절 유지
+  - 파일명: `FirstPlayerCapsule_Stun_Idle.fbx`
   - 액션명: `Stun_Idle`
   - 반복: O
-- [ ] 기절 회복·일어나기
-  - 파일명:
+- [x] 기절 회복·일어나기
+  - 파일명: `FirstPlayerCapsule_Stun_End.fbx`
   - 액션명: `Stun_End`
 
 

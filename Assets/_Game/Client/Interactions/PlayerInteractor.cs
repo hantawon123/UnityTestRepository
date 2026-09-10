@@ -390,7 +390,10 @@ namespace Game.Client.Interactions
         // 벽에 붙어 놓거나 던질 때 손 위치가 벽 너머라면 시작점을 벽 앞으로 당긴다.
         private void EnsureSafeReleasePosition(CarryableItem item)
         {
-            var chest = transform.position + Vector3.up * 1.3f;
+            var chestHeight = playerMovement != null
+                ? Mathf.Max(0.4f, playerMovement.CurrentEyeHeight - 0.2f)
+                : 1.3f;
+            var chest = transform.position + Vector3.up * chestHeight;
             var toHold = item.transform.position - chest;
             if (toHold.sqrMagnitude > 0.0001f
                 && Physics.Raycast(chest, toHold.normalized, out var blocked, toHold.magnitude,

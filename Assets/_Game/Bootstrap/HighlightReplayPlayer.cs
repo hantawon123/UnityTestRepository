@@ -281,10 +281,10 @@ namespace Game.Bootstrap
         {
             if ((action & HighlightPlayerAction.Stunned) != 0) return "Stunned";
             if ((action & HighlightPlayerAction.Punching) != 0) return "Punch";
-            if ((action & HighlightPlayerAction.Airborne) != 0) return "Fall_Flutter";
+            if ((action & HighlightPlayerAction.Airborne) != 0) return "Fall";
             if ((action & HighlightPlayerAction.Prone) != 0) return "Crawl_Forward";
-            if ((action & HighlightPlayerAction.Crouching) != 0) return "Crouch_Idle_KneesUp";
-            return "Idle_Breathing";
+            if ((action & HighlightPlayerAction.Crouching) != 0) return "Crouch_Idle";
+            return "Idle";
         }
     }
 }

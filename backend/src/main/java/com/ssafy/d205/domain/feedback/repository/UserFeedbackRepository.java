@@ -31,16 +31,21 @@ public interface UserFeedbackRepository extends JpaRepository<UserFeedback, Inte
      * <p>정렬 뒤에 seq 를 하나 더 두는 이유는 created_at 이 초 단위라서입니다. 같은
      * 초에 두 건이 들어오면 순서가 실행마다 달라지고, 그러면 페이지를 나눠 볼 때 같은
      * 행이 두 번 나오거나 빠집니다.
+     *
+     * <p>운영자가 숨긴 것은 빠집니다(S15P21D205-900). 이 조회 하나가 화면 전체를
+     * 먹이므로, 여기 조건이 빠지면 숨김 기능이 통째로 동작하지 않습니다.
      */
     @Query(value = """
-            SELECT u.public_id  AS authorUserId,
-                   u.nickname   AS authorNickname,
-                   f.message    AS message,
-                   f.build_ver  AS buildVer,
-                   f.platform   AS platform,
-                   f.created_at AS createdAt
+            SELECT f.user_feedback_seq AS id,
+                   u.public_id         AS authorUserId,
+                   u.nickname          AS authorNickname,
+                   f.message           AS message,
+                   f.build_ver         AS buildVer,
+                   f.platform          AS platform,
+                   f.created_at        AS createdAt
               FROM user_feedback f
               LEFT JOIN users u ON u.users_seq = f.author_seq
+             WHERE f.deleted_at IS NULL
              ORDER BY f.created_at DESC, f.user_feedback_seq DESC
              LIMIT :limit
             """, nativeQuery = true)

@@ -13,6 +13,7 @@
         "R3.Unity",
         "UniTask",
         "VContainer",
+        "Unity.InputSystem",
         "UnityEngine.TestRunner",
         "Unity.TextMeshPro",
         "UnityEditor.TestRunner"

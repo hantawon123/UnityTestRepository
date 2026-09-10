@@ -13,6 +13,7 @@ public record FeedbackListResponse(
 ) {
 
     /**
+     * @param id        피드백 한 건의 식별자. 건별 숨김·삭제가 이 값을 씁니다.
      * @param userId    쓴 사람의 공개 식별자. <b>탈퇴했으면 null 입니다.</b>
      * @param nickname  쓴 사람의 닉네임. 탈퇴했으면 null 입니다. userId 와 함께 비므로
      *                  화면은 둘 중 하나만 검사하면 됩니다.
@@ -22,6 +23,7 @@ public record FeedbackListResponse(
      * @param createdAt 보낸 시각. yyyyMMddHHmmss, UTC.
      */
     public record FeedbackItem(
+            Integer id,
             String userId,
             String nickname,
             String message,
