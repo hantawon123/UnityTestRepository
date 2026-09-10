@@ -45,15 +45,18 @@ namespace Game.Client.Common
             view?.Show();
         }
 
+        /// <remarks>
+        /// Forgets the pending show as well as hiding the view. The flag is
+        /// what <see cref="Attach"/> reads to catch up a cover that was asked
+        /// for before there was anything to draw it on, and leaving it set
+        /// would put the cover back up the next time a view arrives — over a
+        /// screen nobody is loading. <see cref="HideImmediate"/> already
+        /// cleared it; this did not.
+        /// </remarks>
         public void Hide()
         {
-            if (view != null)
-            {
-                view.Hide();
-                return;
-            }
-
             shown = false;
+            view?.Hide();
         }
 
         public void HideImmediate()
