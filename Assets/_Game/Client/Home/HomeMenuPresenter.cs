@@ -260,11 +260,12 @@ namespace Game.Client.Home
                 return;
             }
 
+            // The three panels that hang off a control of their own are
+            // toggles: the control that opened one closes it again. Opening
+            // any of them puts away whatever else was up, so only one panel is
+            // ever on screen.
             if (action == HomeMenuAction.ServerSettings)
             {
-                // The globe both opens and closes this one: the design gives
-                // the panel no other way out. Opening it puts away whatever
-                // else was up, so only one panel is ever on screen.
                 var opening = !isServerSettingsVisible;
                 if (opening)
                 {
@@ -278,6 +279,12 @@ namespace Game.Client.Home
 
             if (action == HomeMenuAction.Friends)
             {
+                if (isFriendListVisible)
+                {
+                    HideFriendList();
+                    return;
+                }
+
                 HideProfileSettings();
                 HideServerSettings();
                 ShowFriendList();
@@ -286,6 +293,12 @@ namespace Game.Client.Home
 
             if (action == HomeMenuAction.ProfileSettings)
             {
+                if (isProfileSettingsVisible)
+                {
+                    HideProfileSettings();
+                    return;
+                }
+
                 HideFriendList();
                 HideServerSettings();
                 ShowProfileSettings();
