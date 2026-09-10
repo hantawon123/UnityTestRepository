@@ -50,6 +50,8 @@ namespace Game.Bootstrap
             // Sends a rename on to the account and puts the old name back when
             // the server refuses it.
             builder.RegisterEntryPoint<HomeProfileBridge>();
+            builder.RegisterBuildCallback(container =>
+                container.Resolve<ILoadingOverlay>().Hide());
         }
 
         /// <remarks>
@@ -217,6 +219,7 @@ namespace Game.Bootstrap
             private readonly NetworkRunnerService network;
             private readonly IHomeMenuView view;
             private readonly AppFlowSystem appFlow;
+            private readonly ILoadingOverlay loading;
             private readonly UnityHomeApplicationHost fallback = new();
 
             public NetworkHomeApplicationHost(
@@ -224,13 +227,15 @@ namespace Game.Bootstrap
                 FrontendSceneCoordinator scenes,
                 NetworkRunnerService network,
                 IHomeMenuView view,
-                AppFlowSystem appFlow)
+                AppFlowSystem appFlow,
+                ILoadingOverlay loading)
             {
                 this.rooms = rooms;
                 this.scenes = scenes;
                 this.network = network;
                 this.view = view;
                 this.appFlow = appFlow;
+                this.loading = loading;
             }
 
             public void Quit() => fallback.Quit();
@@ -311,9 +316,11 @@ namespace Game.Bootstrap
             /// </remarks>
             private async UniTask JoinThenOpenLobbyAsync(string roomCode)
             {
+                await loading.ShowPainted();
                 var result = await rooms.EnterByCodeAsync(roomCode, null, CancellationToken.None);
                 if (!result.Ok)
                 {
+                    loading.HideImmediate();
                     Debug.LogWarning($"[Home] Joining an invited room failed: {result.Failure}.");
                     view.ShowConnectionError(
                         RoomEntryMessages.Describe(result.Failure, RoomEntrySource.Invite));
@@ -331,9 +338,11 @@ namespace Game.Bootstrap
 
             private async UniTask CreateThenOpenLobbyAsync(RoomCreateRequest request)
             {
+                await loading.ShowPainted();
                 var result = await rooms.CreateAsync(request, CancellationToken.None);
                 if (!result.Ok)
                 {
+                    loading.HideImmediate();
                     Debug.LogWarning($"[Home] Room creation failed: {result.Failure}.");
 
                     // The form stays open behind the notice, with what was typed
@@ -364,8 +373,16 @@ namespace Game.Bootstrap
             /// </summary>
             public void OpenLobby()
             {
+                OpenLobbyAsync().Forget(exception => Debug.LogException(exception));
+            }
+
+            private async UniTask OpenLobbyAsync()
+            {
+                await loading.ShowPainted();
+                await SceneLoadSlicer.YieldFrame();
                 if (!network.EnterLobbyScene())
                 {
+                    loading.HideImmediate();
                     Debug.LogError(
                         "[Session] Cannot enter Lobby without a running room session.");
                 }

@@ -1700,8 +1700,10 @@ namespace Game.Network.Session
                 Debug.Log(
                     $"[SceneTiming] Lobby preload reached activation gate, " +
                     $"elapsed={Time.realtimeSinceStartupAsDouble - _lobbyPreloadStartedAt:F3}s.");
+                await UniTask.NextFrame();
                 operation.allowSceneActivation = true;
                 await UniTask.WaitUntil(() => operation.isDone);
+                await UniTask.NextFrame();
                 RestoreLobbyPreloadPriority();
 
                 var lobby = SceneManager.GetSceneByBuildIndex(
@@ -1709,6 +1711,7 @@ namespace Game.Network.Session
                 if (!lobby.IsValid() || !lobby.isLoaded)
                 {
                     _lobbyPreload = null;
+                    await UniTask.NextFrame();
                     LoadLobbyScene(runner);
                     return;
                 }
@@ -1723,6 +1726,7 @@ namespace Game.Network.Session
                 Debug.Log(
                     $"[SceneTiming] Lobby preload activated for Fusion takeover, " +
                     $"elapsed={Time.realtimeSinceStartupAsDouble - _lobbyPreloadStartedAt:F3}s.");
+                await UniTask.NextFrame();
                 LoadLobbyScene(runner);
             }
             finally
@@ -1936,7 +1940,25 @@ namespace Game.Network.Session
                 return true;
             }
 
-            return LoadLobbyScene(runner);
+            EnterLobbySceneSlicedAsync(runner).Forget(Debug.LogException);
+            return true;
+        }
+
+        private async UniTask EnterLobbySceneSlicedAsync(NetworkRunner runner)
+        {
+            await UniTask.NextFrame();
+            if (!IsCurrentRunner(runner) || !runner.IsRunning || !runner.IsServer)
+            {
+                return;
+            }
+
+            if (_lobbyPreload != null)
+            {
+                await CompleteLobbyPreloadAndEnterAsync(runner);
+                return;
+            }
+
+            LoadLobbyScene(runner);
         }
 
         private bool TryCompleteHighlightViewing(PlayerRef player)

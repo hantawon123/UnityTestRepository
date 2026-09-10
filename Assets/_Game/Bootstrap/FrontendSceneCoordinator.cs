@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using Game.Client.Common;
 using Game.Client.Home;
 using UnityEngine;
@@ -35,10 +36,12 @@ namespace Game.Bootstrap
 
         private double switchStartedAt = -1d;
         private readonly EventSystem sharedEventSystem;
+        private readonly ILoadingOverlay loading;
 
-        public FrontendSceneCoordinator(EventSystem sharedEventSystem)
+        public FrontendSceneCoordinator(EventSystem sharedEventSystem, ILoadingOverlay loading = null)
         {
             this.sharedEventSystem = sharedEventSystem;
+            this.loading = loading;
         }
 
         public void Start()
@@ -66,15 +69,20 @@ namespace Game.Bootstrap
             SceneManager.sceneUnloaded -= OnSceneUnloaded;
         }
 
-        public void OpenHome() => Open(Home);
+        public void OpenHome() => OpenSliced(Home);
 
-        public void OpenRoomBrowser() => Open(Room);
+        public void OpenRoomBrowser() => OpenSliced(Room);
 
-        public void OpenCharacterCloset() => Open(Closet);
+        public void OpenCharacterCloset() => OpenSliced(Closet);
 
-        public void OpenSettings() => Open(Settings);
+        public void OpenSettings() => OpenSliced(Settings);
 
-        private void Open(string sceneName)
+        private void OpenSliced(string sceneName)
+        {
+            OpenAsync(sceneName).Forget(exception => Debug.LogException(exception));
+        }
+
+        private async UniTask OpenAsync(string sceneName)
         {
             desiredScene = sceneName;
             switchStartedAt = Time.realtimeSinceStartupAsDouble;
@@ -82,14 +90,31 @@ namespace Game.Bootstrap
                 $"[SceneTiming] Frontend switch requested: " +
                 $"{SceneManager.GetActiveScene().name} -> {sceneName}.");
 
-            if (!TryShow(sceneName))
+            await SceneLoadSlicer.YieldFrame();
+            if (TryShow(sceneName))
             {
-                EnsureLoaded(sceneName);
+                return;
             }
+
+            var pending = GetLoad(sceneName);
+            if (pending != null)
+            {
+                await SceneLoadSlicer.ActivateWhenReady(pending);
+                TryShow(sceneName);
+                return;
+            }
+
+            await SceneLoadSlicer.LoadAdditiveAsync(sceneName);
+            TryShow(sceneName);
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
+            if (LoadingScene.IsLoading(scene))
+            {
+                return;
+            }
+
             if (!IsFrontend(scene))
             {
                 foreach (var frontend in Frontends)
@@ -155,6 +180,11 @@ namespace Game.Bootstrap
                     $"[SceneTiming] Frontend switch completed: scene={sceneName}, " +
                     $"elapsed={Time.realtimeSinceStartupAsDouble - switchStartedAt:F3}s.");
                 switchStartedAt = -1d;
+            }
+
+            if (string.Equals(sceneName, Home, StringComparison.Ordinal))
+            {
+                loading?.Hide();
             }
 
             EnsureCounterpartLoaded(sceneName);

@@ -1,5 +1,7 @@
 ﻿using System;
+using Cysharp.Threading.Tasks;
 using Game.Client.Home;
+using Game.Client.Common;
 using Game.Core.Flow;
 using Game.Core.Lobby;
 using Game.Core.Maps;
@@ -57,6 +59,7 @@ namespace Game.Client.Rooms
         private RoomBrowserSystem roomBrowser;
         private IHomeApplicationHost applicationHost;
         private AppFlowSystem appFlow;
+        private ILoadingOverlay loading;
         private RoomPasswordModalView passwordModal;
         private IDisposable enteredSubscription;
         private IDisposable failureSubscription;
@@ -93,13 +96,15 @@ namespace Game.Client.Rooms
             IRoomBrowserView view,
             RoomBrowserSystem browserSystem,
             IHomeApplicationHost host,
-            AppFlowSystem flow)
+            AppFlowSystem flow,
+            ILoadingOverlay loadingOverlay)
         {
             browserView = view ?? throw new ArgumentNullException(nameof(view));
             roomBrowser = browserSystem
                 ?? throw new ArgumentNullException(nameof(browserSystem));
             applicationHost = host ?? throw new ArgumentNullException(nameof(host));
             appFlow = flow ?? throw new ArgumentNullException(nameof(flow));
+            loading = loadingOverlay;
 
             browserView.RoomSelected += OnRoomSelected;
             browserView.RoomCodeEntered += OnRoomCodeEntered;
@@ -164,7 +169,7 @@ namespace Game.Client.Rooms
             if (!room.IsLocked)
             {
                 pending = PendingEntry.RoomList;
-                RoomJoinRequested?.Invoke(room.Id, null);
+                RequestJoinAfterPaint(room.Id, null).Forget();
                 return;
             }
 
@@ -183,6 +188,7 @@ namespace Game.Client.Rooms
         {
             pendingRoomId = null;
             pending = PendingEntry.None;
+            loading?.HideImmediate();
             passwordModal.SetBusy(false);
             passwordModal.Close();
         }
@@ -209,7 +215,7 @@ namespace Game.Client.Rooms
 
             pending = PendingEntry.Password;
             passwordModal.SetBusy(true);
-            RoomJoinRequested?.Invoke(room.Id, password);
+            RequestJoinAfterPaint(room.Id, password).Forget();
         }
 
         private void OnRoomCodeEntered(string code)
@@ -221,7 +227,27 @@ namespace Game.Client.Rooms
             }
 
             pending = PendingEntry.RoomCode;
-            RoomCodeEntryRequested?.Invoke(normalized);
+            RequestCodeJoinAfterPaint(normalized).Forget();
+        }
+
+        private async UniTask RequestJoinAfterPaint(RoomId roomId, string password)
+        {
+            if (loading != null)
+            {
+                await loading.ShowPainted();
+            }
+
+            RoomJoinRequested?.Invoke(roomId, password);
+        }
+
+        private async UniTask RequestCodeJoinAfterPaint(string roomCode)
+        {
+            if (loading != null)
+            {
+                await loading.ShowPainted();
+            }
+
+            RoomCodeEntryRequested?.Invoke(roomCode);
         }
 
         /// <summary>
@@ -276,6 +302,7 @@ namespace Game.Client.Rooms
 
             var source = pending;
             pending = PendingEntry.None;
+            loading?.HideImmediate();
 
             switch (source)
             {

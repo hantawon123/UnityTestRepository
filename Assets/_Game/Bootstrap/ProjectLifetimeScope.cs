@@ -1,5 +1,6 @@
 using Game.Backend;
 using Game.Core.Flow;
+using Game.Client.Common;
 using Game.Client.Home;
 using Game.Client.Match;
 using Game.Core.Home;
@@ -112,6 +113,15 @@ namespace Game.Bootstrap
             var transition = new GameObject("Highlight Transition").AddComponent<HighlightTransitionView>();
             transition.transform.SetParent(transform, false);
             builder.RegisterComponent(transition).As<IHighlightTransitionView>();
+
+            var loading = LoadingView.Create(null);
+            Object.DontDestroyOnLoad(loading.gameObject);
+            loading.HideImmediate();
+            builder.RegisterComponent(loading).As<ILoadingView>();
+            builder.RegisterBuildCallback(container =>
+                container.Resolve<ILoadingOverlay>().Attach(container.Resolve<ILoadingView>()));
+            builder.RegisterEntryPoint<LoadingSceneCoordinator>();
+            builder.RegisterEntryPoint<LoadingOverlayCoordinator>();
 
             var inputObject = new GameObject("UI EventSystem");
             inputObject.SetActive(false);
@@ -351,6 +361,8 @@ namespace Game.Bootstrap
             // reads it, and a copy per screen would dress the player
             // differently depending on where they were looked at.
             builder.Register<AvatarAppearanceState>(Lifetime.Singleton);
+
+            builder.Register<LoadingOverlay>(Lifetime.Singleton).As<ILoadingOverlay>().AsSelf();
 
             builder.Register<PlayerRegistry>(Lifetime.Singleton);
 

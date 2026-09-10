@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
+using Game.Client.Common;
 using Game.Core.Flow;
 using Game.Core.Home;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using VContainer.Unity;
 
 namespace Game.Client.Home
@@ -60,14 +61,13 @@ namespace Game.Client.Home
         }
 
         /// <summary>
-        /// The two ways out of a screen, loaded asynchronously so the click that
-        /// asked finishes before the scene it was on is torn down.
+        /// The two ways out of a screen, loaded across frames so the loading
+        /// cover can keep drawing until activation.
         /// </summary>
         /// <remarks>
         /// Both are taken while something is still live: the browser may be
         /// connecting to matchmaking when Home is asked for, and the lobby is in
-        /// a room when the browser is. <c>OpenLobby</c> below is an entry rather
-        /// than an exit and stays synchronous.
+        /// a room when the browser is.
         /// <para>
         /// This alone does not make leaving safe. The unload still runs on the
         /// main thread as part of the load, so anything a departing scene does
@@ -78,25 +78,29 @@ namespace Game.Client.Home
         /// </remarks>
         public void OpenHome()
         {
-            LoadSceneAsync(HomeSceneName);
+            SceneLoadSlicer.LoadSingleAsync(HomeSceneName)
+                .Forget(exception => Debug.LogException(exception));
         }
 
         /// <inheritdoc cref="OpenHome"/>
         public void OpenRoomBrowser()
         {
-            LoadSceneAsync(RoomBrowserSceneName);
+            SceneLoadSlicer.LoadSingleAsync(RoomBrowserSceneName)
+                .Forget(exception => Debug.LogException(exception));
         }
 
         /// <inheritdoc cref="OpenHome"/>
         public void OpenCharacterCloset()
         {
-            LoadSceneAsync(CharacterClosetSceneName);
+            SceneLoadSlicer.LoadSingleAsync(CharacterClosetSceneName)
+                .Forget(exception => Debug.LogException(exception));
         }
 
         /// <inheritdoc cref="OpenHome"/>
         public void OpenSettings()
         {
-            LoadSceneAsync(SettingsSceneName);
+            SceneLoadSlicer.LoadSingleAsync(SettingsSceneName)
+                .Forget(exception => Debug.LogException(exception));
         }
 
         /// <summary>
@@ -118,37 +122,8 @@ namespace Game.Client.Home
 
         public void OpenLobby()
         {
-            var source = SceneManager.GetActiveScene().name;
-            var startedAt = Time.realtimeSinceStartupAsDouble;
-            Debug.Log($"[SceneTiming] Local load requested: {source} -> {LobbySceneName}.");
-            SceneManager.LoadScene(LobbySceneName);
-            Debug.Log(
-                $"[SceneTiming] Local load completed: {source} -> {LobbySceneName}, " +
-                $"elapsed={Time.realtimeSinceStartupAsDouble - startedAt:F3}s.");
-        }
-
-        private static void LoadSceneAsync(string target)
-        {
-            var source = SceneManager.GetActiveScene().name;
-            var startedAt = Time.realtimeSinceStartupAsDouble;
-            Debug.Log($"[SceneTiming] Local load requested: {source} -> {target}.");
-            var previousPriority = Application.backgroundLoadingPriority;
-            Application.backgroundLoadingPriority = ThreadPriority.High;
-            var operation = SceneManager.LoadSceneAsync(target);
-            if (operation == null)
-            {
-                Application.backgroundLoadingPriority = previousPriority;
-                return;
-            }
-
-            operation.priority = 100;
-            operation.completed += _ =>
-            {
-                Application.backgroundLoadingPriority = previousPriority;
-                Debug.Log(
-                    $"[SceneTiming] Local load completed: {source} -> {target}, " +
-                    $"elapsed={Time.realtimeSinceStartupAsDouble - startedAt:F3}s.");
-            };
+            SceneLoadSlicer.LoadSingleAsync(LobbySceneName)
+                .Forget(exception => Debug.LogException(exception));
         }
     }
 
