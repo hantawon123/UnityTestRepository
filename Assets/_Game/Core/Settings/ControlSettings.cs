@@ -257,12 +257,13 @@ namespace Game.Core.Settings
         /// <remarks>
         /// These are read straight off <c>Keyboard.current</c> rather than
         /// through an action — 숨기기 완료 in the match HUD, the lobby's 1 and 2
-        /// shortcuts and Esc in its pause menu — so nothing here can move them
+        /// shortcuts and Esc in its pause menu, Enter to open the chat — so
+        /// nothing here can move them
         /// and the screen must not offer to. A row put on one would fire both,
         /// the row's action and the shortcut, on a single press.
         /// <para>
-        /// The number pad is listed beside the digits because the lobby reads
-        /// both for the same shortcut.
+        /// The number pad is listed beside the digits and beside Enter because
+        /// the lobby and the chat read both for the same thing.
         /// </para>
         /// <para>
         /// Esc never reaches this list from a live capture — <c>UnityKeyCapture</c>
@@ -277,7 +278,9 @@ namespace Game.Core.Settings
             ("numpad1", "캐릭터 단축키"),
             ("2", "참가자 목록 단축키"),
             ("numpad2", "참가자 목록 단축키"),
-            ("escape", "환경설정 메뉴")
+            ("escape", "환경설정 메뉴"),
+            ("enter", "채팅"),
+            ("numpadEnter", "채팅")
         };
 
         /// <summary>

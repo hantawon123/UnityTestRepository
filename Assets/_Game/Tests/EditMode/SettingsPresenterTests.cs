@@ -876,6 +876,8 @@ namespace Game.Architecture.Tests
         [TestCase("2", "참가자 목록 단축키")]
         [TestCase("numpad2", "참가자 목록 단축키")]
         [TestCase("escape", "환경설정 메뉴")]
+        [TestCase("enter", "채팅")]
+        [TestCase("numpadEnter", "채팅")]
         public void AReservedKey_IsRefused_AndWhatHoldsItIsNamed(string code, string holder)
         {
             using var presenter = Started();
