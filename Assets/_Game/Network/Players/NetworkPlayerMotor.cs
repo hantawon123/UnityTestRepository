@@ -189,6 +189,7 @@ namespace Game.Network.Players
 
             var settings = inputSource.MovementSettings;
             var grounded = kcc.FixedData.IsGrounded;
+            var postureBeforeInput = Posture;
             var requestedPosture = ResolvePosture(
                 Posture,
                 grounded,
@@ -222,7 +223,7 @@ namespace Game.Network.Players
                 SprintMultiplier);
             kcc.SetInputDirection(direction);
 
-            if (grounded && Posture == PlayerPosture.Standing &&
+            if (CanJump(grounded, postureBeforeInput, Posture) &&
                 input.WasPressed(NetworkPlayerButton.Jump, PreviousButtons))
             {
                 var gravity = -Physics.gravity.y * settings.GravityMultiplier;
@@ -403,8 +404,13 @@ namespace Game.Network.Players
                     : PlayerPosture.Prone;
             }
 
+            if (input.WasPressed(NetworkPlayerButton.Jump, previous))
+                current = PlayerPosture.Standing;
             return current;
         }
+
+        internal static bool CanJump(bool grounded, PlayerPosture before, PlayerPosture after) =>
+            grounded && before == PlayerPosture.Standing && after == PlayerPosture.Standing;
 
         internal static float MoveSpeedForPosture(
             PlayerMovementSettings settings,

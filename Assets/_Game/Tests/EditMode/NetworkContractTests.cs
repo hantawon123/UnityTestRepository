@@ -899,12 +899,15 @@ namespace Game.Architecture.Tests
 
         [TestCase(PlayerPosture.Crouching)]
         [TestCase(PlayerPosture.Prone)]
-        public void NetworkPlayer_JumpDoesNotStandUpFromLowPosture(PlayerPosture posture)
+        public void NetworkPlayer_JumpStandsUpWithoutLeavingGround(PlayerPosture posture)
         {
             var input = NetworkPlayerInput.FromIntent(new PlayerInputIntent(
                 0f, 0f, 0f, PlayerInputButtons.Jump));
-            Assert.That(NetworkPlayerMotor.ResolvePosture(posture, true, input, default),
-                Is.EqualTo(posture));
+            var after = NetworkPlayerMotor.ResolvePosture(posture, true, input, default);
+            Assert.That(after, Is.EqualTo(PlayerPosture.Standing));
+            Assert.That(NetworkPlayerMotor.CanJump(true, posture, after), Is.False);
+            Assert.That(NetworkPlayerMotor.CanJump(true, after, after), Is.True);
+            Assert.That(NetworkPlayerMotor.CanJump(false, after, after), Is.False);
         }
 
         [Test]
