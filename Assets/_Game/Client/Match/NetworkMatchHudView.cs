@@ -20,7 +20,11 @@ namespace Game.Client.Match
         void SetHighlightHud(bool visible, string subtitle, IReadOnlyList<float> barFills);
         void SetAssignedItem(string displayName);
         void SetPlayerItemStatuses(IReadOnlyList<PlayerItemStatusSnapshot> statuses);
-        void SetDestroyedItems(int playerCount, IReadOnlyList<PlayerItemStatusSnapshot> statuses);
+        void SetDestroyedItems(
+            int playerCount,
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses,
+            string localItemId = null,
+            IReadOnlyList<string> destroyedItemIdsInOrder = null);
         void SetRemainingDestructionUses(int remainingUses);
         void ShowDestructionNotice(string message);
         void HideDestructionNotice();
@@ -120,6 +124,8 @@ namespace Game.Client.Match
         private int destroyedItemPlayerCount;
         private IReadOnlyList<PlayerItemStatusSnapshot> destroyedItemStatuses =
             Array.Empty<PlayerItemStatusSnapshot>();
+        private string destroyedItemLocalId;
+        private IReadOnlyList<string> destroyedItemOrder = Array.Empty<string>();
         private bool playerStatusVisible = true;
         private bool highlightOnly;
         private bool hidingPresentation, searchingPresentation;
@@ -174,6 +180,7 @@ namespace Game.Client.Match
             phaseView?.SetPhase(phase, hidingPlayerName);
             RefreshKeyGuide(phase);
             RefreshUrgencyBorder();
+            ApplyDestroyedItems();
         }
 
         private void SetHighlightOnly(bool value)
@@ -291,15 +298,23 @@ namespace Game.Client.Match
                 playerItemStatusesText.gameObject.SetActive(false);
             }
 
-            SetDestroyedItems(statuses == null ? 0 : statuses.Count, statuses);
+            SetDestroyedItems(
+                statuses == null ? 0 : statuses.Count,
+                statuses,
+                destroyedItemLocalId,
+                destroyedItemOrder);
         }
 
         public void SetDestroyedItems(
             int playerCount,
-            IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+            IReadOnlyList<PlayerItemStatusSnapshot> statuses,
+            string localItemId = null,
+            IReadOnlyList<string> destroyedItemIdsInOrder = null)
         {
             destroyedItemPlayerCount = playerCount;
             destroyedItemStatuses = statuses ?? Array.Empty<PlayerItemStatusSnapshot>();
+            destroyedItemLocalId = localItemId;
+            destroyedItemOrder = destroyedItemIdsInOrder ?? Array.Empty<string>();
             ApplyDestroyedItems();
         }
 
@@ -504,13 +519,22 @@ namespace Game.Client.Match
                 return;
             }
 
-            if (!playerStatusVisible || destroyedItemPlayerCount <= 0)
+            if (destroyedItemPlayerCount <= 0 || !ShowsDestroyedItems(currentPhase))
             {
                 destroyedItemsHudView.Hide();
                 return;
             }
 
-            destroyedItemsHudView.Show(destroyedItemPlayerCount, destroyedItemStatuses);
+            destroyedItemsHudView.Show(
+                destroyedItemPlayerCount,
+                destroyedItemStatuses,
+                destroyedItemLocalId,
+                destroyedItemOrder);
+        }
+
+        private static bool ShowsDestroyedItems(MatchPhase phase)
+        {
+            return phase == MatchPhase.Hiding || phase == MatchPhase.Searching;
         }
 
         private void RefreshUrgencyBorder()

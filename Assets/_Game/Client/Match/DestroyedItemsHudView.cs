@@ -9,12 +9,18 @@ namespace Game.Client.Match
 {
     public interface IDestroyedItemsHudView
     {
-        void Show(int playerCount, System.Collections.Generic.IReadOnlyList<PlayerItemStatusSnapshot> statuses);
+        void Show(
+            int playerCount,
+            System.Collections.Generic.IReadOnlyList<PlayerItemStatusSnapshot> statuses,
+            string localItemId,
+            System.Collections.Generic.IReadOnlyList<string> destroyedItemIdsInOrder);
         void Hide();
     }
 
     /// <summary>
-    /// Top-left circles for destroyed assignment items. Empty slots show "?".
+    /// Top-left circles for assignment items. The local item stays leftmost
+    /// with an orange ring; other destroyed items fill in destruction order.
+    /// Empty slots show "?".
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class DestroyedItemsHudView : MonoBehaviour, IDestroyedItemsHudView
@@ -25,10 +31,15 @@ namespace Game.Client.Match
         public const float QuestionFontSize = 30f;
         public const float LeftPadding = 36f;
         public const float TopPadding = 36f;
+        public const float OwnBorderThickness = 6f;
         public const string QuestionMark = "?";
+        public const string OwnBorderName = "OwnBorder";
+        public const string FillName = "Fill";
+        public const string GrayscaleShaderName = "UI/DestroyedItemGrayscale";
 
         public static readonly Color SlotColor = new Color(0f, 0f, 0f, 0.6f);
         public static readonly Color QuestionColor = new Color(200f / 255f, 200f / 255f, 200f / 255f, 1f);
+        public static readonly Color OwnBorderColor = new Color(1f, 140f / 255f, 0f, 1f);
 
         [SerializeField]
         private GameObject panel;
@@ -37,6 +48,9 @@ namespace Game.Client.Match
         private RectTransform slotRoot;
 
         private Slot[] slots = System.Array.Empty<Slot>();
+        private DestroyedItemHudSlot[] laidOutSlots = System.Array.Empty<DestroyedItemHudSlot>();
+        private bool retryPreviews;
+        private static Material grayscaleMaterial;
 
         public static DestroyedItemsHudView Create(Transform parent)
         {
@@ -60,9 +74,38 @@ namespace Game.Client.Match
             DisposeSlots();
         }
 
+        private void LateUpdate()
+        {
+            if (!retryPreviews)
+            {
+                return;
+            }
+
+            var missingPreview = false;
+            for (var index = 0; index < slots.Length; index++)
+            {
+                if (index < laidOutSlots.Length &&
+                    !slots[index].Set(laidOutSlots[index]))
+                {
+                    missingPreview = true;
+                }
+            }
+
+            retryPreviews = missingPreview;
+        }
+
         public void Show(
             int playerCount,
             System.Collections.Generic.IReadOnlyList<PlayerItemStatusSnapshot> statuses)
+        {
+            Show(playerCount, statuses, null, null);
+        }
+
+        public void Show(
+            int playerCount,
+            System.Collections.Generic.IReadOnlyList<PlayerItemStatusSnapshot> statuses,
+            string localItemId,
+            System.Collections.Generic.IReadOnlyList<string> destroyedItemIdsInOrder)
         {
             EnsureLayout();
             var count = Mathf.Clamp(playerCount, 0, RoomSettings.MaxPlayerCount);
@@ -73,12 +116,21 @@ namespace Game.Client.Match
             }
 
             EnsureSlots(count);
-            statuses ??= System.Array.Empty<PlayerItemStatusSnapshot>();
+            laidOutSlots = DestroyedItemsHudLayout.Build(
+                count,
+                statuses,
+                localItemId,
+                destroyedItemIdsInOrder);
+            retryPreviews = false;
             for (var index = 0; index < slots.Length; index++)
             {
-                var destroyed = index < statuses.Count && statuses[index].IsDestroyed;
-                var itemId = index < statuses.Count ? statuses[index].ItemId : null;
-                slots[index].Set(destroyed, itemId);
+                var slot = index < laidOutSlots.Length
+                    ? laidOutSlots[index]
+                    : default;
+                if (!slots[index].Set(slot))
+                {
+                    retryPreviews = true;
+                }
             }
 
             if (panel != null)
@@ -152,8 +204,11 @@ namespace Game.Client.Match
                 return false;
             }
 
-            var layout = slotRoot.Find("Slot0")?.GetComponent<LayoutElement>();
+            var slot = slotRoot.Find("Slot0");
+            var layout = slot?.GetComponent<LayoutElement>();
             return layout != null &&
+                   slot.Find(FillName) != null &&
+                   slot.Find(OwnBorderName) != null &&
                    Mathf.Approximately(layout.preferredWidth, SlotSize) &&
                    Mathf.Approximately(layout.preferredHeight, SlotSize);
         }
@@ -173,20 +228,50 @@ namespace Game.Client.Match
             rect.offsetMax = Vector2.zero;
         }
 
+        private static Material GrayscaleMaterial
+        {
+            get
+            {
+                if (grayscaleMaterial != null)
+                {
+                    return grayscaleMaterial;
+                }
+
+                var shader = Shader.Find(GrayscaleShaderName);
+                if (shader == null)
+                {
+                    return null;
+                }
+
+                grayscaleMaterial = new Material(shader)
+                {
+                    name = "DestroyedItemGrayscale",
+                    hideFlags = HideFlags.HideAndDontSave
+                };
+                return grayscaleMaterial;
+            }
+        }
+
         private sealed class Slot
         {
             private readonly GameObject root;
+            private readonly Image ownBorder;
+            private readonly RectTransform fillRect;
             private readonly TMP_Text question;
             private readonly RawImage previewImage;
             private readonly HidingIntroItemPreview preview;
 
             private Slot(
                 GameObject root,
+                Image ownBorder,
+                RectTransform fillRect,
                 TMP_Text question,
                 RawImage previewImage,
                 HidingIntroItemPreview preview)
             {
                 this.root = root;
+                this.ownBorder = ownBorder;
+                this.fillRect = fillRect;
                 this.question = question;
                 this.previewImage = previewImage;
                 this.preview = preview;
@@ -194,31 +279,48 @@ namespace Game.Client.Match
 
             public static Slot Create(Transform parent, int index)
             {
-                var root = new GameObject(
-                    $"Slot{index}",
-                    typeof(RectTransform),
-                    typeof(CanvasRenderer),
-                    typeof(Image),
-                    typeof(Mask),
-                    typeof(LayoutElement));
+                var root = new GameObject($"Slot{index}", typeof(RectTransform), typeof(LayoutElement));
                 root.transform.SetParent(parent, false);
-                var image = root.GetComponent<Image>();
-                image.sprite = HomeUiFonts.CircleSprite;
-                image.color = SlotColor;
-                image.raycastTarget = false;
-                root.GetComponent<Mask>().showMaskGraphic = true;
                 var layout = root.GetComponent<LayoutElement>();
                 layout.preferredWidth = SlotSize;
                 layout.preferredHeight = SlotSize;
                 layout.minWidth = SlotSize;
                 layout.minHeight = SlotSize;
 
+                var borderObject = new GameObject(
+                    OwnBorderName,
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image));
+                borderObject.transform.SetParent(root.transform, false);
+                Stretch((RectTransform)borderObject.transform);
+                var ownBorder = borderObject.GetComponent<Image>();
+                ownBorder.sprite = HomeUiFonts.CircleSprite;
+                ownBorder.color = OwnBorderColor;
+                ownBorder.raycastTarget = false;
+                ownBorder.enabled = false;
+                borderObject.SetActive(false);
+
+                var fill = new GameObject(
+                    FillName,
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image),
+                    typeof(Mask));
+                fill.transform.SetParent(root.transform, false);
+                Stretch((RectTransform)fill.transform);
+                var fillImage = fill.GetComponent<Image>();
+                fillImage.sprite = HomeUiFonts.CircleSprite;
+                fillImage.color = SlotColor;
+                fillImage.raycastTarget = false;
+                fill.GetComponent<Mask>().showMaskGraphic = true;
+
                 var questionObject = new GameObject(
                     "Question",
                     typeof(RectTransform),
                     typeof(CanvasRenderer),
                     typeof(TextMeshProUGUI));
-                questionObject.transform.SetParent(root.transform, false);
+                questionObject.transform.SetParent(fill.transform, false);
                 Stretch((RectTransform)questionObject.transform);
                 var question = questionObject.GetComponent<TextMeshProUGUI>();
                 question.text = QuestionMark;
@@ -235,7 +337,7 @@ namespace Game.Client.Match
                     typeof(RectTransform),
                     typeof(CanvasRenderer),
                     typeof(RawImage));
-                previewObject.transform.SetParent(root.transform, false);
+                previewObject.transform.SetParent(fill.transform, false);
                 Stretch((RectTransform)previewObject.transform);
                 var previewImage = previewObject.GetComponent<RawImage>();
                 previewImage.color = Color.white;
@@ -246,23 +348,42 @@ namespace Game.Client.Match
                     PreviewTextureSize,
                     new Color(0f, 0f, 0f, 0f),
                     Vector3.right * (20f * (index + 1)));
-                return new Slot(root, question, previewImage, preview);
+                return new Slot(
+                    root,
+                    ownBorder,
+                    (RectTransform)fill.transform,
+                    question,
+                    previewImage,
+                    preview);
             }
 
-            public void Set(bool destroyed, string itemId)
+            private string shownItemId;
+
+            public bool Set(DestroyedItemHudSlot slot)
             {
-                if (destroyed && !string.IsNullOrWhiteSpace(itemId))
+                SetOwnBorder(slot.IsOwn);
+                if (slot.ShowPreview && !string.IsNullOrWhiteSpace(slot.ItemId))
                 {
-                    preview.Show(itemId);
+                    if (!preview.HasPreview ||
+                        !string.Equals(shownItemId, slot.ItemId, System.StringComparison.Ordinal))
+                    {
+                        preview.Show(slot.ItemId);
+                        shownItemId = slot.ItemId;
+                    }
+
                     var shown = preview.HasPreview;
                     previewImage.enabled = shown;
+                    ApplyGrayscale(slot.Grayscale);
                     question.gameObject.SetActive(!shown);
-                    return;
+                    return shown;
                 }
 
+                shownItemId = null;
                 preview.Clear();
                 previewImage.enabled = false;
+                ApplyGrayscale(false);
                 question.gameObject.SetActive(true);
+                return true;
             }
 
             public void Dispose()
@@ -272,6 +393,20 @@ namespace Game.Client.Match
                 {
                     Object.Destroy(root);
                 }
+            }
+
+            private void SetOwnBorder(bool isOwn)
+            {
+                ownBorder.enabled = isOwn;
+                ownBorder.gameObject.SetActive(isOwn);
+                var thickness = isOwn ? OwnBorderThickness : 0f;
+                fillRect.offsetMin = new Vector2(thickness, thickness);
+                fillRect.offsetMax = new Vector2(-thickness, -thickness);
+            }
+
+            private void ApplyGrayscale(bool grayscale)
+            {
+                previewImage.material = grayscale ? GrayscaleMaterial : null;
             }
         }
     }
