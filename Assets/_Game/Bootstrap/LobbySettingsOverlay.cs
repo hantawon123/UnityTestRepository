@@ -18,6 +18,10 @@ namespace Game.Bootstrap
         private readonly NetworkRunnerService network;
         private bool opened, chatWasEnabled;
 
+        // A local skip exposes the lobby before the shared highlight phase ends.
+        private bool CanUseSettings => !network.HasRoomSession || network.IsWaitingForMatch ||
+            (network.IsHighlightInProgress && network.IsLocalHighlightComplete);
+
         public LobbySettingsOverlay(ILobbyPauseMenuView menu, LobbyPauseMenuPresenter pause,
             SettingsView view, SettingsPresenter presenter, MatchChatView chat, NetworkRunnerService network)
         {
@@ -39,7 +43,7 @@ namespace Game.Bootstrap
 
         private void Open(bool fromWorld)
         {
-            if (opened || (network.HasRoomSession && !network.IsWaitingForMatch)) return;
+            if (opened || !CanUseSettings) return;
             opened = true;
             chatWasEnabled = chat.enabled;
             chat.enabled = false;
@@ -85,7 +89,7 @@ namespace Game.Bootstrap
         public void Tick()
         {
             // Another participant can start the match while this local panel is open.
-            if (opened && network.HasRoomSession && !network.IsWaitingForMatch)
+            if (opened && !CanUseSettings)
                 view.gameObject.SetActive(false);
         }
 

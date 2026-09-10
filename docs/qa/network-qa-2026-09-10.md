@@ -99,3 +99,11 @@ Unity 테스트 로그와 XML은 작업용 문서 저장소의 `.build/lobby-pro
 - 비공개 Editor API 사용에 따른 버전 변경 위험은 설치 버전 API 호환성 테스트로 검사. 지원 API가 없으면 경고 후 보정 비활성화.
 - Unity WebGL 대상 EditMode 167/167 통과 (qa-editor-cursor.xml). 실제 하드웨어 커서 숨김/잠금 및 마우스 시점 회전은 배치 테스트로 검증할 수 없어 로비/경기 각각 재확인 필요.
 - 적용 시 Console: [QA-Cursor] Game view native lock/hide restored after Escape.
+
+
+## 개인 스킵 후 로비 환경설정 허용
+
+- 사용자 확인: ESC 커서 및 하이라이트 복귀 문제 해결. 추가 발견: 먼저 스킵한 사용자가 로비에 도착해도 전체 하이라이트 시간이 끝날 때까지 환경설정이 열리지 않음.
+- 원인: LobbySettingsOverlay.Open과 Tick이 IsWaitingForMatch만 허용해 서버의 공유 Highlight 페이즈 동안 열기를 거절하거나 열린 창을 닫음.
+- Bootstrap의 두 조건을 통일: 기존 로비 상태 또는 Highlight 진행 중 개인 IsLocalHighlightComplete인 상태에서 허용. 실제 경기 시작 시 기존 자동 닫기 유지. Client 수정 없음.
+- 기존 로비 메뉴·커서·하이라이트·네트워크 관련 Unity EditMode 192/192 통과 (qa-skipped-lobby-settings.xml). 다중 참가자 중 먼저 스킵한 사용자의 실제 설정 열기/닫기는 플레이 재확인 필요.
