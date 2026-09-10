@@ -76,7 +76,7 @@ namespace Game.Bootstrap
             var canvas = view.GetComponentInChildren<Canvas>(true);
             if (canvas == null) return;
             var scaler = canvas.GetComponent<CanvasScaler>();
-            scaler.referenceResolution = new Vector2(1920f, 1080f) / 0.8f;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
             canvas.sortingOrder = 10000;
             var content = new GameObject("Match Settings Content", typeof(RectTransform))
