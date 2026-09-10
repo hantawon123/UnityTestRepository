@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Client.Match;
 using Game.Client.Players;
 using Game.Client.Voice;
+using Game.Client.Common;
 using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Match;
@@ -144,9 +145,13 @@ namespace Game.Bootstrap
                 builder.RegisterEntryPoint<VoicePresenter>();
             }
 
-            builder.RegisterBuildCallback(_ => Debug.Log(
+            builder.RegisterBuildCallback(container =>
+            {
+                container.Resolve<ILoadingOverlay>().Hide();
+                Debug.Log(
                 $"[SceneTiming] Playground scope ready, " +
-                $"elapsed={Time.realtimeSinceStartupAsDouble - configureStartedAt:F3}s."));
+                $"elapsed={Time.realtimeSinceStartupAsDouble - configureStartedAt:F3}s.");
+            });
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
