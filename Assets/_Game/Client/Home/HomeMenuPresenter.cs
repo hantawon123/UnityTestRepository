@@ -281,7 +281,7 @@ namespace Game.Client.Home
             }
 
             if (action == HomeMenuAction.Character &&
-                appFlow.TryTransitionTo(AppFlowState.CharacterCloset))
+                Transition(action, AppFlowState.CharacterCloset))
             {
                 HideFriendList();
                 HideProfileSettings();
@@ -291,7 +291,7 @@ namespace Game.Client.Home
             }
 
             if (action == HomeMenuAction.Settings &&
-                appFlow.TryTransitionTo(AppFlowState.Settings))
+                Transition(action, AppFlowState.Settings))
             {
                 HideFriendList();
                 HideProfileSettings();
@@ -301,13 +301,34 @@ namespace Game.Client.Home
             }
 
             if (action == HomeMenuAction.FindRoom &&
-                appFlow.TryTransitionTo(AppFlowState.RoomBrowser))
+                Transition(action, AppFlowState.RoomBrowser))
             {
                 HideFriendList();
                 HideProfileSettings();
                 HideServerSettings();
                 applicationHost.OpenRoomBrowser();
             }
+        }
+
+        /// <summary>
+        /// Moves the flow for a menu button, and says so when it cannot.
+        /// </summary>
+        /// <remarks>
+        /// A refused move used to be silent, and a button that does nothing
+        /// looks the same whether the flow refused it or the button is broken.
+        /// Naming the state it was refused from is what tells the two apart —
+        /// and what tells us how the flow got there, which is the real bug.
+        /// </remarks>
+        private bool Transition(HomeMenuAction action, AppFlowState destination)
+        {
+            if (appFlow.TryTransitionTo(destination))
+            {
+                return true;
+            }
+
+            Debug.LogWarning(
+                $"[Home] {action} refused: cannot go to {destination} from {appFlow.CurrentState}.");
+            return false;
         }
 
         /// <summary>

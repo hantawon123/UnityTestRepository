@@ -42,8 +42,6 @@ namespace Game.Client.Rooms
         /// carries that apart.
         /// </remarks>
         private RoomEntrySource lastEntrySource = RoomEntrySource.RoomList;
-        private GameObject disconnectionPopup;
-        private TMP_Text disconnectionMessage;
 
         public event Action<string> SearchTextChanged;
         public event Action RefreshRequested;
@@ -147,72 +145,33 @@ namespace Game.Client.Rooms
             ShowToast(RoomEntryMessages.Describe(failure, lastEntrySource));
         }
 
+        /// <summary>
+        /// Says why the player is back on this screen, on the same toast the
+        /// entry failures use.
+        /// </summary>
+        /// <remarks>
+        /// It used to be a dialog of its own — a grey slab with a stock blue
+        /// 확인 button, built for the lobby's canvas and reading as a crash
+        /// rather than as this screen speaking. Home already says the same
+        /// things on its toast, and a player kicked to the browser should hear
+        /// it the way a player dropped to Home does.
+        /// <para>
+        /// Acknowledged at once. There is no button left to press, and the
+        /// notice is a fact about the room they just left rather than a
+        /// question: leaving the exit unacknowledged would say it again the
+        /// next time this screen opened.
+        /// </para>
+        /// </remarks>
         public void ShowDisconnection(string message)
         {
             if (isDestroyed) return;
-            if (disconnectionPopup == null) BuildDisconnectionPopup();
-            disconnectionMessage.text = message;
-            disconnectionPopup.SetActive(true);
+            ShowToast(message);
+
+            // The game locked the cursor away. This is a screen to click on.
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
-        }
 
-        private void BuildDisconnectionPopup()
-        {
-            disconnectionPopup = new GameObject("Disconnection Popup", typeof(RectTransform),
-                typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-            disconnectionPopup.transform.SetParent(transform, false);
-            var popupRect = disconnectionPopup.GetComponent<RectTransform>();
-            popupRect.anchorMin = Vector2.zero;
-            popupRect.anchorMax = Vector2.one;
-            popupRect.offsetMin = popupRect.offsetMax = Vector2.zero;
-            var canvas = disconnectionPopup.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.overrideSorting = true;
-            canvas.sortingOrder = 1000;
-            var scaler = disconnectionPopup.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            var backdrop = CreatePopupRect("Backdrop", disconnectionPopup.transform, Vector2.zero, Vector2.one);
-            backdrop.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.65f);
-            var panel = CreatePopupRect("Panel", backdrop, new Vector2(0.3f, 0.38f), new Vector2(0.7f, 0.62f));
-            panel.gameObject.AddComponent<Image>().color = new Color(0.12f, 0.14f, 0.18f, 1f);
-            disconnectionMessage = CreatePopupText("Message", panel, new Vector2(0.04f, 0.4f), new Vector2(0.96f, 0.95f));
-            var buttonRect = CreatePopupRect("Confirm", panel, new Vector2(0.35f, 0.08f), new Vector2(0.65f, 0.32f));
-            var background = buttonRect.gameObject.AddComponent<Image>();
-            background.color = new Color(0.25f, 0.4f, 0.6f, 1f);
-            var button = buttonRect.gameObject.AddComponent<Button>();
-            button.targetGraphic = background;
-            button.onClick.AddListener(() =>
-            {
-                disconnectionPopup.SetActive(false);
-                DisconnectionAcknowledged?.Invoke();
-            });
-            CreatePopupText("Label", buttonRect, Vector2.zero, Vector2.one).text = "확인";
-        }
-
-        private TMP_Text CreatePopupText(string label, Transform parent, Vector2 min, Vector2 max)
-        {
-            var rect = CreatePopupRect(label, parent, min, max);
-            var text = rect.gameObject.AddComponent<TextMeshProUGUI>();
-            // Reuse the room screen's Korean font and its fallback configuration.
-            text.font = searchInputField.textComponent.font;
-            text.fontSize = 32f;
-            text.alignment = TextAlignmentOptions.Center;
-            text.color = Color.white;
-            text.richText = false;
-            text.raycastTarget = false;
-            return text;
-        }
-
-        private static RectTransform CreatePopupRect(string label, Transform parent, Vector2 min, Vector2 max)
-        {
-            var rect = new GameObject(label, typeof(RectTransform)).GetComponent<RectTransform>();
-            rect.SetParent(parent, false);
-            rect.anchorMin = min;
-            rect.anchorMax = max;
-            rect.offsetMin = rect.offsetMax = Vector2.zero;
-            return rect;
+            DisconnectionAcknowledged?.Invoke();
         }
 
         private void EnsurePoolSize(int requiredCount)

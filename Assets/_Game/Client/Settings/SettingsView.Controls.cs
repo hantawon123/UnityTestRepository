@@ -134,6 +134,7 @@ namespace Game.Client.Settings
 
             top = AddSection(page, SettingsStyle.Controls.MicrophoneHeading, top);
             top = AddKeyRow(page, ControlAction.MicrophoneTalk, top);
+            top = AddKeyRow(page, ControlAction.VoiceToggle, top);
 
             top = AddSection(page, SettingsStyle.Controls.KeyboardMoveHeading, top);
             foreach (var action in MovementRows)
@@ -210,7 +211,7 @@ namespace Game.Client.Settings
         /// </summary>
         /// <remarks>
         /// Outlined rather than filled, unlike the other buttons on this
-        /// screen: seventeen filled plates down one page would read as a wall,
+        /// screen: eighteen filled plates down one page would read as a wall,
         /// and a key is a label as much as a control. It fills in while it
         /// waits for a press, which is the one moment it is doing something.
         /// </remarks>
@@ -280,7 +281,7 @@ namespace Game.Client.Settings
 
         /// <summary>
         /// One action's key plate, so a row can be redrawn without the view
-        /// keeping four fields for each of seventeen rows.
+        /// keeping four fields for each of eighteen rows.
         /// </summary>
         private sealed class KeyButton
         {

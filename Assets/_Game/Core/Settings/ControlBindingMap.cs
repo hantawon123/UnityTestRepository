@@ -69,6 +69,10 @@ namespace Game.Core.Settings
         {
             (ControlAction.MicrophoneTalk, "PushToTalk", null),
 
+            // Latches the microphone open rather than holding it, so it is a
+            // second way to be heard rather than a different thing to bind.
+            (ControlAction.VoiceToggle, "VoiceToggle", null),
+
             // The four directions are parts of one Dpad composite. Each has a
             // letter and an arrow key on it; the letter comes first and is the
             // one this screen shows, so the arrows stay as a second way in that

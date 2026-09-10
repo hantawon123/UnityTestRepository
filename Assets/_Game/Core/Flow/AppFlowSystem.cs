@@ -94,6 +94,36 @@ namespace Game.Core.Flow
             return true;
         }
 
+        /// <summary>
+        /// Brings the flow back to Home when Home is what the player is
+        /// actually looking at. Returns true when something had to be put
+        /// right.
+        /// </summary>
+        /// <remarks>
+        /// The menu screens move the flow before they open the next screen,
+        /// and nothing moves it back if that screen never appears — a scene
+        /// that failed to load, a detour left by a path nobody thought of. The
+        /// player is then on Home with the flow still saying 옷장, and every
+        /// button that asks the flow first is refused: Home looks alive with
+        /// half its menu dead.
+        /// <para>
+        /// Only the detour states are corrected. A session state is a claim
+        /// about a room the player may still be in, and the room's own exit
+        /// is what ends it; guessing here would end a session from a screen.
+        /// </para>
+        /// </remarks>
+        public bool TryReconcileToHome()
+        {
+            if (CurrentState == AppFlowState.Home || IsSessionState(CurrentState))
+            {
+                return false;
+            }
+
+            CurrentState = AppFlowState.Home;
+            StateChanged?.Invoke(CurrentState);
+            return true;
+        }
+
         /// <summary>Aligns an existing room with confirmed state, including snapshot rollback.</summary>
         public bool TryRestoreSessionState(AppFlowState restoredState)
         {
