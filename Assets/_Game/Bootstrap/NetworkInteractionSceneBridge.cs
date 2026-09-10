@@ -219,7 +219,7 @@ namespace Game.Bootstrap
                         motor.AnimationGrounded,
                         motor.AttackSequence,
                         new Vector2(motor.AnimationMoveX, motor.AnimationMoveZ),
-                        motor.AnimationCarrying);
+                        motor.AnimationCarrying && !network.IsResultSceneLoaded);
                 }
 
                 var interactor = avatar.GetComponent<PlayerInteractor>();
