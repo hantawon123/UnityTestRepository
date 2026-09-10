@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 4c5f030e3f4b62f4bbe7f97faef00ebe
+guid: dda84423d6eff874098dcbde1118f254
 ModelImporter:
   serializedVersion: 24300
   internalIDToNameTable: []
@@ -32,18 +32,18 @@ ModelImporter:
     extraUserProperties: []
     clipAnimations:
     - serializedVersion: 16
-      name: Jump_Cute
+      name: Run_Forward
       takeName: Scene
       internalID: -623603649343465320
       firstFrame: 0
-      lastFrame: 41
+      lastFrame: 19
       wrapMode: 0
       orientationOffsetY: 0
       level: 0
       cycleOffset: 0
       loop: 0
       hasAdditiveReferencePose: 0
-      loopTime: 0
+      loopTime: 1
       loopBlend: 0
       loopBlendOrientation: 0
       loopBlendPositionY: 0

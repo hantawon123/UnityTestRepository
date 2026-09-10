@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: b3ab1ca533a302141adaebb65714bc05
+guid: 3ff652ba372410a4981e4a0af43f34ac
 ModelImporter:
   serializedVersion: 24300
   internalIDToNameTable: []
@@ -32,18 +32,18 @@ ModelImporter:
     extraUserProperties: []
     clipAnimations:
     - serializedVersion: 16
-      name: Crouch_Walk_Left_KneesUp
+      name: Land
       takeName: Scene
       internalID: -623603649343465320
       firstFrame: 0
-      lastFrame: 36
+      lastFrame: 20
       wrapMode: 0
       orientationOffsetY: 0
       level: 0
       cycleOffset: 0
       loop: 0
       hasAdditiveReferencePose: 0
-      loopTime: 1
+      loopTime: 0
       loopBlend: 0
       loopBlendOrientation: 0
       loopBlendPositionY: 0
@@ -70,7 +70,7 @@ ModelImporter:
     sortHierarchyByName: 1
     importPhysicalCameras: 1
     importVisibility: 1
-    importBlendShapes: 1
+    importBlendShapes: 0
     importCameras: 0
     importLights: 0
     nodeNameCollisionStrategy: 1

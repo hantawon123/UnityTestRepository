@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 5203e990eb305d748b1c337efc4a085b
+guid: e97968baefc43304087332fb6affd677
 ModelImporter:
   serializedVersion: 24300
   internalIDToNameTable: []
@@ -32,11 +32,11 @@ ModelImporter:
     extraUserProperties: []
     clipAnimations:
     - serializedVersion: 16
-      name: Walk_Wide_Clean
+      name: Crouch_Walk_Forward
       takeName: Scene
       internalID: -623603649343465320
       firstFrame: 0
-      lastFrame: 24
+      lastFrame: 36
       wrapMode: 0
       orientationOffsetY: 0
       level: 0
@@ -70,7 +70,7 @@ ModelImporter:
     sortHierarchyByName: 1
     importPhysicalCameras: 1
     importVisibility: 1
-    importBlendShapes: 0
+    importBlendShapes: 1
     importCameras: 0
     importLights: 0
     nodeNameCollisionStrategy: 1

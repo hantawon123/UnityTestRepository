@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 6761056ab2f441b4d96ae0030f22997a
+guid: ccb8cfa59bae8a9488323541faae63d1
 ModelImporter:
   serializedVersion: 24300
   internalIDToNameTable: []
@@ -32,7 +32,7 @@ ModelImporter:
     extraUserProperties: []
     clipAnimations:
     - serializedVersion: 16
-      name: Crouch_Walk_Back_KneesUp
+      name: Crouch_Walk_Right
       takeName: Scene
       internalID: -623603649343465320
       firstFrame: 0

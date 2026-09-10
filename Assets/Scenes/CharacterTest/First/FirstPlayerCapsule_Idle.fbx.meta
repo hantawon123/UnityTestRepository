@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: ccb8cfa59bae8a9488323541faae63d1
+guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9
 ModelImporter:
   serializedVersion: 24300
   internalIDToNameTable: []
@@ -32,11 +32,11 @@ ModelImporter:
     extraUserProperties: []
     clipAnimations:
     - serializedVersion: 16
-      name: Crouch_Walk_Right_KneesUp
+      name: Idle
       takeName: Scene
       internalID: -623603649343465320
       firstFrame: 0
-      lastFrame: 36
+      lastFrame: 60
       wrapMode: 0
       orientationOffsetY: 0
       level: 0

@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: fcb7b32a9c98d4e47a2ccf0d441ff0e9
+guid: b3ab1ca533a302141adaebb65714bc05
 ModelImporter:
   serializedVersion: 24300
   internalIDToNameTable: []
@@ -32,11 +32,11 @@ ModelImporter:
     extraUserProperties: []
     clipAnimations:
     - serializedVersion: 16
-      name: Idle_Breathing
+      name: Crouch_Walk_Left
       takeName: Scene
       internalID: -623603649343465320
       firstFrame: 0
-      lastFrame: 60
+      lastFrame: 36
       wrapMode: 0
       orientationOffsetY: 0
       level: 0

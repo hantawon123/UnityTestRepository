@@ -32,7 +32,7 @@ ModelImporter:
     extraUserProperties: []
     clipAnimations:
     - serializedVersion: 16
-      name: Crouch_Idle_KneesUp
+      name: Crouch_Idle
       takeName: Scene
       internalID: -623603649343465320
       firstFrame: 0

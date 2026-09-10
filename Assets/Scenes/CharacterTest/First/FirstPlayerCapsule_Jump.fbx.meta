@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 60d3dd984b96460fa285f23b037f4158
+guid: 4c5f030e3f4b62f4bbe7f97faef00ebe
 ModelImporter:
   serializedVersion: 24300
   internalIDToNameTable: []
@@ -32,18 +32,18 @@ ModelImporter:
     extraUserProperties: []
     clipAnimations:
     - serializedVersion: 16
-      name: Carry_Prone
+      name: Jump
       takeName: Scene
       internalID: -623603649343465320
       firstFrame: 0
-      lastFrame: 60
+      lastFrame: 32
       wrapMode: 0
       orientationOffsetY: 0
       level: 0
       cycleOffset: 0
       loop: 0
       hasAdditiveReferencePose: 0
-      loopTime: 1
+      loopTime: 0
       loopBlend: 0
       loopBlendOrientation: 0
       loopBlendPositionY: 0
@@ -70,7 +70,7 @@ ModelImporter:
     sortHierarchyByName: 1
     importPhysicalCameras: 1
     importVisibility: 1
-    importBlendShapes: 1
+    importBlendShapes: 0
     importCameras: 0
     importLights: 0
     nodeNameCollisionStrategy: 1

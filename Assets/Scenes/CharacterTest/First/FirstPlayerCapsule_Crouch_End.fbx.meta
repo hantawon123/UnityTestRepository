@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 202cad8e8cdb1d247a25a00455781019
+guid: 368ffac631de04f4c8a4ef2c230a5346
 ModelImporter:
   serializedVersion: 24300
   internalIDToNameTable: []
@@ -32,7 +32,7 @@ ModelImporter:
     extraUserProperties: []
     clipAnimations:
     - serializedVersion: 16
-      name: Stand_To_Crouch_KneesUp
+      name: Crouch_End
       takeName: Scene
       internalID: -623603649343465320
       firstFrame: 0

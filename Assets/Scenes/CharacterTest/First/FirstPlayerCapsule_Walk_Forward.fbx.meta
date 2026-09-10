@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 3ff652ba372410a4981e4a0af43f34ac
+guid: 5203e990eb305d748b1c337efc4a085b
 ModelImporter:
   serializedVersion: 24300
   internalIDToNameTable: []
@@ -32,18 +32,18 @@ ModelImporter:
     extraUserProperties: []
     clipAnimations:
     - serializedVersion: 16
-      name: Land_Matched
+      name: Walk_Forward
       takeName: Scene
       internalID: -623603649343465320
       firstFrame: 0
-      lastFrame: 20
+      lastFrame: 24
       wrapMode: 0
       orientationOffsetY: 0
       level: 0
       cycleOffset: 0
       loop: 0
       hasAdditiveReferencePose: 0
-      loopTime: 0
+      loopTime: 1
       loopBlend: 0
       loopBlendOrientation: 0
       loopBlendPositionY: 0

@@ -32,7 +32,7 @@ ModelImporter:
     extraUserProperties: []
     clipAnimations:
     - serializedVersion: 16
-      name: Carry_Walk
+      name: Carry_Walk_Forward
       takeName: Scene
       internalID: -623603649343465320
       firstFrame: 0
