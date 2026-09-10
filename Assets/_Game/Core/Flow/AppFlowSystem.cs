@@ -52,11 +52,20 @@ namespace Game.Core.Flow
                            nextState == AppFlowState.RoomBrowser ||
                            nextState == AppFlowState.Lobby;
 
-                // The closet is a detour rather than a step forward: the only
-                // way on from it is back where it was opened from.
+                // A detour rather than a step forward: the screens they were
+                // opened from are where they lead back to, and neither has a
+                // button to anywhere else.
+                //
+                // A room is the exception. An invite is not a button on this
+                // screen — it arrives from a friend and can be accepted
+                // wherever the player happens to be standing. Refusing it left
+                // the player in a room the flow still believed was the settings
+                // screen, and leaving that room did nothing at all: the exit
+                // asks to leave a session, and Settings is not one.
                 case AppFlowState.CharacterCloset:
                 case AppFlowState.Settings:
-                    return nextState == AppFlowState.Home;
+                    return nextState == AppFlowState.Home ||
+                           nextState == AppFlowState.Lobby;
                 case AppFlowState.RoomBrowser:
                     return nextState == AppFlowState.Home ||
                            nextState == AppFlowState.Lobby;
@@ -81,6 +90,36 @@ namespace Game.Core.Flow
             if (destination != AppFlowState.Home && destination != AppFlowState.RoomBrowser) return false;
             if (!IsSessionState(CurrentState)) return false;
             CurrentState = destination;
+            StateChanged?.Invoke(CurrentState);
+            return true;
+        }
+
+        /// <summary>
+        /// Brings the flow back to Home when Home is what the player is
+        /// actually looking at. Returns true when something had to be put
+        /// right.
+        /// </summary>
+        /// <remarks>
+        /// The menu screens move the flow before they open the next screen,
+        /// and nothing moves it back if that screen never appears — a scene
+        /// that failed to load, a detour left by a path nobody thought of. The
+        /// player is then on Home with the flow still saying 옷장, and every
+        /// button that asks the flow first is refused: Home looks alive with
+        /// half its menu dead.
+        /// <para>
+        /// Only the detour states are corrected. A session state is a claim
+        /// about a room the player may still be in, and the room's own exit
+        /// is what ends it; guessing here would end a session from a screen.
+        /// </para>
+        /// </remarks>
+        public bool TryReconcileToHome()
+        {
+            if (CurrentState == AppFlowState.Home || IsSessionState(CurrentState))
+            {
+                return false;
+            }
+
+            CurrentState = AppFlowState.Home;
             StateChanged?.Invoke(CurrentState);
             return true;
         }

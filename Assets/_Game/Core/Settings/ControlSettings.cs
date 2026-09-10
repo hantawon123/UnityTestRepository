@@ -11,6 +11,7 @@ namespace Game.Core.Settings
     public enum ControlAction
     {
         MicrophoneTalk,
+        VoiceToggle,
         MoveForward,
         MoveLeft,
         MoveBackward,
@@ -26,7 +27,8 @@ namespace Game.Core.Settings
         RotateLeft,
         RotateRight,
         RaiseObject,
-        LowerObject
+        LowerObject,
+        ToggleKeyGuide
     }
 
     /// <summary>The 컨트롤 tab's sliders, in the order they are drawn.</summary>
@@ -250,6 +252,58 @@ namespace Game.Core.Settings
         /// <summary>Shown for <see cref="Unbound"/>.</summary>
         public const string UnboundLabel = "없음";
 
+        /// <summary>
+        /// Keys the game listens to outside the input asset, which no row may
+        /// take. Each with the name of what holds it, for the refusal.
+        /// </summary>
+        /// <remarks>
+        /// These are read straight off <c>Keyboard.current</c> rather than
+        /// through an action — 숨기기 완료 in the match HUD, the lobby's 1 and 2
+        /// shortcuts and Esc in its pause menu, Enter to open the chat — so
+        /// nothing here can move them
+        /// and the screen must not offer to. A row put on one would fire both,
+        /// the row's action and the shortcut, on a single press.
+        /// <para>
+        /// The number pad is listed beside the digits and beside Enter because
+        /// the lobby and the chat read both for the same thing.
+        /// </para>
+        /// <para>
+        /// Esc never reaches this list from a live capture — <c>UnityKeyCapture</c>
+        /// answers it as "never mind" — but a save written by a build that let
+        /// it through still has to be repaired.
+        /// </para>
+        /// </remarks>
+        private static readonly (string Code, string Holder)[] Reserved =
+        {
+            ("y", "숨기기 완료"),
+            ("1", "캐릭터 단축키"),
+            ("numpad1", "캐릭터 단축키"),
+            ("2", "참가자 목록 단축키"),
+            ("numpad2", "참가자 목록 단축키"),
+            ("escape", "환경설정 메뉴"),
+            ("enter", "채팅"),
+            ("numpadEnter", "채팅")
+        };
+
+        /// <summary>
+        /// Whether a key belongs to something this screen cannot move, and
+        /// what that is.
+        /// </summary>
+        public static bool IsReserved(string code, out string holder)
+        {
+            foreach (var entry in Reserved)
+            {
+                if (string.Equals(entry.Code, code, StringComparison.Ordinal))
+                {
+                    holder = entry.Holder;
+                    return true;
+                }
+            }
+
+            holder = null;
+            return false;
+        }
+
         public const string MouseLeft = "mouseLeft";
         public const string MouseRight = "mouseRight";
         public const string MouseMiddle = "mouseMiddle";
@@ -291,6 +345,7 @@ namespace Game.Core.Settings
         private static readonly (ControlAction Action, string Code)[] Bindings =
         {
             (ControlAction.MicrophoneTalk, "g"),
+            (ControlAction.VoiceToggle, "b"),
             (ControlAction.MoveForward, "w"),
             (ControlAction.MoveLeft, "a"),
             (ControlAction.MoveBackward, "s"),
@@ -306,7 +361,8 @@ namespace Game.Core.Settings
             (ControlAction.RotateLeft, "q"),
             (ControlAction.RotateRight, "e"),
             (ControlAction.RaiseObject, ScrollUp),
-            (ControlAction.LowerObject, ScrollDown)
+            (ControlAction.LowerObject, ScrollDown),
+            (ControlAction.ToggleKeyGuide, "l")
         };
 
         /// <summary>
@@ -363,6 +419,12 @@ namespace Game.Core.Settings
                 var code = result.Get(action);
                 if (string.IsNullOrEmpty(code))
                 {
+                    continue;
+                }
+
+                if (IsReserved(code, out _))
+                {
+                    result = result.With(action, Unbound);
                     continue;
                 }
 

@@ -102,7 +102,7 @@ namespace Game.Client.Lobby
                 layout = gameObject.AddComponent<HorizontalLayoutGroup>();
             }
 
-            layout.childAlignment = TextAnchor.MiddleRight;
+            layout.childAlignment = TextAnchor.MiddleLeft;
             layout.childControlWidth = true;
             layout.childControlHeight = true;
             layout.childForceExpandWidth = false;
@@ -127,9 +127,9 @@ namespace Game.Client.Lobby
         private void PlacePanel()
         {
             var rect = (RectTransform)transform;
-            rect.anchorMin = rect.anchorMax = new Vector2(1f, 1f);
-            rect.pivot = new Vector2(1f, 1f);
-            rect.anchoredPosition = new Vector2(-LobbyMatchInfoView.MarginRight, -TopOffset);
+            rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(LobbyMatchInfoView.MarginLeft, -TopOffset);
         }
 
         private void ApplyStyle()
@@ -167,7 +167,7 @@ namespace Game.Client.Lobby
             label.font = font != null ? font : HomeUiFonts.Apply();
             label.fontSize = FontSize;
             label.color = Color.white;
-            label.alignment = TextAlignmentOptions.MidlineRight;
+            label.alignment = TextAlignmentOptions.MidlineLeft;
             label.raycastTarget = false;
             label.textWrappingMode = TextWrappingModes.NoWrap;
             label.overflowMode = TextOverflowModes.Overflow;

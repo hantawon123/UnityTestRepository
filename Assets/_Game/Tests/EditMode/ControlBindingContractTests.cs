@@ -90,8 +90,8 @@ namespace Game.Architecture.Tests
             // binding that took its neighbour's key is obvious too.
             var spare = new[]
             {
-                "b", "h", "i", "j", "k", "l", "m", "n",
-                "o", "p", "r", "t", "u", "x", "y", "f1", "f2"
+                "h", "i", "j", "k", "m", "n", "o", "p", "r", "t",
+                "u", "x", "f1", "f2", "f3", "f4", "f5", "f6", "f7"
             };
             var rows = Enum.GetValues(typeof(ControlAction));
             Assert.That(

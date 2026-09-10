@@ -12,7 +12,8 @@
         "UniTask",
         "VContainer",
         "Unity.InputSystem",
-        "colyseus.nativewebsocket"
+        "colyseus.nativewebsocket",
+        "Unity.RenderPipelines.Universal.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

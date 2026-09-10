@@ -415,7 +415,10 @@ namespace Game.Client.Interactions
                 !isCurrentPoseValid ||
                 ghost == null ||
                 interactor == null ||
-                !interactor.HudVisible)
+                !PlayerInteractor.CanShowWorldPrompt(
+                    interactor.HudVisible,
+                    interactor.InteractionPromptsAllowed,
+                    Cursor.lockState == CursorLockMode.Locked))
             {
                 promptView?.Hide();
                 return;

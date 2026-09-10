@@ -52,7 +52,15 @@ namespace Game.Bootstrap
             chatWasEnabled = chat.enabled;
             chat.enabled = false;
             view.gameObject.SetActive(true);
-            pause.OpenCharacterScreen(view.RequestBack, fromWorld: true);
+            pause.OpenCharacterScreen(Hide, fromWorld: true);
+        }
+
+        private void Hide()
+        {
+            if (view != null)
+            {
+                view.gameObject.SetActive(false);
+            }
         }
 
         private void OnClosed()

@@ -17,11 +17,11 @@ out_dir = Path(out_dir)
 out_dir.mkdir(parents=True, exist_ok=True)
 
 CLIPS = (
-    ("FirstPlayerCapsule_Walk_Wide_Clean.fbx", "Carry_Walk"),
+    ("FirstPlayerCapsule_Walk_Forward.fbx", "Carry_Walk_Forward"),
     ("FirstPlayerCapsule_Walk_Back.fbx", "Carry_Walk_Back"),
     ("FirstPlayerCapsule_Walk_Left.fbx", "Carry_Walk_Left"),
     ("FirstPlayerCapsule_Walk_Right.fbx", "Carry_Walk_Right"),
-    ("FirstPlayerCapsule_Run_SideArms.fbx", "Carry_Run"),
+    ("FirstPlayerCapsule_Run_Forward.fbx", "Carry_Run_Forward"),
     ("FirstPlayerCapsule_Run_Back.fbx", "Carry_Run_Back"),
     ("FirstPlayerCapsule_Run_Left.fbx", "Carry_Run_Left"),
     ("FirstPlayerCapsule_Run_Right.fbx", "Carry_Run_Right"),

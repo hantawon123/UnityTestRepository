@@ -245,6 +245,35 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void LeaveGame_AsksFirst_AndOnlyAcceptingConfirms()
+        {
+            using var presenter = Started();
+            var confirmed = 0;
+            presenter.LeaveGameConfirmed += () => confirmed++;
+
+            view.LeaveGame();
+
+            Assert.That(view.ConfirmVisible, Is.True);
+            Assert.That(view.ConfirmKind, Is.EqualTo(SettingsConfirmKind.LeaveGame));
+            Assert.That(confirmed, Is.Zero);
+
+            view.Dismiss();
+            Assert.That(view.ConfirmVisible, Is.False);
+            Assert.That(confirmed, Is.Zero);
+
+            view.LeaveGame();
+            view.Decline();
+            Assert.That(view.ConfirmVisible, Is.False);
+            Assert.That(confirmed, Is.Zero);
+
+            view.LeaveGame();
+            view.Accept();
+            Assert.That(view.ConfirmVisible, Is.False);
+            Assert.That(confirmed, Is.EqualTo(1));
+            Assert.That(host.HomeOpenCount, Is.Zero);
+        }
+
+        [Test]
         public void Back_WithoutChanges_LeavesForHome()
         {
             using var presenter = Started();
@@ -702,13 +731,15 @@ namespace Game.Architecture.Tests
         {
             using var presenter = Started();
 
-            Assert.That(view.Bindings.Count, Is.EqualTo(17));
+            Assert.That(view.Bindings.Count, Is.EqualTo(19));
             Assert.That(view.Bindings[ControlAction.MoveForward], Is.EqualTo("W"));
             Assert.That(view.Bindings[ControlAction.Interact], Is.EqualTo("F"));
             Assert.That(view.Bindings[ControlAction.PrimaryAction], Is.EqualTo("좌클릭"));
+            Assert.That(view.Bindings[ControlAction.VoiceToggle], Is.EqualTo("B"));
             Assert.That(view.Bindings[ControlAction.Jump], Is.EqualTo("SPACE"));
             Assert.That(view.Bindings[ControlAction.RaiseObject], Is.EqualTo("스크롤 ↑"));
             Assert.That(view.Bindings[ControlAction.LowerObject], Is.EqualTo("스크롤 ↓"));
+            Assert.That(view.Bindings[ControlAction.ToggleKeyGuide], Is.EqualTo("L"));
             Assert.That(view.Sensitivities.Count, Is.EqualTo(3));
             Assert.That(view.Sensitivities[ControlSensitivity.FirstPersonMouse], Is.EqualTo(50));
             Assert.That(view.Reversals.Count, Is.EqualTo(4));
@@ -864,6 +895,43 @@ namespace Game.Architecture.Tests
 
             Assert.That(presenter.ControlDraft.Get(action), Is.EqualTo(moved));
             Assert.That(view.Notices, Is.Empty, "Nobody else was on that key to be disturbed.");
+        }
+
+        /// <summary>
+        /// Y ends the player's hiding turn, read straight off the keyboard by
+        /// the match HUD. No row may take it, and the refusal says who has it.
+        /// </summary>
+        [TestCase("y", "숨기기 완료")]
+        [TestCase("1", "캐릭터 단축키")]
+        [TestCase("numpad1", "캐릭터 단축키")]
+        [TestCase("2", "참가자 목록 단축키")]
+        [TestCase("numpad2", "참가자 목록 단축키")]
+        [TestCase("escape", "환경설정 메뉴")]
+        [TestCase("enter", "채팅")]
+        [TestCase("numpadEnter", "채팅")]
+        public void AReservedKey_IsRefused_AndWhatHoldsItIsNamed(string code, string holder)
+        {
+            using var presenter = Started();
+
+            view.ClickKey(ControlAction.Jump);
+            keyCapture.Press(code);
+
+            Assert.That(presenter.ControlDraft.Get(ControlAction.Jump), Is.EqualTo("space"));
+            Assert.That(view.Notices.Count, Is.EqualTo(1));
+            Assert.That(view.Notices[0], Does.Contain(holder));
+            Assert.That(view.Listening, Is.Null);
+        }
+
+        [Test]
+        public void NoRow_ShipsOnAReservedKey()
+        {
+            foreach (ControlAction action in Enum.GetValues(typeof(ControlAction)))
+            {
+                Assert.That(
+                    ControlCatalog.IsReserved(ControlCatalog.Defaults.Get(action), out var holder),
+                    Is.False,
+                    $"{action} ships on a key that belongs to {holder}.");
+            }
         }
 
         /// <summary>

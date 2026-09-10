@@ -18,12 +18,12 @@ namespace Game.Architecture.Tests
                 var rect = view.GetComponent<RectTransform>();
 
                 Assert.That(view.name, Is.EqualTo(LobbyPlayerCountView.RootName));
-                Assert.That(rect.anchorMin, Is.EqualTo(new Vector2(1f, 1f)));
-                Assert.That(rect.pivot, Is.EqualTo(new Vector2(1f, 1f)));
+                Assert.That(rect.anchorMin, Is.EqualTo(new Vector2(0f, 1f)));
+                Assert.That(rect.pivot, Is.EqualTo(new Vector2(0f, 1f)));
                 Assert.That(
                     rect.anchoredPosition,
                     Is.EqualTo(new Vector2(
-                        -LobbyMatchInfoView.MarginRight,
+                        LobbyMatchInfoView.MarginLeft,
                         -LobbyPlayerCountView.TopOffset)));
                 Assert.That(LobbyPlayerCountView.GapBelowMatchInfo, Is.EqualTo(24f));
             }

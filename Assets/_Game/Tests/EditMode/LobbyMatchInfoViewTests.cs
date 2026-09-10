@@ -1,5 +1,6 @@
 using Game.Client.Home;
 using Game.Client.Lobby;
+using Game.Client.Match;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
@@ -10,7 +11,7 @@ namespace Game.Architecture.Tests
     public sealed class LobbyMatchInfoViewTests
     {
         [Test]
-        public void Create_PlacesTheCardInTheTopRight()
+        public void Create_PlacesTheCardInTheTopLeft_LinedUpWithChat()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
             try
@@ -19,11 +20,12 @@ namespace Game.Architecture.Tests
                 var rect = view.GetComponent<RectTransform>();
 
                 Assert.That(view.name, Is.EqualTo(LobbyMatchInfoView.RootName));
-                Assert.That(rect.anchorMin, Is.EqualTo(new Vector2(1f, 1f)));
-                Assert.That(rect.anchorMax, Is.EqualTo(new Vector2(1f, 1f)));
-                Assert.That(rect.pivot, Is.EqualTo(new Vector2(1f, 1f)));
+                Assert.That(rect.anchorMin, Is.EqualTo(new Vector2(0f, 1f)));
+                Assert.That(rect.anchorMax, Is.EqualTo(new Vector2(0f, 1f)));
+                Assert.That(rect.pivot, Is.EqualTo(new Vector2(0f, 1f)));
                 Assert.That(rect.anchoredPosition, Is.EqualTo(
-                    new Vector2(-LobbyMatchInfoView.MarginRight, -LobbyMatchInfoView.MarginTop)));
+                    new Vector2(LobbyMatchInfoView.MarginLeft, -LobbyMatchInfoView.MarginTop)));
+                Assert.That(LobbyMatchInfoView.MarginLeft, Is.EqualTo(MatchChatView.Margin));
                 Assert.That(rect.sizeDelta.x, Is.EqualTo(LobbyMatchInfoView.Width));
             }
             finally

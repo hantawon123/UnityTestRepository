@@ -166,12 +166,13 @@ namespace Game.Client.Character
         private void BuildLayout()
         {
             font = HomeUiFonts.Apply(fontAsset);
+            closeIcon = SettingsStyle.LoadCloseIcon(closeIcon);
+
             controlsRoot = CreateControlsCanvas();
             if (lobbyOverlay)
             {
                 CreateDim(controlsRoot);
                 CreateFrame(controlsRoot);
-                CreateBackButton(controlsRoot);
                 CreateTabRail(panel);
                 CreateLocker(panel);
                 CreateActionBar(panel);

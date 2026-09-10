@@ -37,6 +37,12 @@ namespace Game.Editor
                 PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
                 PlayerSettings.WebGL.decompressionFallback = false;
                 PlayerSettings.WebGL.nameFilesAsHashes = true;
+                // Normal player builds must not inherit a previous editor's fast-build setting.
+                PlayerSettings.SetIl2CppCodeGeneration(NamedBuildTarget.WebGL,
+                    UnityEditor.Build.Il2CppCodeGeneration.OptimizeSpeed);
+#if UNITY_WEBGL
+                UnityEditor.WebGL.UserBuildSettings.codeOptimization = UnityEditor.WebGL.WasmCodeOptimization.RuntimeSpeed;
+#endif
                 if (Environment.GetEnvironmentVariable("WEBGL_FAST_BUILD") == "1")
                 {
                     PlayerSettings.SetIl2CppCodeGeneration(NamedBuildTarget.WebGL,

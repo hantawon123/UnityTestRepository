@@ -130,6 +130,31 @@ namespace Game.Client.Interactions
             // 빠르게 던져진 작은 물체가 얇은 벽을 프레임 사이에 통과(터널링)하지 않도록
             // 이동 경로 전체를 검사하는 연속 충돌 감지를 사용한다.
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+            ApplyCarryableLayer();
+        }
+
+        /// <summary>
+        /// 3인칭 카메라 장애물 회피가 Default만 보므로, 물건을 Carryable 레이어에 두면
+        /// 드롭 직후 카메라가 물건에 붙어 확대되는 현상을 막는다.
+        /// </summary>
+        private void ApplyCarryableLayer()
+        {
+            var layer = LayerMask.NameToLayer("Carryable");
+            if (layer < 0)
+            {
+                return;
+            }
+
+            SetLayerRecursively(transform, layer);
+        }
+
+        private static void SetLayerRecursively(Transform root, int layer)
+        {
+            root.gameObject.layer = layer;
+            for (var i = 0; i < root.childCount; i++)
+            {
+                SetLayerRecursively(root.GetChild(i), layer);
+            }
         }
 
         public bool CanInteract(PlayerInteractor interactor)

@@ -1,64 +1,100 @@
 # First 캐릭터 애니메이션 미리보기
 
 `Assets/Scenes/CharacterTest.unity`를 열고 Play 하면 `FirstPlayerCapsule`에
-아래 50개 동작이 연결됩니다. 화면 버튼, 숫자키, 좌우 화살표로 선택합니다. 목록이 길면 왼쪽 패널을 스크롤합니다.
+아래 69개 동작이 연결됩니다. 화면 버튼, 숫자키, 좌우 화살표로 선택합니다. 목록이 길면 왼쪽 패널을 스크롤합니다.
 
 | 번호 | 상태 | 반복 | 재생 구간 |
 | --- | --- | --- | --- |
-| 1 | `Idle_Breathing` | O | 2초 |
-| 2 | `Walk_Wide_Clean` | O | 0~24프레임 |
+| 1 | `Idle` | O | 2초 |
+| 2 | `Walk_Forward` | O | 0~24프레임 |
 | 3 | `Walk_Back` | O | 0~24프레임 |
 | 4 | `Walk_Left` | O | 0~24프레임 |
 | 5 | `Walk_Right` | O | 0~24프레임 |
-| 6 | `Run_SideArms` | O | 0~19프레임 |
+| 6 | `Run_Forward` | O | 0~19프레임 |
 | 7 | `Run_Back` | O | 0~19프레임 |
 | 8 | `Run_Left` | O | 0~19프레임 |
 | 9 | `Run_Right` | O | 0~19프레임 |
-| 10 | `Jump_Cute` | X | 0~41프레임 |
-| 11 | `Fall_Flutter` | O | 0~48프레임 |
-| 12 | `Land_Matched` | X | 0~20프레임 |
-| 13 | `Crouch_Idle_KneesUp` | O | 0~60프레임 |
-| 14 | `Crouch_Walk_Forward_KneesUp` | O | 0~36프레임 |
-| 15 | `Stand_To_Crouch_KneesUp` | X | 0~24프레임 |
-| 16 | `Crouch_To_Stand_KneesUp` | X | 0~24프레임 |
-| 17 | `Crouch_Walk_Left_KneesUp` | O | 0~36프레임 |
-| 18 | `Crouch_Walk_Right_KneesUp` | O | 0~36프레임 |
-| 19 | `Crouch_Walk_Back_KneesUp` | O | 0~36프레임 |
+| 10 | `Jump` | X | 0~32프레임 |
+| 11 | `Fall` | O | 0~48프레임 |
+| 12 | `Land` | X | 0~20프레임 |
+| 13 | `Crouch_Idle` | O | 0~60프레임 |
+| 14 | `Crouch_Walk_Forward` | O | 0~36프레임 |
+| 15 | `Crouch_Start` | X | 0~24프레임 |
+| 16 | `Crouch_End` | X | 0~24프레임 |
+| 17 | `Crouch_Walk_Left` | O | 0~36프레임 |
+| 18 | `Crouch_Walk_Right` | O | 0~36프레임 |
+| 19 | `Crouch_Walk_Back` | O | 0~36프레임 |
 | 20 | `Pickup_Low` | X | 0~60프레임 |
-| 21 | `Carry_Idle` | O | 0~60프레임 |
-| 22 | `Carry_Walk` | O | 0~24프레임 |
-| 23 | `Carry_Walk_Back` | O | 0~24프레임 |
-| 24 | `Carry_Walk_Left` | O | 0~24프레임 |
-| 25 | `Carry_Walk_Right` | O | 0~24프레임 |
-| 26 | `Carry_Run` | O | 0~19프레임 |
-| 27 | `Carry_Run_Back` | O | 0~19프레임 |
-| 28 | `Carry_Run_Left` | O | 0~19프레임 |
-| 29 | `Carry_Run_Right` | O | 0~19프레임 |
-| 30 | `Carry_Crouch` | O | 0~60프레임 |
-| 31 | `Carry_Crouch_Walk_Forward` | O | 0~36프레임 |
-| 32 | `Carry_Crouch_Walk_Back` | O | 0~36프레임 |
-| 33 | `Carry_Crouch_Walk_Left` | O | 0~36프레임 |
-| 34 | `Carry_Crouch_Walk_Right` | O | 0~36프레임 |
-| 35 | `Carry_Prone` | O | 0~60프레임 |
-| 36 | `Carry_Crawl_Forward` | O | 0~36프레임 |
-| 37 | `Carry_Crawl_Back` | O | 0~36프레임 |
-| 38 | `Carry_Crawl_Left` | O | 0~36프레임 |
-| 39 | `Carry_Crawl_Right` | O | 0~36프레임 |
-| 40 | `PutDown_Low` | X | 0~60프레임 |
-| 41 | `Throw` | X | 0~41프레임 |
-| 42 | `Prone_Start` | X | 0~24프레임 |
-| 43 | `Prone_Idle` | O | 0~60프레임 |
-| 44 | `Crawl_Forward` | O | 0~36프레임 |
-| 45 | `Crawl_Back` | O | 0~36프레임 |
-| 46 | `Crawl_Left` | O | 0~36프레임 |
-| 47 | `Crawl_Right` | O | 0~36프레임 |
-| 48 | `Prone_End` | X | 0~24프레임 |
-| 49 | `Crouch_To_Prone` | X | 0~36프레임 |
-| 50 | `Prone_To_Crouch` | X | 0~36프레임 |
+| 21 | `Pickup_Crouch` | X | 0~48프레임 |
+| 22 | `Pickup_Prone` | X | 0~48프레임 |
+| 23 | `Carry_Idle` | O | 0~60프레임 |
+| 24 | `Carry_Walk_Forward` | O | 0~24프레임 |
+| 25 | `Carry_Walk_Back` | O | 0~24프레임 |
+| 26 | `Carry_Walk_Left` | O | 0~24프레임 |
+| 27 | `Carry_Walk_Right` | O | 0~24프레임 |
+| 28 | `Carry_Run_Forward` | O | 0~19프레임 |
+| 29 | `Carry_Run_Back` | O | 0~19프레임 |
+| 30 | `Carry_Run_Left` | O | 0~19프레임 |
+| 31 | `Carry_Run_Right` | O | 0~19프레임 |
+| 32 | `Carry_Crouch_Idle` | O | 0~60프레임 |
+| 33 | `Carry_Crouch_Walk_Forward` | O | 0~36프레임 |
+| 34 | `Carry_Crouch_Walk_Back` | O | 0~36프레임 |
+| 35 | `Carry_Crouch_Walk_Left` | O | 0~36프레임 |
+| 36 | `Carry_Crouch_Walk_Right` | O | 0~36프레임 |
+| 37 | `Carry_Prone_Idle` | O | 0~60프레임 |
+| 38 | `Carry_Crawl_Forward` | O | 0~36프레임 |
+| 39 | `Carry_Crawl_Back` | O | 0~36프레임 |
+| 40 | `Carry_Crawl_Left` | O | 0~36프레임 |
+| 41 | `Carry_Crawl_Right` | O | 0~36프레임 |
+| 42 | `PutDown_Low` | X | 0~60프레임 |
+| 43 | `PutDown_Crouch` | X | 0~48프레임 |
+| 44 | `PutDown_Prone` | X | 0~48프레임 |
+| 45 | `Throw` | X | 0~24프레임 |
+| 46 | `Prone_Start` | X | 0~24프레임 |
+| 47 | `Prone_Idle` | O | 0~60프레임 |
+| 48 | `Crawl_Forward` | O | 0~36프레임 |
+| 49 | `Crawl_Back` | O | 0~36프레임 |
+| 50 | `Crawl_Left` | O | 0~36프레임 |
+| 51 | `Crawl_Right` | O | 0~36프레임 |
+| 52 | `Prone_End` | X | 0~24프레임 |
+| 53 | `Crouch_To_Prone` | X | 0~36프레임 |
+| 54 | `Prone_To_Crouch` | X | 0~36프레임 |
+| 55 | `Punch` | X | 0~24프레임 |
+| 56 | `Punch_Walk` | X | 0~24프레임 |
+| 57 | `Punch_Run` | X | 0~24프레임 |
+| 58 | `Punch_Crouch` | X | 0~24프레임 |
+| 59 | `Punch_Crouch_Walk` | X | 0~24프레임 |
+| 60 | `Hit` | X | 0~30프레임 |
+| 61 | `Hit_Walk` | X | 0~30프레임 |
+| 62 | `Hit_Run` | X | 0~30프레임 |
+| 63 | `Hit_Crouch` | X | 0~30프레임 |
+| 64 | `Hit_Crouch_Walk` | X | 0~30프레임 |
+| 65 | `Stun_Start` | X | 0~66프레임 |
+| 66 | `Stun_Idle` | O | 0~60프레임 |
+| 67 | `Stun_End` | X | 0~36프레임 |
+| 68 | `Carry_Jump` | X | 0~32프레임 |
+| 69 | `Carry_Land` | X | 0~20프레임 |
+
+`Pickup_Crouch` / `Pickup_Prone` / `PutDown_Crouch` / `PutDown_Prone`은 해당 자세를 유지한 채 팔만 집기·내려놓기로 움직인다. `Tools/make_first_posture_pickup.py`로 베이크한다.
+
+`Punch_*` / `Hit_*` 이동·자세 변형은 기본 펀치/피격 상체를 걷기·달리기·웅크리기에 올린 클립이다. `Tools/make_first_punch_locomotion.py`로 베이크한다.
+
+`Carry_Land`는 `Land`에 `Carry_Idle` 오른손 홀드를 올린 클립이다. `Tools/make_first_carry_land.py`로 베이크한다.
+
+동작명은 `{자세/모드}_{동작}_{방향?}`로 통일했다. `Stun_Idle`은 `Stun_Start` 마지막 자세에
+`Belly_Breath`와 미세한 상체 들림으로 숨쉬기를 넣은 루프이다.
+`Tools/make_first_stun_idle.py` / `Tools/make_first_stun_end.py`로 베이크한다.
+
+```text
+blender --background --python Tools/make_first_stun_idle.py -- Assets/Scenes/CharacterTest/First
+blender --background --python Tools/make_first_stun_end.py -- Assets/Scenes/CharacterTest/First
+blender --background --python Tools/make_first_carry_land.py -- Assets/Scenes/CharacterTest/First
+blender --background --python Tools/make_first_punch_locomotion.py -- Assets/Scenes/CharacterTest/First
+```
 
 우클릭 드래그 또는 Q/E로 카메라를 회전하고, 휠로 줌, R로 카메라를 초기화합니다.
 
-각 FBX는 First 캐릭터의 28-bone Generic 리그를 사용합니다. `Idle_Breathing`에는
+각 FBX는 First 캐릭터의 28-bone Generic 리그를 사용합니다. `Idle`에는
 `Belly_Breath` BlendShape 애니메이션도 포함합니다. `CharacterTestPreviewSetup`이
 압축 없는 Generic 임포트, 클립 루프, 컨트롤러 상태, 미리보기 버튼 목록을 설정합니다.
 
@@ -105,11 +141,11 @@ blender --background --python Tools/make_first_throw.py -- IDLE.fbx CARRY.fbx OU
 (`Tools/fix_crawl_hip_weights.py`, 원본에 한 번만 적용).
 `Tools/check_crawl_pose.py`로 뼈 길이, 무릎 단일 굽힘축, 루프 연결을 검사한다.
 
-서서 걷기 좌·우·후진은 `Walk_Wide_Clean`의 발 스윙을 방향 벡터로 재배치해
-`Tools/make_first_walk_directions.py`로 만든다. 달리기는 `Run_SideArms`를 같은 방식으로
+서서 걷기 좌·우·후진은 `Walk_Forward`의 발 스윙을 방향 벡터로 재배치해
+`Tools/make_first_walk_directions.py`로 만든다. 달리기는 `Run_Forward`를 같은 방식으로
 `Tools/make_first_run_directions.py`에 넣는다. 얼굴과 발끝은 정면을 유지하고,
 좌우 이동의 무릎은 바깥으로 밀지 않고 앞으로만 접는다. 좌우 걷기·달리기는 발이 가운데로
-모이지 않게 각자 쪽 폭을 유지한다. `Run_SideArms` 루프는
+모이지 않게 각자 쪽 폭을 유지한다. `Run_Forward` 루프는
 끝 프레임이 첫 프레임과 같아 Unity에서 한 프레임이 두 번 보이던 부분을 빼 0~19로 돈다.
 
 ```text
@@ -124,7 +160,7 @@ blender --background --python Tools/make_first_walk_directions.py -- WALK.fbx OU
 Stand 전환 FBX를 함께 교체하고 Prone 양방향 전환도 새 Crouch Idle로 재생성한다.
 FBX 시간은 0부터 시작하며 1.2초 걷기 루프의 첫·끝 포즈를 일치시킨다.
 
-`Crouch_To_Prone`과 `Prone_To_Crouch`는 각각 기존 `Crouch_Idle_KneesUp`과
+`Crouch_To_Prone`과 `Prone_To_Crouch`는 각각 기존 `Crouch_Idle`과
 `Prone_Idle`의 끝 포즈를 정확히 이어 주는 1.2초 전환 동작이다. `Tools/make_first_crouch_prone_transitions.py`로 베이크한다.
 
 허벅지 양감/옆구리 후속 보정: `Crawl_Follow_L/R` BlendShape가 당기는 다리와

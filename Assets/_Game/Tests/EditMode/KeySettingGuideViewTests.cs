@@ -2,6 +2,7 @@ using Game.Client;
 using Game.Client.Lobby;
 using Game.Client.Match;
 using Game.Core.Match;
+using Game.Core.Settings;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -10,7 +11,14 @@ namespace Game.Architecture.Tests
     public sealed class KeySettingGuideViewTests
     {
         [SetUp]
-        public void ResetToggle() => KeySettingGuideView.SetUserVisible(true);
+        public void ResetToggle()
+        {
+            KeySettingGuideView.SetUserVisible(true);
+            KeySettingGuideView.UseSettings(null);
+        }
+
+        [TearDown]
+        public void UnbindSettings() => KeySettingGuideView.UseSettings(null);
 
         [Test]
         public void ShouldToggle_IgnoresBlockedInput()
@@ -214,6 +222,54 @@ namespace Game.Architecture.Tests
             }
             finally
             {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void LabelsFor_UsesAppliedControlBindings()
+        {
+            var settings = ControlCatalog.Defaults.With(ControlAction.Crouch, "x");
+            var labels = KeySettingGuideView.LabelsFor(KeySettingGuideView.Mode.Default, settings);
+
+            Assert.That(labels[0], Is.EqualTo("좌클릭"));
+            Assert.That(labels[1], Is.EqualTo("X"));
+            Assert.That(labels[5], Is.EqualTo("SPACE"));
+            Assert.That(labels[6], Is.EqualTo("L"));
+        }
+
+        [Test]
+        public void LabelsFor_UsesReboundKeyGuideToggle()
+        {
+            var settings = ControlCatalog.Defaults.With(ControlAction.ToggleKeyGuide, "k");
+            var labels = KeySettingGuideView.LabelsFor(KeySettingGuideView.Mode.Default, settings);
+
+            Assert.That(labels[6], Is.EqualTo("K"));
+        }
+
+        [Test]
+        public void UseSettings_RefreshesGuideWhenBindingsChange()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            var system = new ControlSettingsSystem(new InMemoryControlSettingsStore());
+            try
+            {
+                var view = KeySettingGuideView.Create(canvas.transform);
+                KeySettingGuideView.UseSettings(system);
+                var guide = view.GetComponent<RectTransform>();
+
+                Assert.That(
+                    guide.Find("Row1/Key/Label").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo("C"));
+
+                system.Apply(system.Current.With(ControlAction.Crouch, "x"));
+                Assert.That(
+                    guide.Find("Row1/Key/Label").GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo("X"));
+            }
+            finally
+            {
+                KeySettingGuideView.UseSettings(null);
                 Object.DestroyImmediate(canvas);
             }
         }
