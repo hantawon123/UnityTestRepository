@@ -204,6 +204,18 @@ namespace Game.Network.Session
         private NetworkPlayerMotor _localInputMotor;
         private double _networkSceneLoadStartedAt = -1d;
         private double _roomEntryStartedAt = -1d;
+        /// <summary>
+        /// Where a parked load is taken to have finished reading. Unity says
+        /// 0.9; the float it reports can sit a hair under.
+        /// </summary>
+        private const float LobbyPreloadGateProgress = 0.89f;
+
+        /// <summary>
+        /// How long the room may wait for the parked load to reach the gate
+        /// before activation is allowed regardless.
+        /// </summary>
+        private const double LobbyPreloadGateSeconds = 3d;
+
         private double _lobbyPreloadStartedAt = -1d;
         private AsyncOperation _lobbyPreload;
         private GameObject[] _preloadedLobbyRoots = Array.Empty<GameObject>();
@@ -1749,8 +1761,19 @@ namespace Game.Network.Session
             var operation = _lobbyPreload;
             try
             {
+                // The gate is where a load parked with allowSceneActivation off
+                // comes to rest — nominally 0.9, in practice a float just under
+                // it, and with several additive scenes ahead in Unity's queue
+                // sometimes not reached at all while the room is already up.
+                // Waiting on it exactly left the player on the loading cover
+                // for ever with the room made. So: a tolerant threshold, and a
+                // deadline after which activation is simply allowed — that is
+                // the very thing the gate was waiting to do.
+                var gateOpenedAt = Time.realtimeSinceStartupAsDouble;
+                var gateDeadline = gateOpenedAt + LobbyPreloadGateSeconds;
                 await UniTask.WaitUntil(() => operation == null ||
-                    operation.isDone || operation.progress >= 0.9f ||
+                    operation.isDone || operation.progress >= LobbyPreloadGateProgress ||
+                    Time.realtimeSinceStartupAsDouble >= gateDeadline ||
                     !IsCurrentRunner(runner) || !runner.IsRunning);
 
                 if (operation == null || !IsCurrentRunner(runner) ||
@@ -1758,6 +1781,13 @@ namespace Game.Network.Session
                 {
                     await CleanupLobbyPreloadAsync();
                     return;
+                }
+
+                if (!operation.isDone && operation.progress < LobbyPreloadGateProgress)
+                {
+                    Debug.LogWarning(
+                        $"[SceneTiming] Lobby preload stuck at progress={operation.progress:F3} " +
+                        $"for {LobbyPreloadGateSeconds:F0}s; allowing activation anyway.");
                 }
 
                 Debug.Log(
