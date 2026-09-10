@@ -66,6 +66,46 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void OpenFromWorld_UnappliedClose_KeepsScreenAndDoesNotReturnToRoom()
+        {
+            using var fixture = new Fixture();
+            fixture.Presenter.Start();
+            fixture.Presenter.OpenPlaySettingsFromWorld();
+            fixture.Settings.UnappliedChanges = true;
+            fixture.Menu.VisibleCalls.Clear();
+
+            fixture.Settings.RequestClose();
+
+            Assert.That(fixture.Menu.IsOpen, Is.False);
+            Assert.That(fixture.Menu.VisibleCalls, Has.No.Member(true));
+
+            fixture.Settings.UnappliedChanges = false;
+            fixture.Settings.RequestClose();
+
+            Assert.That(fixture.Menu.IsOpen, Is.False);
+            Assert.That(fixture.Menu.VisibleCalls, Has.No.Member(true));
+        }
+
+        [Test]
+        public void OpenFromMenu_UnappliedClose_DoesNotReturnToMenu()
+        {
+            using var fixture = new Fixture();
+            fixture.Presenter.Start();
+            fixture.Menu.ClickPlaySettings();
+            fixture.Settings.UnappliedChanges = true;
+            fixture.Menu.VisibleCalls.Clear();
+
+            fixture.Settings.RequestClose();
+
+            Assert.That(fixture.Menu.VisibleCalls, Has.No.Member(true));
+
+            fixture.Settings.UnappliedChanges = false;
+            fixture.Settings.RequestClose();
+
+            Assert.That(fixture.Menu.VisibleCalls, Has.Member(true));
+        }
+
+        [Test]
         public void OpenFromWorld_WhileMenuIsUp_DoesNothing()
         {
             using var fixture = new Fixture();
@@ -363,9 +403,13 @@ namespace Game.Tests.EditMode
             public event Action InviteRequested { add { } remove { } }
             public event Action CopyPasswordRequested { add { } remove { } }
             public event Action StartRequested { add { } remove { } }
+            public event Action ApplyRequested { add { } remove { } }
+            public bool UnappliedChanges;
+            public bool HasUnappliedChanges => UnappliedChanges;
             public void SetVisible(bool visible) { }
             public void SetEditable(bool editable) { }
             public void SetDraft(PlaySettingsDraft draft) { }
+            public void SetUnappliedWarningVisible(bool visible) { }
             public PlaySettingsDraft ReadDraft() =>
                 new("방", "CODE", false, null, 6, 3, "playground");
             public void RequestClose()

@@ -43,7 +43,7 @@ namespace Game.Tests.EditMode
             menu.OpenSettings();
             view.Draft = Draft(4);
             session.ReplaceSettings(Draft(4));
-            view.RequestClose();
+            view.RequestApply();
             Assert.That(session.ApplyCount, Is.Zero);
         }
 
@@ -57,10 +57,38 @@ namespace Game.Tests.EditMode
             using var presenter = new PlaySettingsPresenter(session, view, menu);
             presenter.Start();
             menu.OpenSettings();
-            view.Draft = Draft(4);
             view.RequestStart();
             Assert.That(view.Visible, Is.False);
+            Assert.That(session.ApplyCount, Is.Zero);
+            Assert.That(session.StartCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Host_StartOrCloseWithUnappliedChanges_WarnsAndDoesNotApply()
+        {
+            using var session = new HostSession();
+            session.SetLocalHost(true);
+            var view = new SettingsView();
+            var menu = new PauseView();
+            using var presenter = new PlaySettingsPresenter(session, view, menu);
+            presenter.Start();
+            menu.OpenSettings();
+            view.Draft = Draft(4);
+            view.RequestStart();
+            Assert.That(view.Visible, Is.True);
+            Assert.That(view.WarningVisible, Is.True);
+            Assert.That(session.ApplyCount, Is.Zero);
+            Assert.That(session.StartCount, Is.Zero);
+            view.RequestClose();
+            Assert.That(view.Visible, Is.True);
+            Assert.That(view.WarningVisible, Is.True);
+            Assert.That(session.ApplyCount, Is.Zero);
+            view.RequestApply();
+            Assert.That(view.WarningVisible, Is.False);
             Assert.That(session.ApplyCount, Is.EqualTo(1));
+            Assert.That(session.Settings.CurrentValue.MaxPlayers, Is.EqualTo(4));
+            view.RequestStart();
+            Assert.That(view.Visible, Is.False);
             Assert.That(session.StartCount, Is.EqualTo(1));
         }
 
@@ -93,9 +121,14 @@ namespace Game.Tests.EditMode
             menu.OpenSettings();
             Assert.That(view.Draft.MaxPlayers, Is.EqualTo(3));
             view.RequestClose();
-            view.RequestClose();
+            Assert.That(view.Visible, Is.True);
+            Assert.That(session.ApplyCount, Is.Zero);
+            view.RequestApply();
             Assert.That(session.ApplyCount, Is.EqualTo(1));
             Assert.That(session.Settings.CurrentValue.MaxPlayers, Is.EqualTo(3));
+            view.RequestClose();
+            Assert.That(view.Visible, Is.False);
+            Assert.That(session.ApplyCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -111,6 +144,8 @@ namespace Game.Tests.EditMode
             Assert.That(MatchRuleSettings.TryCreate(60, 10, 1.5f, 5, "food", out var rules, out _), Is.True);
             view.Draft = new PlaySettingsDraft("방", "CODE", false, null, 6, 3, "playground", rules);
             view.RequestClose();
+            Assert.That(session.ApplyCount, Is.Zero);
+            view.RequestApply();
             Assert.That(session.ApplyCount, Is.EqualTo(1));
             Assert.That(session.Settings.CurrentValue.MatchRules, Is.EqualTo(rules));
         }
@@ -148,15 +183,17 @@ namespace Game.Tests.EditMode
             session.ReplaceSettings(Draft(5));
             Assert.That(view.Draft.MaxPlayers, Is.EqualTo(3));
             view.RequestClose();
-            Assert.That(session.ApplyCount, Is.EqualTo(1));
-            Assert.That(session.Settings.CurrentValue.MaxPlayers, Is.EqualTo(3));
+            Assert.That(view.Visible, Is.True);
+            Assert.That(session.ApplyCount, Is.Zero);
+            Assert.That(view.Draft.MaxPlayers, Is.EqualTo(3));
             menu.OpenSettings();
             view.Draft = Draft(6);
             session.SetLocalHost(false);
             Assert.That(view.Editable, Is.False);
-            Assert.That(view.Draft.MaxPlayers, Is.EqualTo(3));
+            Assert.That(view.Draft.MaxPlayers, Is.EqualTo(5));
             view.RequestClose();
-            Assert.That(session.ApplyCount, Is.EqualTo(1));
+            Assert.That(view.Visible, Is.False);
+            Assert.That(session.ApplyCount, Is.Zero);
         }
 
         [Test]
@@ -248,6 +285,101 @@ namespace Game.Tests.EditMode
             finally { UnityEngine.Object.DestroyImmediate(root); }
         }
         [Test]
+        public void RealView_ApplyStaysDisabledUntilDraftChanges()
+        {
+            var root = new GameObject("Apply chrome test");
+            var panel = new GameObject("PlaySettingsPanel", typeof(RectTransform));
+            panel.transform.SetParent(root.transform, false);
+            root.SetActive(false);
+            try
+            {
+                var view = root.AddComponent<PlaySettingsView>();
+                var serialized = new SerializedObject(view);
+                serialized.FindProperty("panel").objectReferenceValue = panel;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                root.SetActive(true);
+                typeof(PlaySettingsView).GetMethod("OnEnable",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, null);
+                view.SetDraft(Draft(4));
+                view.SetEditable(true);
+                var applyField = typeof(PlaySettingsView).GetField(
+                    "applyButton",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                var applyFillField = typeof(PlaySettingsView).GetField(
+                    "applyFill",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                var applyWarningField = typeof(PlaySettingsView).GetField(
+                    "applyWarning",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                var apply = (Button)applyField.GetValue(view);
+                var fill = (Image)applyFillField.GetValue(view);
+                var warning = (Text)applyWarningField.GetValue(view);
+                Assert.That(view.HasUnappliedChanges, Is.False);
+                Assert.That(apply.interactable, Is.False);
+                Assert.That(fill.color, Is.EqualTo(PlaySettingsStyle.Palette.ApplyOffFill));
+                var plusField = typeof(PlaySettingsView).GetField(
+                    "maxPlayersPlusButton",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                ((Button)plusField.GetValue(view)).onClick.Invoke();
+                Assert.That(view.HasUnappliedChanges, Is.True);
+                Assert.That(apply.interactable, Is.True);
+                Assert.That(fill.color, Is.EqualTo(PlaySettingsStyle.Palette.ApplyFill));
+                view.SetUnappliedWarningVisible(true);
+                Assert.That(warning.gameObject.activeSelf, Is.True);
+                apply.onClick.Invoke();
+                view.SetDraft(view.ReadDraft());
+                Assert.That(view.HasUnappliedChanges, Is.False);
+                Assert.That(apply.interactable, Is.False);
+                Assert.That(warning.gameObject.activeSelf, Is.False);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void RealView_DirtyLeave_DoesNotEmitCloseOrStart()
+        {
+            var root = new GameObject("Dirty leave test");
+            var panel = new GameObject("PlaySettingsPanel", typeof(RectTransform));
+            panel.transform.SetParent(root.transform, false);
+            root.SetActive(false);
+            try
+            {
+                var view = root.AddComponent<PlaySettingsView>();
+                var serialized = new SerializedObject(view);
+                serialized.FindProperty("panel").objectReferenceValue = panel;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                root.SetActive(true);
+                typeof(PlaySettingsView).GetMethod("OnEnable",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, null);
+                view.SetDraft(Draft(4));
+                view.SetEditable(true);
+                var closed = 0;
+                var started = 0;
+                view.CloseRequested += () => closed++;
+                view.StartRequested += () => started++;
+                var plusField = typeof(PlaySettingsView).GetField(
+                    "maxPlayersPlusButton",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                ((Button)plusField.GetValue(view)).onClick.Invoke();
+                var warningField = typeof(PlaySettingsView).GetField(
+                    "applyWarning",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                var warning = (Text)warningField.GetValue(view);
+                view.RequestClose();
+                Assert.That(closed, Is.Zero);
+                Assert.That(warning.gameObject.activeSelf, Is.True);
+                typeof(PlaySettingsView).GetMethod("RequestStart",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, null);
+                Assert.That(started, Is.Zero);
+                Assert.That(warning.gameObject.activeSelf, Is.True);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+        }
+
+        [Test]
         public void DurationLabels_FollowSliderSteps()
         {
             Assert.That(PlaySettingsView.FormatHidingDuration(30), Is.EqualTo("30초"));
@@ -292,18 +424,29 @@ namespace Game.Tests.EditMode
         {
             public bool Visible;
             public bool Editable;
+            public bool WarningVisible;
             public PlaySettingsDraft Draft;
+            public PlaySettingsDraft Applied;
             public event Action OpenRequested;
             public event Action CloseRequested;
+            public event Action ApplyRequested;
             public void RequestOpen() => OpenRequested?.Invoke();
             public event Action CopyRoomCodeRequested { add { } remove { } }
             public event Action InviteRequested { add { } remove { } }
             public event Action CopyPasswordRequested { add { } remove { } }
             public event Action StartRequested;
+            public bool HasUnappliedChanges => Editable && !Draft.Equals(Applied);
             public void RequestStart() => StartRequested?.Invoke();
+            public void RequestApply() => ApplyRequested?.Invoke();
             public void SetVisible(bool value) => Visible = value;
             public void SetEditable(bool value) => Editable = value;
-            public void SetDraft(PlaySettingsDraft value) => Draft = value;
+            public void SetDraft(PlaySettingsDraft value)
+            {
+                Draft = value;
+                Applied = value;
+                WarningVisible = false;
+            }
+            public void SetUnappliedWarningVisible(bool value) => WarningVisible = value;
             public PlaySettingsDraft ReadDraft() => Draft;
             public void RequestClose() => CloseRequested?.Invoke();
         }

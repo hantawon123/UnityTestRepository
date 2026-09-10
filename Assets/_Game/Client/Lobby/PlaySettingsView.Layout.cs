@@ -42,6 +42,7 @@ namespace Game.Client.Lobby
                     CacheMapAreaRefs(content);
                     CacheMapScrollRefs();
                     CacheDurationSliderRefs(content);
+                    CacheApplyRefs();
                 }
 
                 return;
@@ -260,6 +261,7 @@ namespace Game.Client.Lobby
             Anchor(footer, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f));
             footer.offsetMin = Vector2.zero;
             footer.offsetMax = new Vector2(0f, PlaySettingsStyle.FooterHeight);
+            applyWarning = CreateApplyWarning(footer);
             applyButton = CreateApplyButton(footer);
 
             var body = CreateRect("Body", root);
@@ -980,6 +982,61 @@ namespace Game.Client.Lobby
             return image;
         }
 
+        private void CacheApplyRefs()
+        {
+            if (panel == null)
+            {
+                return;
+            }
+
+            var footer = panel.transform.Find("Footer");
+            if (footer == null)
+            {
+                return;
+            }
+
+            var buttonTransform = footer.Find("ApplyButton");
+            if (buttonTransform != null)
+            {
+                applyButton = buttonTransform.GetComponent<Button>();
+                applyFill = buttonTransform.GetComponent<Image>();
+                var labelTransform = buttonTransform.Find("Text");
+                if (labelTransform != null)
+                {
+                    applyLabel = labelTransform.GetComponent<Text>();
+                }
+            }
+
+            var warningTransform = footer.Find("ApplyWarning");
+            if (warningTransform != null)
+            {
+                applyWarning = warningTransform.GetComponent<Text>();
+            }
+
+            RefreshApplyChrome();
+        }
+
+        private static Text CreateApplyWarning(RectTransform footer)
+        {
+            var rect = CreateRect("ApplyWarning", footer);
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(0f, 52f);
+            rect.sizeDelta = new Vector2(PlaySettingsStyle.ModalSize.x - 80f, 28f);
+
+            var label = rect.gameObject.AddComponent<Text>();
+            label.text = "적용되지 않은 변경사항이 있습니다!";
+            label.font = BodyFont();
+            label.fontSize = PlaySettingsStyle.FontSize.ApplyWarning;
+            label.color = PlaySettingsStyle.Palette.ApplyWarning;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.raycastTarget = false;
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            label.verticalOverflow = VerticalWrapMode.Overflow;
+            label.gameObject.SetActive(false);
+            return label;
+        }
+
         private Button CreateApplyButton(RectTransform footer)
         {
             var paddingX = PlaySettingsStyle.ApplyPaddingHorizontal;
@@ -990,28 +1047,30 @@ namespace Game.Client.Lobby
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
 
-            var fill = rect.gameObject.AddComponent<Image>();
-            fill.type = Image.Type.Sliced;
-            fill.color = PlaySettingsStyle.Palette.ApplyFill;
+            applyFill = rect.gameObject.AddComponent<Image>();
+            applyFill.type = Image.Type.Sliced;
+            applyFill.color = PlaySettingsStyle.Palette.ApplyOffFill;
 
             var button = rect.gameObject.AddComponent<Button>();
-            button.targetGraphic = fill;
+            button.targetGraphic = applyFill;
+            button.interactable = false;
+            button.transition = Selectable.Transition.None;
 
             var labelRect = CreateRect("Text", rect);
             Stretch(labelRect);
 
-            var label = labelRect.gameObject.AddComponent<Text>();
-            label.text = "적용하기";
-            label.font = MediumFont();
-            label.fontSize = fontSize;
-            label.color = PlaySettingsStyle.Palette.Text;
-            label.alignment = TextAnchor.MiddleCenter;
-            label.raycastTarget = false;
-            label.horizontalOverflow = HorizontalWrapMode.Overflow;
-            label.verticalOverflow = VerticalWrapMode.Overflow;
+            applyLabel = labelRect.gameObject.AddComponent<Text>();
+            applyLabel.text = "적용하기";
+            applyLabel.font = MediumFont();
+            applyLabel.fontSize = fontSize;
+            applyLabel.color = PlaySettingsStyle.Palette.ApplyOffLabel;
+            applyLabel.alignment = TextAnchor.MiddleCenter;
+            applyLabel.raycastTarget = false;
+            applyLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+            applyLabel.verticalOverflow = VerticalWrapMode.Overflow;
 
-            var textWidth = Mathf.Max(label.preferredWidth, 128f);
-            var textHeight = Mathf.Max(label.preferredHeight, fontSize);
+            var textWidth = Mathf.Max(applyLabel.preferredWidth, 128f);
+            var textHeight = Mathf.Max(applyLabel.preferredHeight, fontSize);
             var height = textHeight + (paddingY * 2f);
             rect.sizeDelta = new Vector2(textWidth + (paddingX * 2f), height);
             rect.anchoredPosition = Vector2.zero;
@@ -1019,7 +1078,7 @@ namespace Game.Client.Lobby
             var radius = Mathf.Min(
                 PlaySettingsStyle.ApplyButtonRadius,
                 Mathf.Max(8, Mathf.FloorToInt((height * 0.5f) - 1f)));
-            fill.sprite = HomeUiFonts.Rounded(radius);
+            applyFill.sprite = HomeUiFonts.Rounded(radius);
             return button;
         }
 

@@ -35,6 +35,7 @@ namespace Game.Client.Lobby
             view.InviteRequested += Invite;
             view.CopyPasswordRequested += CopyPassword;
             view.StartRequested += StartMatch;
+            view.ApplyRequested += Apply;
             pauseMenu.PlaySettingsClicked += Open;
             hostSubscription = hostSession.IsLocalHost.Subscribe(HandleHostChanged);
             settingsSubscription = hostSession.Settings.Subscribe(HandleSettingsChanged);
@@ -48,6 +49,7 @@ namespace Game.Client.Lobby
             view.InviteRequested -= Invite;
             view.CopyPasswordRequested -= CopyPassword;
             view.StartRequested -= StartMatch;
+            view.ApplyRequested -= Apply;
             pauseMenu.PlaySettingsClicked -= Open;
             hostSubscription?.Dispose();
             settingsSubscription?.Dispose();
@@ -93,26 +95,50 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            if (hostSession.IsLocalHost.CurrentValue)
+            if (hostSession.IsLocalHost.CurrentValue && view.HasUnappliedChanges)
             {
-                var draft = view.ReadDraft();
-                if (!RoomSettings.IsValidTitle(draft.Title)) return;
-                if (!draft.Equals(displayedSettings) &&
-                    !draft.Equals(hostSession.Settings.CurrentValue))
-                {
-                    hostSession.RequestApplySettings(draft);
-                }
+                view.SetUnappliedWarningVisible(true);
+                return;
             }
 
             isOpen = false;
             view.SetVisible(false);
+            view.SetUnappliedWarningVisible(false);
             SetInteractionPromptVisible(true);
+        }
+
+        private void Apply()
+        {
+            if (!isOpen || !hostSession.IsLocalHost.CurrentValue)
+            {
+                return;
+            }
+
+            var draft = view.ReadDraft();
+            if (!RoomSettings.IsValidTitle(draft.Title))
+            {
+                return;
+            }
+
+            if (!draft.Equals(displayedSettings) &&
+                !draft.Equals(hostSession.Settings.CurrentValue))
+            {
+                hostSession.RequestApplySettings(draft);
+            }
+
+            DisplaySettings(draft);
         }
 
         private void StartMatch()
         {
             if (!isOpen)
             {
+                return;
+            }
+
+            if (hostSession.IsLocalHost.CurrentValue && view.HasUnappliedChanges)
+            {
+                view.SetUnappliedWarningVisible(true);
                 return;
             }
 

@@ -21,11 +21,15 @@ namespace Game.Client.Lobby
         event Action InviteRequested;
         event Action CopyPasswordRequested;
         event Action StartRequested;
+        event Action ApplyRequested;
+
+        bool HasUnappliedChanges { get; }
 
         void SetVisible(bool visible);
         void SetEditable(bool editable);
         void SetDraft(PlaySettingsDraft draft);
         PlaySettingsDraft ReadDraft();
+        void SetUnappliedWarningVisible(bool visible);
 
         /// <summary>
         /// Asks to be closed as if the panel's own close button was pressed.
@@ -84,6 +88,10 @@ namespace Game.Client.Lobby
         private Text hidingValue;
         private Slider searchingSlider;
         private Text searchingValue;
+        private Image applyFill;
+        private Text applyLabel;
+        private Text applyWarning;
+        private PlaySettingsDraft appliedDraft;
 
         private string title = string.Empty;
         private string roomCode = string.Empty;
@@ -104,6 +112,10 @@ namespace Game.Client.Lobby
         public event Action InviteRequested;
         public event Action CopyPasswordRequested;
         public event Action StartRequested;
+        public event Action ApplyRequested;
+
+        public bool HasUnappliedChanges =>
+            editable && !ReadDraft().Equals(appliedDraft);
 
         private void OnEnable()
         {
@@ -117,7 +129,7 @@ namespace Game.Client.Lobby
             Bind(gameStartButton, RequestStart);
             Bind(copyRoomCodeButton, RequestCopyRoomCode);
             Bind(roomCodeHitButton, RequestCopyRoomCode);
-            Bind(applyButton, RequestClose);
+            Bind(applyButton, RequestApply);
             Bind(maxPlayersMinusButton, () => SetMaxPlayers(maxPlayers - 1));
             Bind(maxPlayersPlusButton, () => SetMaxPlayers(maxPlayers + 1));
             Bind(destructionMinusButton, () => SetDestructionLimit(destructionLimit - 1));
@@ -231,12 +243,75 @@ namespace Game.Client.Lobby
 
         public void RequestClose()
         {
+            if (HasUnappliedChanges)
+            {
+                SetUnappliedWarningVisible(true);
+                return;
+            }
+
             if (!editable || RoomSettings.IsValidTitle(ReadDraft().Title)) CloseRequested?.Invoke();
+        }
+
+        private void RequestApply()
+        {
+            if (!editable || !HasUnappliedChanges)
+            {
+                return;
+            }
+
+            if (!RoomSettings.IsValidTitle(ReadDraft().Title))
+            {
+                return;
+            }
+
+            ApplyRequested?.Invoke();
         }
 
         private void RequestStart()
         {
+            if (HasUnappliedChanges)
+            {
+                SetUnappliedWarningVisible(true);
+                return;
+            }
+
             if (!editable || RoomSettings.IsValidTitle(ReadDraft().Title)) StartRequested?.Invoke();
+        }
+
+        public void SetUnappliedWarningVisible(bool visible)
+        {
+            if (applyWarning != null)
+            {
+                applyWarning.gameObject.SetActive(visible);
+            }
+        }
+
+        private void RefreshApplyChrome()
+        {
+            var enabled = HasUnappliedChanges;
+            if (applyButton != null)
+            {
+                applyButton.interactable = enabled;
+            }
+
+            if (applyFill != null)
+            {
+                applyFill.color = enabled
+                    ? PlaySettingsStyle.Palette.ApplyFill
+                    : PlaySettingsStyle.Palette.ApplyOffFill;
+            }
+
+            if (applyLabel != null)
+            {
+                applyLabel.color = enabled
+                    ? PlaySettingsStyle.Palette.ApplyOnLabel
+                    : PlaySettingsStyle.Palette.ApplyOffLabel;
+            }
+
+            if (!enabled)
+            {
+                SetUnappliedWarningVisible(false);
+            }
         }
 
         private void RequestCopyRoomCode()
@@ -347,6 +422,7 @@ namespace Game.Client.Lobby
             RefreshCounters();
             RefreshCategory();
             RefreshMapSelection(scrollIntoView: false);
+            RefreshApplyChrome();
         }
 
         public void SetDraft(PlaySettingsDraft draft)
@@ -398,6 +474,9 @@ namespace Game.Client.Lobby
             RefreshCounters();
             RefreshCategory();
             RefreshMapSelection(scrollIntoView: true);
+            appliedDraft = ReadDraft();
+            SetUnappliedWarningVisible(false);
+            RefreshApplyChrome();
         }
 
         public PlaySettingsDraft ReadDraft()
@@ -419,6 +498,7 @@ namespace Game.Client.Lobby
             if (!editable) return;
             title = value;
             RefreshTitleCounter();
+            RefreshApplyChrome();
         }
 
         private void RefreshTitleCounter()
@@ -440,6 +520,7 @@ namespace Game.Client.Lobby
             selectedCategoryIndex = (selectedCategoryIndex + direction + options.Count) % options.Count;
             NormalizeCategoryRules();
             RefreshCategory();
+            RefreshApplyChrome();
         }
 
         private void NormalizeCategoryRules()
@@ -490,6 +571,7 @@ namespace Game.Client.Lobby
                 RoomSettings.MinPlayerCount,
                 RoomSettings.MaxPlayerCount);
             RefreshCounters();
+            RefreshApplyChrome();
         }
 
         private void SetDestructionLimit(int value)
@@ -505,6 +587,7 @@ namespace Game.Client.Lobby
                         PlaySettingsDraft.MinDestructionLimit,
                         PlaySettingsDraft.MaxDestructionLimit);
             RefreshCounters();
+            RefreshApplyChrome();
         }
 
         private void BindRuleControls()
@@ -631,6 +714,7 @@ namespace Game.Client.Lobby
             }
 
             RefreshRuleControls();
+            RefreshApplyChrome();
         }
 
         private void RefreshRuleControls()

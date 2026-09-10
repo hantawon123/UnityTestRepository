@@ -371,6 +371,16 @@ namespace Game.Client.Lobby
         /// </remarks>
         public void OnScreenClosed()
         {
+            // Play settings refuses to leave while a draft is still dirty. A
+            // close request that still arrives must not recapture the cursor,
+            // or 적용하기 becomes unreachable.
+            if (playSettings.HasUnappliedChanges)
+            {
+                SetCursorCaptured(false);
+                LockMovement();
+                return;
+            }
+
             characterOverlayOpen = false;
             if (closeOpenScreen == null)
             {
