@@ -337,6 +337,43 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void RealView_RevertRestoresAppliedDraft()
+        {
+            var root = new GameObject("Revert test");
+            var panel = new GameObject("PlaySettingsPanel", typeof(RectTransform));
+            panel.transform.SetParent(root.transform, false);
+            root.SetActive(false);
+            try
+            {
+                var view = root.AddComponent<PlaySettingsView>();
+                var serialized = new SerializedObject(view);
+                serialized.FindProperty("panel").objectReferenceValue = panel;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                root.SetActive(true);
+                typeof(PlaySettingsView).GetMethod("OnEnable",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, null);
+                view.SetDraft(Draft(4));
+                view.SetEditable(true);
+                var plusField = typeof(PlaySettingsView).GetField(
+                    "maxPlayersPlusButton",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                ((Button)plusField.GetValue(view)).onClick.Invoke();
+                Assert.That(view.ReadDraft().MaxPlayers, Is.EqualTo(5));
+                Assert.That(view.HasUnappliedChanges, Is.True);
+                var revertField = typeof(PlaySettingsView).GetField(
+                    "revertButton",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                var revert = (Button)revertField.GetValue(view);
+                Assert.That(revert.gameObject.activeSelf, Is.True);
+                revert.onClick.Invoke();
+                Assert.That(view.ReadDraft().MaxPlayers, Is.EqualTo(4));
+                Assert.That(view.HasUnappliedChanges, Is.False);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+        }
+
+        [Test]
         public void RealView_DirtyLeave_DoesNotEmitCloseOrStart()
         {
             var root = new GameObject("Dirty leave test");

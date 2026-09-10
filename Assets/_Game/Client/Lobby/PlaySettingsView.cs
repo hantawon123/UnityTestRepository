@@ -130,6 +130,7 @@ namespace Game.Client.Lobby
             Bind(copyRoomCodeButton, RequestCopyRoomCode);
             Bind(roomCodeHitButton, RequestCopyRoomCode);
             Bind(applyButton, RequestApply);
+            Bind(revertButton, RequestRevert);
             Bind(maxPlayersMinusButton, () => SetMaxPlayers(maxPlayers - 1));
             Bind(maxPlayersPlusButton, () => SetMaxPlayers(maxPlayers + 1));
             Bind(destructionMinusButton, () => SetDestructionLimit(destructionLimit - 1));
@@ -147,6 +148,7 @@ namespace Game.Client.Lobby
             foreach (var button in ruleMinus) Unbind(button);
             foreach (var button in rulePlus) Unbind(button);
             Unbind(applyButton);
+            Unbind(revertButton);
             Unbind(openButton);
             Unbind(closeButton);
             Unbind(gameStartButton);
@@ -312,6 +314,29 @@ namespace Game.Client.Lobby
             {
                 SetUnappliedWarningVisible(false);
             }
+
+            RefreshRevertChrome();
+        }
+
+        private void RequestRevert()
+        {
+            if (!editable || !HasUnappliedChanges)
+            {
+                return;
+            }
+
+            SetDraft(appliedDraft);
+        }
+
+        private void RefreshRevertChrome()
+        {
+            if (revertButton == null)
+            {
+                return;
+            }
+
+            revertButton.gameObject.SetActive(editable);
+            revertButton.interactable = editable;
         }
 
         private void RequestCopyRoomCode()

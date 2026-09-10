@@ -19,6 +19,8 @@ namespace Game.Client.Lobby
         private Button categoryPrevButton;
         private Button categoryNextButton;
         private Button applyButton;
+        private Button revertButton;
+        private Text revertLabel;
         private Image mapPreviewImage;
         private RectTransform settingsContent;
         private ScrollRect bodyScroll;
@@ -43,6 +45,7 @@ namespace Game.Client.Lobby
                     CacheMapScrollRefs();
                     CacheDurationSliderRefs(content);
                     CacheApplyRefs();
+                    CacheRevertRefs();
                 }
 
                 return;
@@ -256,6 +259,7 @@ namespace Game.Client.Lobby
             header.offsetMin = new Vector2(0f, -PlaySettingsStyle.HeaderHeight);
             header.offsetMax = Vector2.zero;
             CreateModalTitle(header, "게임 설정");
+            revertButton = CreateRevertButton(header);
 
             var footer = CreateRect("Footer", root);
             Anchor(footer, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f));
@@ -1014,6 +1018,75 @@ namespace Game.Client.Lobby
             }
 
             RefreshApplyChrome();
+        }
+
+        private void CacheRevertRefs()
+        {
+            if (panel == null)
+            {
+                return;
+            }
+
+            var header = panel.transform.Find("Header");
+            if (header == null)
+            {
+                return;
+            }
+
+            var buttonTransform = header.Find("RevertButton");
+            if (buttonTransform == null)
+            {
+                return;
+            }
+
+            revertButton = buttonTransform.GetComponent<Button>();
+            var labelTransform = buttonTransform.Find("Text");
+            if (labelTransform != null)
+            {
+                revertLabel = labelTransform.GetComponent<Text>();
+            }
+        }
+
+        private Button CreateRevertButton(RectTransform header)
+        {
+            var rect = CreateRect("RevertButton", header);
+            rect.anchorMin = rect.anchorMax = new Vector2(1f, 0.5f);
+            rect.pivot = new Vector2(1f, 0.5f);
+            rect.anchoredPosition = new Vector2(-PlaySettingsStyle.Layout.RevertRightMargin, 0f);
+            rect.sizeDelta = new Vector2(0f, PlaySettingsStyle.Layout.RevertHeight);
+
+            var hit = rect.gameObject.AddComponent<Image>();
+            hit.color = Color.clear;
+            hit.raycastTarget = true;
+
+            var labelRect = CreateRect("Text", rect);
+            Stretch(labelRect);
+
+            revertLabel = labelRect.gameObject.AddComponent<Text>();
+            revertLabel.text = PlaySettingsStyle.Layout.RevertLabel;
+            revertLabel.font = BodyFont();
+            revertLabel.fontSize = PlaySettingsStyle.FontSize.Revert;
+            revertLabel.color = Color.white;
+            revertLabel.alignment = TextAnchor.MiddleRight;
+            revertLabel.raycastTarget = false;
+            revertLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+            revertLabel.verticalOverflow = VerticalWrapMode.Overflow;
+
+            var textWidth = Mathf.Max(revertLabel.preferredWidth, 64f);
+            rect.sizeDelta = new Vector2(textWidth, PlaySettingsStyle.Layout.RevertHeight);
+
+            var button = rect.gameObject.AddComponent<Button>();
+            button.targetGraphic = revertLabel;
+            button.transition = Selectable.Transition.ColorTint;
+            var colors = button.colors;
+            colors.normalColor = PlaySettingsStyle.Palette.RevertLabel;
+            colors.highlightedColor = PlaySettingsStyle.Palette.TextHover;
+            colors.pressedColor = PlaySettingsStyle.Palette.TextHover;
+            colors.selectedColor = PlaySettingsStyle.Palette.RevertLabel;
+            colors.disabledColor = PlaySettingsStyle.Palette.ApplyOffLabel;
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
+            return button;
         }
 
         private static Text CreateApplyWarning(RectTransform footer)
