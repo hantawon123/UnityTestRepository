@@ -39,3 +39,12 @@ QA 목록의 체크되지 않은 항목만 확인. 사용자 승인에 따라 Cl
 Unity 테스트 로그와 XML은 작업용 문서 저장소의 `.build/lobby-profiler/qa-*-tests.*`에 보관. 이번 작업은 아직 MR/배포하지 않음.
 
 최종 수정 범위의 정규화된 테스트 필터 실행: 242/242 통과 (`qa-scoped-tests.xml`). 실제 ESC 화면과 다중 플레이 검증은 위 목록대로 남아 있음.
+
+## 후속 플레이 오류 보완
+
+- `34334767`: WebGL 대상 Editor에서도 Host 모드 허용. 기존 조건의 UNITY_EDITOR 제외 제거.
+- `8a109430`: Playground의 NetworkInteractionSceneBridge에 AsSelf 등록 추가. 실제 씬 조립에서 발생한 VContainer Resolve 실패 보완.
+- `70d31917`: 소지 좌우 오프셋을 코드 기본값과 PlayerCharacter 프리팹에서 0으로 변경. 이 위치 설정에 한해 사용자에게 Client 수정 예외 승인받음. 결과 화면에서 CarriedItem 참조를 해제하고 이전 경기 스냅샷의 재부착 차단.
+- 위 후속 수정은 자동 테스트를 재실행하지 않았으며, 이전 242개 통과 결과에 포함되지 않음. 열린 사용자 Unity의 재컴파일과 실플레이 확인 필요.
+- Fusion RejoinSession NullReferenceException 직전에 Game does not exist 오류 확인. 재입장 시도 원인은 아직 미확정이며 해결 완료로 처리하지 않음.
+- 사용자 요청에 따라 QA 브랜치를 origin에 push하며 MR은 생성하지 않음.
