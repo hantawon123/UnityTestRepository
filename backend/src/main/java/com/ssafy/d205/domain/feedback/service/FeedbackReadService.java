@@ -40,6 +40,7 @@ public class FeedbackReadService {
         return new FeedbackListResponse(
                 userFeedbackRepository.findRecent(size).stream()
                         .map(row -> new FeedbackListResponse.FeedbackItem(
+                                row.getId(),
                                 row.getAuthorUserId(),
                                 row.getAuthorNickname(),
                                 row.getMessage(),
