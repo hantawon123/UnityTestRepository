@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
+import com.ssafy.d205.domain.report.entity.ReportStatus;
 import com.ssafy.d205.domain.report.entity.UserReport;
 
 /**
@@ -126,10 +127,7 @@ public interface UserReportRepository extends JpaRepository<UserReport, Integer>
     List<UserReport> findPendingAbout(@Param("reportedSeq") Integer reportedSeq);
 
     /**
-     * 한 사람에 대한 신고 중 아직 보이는 것 전부. 사람 단위 숨김이 씁니다.
-     *
-     * <p>검토 상태를 보지 않습니다. 숨김은 "치운다"이지 "판단한다"가 아니고, 운영자가
-     * 사람 단위로 치울 때는 미검토든 이미 본 것이든 눈앞에서 사라지기를 기대합니다.
+     * 한 사람에 대한 신고 중 아직 보이는 것 전부. 상태를 가리지 않습니다.
      *
      * <p>이미 숨긴 것을 빼는 이유는 {@link UserReport#hide(String)} 가 시각을 덮어쓰지
      * 않기 때문입니다. 넘겨도 결과는 같지만 부를 이유가 없습니다.
@@ -140,6 +138,26 @@ public interface UserReportRepository extends JpaRepository<UserReport, Integer>
                AND r.deletedAt IS NULL
             """)
     List<UserReport> findVisibleAbout(@Param("reportedSeq") Integer reportedSeq);
+
+    /**
+     * 위와 같되 한 검토 상태만.
+     *
+     * <p><b>화면이 보여준 것과 치우는 것을 같게 하려고 있습니다</b>(S15P21D205-900).
+     * 목록은 status 로 걸러 보여주므로, 상태를 가리지 않고 치우면 운영자가 ACTIONED
+     * 화면에서 누른 한 번에 보지도 못한 PENDING 신고까지 사라집니다.
+     *
+     * <p>조건을 하나의 조회에 {@code (:status IS NULL OR ...)} 로 합치지 않고 나눴습니다.
+     * JPQL 에서 enum 파라미터에 null 을 넘기면 Hibernate 가 타입을 정하지 못해 실행
+     * 시점에 터집니다. 부르는 쪽이 갈라 주는 편이 안전합니다.
+     */
+    @Query("""
+            SELECT r FROM UserReport r
+             WHERE r.reportedSeq = :reportedSeq
+               AND r.status = :status
+               AND r.deletedAt IS NULL
+            """)
+    List<UserReport> findVisibleAbout(@Param("reportedSeq") Integer reportedSeq,
+                                      @Param("status") ReportStatus status);
 
     /**
      * 한 사람에 대한 신고를 통째로 지웁니다. 숨긴 것까지 함께 사라집니다.
@@ -155,4 +173,17 @@ public interface UserReportRepository extends JpaRepository<UserReport, Integer>
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM UserReport r WHERE r.reportedSeq = :reportedSeq")
     int deleteByReportedSeq(@Param("reportedSeq") Integer reportedSeq);
+
+    /**
+     * 위와 같되 한 검토 상태만. 화면이 보여준 것과 지우는 것을 맞춥니다.
+     *
+     * <p>그 상태의 숨긴 행도 함께 지웁니다. 숨김과 삭제는 "다시 볼 수 있는가"만 다르고,
+     * 지우기로 한 범위 안에 숨긴 것만 남겨 두면 그 행의 출처를 나중에 설명하지 못합니다.
+     *
+     * @return 지운 건수
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM UserReport r WHERE r.reportedSeq = :reportedSeq AND r.status = :status")
+    int deleteByReportedSeqAndStatus(@Param("reportedSeq") Integer reportedSeq,
+                                     @Param("status") ReportStatus status);
 }

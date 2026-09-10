@@ -279,22 +279,30 @@ API 를 직접 부르는 것은 화면에 없는 것을 볼 때만 필요합니�
 ### 신고
 
 ```
-PATCH  /api/v1/admin/reports/{userId}/hidden      그 사람 신고 전부 숨김
-DELETE /api/v1/admin/reports/{userId}             그 사람 신고 전부 완전 삭제
-PATCH  /api/v1/admin/reports/entries/{id}/hidden  신고 한 건 숨김
-DELETE /api/v1/admin/reports/entries/{id}         신고 한 건 완전 삭제
+PATCH  /api/v1/admin/reports/{userId}/hidden?status=PENDING   그 사람 신고 숨김
+DELETE /api/v1/admin/reports/{userId}?status=PENDING          그 사람 신고 완전 삭제
+PATCH  /api/v1/admin/reports/entries/{id}/hidden              신고 한 건 숨김
+DELETE /api/v1/admin/reports/entries/{id}                     신고 한 건 완전 삭제
 ```
 
 `{id}` 는 상세 조회(6절)의 `reports[].id` 입니다. 경로에 `entries` 가 있는 이유는 사람은
 UUID 로, 신고는 순번으로 가리키기 때문입니다. 같은 자리에 두면 무엇을 받는 경로인지가
 값의 모양에 달리게 됩니다.
 
+**사람 단위 요청에는 `status` 를 목록과 같은 값으로 주세요.** 목록은 `status` 로 걸러
+보여주므로 치우는 범위도 거기 맞춰야 합니다. 빼면 **상태를 가리지 않고 전부** 처리하는데,
+그러면 `ACTIONED` 화면에서 "1건"을 보고 누른 한 번에 한 번도 보지 못한 `PENDING` 신고까지
+사라집니다. 완전 삭제는 되돌릴 수 없어 그 차이가 그대로 손실이 됩니다.
+
+목록과 달리 기본값을 두지 않았습니다. 여기서 `PENDING` 을 기본으로 삼으면 이번에는 반대로
+범위가 조용히 좁혀집니다. **화면은 늘 채워 보내고**, 전부 치우려는 요청만 일부러 뺍니다.
+
 **숨김은 검토 상태를 건드리지 않습니다.** 숨기는 것과 판단하는 것은 다른 일입니다. 여기서
 `DISMISSED` 를 찍으면 운영자가 내리지 않은 판단이 기록에 남고, 무고성 신고를 세는 집계가
 조용히 틀어집니다.
 
-**사람 단위 완전 삭제는 숨긴 것까지 지웁니다.** 운영자가 보기에 "이 사람 신고 전부 삭제"
-인데 숨긴 것만 남으면 나중에 그 행들의 출처를 아무도 설명하지 못합니다.
+**완전 삭제는 범위 안의 숨긴 것까지 지웁니다.** 지우기로 한 범위에 숨긴 것만 남으면 나중에
+그 행들의 출처를 아무도 설명하지 못합니다.
 
 ### 피드백
 
@@ -322,7 +330,7 @@ DELETE /api/v1/admin/feedback/{id}          한 건 완전 삭제
 있습니다. 검토 마무리(6절)와 같은 규칙입니다.
 
 `{userId}` 쪽만 없는 계정에 `404 TARGET_NOT_FOUND` 입니다. 사람을 가리키는 경로라 오타로
-부른 것과 정상 요청을 구분해야 합니다.
+부른 것과 정상 요청을 구분해야 합니다. `status` 에 모르는 값을 주면 `400` 입니다.
 
 ### 조심할 것
 

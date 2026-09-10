@@ -114,7 +114,12 @@ public class ReportReviewService {
     }
 
     /**
-     * 한 사람에 대한 신고를 전부 목록에서 치웁니다.
+     * 한 사람에 대한 신고를 목록에서 치웁니다.
+     *
+     * <p><b>{@code status} 는 화면이 보여준 범위입니다.</b> 목록은 상태로 걸러 보여주므로
+     * 치우는 범위도 같아야 합니다. 가리지 않고 치우면 운영자가 ACTIONED 화면에서 "1건"을
+     * 보고 누른 한 번에, 한 번도 보지 못한 PENDING 신고까지 함께 사라집니다. null 이면
+     * 상태를 가리지 않습니다 - API 를 직접 부르는 쪽을 위한 것이고 화면은 늘 채웁니다.
      *
      * <p>검토 상태를 건드리지 않습니다. 숨김은 판단이 아닙니다 - 여기서 DISMISSED 를
      * 찍으면 운영자가 내리지 않은 판단이 기록에 남고, 무고성 신고를 세는 집계가
@@ -125,10 +130,12 @@ public class ReportReviewService {
      * @return 이번에 치운 건수
      */
     @Transactional
-    public int hide(String userId) {
+    public int hide(String userId, ReportStatus status) {
         User target = target(userId);
 
-        List<UserReport> visible = userReportRepository.findVisibleAbout(target.getSeq());
+        List<UserReport> visible = status == null
+                ? userReportRepository.findVisibleAbout(target.getSeq())
+                : userReportRepository.findVisibleAbout(target.getSeq(), status);
         String now = timeProvider.now();
 
         for (UserReport report : visible) {
@@ -159,10 +166,15 @@ public class ReportReviewService {
     }
 
     /**
-     * 한 사람에 대한 신고를 통째로 지웁니다. <b>되돌릴 수 없습니다.</b>
+     * 한 사람에 대한 신고를 지웁니다. <b>되돌릴 수 없습니다.</b>
      *
-     * <p>숨긴 것까지 함께 지웁니다. 운영자가 보기에 "이 사람 신고 전부 삭제"인데 숨긴
-     * 것만 남으면 나중에 그 행들의 출처를 아무도 설명하지 못합니다.
+     * <p><b>{@code status} 는 화면이 보여준 범위입니다.</b> {@link #hide} 와 같은 이유로
+     * 받습니다. 여기서는 그 이유가 더 무겁습니다 - 숨김은 DB 에서 되찾을 수 있지만 이쪽은
+     * 되찾을 수 없어서, 보지 못한 신고가 함께 지워지면 그것으로 끝입니다. null 이면
+     * 상태를 가리지 않습니다.
+     *
+     * <p>범위 안의 숨긴 것까지 함께 지웁니다. 숨긴 것만 남기면 나중에 그 행들의 출처를
+     * 아무도 설명하지 못합니다.
      *
      * <p>지우면 그 사람이 신고당한 이력이 사라집니다. 무고성 신고를 세는 근거도 함께
      * 사라지므로, 눈앞에서 치우는 것이 목적이라면 {@link #hide} 가 맞습니다.
@@ -170,8 +182,12 @@ public class ReportReviewService {
      * @return 지운 건수
      */
     @Transactional
-    public int purge(String userId) {
-        return userReportRepository.deleteByReportedSeq(target(userId).getSeq());
+    public int purge(String userId, ReportStatus status) {
+        Integer seq = target(userId).getSeq();
+
+        return status == null
+                ? userReportRepository.deleteByReportedSeq(seq)
+                : userReportRepository.deleteByReportedSeqAndStatus(seq, status);
     }
 
     /**

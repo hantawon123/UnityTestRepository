@@ -89,7 +89,13 @@ public class AdminReportController {
     }
 
     /**
-     * 그 사람의 신고를 전부 목록에서 치웁니다. 행은 남습니다.
+     * 그 사람의 신고를 목록에서 치웁니다. 행은 남습니다.
+     *
+     * <p><b>status 는 목록 조회와 같은 뜻이고, 같은 값을 주어야 합니다.</b> 화면은 상태로
+     * 걸러 보여주므로 치우는 범위도 거기 맞춰야 합니다. 빼면 상태를 가리지 않고 전부
+     * 치우는데, 그러면 ACTIONED 화면에서 "1건"을 보고 누른 한 번에 보지도 못한 PENDING
+     * 신고까지 사라집니다. 목록과 달리 기본값을 두지 않은 이유입니다 - 여기서 PENDING 을
+     * 기본으로 삼으면 이번에는 반대로 조용히 좁혀집니다.
      *
      * <p>검토 상태를 바꾸지 않습니다. 숨기는 것과 판단하는 것은 다른 일이고, 여기서
      * 임의로 DISMISSED 를 찍으면 운영자가 내리지 않은 판단이 기록에 남습니다.
@@ -99,19 +105,24 @@ public class AdminReportController {
      * 보고는 구분되지 않습니다.
      */
     @PatchMapping("/{userId}/hidden")
-    public HideResult hide(@PathVariable String userId) {
-        return new HideResult(reportReviewService.hide(userId));
+    public HideResult hide(@PathVariable String userId,
+                           @RequestParam(required = false) ReportStatus status) {
+        return new HideResult(reportReviewService.hide(userId, status));
     }
 
     /**
-     * 그 사람의 신고를 통째로 지웁니다. <b>되돌릴 수 없습니다.</b>
+     * 그 사람의 신고를 지웁니다. <b>되돌릴 수 없습니다.</b>
      *
-     * <p>숨긴 것까지 함께 지웁니다. 운영자가 보기에 "이 사람 신고 전부 삭제"인데 숨긴
-     * 것만 남으면 나중에 그 행들의 출처를 아무도 설명하지 못합니다.
+     * <p>status 의 뜻은 위와 같습니다. 이쪽은 되돌릴 수 없으므로 범위를 넓게 잡은 실수의
+     * 대가가 더 큽니다.
+     *
+     * <p>범위 안의 숨긴 것까지 함께 지웁니다. 숨긴 것만 남으면 나중에 그 행들의 출처를
+     * 아무도 설명하지 못합니다.
      */
     @DeleteMapping("/{userId}")
-    public HideResult purge(@PathVariable String userId) {
-        return new HideResult(reportReviewService.purge(userId));
+    public HideResult purge(@PathVariable String userId,
+                            @RequestParam(required = false) ReportStatus status) {
+        return new HideResult(reportReviewService.purge(userId, status));
     }
 
     /**

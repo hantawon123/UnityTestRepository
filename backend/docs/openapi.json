@@ -1119,6 +1119,19 @@
             "schema" : {
               "type" : "string"
             }
+          },
+          {
+            "in" : "query",
+            "name" : "status",
+            "required" : false,
+            "schema" : {
+              "enum" : [
+                "PENDING",
+                "ACTIONED",
+                "DISMISSED"
+              ],
+              "type" : "string"
+            }
           }
         ],
         "responses" : {
@@ -1226,6 +1239,19 @@
             "name" : "userId",
             "required" : true,
             "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "query",
+            "name" : "status",
+            "required" : false,
+            "schema" : {
+              "enum" : [
+                "PENDING",
+                "ACTIONED",
+                "DISMISSED"
+              ],
               "type" : "string"
             }
           }

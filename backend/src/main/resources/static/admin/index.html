@@ -339,8 +339,13 @@
     const actions = document.createElement('div');
     actions.className = 'actions';
 
+    // 치운 뒤 목록을 다시 그리면 이 줄은 버려지고 새 줄이 생깁니다. 펼쳐 둔 상태를
+    // 되살리려면 새 줄에서 같은 사람을 찾아야 하므로 표시를 남겨 둡니다.
+    row.dataset.userId = user.userId;
+
     const open = document.createElement('button');
     open.textContent = '내용';
+    open.className = 'detail-toggle';
     open.addEventListener('click', () => toggleDetail(row, user, open));
     actions.appendChild(open);
 
@@ -353,9 +358,14 @@
 
     // 사람 단위로 치웁니다. 판단과 나란히 두는 이유는 운영자가 같은 줄에서 "판단한다"
     // 와 "그냥 치운다"를 고르기 때문입니다. 숨김은 검토 상태를 건드리지 않습니다.
+    //
+    // status 를 함께 보냅니다. 이 줄의 건수는 지금 고른 상태의 것이므로, 상태를 빼고
+    // 부르면 화면이 "1건"이라고 말한 자리에서 보이지도 않던 신고까지 사라집니다.
+    // 삭제는 되돌릴 수 없어 그 차이가 그대로 손실이 됩니다.
     const target = '/reports/' + encodeURIComponent(user.userId);
-    actions.appendChild(cleanup('숨김', target + '/hidden', 'PATCH', load, false));
-    actions.appendChild(cleanup('삭제', target, 'DELETE', load, true));
+    const scope = '?status=' + encodeURIComponent(el('status').value);
+    actions.appendChild(cleanup('숨김', target + '/hidden' + scope, 'PATCH', load, false));
+    actions.appendChild(cleanup('삭제', target + scope, 'DELETE', load, true));
 
     row.append(who, counts, time, actions);
     return row;
@@ -406,8 +416,9 @@
     if (danger) button.className = 'danger';
 
     button.addEventListener('click', async (event) => {
-      // 신고 상세의 버튼은 펼침 줄 안에 있습니다. 막지 않으면 바깥의 클릭까지
-      // 함께 돌아 목록이 접혔다 펴집니다.
+      // 지금은 줄이나 펼침 상자에 클릭 핸들러가 없어 이것이 없어도 동작이 같습니다.
+      // 줄 전체를 눌러 펼치도록 바꿀 때 이 버튼이 그것까지 건드리지 않게 미리 막아
+      // 둡니다. 그때 이 한 줄이 없으면 치우려던 클릭이 펼치기도 함께 실행합니다.
       event.stopPropagation();
       button.disabled = true;
 
@@ -460,7 +471,7 @@
       // 건별로 치웁니다. 사람 단위로는 과한 경우 - 다섯 건 중 한 건만 스팸일 때 -
       // 를 위한 자리입니다. 치운 뒤에는 펼침을 다시 그려야 그 줄이 사라집니다.
       const entry = '/reports/entries/' + report.id;
-      const redraw = () => reopenDetail(row, user, button);
+      const redraw = () => reopenDetail(user);
       const actions = document.createElement('span');
       actions.className = 'actions';
       actions.appendChild(cleanup('숨김', entry + '/hidden', 'PATCH', redraw, false));
@@ -477,18 +488,24 @@
   /**
    * 펼쳐진 상세를 다시 그립니다.
    *
-   * 접었다 펴는 것으로 대신합니다. 줄 하나만 지우면 바깥 목록의 건수가 그대로 남아
-   * "3건"이라고 적힌 줄 아래에 두 건만 보이게 됩니다. 둘 다 다시 불러야 맞습니다.
+   * 목록부터 다시 불러야 합니다. 줄 하나만 지우면 바깥 목록의 건수가 그대로 남아
+   * "3건"이라고 적힌 줄 아래에 두 건만 보이게 됩니다.
+   *
+   * 그러면 이 row 는 버려지므로, 새로 그려진 목록에서 같은 사람을 찾아 다시 펼칩니다.
+   * 펼친 채로 두는 이유는 건별로 치우는 사람은 대개 연달아 누르기 때문입니다. 매번
+   * 접히면 다섯 건 중 셋을 치우는 데 펼치기를 세 번 더 해야 합니다.
    */
-  async function reopenDetail(row, user, button) {
-    const open = row.nextElementSibling;
-    if (open && open.classList.contains('detail')) {
-      open.remove();
+  async function reopenDetail(user) {
+    await load();
+
+    // 그 사람의 마지막 한 건을 치웠으면 줄 자체가 사라집니다. 펼칠 대상이 없는 것이
+    // 정상이고, 그때는 목록만 새로 그려진 채로 둡니다.
+    const row = el('rows').querySelector('[data-user-id="' + CSS.escape(user.userId) + '"]');
+    if (!row) {
+      return;
     }
 
-    // 바깥 목록이 먼저입니다. 건수가 0 이 되면 그 사람 줄 자체가 사라지므로 펼칠
-    // 대상이 없어집니다.
-    await load();
+    await toggleDetail(row, user, row.querySelector('.detail-toggle'));
   }
 
   async function load() {

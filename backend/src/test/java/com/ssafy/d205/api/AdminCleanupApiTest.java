@@ -134,6 +134,75 @@ class AdminCleanupApiTest extends IntegrationTest {
     }
 
     @Test
+    @DisplayName("status 를 주면 그 상태만 치운다 — 화면이 보여준 만큼만")
+    void hidingIsScopedToTheStatusTheScreenShowed() throws Exception {
+        // 이 테스트가 고정하는 것: 목록은 status 로 걸러 보여주므로 치우는 범위도 같아야
+        // 합니다. 범위가 넓으면 운영자가 ACTIONED 화면에서 "1건"을 보고 누른 한 번에,
+        // 한 번도 보지 못한 PENDING 신고까지 사라집니다.
+        String target = createUser();
+        report(createUser(), target, "ABUSE", null);
+
+        Admin admin = login();
+        review(admin, target, "ACTIONED").andExpect(status().isOk());
+
+        // 마무리한 뒤에 새 신고 두 건이 들어옵니다. 아직 아무도 보지 않았습니다.
+        report(createUser(), target, "SPAM", null);
+        report(createUser(), target, "CHEATING", null);
+
+        // 운영자가 보고 있는 화면은 ACTIONED 이고 거기 보이는 건수는 1 입니다.
+        assertThat(rowFor(admin, target, "ACTIONED").get("reportCount").asInt()).isEqualTo(1);
+
+        hide(admin, REPORTS + "/" + target + "/hidden?status=ACTIONED")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.affected").value(1));
+
+        // 보던 것은 사라지고, 보지 못했던 두 건은 그대로 있어야 합니다.
+        assertThat(rowFor(admin, target, "ACTIONED")).isNull();
+        assertThat(rowFor(admin, target, "PENDING").get("reportCount").asInt()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("status 를 주면 그 상태만 지운다 — 보지 못한 신고는 남는다")
+    void purgingIsScopedToTheStatusTheScreenShowed() throws Exception {
+        // 위와 같은 상황이지만 이쪽은 되돌릴 수 없습니다. 범위를 넓게 잡은 실수가
+        // 그대로 손실이 되므로 따로 고정합니다.
+        String target = createUser();
+        report(createUser(), target, "ABUSE", null);
+
+        Admin admin = login();
+        review(admin, target, "ACTIONED").andExpect(status().isOk());
+
+        report(createUser(), target, "SPAM", null);
+        report(createUser(), target, "CHEATING", null);
+
+        purge(admin, REPORTS + "/" + target + "?status=ACTIONED")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.affected").value(1));
+
+        // 지운 것은 한 건뿐이고 보지 못한 두 건은 DB 에 남아 있어야 합니다.
+        assertThat(reportRowsAbout(target)).isEqualTo(2);
+        assertThat(rowFor(admin, target, "PENDING").get("reportCount").asInt()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("status 를 빼면 상태를 가리지 않는다")
+    void omittingStatusTouchesEveryStatus() throws Exception {
+        // API 를 직접 부르는 쪽을 위한 동작입니다. 화면은 늘 status 를 채웁니다.
+        String target = createUser();
+        report(createUser(), target, "ABUSE", null);
+
+        Admin admin = login();
+        review(admin, target, "ACTIONED").andExpect(status().isOk());
+        report(createUser(), target, "SPAM", null);
+
+        purge(admin, REPORTS + "/" + target)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.affected").value(2));
+
+        assertThat(reportRowsAbout(target)).isZero();
+    }
+
+    @Test
     @DisplayName("숨겨도 행과 검토 상태는 그대로 남는다")
     void hidingKeepsTheRowAndItsVerdict() throws Exception {
         String target = createUser();
@@ -329,9 +398,14 @@ class AdminCleanupApiTest extends IntegrationTest {
                 .content("{\"status\":\"" + status + "\"}"));
     }
 
-    /** 목록에서 그 사람의 줄. 없으면 null 입니다. */
+    /** 미검토 목록에서 그 사람의 줄. 없으면 null 입니다. */
     private JsonNode rowFor(Admin admin, String userId) throws Exception {
-        String body = mvc.perform(get(REPORTS).param("status", "PENDING").session(admin.session()))
+        return rowFor(admin, userId, "PENDING");
+    }
+
+    /** 그 상태의 목록에서 그 사람의 줄. 없으면 null 입니다. */
+    private JsonNode rowFor(Admin admin, String userId, String status) throws Exception {
+        String body = mvc.perform(get(REPORTS).param("status", status).session(admin.session()))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
