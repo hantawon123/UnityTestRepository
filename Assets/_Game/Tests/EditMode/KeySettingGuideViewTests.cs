@@ -235,7 +235,16 @@ namespace Game.Architecture.Tests
             Assert.That(labels[0], Is.EqualTo("좌클릭"));
             Assert.That(labels[1], Is.EqualTo("X"));
             Assert.That(labels[5], Is.EqualTo("SPACE"));
-            Assert.That(labels[6], Is.EqualTo(KeySettingGuideView.ToggleKeyLabel));
+            Assert.That(labels[6], Is.EqualTo("L"));
+        }
+
+        [Test]
+        public void LabelsFor_UsesReboundKeyGuideToggle()
+        {
+            var settings = ControlCatalog.Defaults.With(ControlAction.ToggleKeyGuide, "k");
+            var labels = KeySettingGuideView.LabelsFor(KeySettingGuideView.Mode.Default, settings);
+
+            Assert.That(labels[6], Is.EqualTo("K"));
         }
 
         [Test]

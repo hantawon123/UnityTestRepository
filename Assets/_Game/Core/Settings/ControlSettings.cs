@@ -26,7 +26,8 @@ namespace Game.Core.Settings
         RotateLeft,
         RotateRight,
         RaiseObject,
-        LowerObject
+        LowerObject,
+        ToggleKeyGuide
     }
 
     /// <summary>The 컨트롤 tab's sliders, in the order they are drawn.</summary>
@@ -306,7 +307,8 @@ namespace Game.Core.Settings
             (ControlAction.RotateLeft, "q"),
             (ControlAction.RotateRight, "e"),
             (ControlAction.RaiseObject, ScrollUp),
-            (ControlAction.LowerObject, ScrollDown)
+            (ControlAction.LowerObject, ScrollDown),
+            (ControlAction.ToggleKeyGuide, "l")
         };
 
         /// <summary>

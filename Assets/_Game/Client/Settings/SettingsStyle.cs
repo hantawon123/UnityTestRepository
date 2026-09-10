@@ -488,6 +488,8 @@ namespace Game.Client.Settings
                         return "앉기";
                     case Core.Settings.ControlAction.Prone:
                         return "엎드리기";
+                    case Core.Settings.ControlAction.ToggleKeyGuide:
+                        return "키 가이드 on/off";
                     default:
                         return action.ToString();
                 }

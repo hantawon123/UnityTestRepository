@@ -220,7 +220,7 @@ namespace Game.Client
                 labels[index] = LabelForBinding(guideMode, bindings[index], settings);
             }
 
-            labels[labels.Length - 1] = ToggleKeyLabel;
+            labels[labels.Length - 1] = ControlCatalog.KeyLabel(settings.Get(ControlAction.ToggleKeyGuide));
             return labels;
         }
 
@@ -468,8 +468,37 @@ namespace Game.Client
 
         private static bool WasTogglePressed()
         {
-            var keyboard = Keyboard.current;
-            return keyboard != null && keyboard.lKey.wasPressedThisFrame;
+            var code = sharedSettings != null
+                ? sharedSettings.Current.Get(ControlAction.ToggleKeyGuide)
+                : "l";
+            return WasBoundKeyPressed(code);
+        }
+
+        private static bool WasBoundKeyPressed(string code)
+        {
+            if (string.IsNullOrEmpty(code))
+            {
+                return false;
+            }
+
+            switch (code)
+            {
+                case ControlCatalog.MouseLeft:
+                    return Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
+                case ControlCatalog.MouseRight:
+                    return Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame;
+                case ControlCatalog.MouseMiddle:
+                    return Mouse.current != null && Mouse.current.middleButton.wasPressedThisFrame;
+                default:
+                    var keyboard = Keyboard.current;
+                    if (keyboard == null)
+                    {
+                        return false;
+                    }
+
+                    var control = keyboard.TryGetChildControl<UnityEngine.InputSystem.Controls.ButtonControl>(code);
+                    return control != null && control.wasPressedThisFrame;
+            }
         }
 
         private static bool IsInputBlocked()
