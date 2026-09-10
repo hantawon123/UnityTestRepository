@@ -65,7 +65,7 @@ namespace Game.Client.Lobby
             public const int Apply = 32;
             public const int ApplyWarning = 20;
             public const int Revert = 28;
-            public const int GameStart = 55;
+            public const int GameStart = 32;
         }
 
         public static class Overlay
@@ -73,7 +73,10 @@ namespace Game.Client.Lobby
             public const int SortingOrder = 90;
             public static readonly Color Scrim = new Color(0f, 0f, 0f, 200f / 255f);
             public static readonly Vector2 GameStartPosition = new Vector2(-120f, 40f);
-            public static readonly Vector2 GameStartSize = new Vector2(400f, 80f);
+            public static readonly Vector2 GameStartSize = new Vector2(275f, 60f);
+            public const int GameStartRadius = 30;
+            public const float GameStartHoverScale = 1.06f;
+            public const float GameStartHoverSeconds = 0.08f;
         }
 
         public static class Layout

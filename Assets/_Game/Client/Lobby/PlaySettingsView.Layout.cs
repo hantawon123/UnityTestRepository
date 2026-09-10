@@ -1008,6 +1008,10 @@ namespace Game.Client.Lobby
                 if (labelTransform != null)
                 {
                     applyLabel = labelTransform.GetComponent<Text>();
+                    if (applyLabel != null)
+                    {
+                        applyLabel.font = MediumFont();
+                    }
                 }
             }
 

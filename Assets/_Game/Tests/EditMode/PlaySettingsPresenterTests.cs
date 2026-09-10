@@ -1,5 +1,7 @@
 using System;
+using Game.Client.Home;
 using Game.Client.Lobby;
+using Game.Client.Settings;
 using Game.Core.Lobby;
 using NUnit.Framework;
 using R3;
@@ -412,6 +414,45 @@ namespace Game.Tests.EditMode
                     .Invoke(view, null);
                 Assert.That(started, Is.Zero);
                 Assert.That(warning.gameObject.activeSelf, Is.True);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void RealView_GameStartMatchesLeaveGamePlate()
+        {
+            var root = new GameObject("Game start chrome test");
+            var panel = new GameObject("PlaySettingsPanel", typeof(RectTransform));
+            panel.transform.SetParent(root.transform, false);
+            root.SetActive(false);
+            try
+            {
+                var view = root.AddComponent<PlaySettingsView>();
+                var serialized = new SerializedObject(view);
+                serialized.FindProperty("panel").objectReferenceValue = panel;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                root.SetActive(true);
+                typeof(PlaySettingsView).GetMethod("OnEnable",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, null);
+                view.SetVisible(true);
+                Transform plate = null;
+                foreach (var transform in root.GetComponentsInChildren<Transform>(true))
+                {
+                    if (transform.name == "GameStartButton")
+                    {
+                        plate = transform;
+                        break;
+                    }
+                }
+
+                Assert.That(plate, Is.Not.Null);
+                var rect = plate.GetComponent<RectTransform>();
+                Assert.That(rect.sizeDelta, Is.EqualTo(PlaySettingsStyle.Overlay.GameStartSize));
+                Assert.That(plate.GetComponent<UiLinearGradient>(), Is.Not.Null);
+                Assert.That(plate.GetComponent<HomeLabelPop>(), Is.Not.Null);
+                var label = plate.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
+                Assert.That(label.text, Is.EqualTo("게임 시작"));
             }
             finally { UnityEngine.Object.DestroyImmediate(root); }
         }

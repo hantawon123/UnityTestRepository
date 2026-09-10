@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Game.Client.Home;
 using Game.Client.Players;
 using Game.Client.Rooms;
+using Game.Client.Settings;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
 using TMPro;
@@ -1033,9 +1034,9 @@ namespace Game.Client.Lobby
                 closeButton.transform.SetAsLastSibling();
             }
 
-            if (gameStartLabel != null)
+            if (gameStartButton != null)
             {
-                gameStartLabel.transform.SetAsLastSibling();
+                gameStartButton.transform.SetAsLastSibling();
             }
         }
 
@@ -1125,94 +1126,166 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            if (gameStartLabel == null)
-            {
-                var existingStartLabel = overlay.Find("GameStartLabel") ?? hudRoot?.Find("GameStartLabel");
-                if (existingStartLabel != null)
-                {
-                    gameStartLabel = existingStartLabel.GetComponent<TextMeshProUGUI>();
-                }
+            RemoveLegacyGameStartLabel(overlay, hudRoot);
 
-                if (gameStartLabel == null)
+            if (gameStartButton == null)
+            {
+                var existing = overlay.Find("GameStartButton") ?? hudRoot?.Find("GameStartButton");
+                if (existing != null)
                 {
-                    CreateGameStartLabel(overlay);
+                    gameStartButton = existing.GetComponent<Button>();
+                    gameStartLabel = existing.GetComponentInChildren<TextMeshProUGUI>(true);
                 }
             }
 
-            if (gameStartLabel != null)
+            if (gameStartButton == null)
             {
-                gameStartLabel.transform.SetParent(overlay, false);
+                CreateGameStartButton(overlay);
+            }
+            else
+            {
+                gameStartButton.transform.SetParent(overlay, false);
+                StyleGameStartButton((RectTransform)gameStartButton.transform);
             }
 
-            EnsureGameStartButton();
+            Bind(gameStartButton, RequestStart);
         }
 
-        private void CreateGameStartLabel(RectTransform overlay)
+        private static void RemoveLegacyGameStartLabel(RectTransform overlay, RectTransform hudRoot)
         {
-            var labelGo = new GameObject("GameStartLabel", typeof(RectTransform));
-            var rect = labelGo.GetComponent<RectTransform>();
+            RemoveNamedChild(overlay, "GameStartLabel");
+            if (hudRoot != null && hudRoot != overlay)
+            {
+                RemoveNamedChild(hudRoot, "GameStartLabel");
+            }
+        }
+
+        private static void RemoveNamedChild(Transform root, string name)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            var child = root.Find(name);
+            if (child == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                UnityEngine.Object.Destroy(child.gameObject);
+            }
+            else
+            {
+                UnityEngine.Object.DestroyImmediate(child.gameObject);
+            }
+        }
+
+        private void CreateGameStartButton(RectTransform overlay)
+        {
+            var plate = new GameObject("GameStartButton", typeof(RectTransform), typeof(Image));
+            var rect = plate.GetComponent<RectTransform>();
             rect.SetParent(overlay, false);
+
+            var fill = plate.GetComponent<Image>();
+            fill.color = Color.white;
+            fill.raycastTarget = true;
+            plate.AddComponent<UiLinearGradient>();
+
+            var labelGo = new GameObject("Label", typeof(RectTransform));
+            var labelRect = labelGo.GetComponent<RectTransform>();
+            labelRect.SetParent(rect, false);
+            StretchRect(labelRect);
+            gameStartLabel = labelGo.AddComponent<TextMeshProUGUI>();
+            gameStartLabel.raycastTarget = false;
+
+            gameStartButton = plate.AddComponent<Button>();
+            gameStartButton.targetGraphic = fill;
+            gameStartButton.transition = Selectable.Transition.None;
+            plate.AddComponent<HomeLabelPop>();
+
+            StyleGameStartButton(rect);
+            plate.SetActive(false);
+        }
+
+        private void StyleGameStartButton(RectTransform rect)
+        {
             rect.anchorMin = new Vector2(1f, 0f);
             rect.anchorMax = new Vector2(1f, 0f);
             rect.pivot = new Vector2(1f, 0f);
             rect.anchoredPosition = PlaySettingsStyle.Overlay.GameStartPosition;
             rect.sizeDelta = PlaySettingsStyle.Overlay.GameStartSize;
 
-            gameStartLabel = labelGo.AddComponent<TextMeshProUGUI>();
-            var font = HomeUiFonts.ApplyExtraBold();
-            if (font != null)
+            var fill = rect.GetComponent<Image>();
+            if (fill != null)
             {
-                gameStartLabel.font = font;
-                if (font.material != null)
-                {
-                    gameStartLabel.fontSharedMaterial = font.material;
-                }
+                fill.sprite = HomeUiFonts.Rounded(PlaySettingsStyle.Overlay.GameStartRadius);
+                fill.type = Image.Type.Sliced;
+                fill.color = Color.white;
             }
 
-            gameStartLabel.fontSize = PlaySettingsStyle.FontSize.GameStart;
-            gameStartLabel.text = "게임시작";
-            gameStartLabel.alignment = TextAlignmentOptions.BottomRight;
-            gameStartLabel.color = Color.white;
-            gameStartLabel.raycastTarget = false;
-            gameStartLabel.textWrappingMode = TextWrappingModes.NoWrap;
-            gameStartLabel.overflowMode = TextOverflowModes.Overflow;
-            labelGo.SetActive(false);
-        }
+            var gradient = rect.GetComponent<UiLinearGradient>();
+            if (gradient != null)
+            {
+                gradient.Bind(
+                    SettingsStyle.Palette.LeaveGameStart,
+                    SettingsStyle.Palette.LeaveGameEnd,
+                    alongVertical: false);
+            }
 
-        private void EnsureGameStartButton()
-        {
             if (gameStartLabel == null)
             {
-                return;
+                gameStartLabel = rect.GetComponentInChildren<TextMeshProUGUI>(true);
             }
 
-            gameStartLabel.raycastTarget = true;
-            gameStartButton = gameStartLabel.GetComponent<Button>();
-            if (gameStartButton == null)
+            if (gameStartLabel != null)
             {
-                gameStartButton = gameStartLabel.gameObject.AddComponent<Button>();
+                var font = HomeUiFonts.Apply();
+                if (font != null)
+                {
+                    gameStartLabel.font = font;
+                    if (font.material != null)
+                    {
+                        gameStartLabel.fontSharedMaterial = font.material;
+                    }
+                }
+
+                gameStartLabel.fontSize = PlaySettingsStyle.FontSize.GameStart;
+                gameStartLabel.text = "게임 시작";
+                gameStartLabel.alignment = TextAlignmentOptions.Center;
+                gameStartLabel.color = SettingsStyle.Palette.ApplyOnLabel;
+                gameStartLabel.textWrappingMode = TextWrappingModes.NoWrap;
+                gameStartLabel.overflowMode = TextOverflowModes.Overflow;
             }
 
-            if (gameStartButton == null)
+            if (gameStartButton != null)
             {
-                return;
+                gameStartButton.targetGraphic = fill;
+                gameStartButton.transition = Selectable.Transition.None;
             }
 
-            gameStartButton.targetGraphic = gameStartLabel;
-            gameStartButton.transition = Selectable.Transition.None;
+            var pop = rect.GetComponent<HomeLabelPop>() ?? rect.gameObject.AddComponent<HomeLabelPop>();
+            pop.Bind(
+                rect,
+                PlaySettingsStyle.Overlay.GameStartHoverScale,
+                PlaySettingsStyle.Overlay.GameStartHoverSeconds);
         }
 
         private void SetGameStartLabelVisible(bool visible)
         {
-            if (gameStartLabel == null)
+            var root = gameStartButton != null ? gameStartButton.gameObject
+                : gameStartLabel != null ? gameStartLabel.gameObject : null;
+            if (root == null)
             {
                 return;
             }
 
-            gameStartLabel.gameObject.SetActive(visible);
+            root.SetActive(visible);
             if (visible)
             {
-                gameStartLabel.transform.SetAsLastSibling();
+                root.transform.SetAsLastSibling();
             }
         }
 
