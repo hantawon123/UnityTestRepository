@@ -337,6 +337,9 @@ namespace Game.Architecture.Tests
             var session = NetworkRunnerService.ConfigureSession(source);
             Assert.That(session.HostMigration.EnableAutoUpdate, Is.False);
             Assert.That(session.Heap.PageShift, Is.EqualTo(pageShift));
+#if UNITY_WEBGL
+            Assert.That(session.AllowClientServerModesInWebGL, Is.True);
+#endif
         }
 
         private sealed class DisconnectApplicationSpy : Game.Client.Home.IHomeApplicationHost
