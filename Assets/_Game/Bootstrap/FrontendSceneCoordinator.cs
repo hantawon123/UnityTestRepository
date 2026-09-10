@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Game.Client.Common;
 using Game.Core.Flow;
+using Game.Network.Session;
 using Game.Client.Home;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -42,13 +43,18 @@ namespace Game.Bootstrap
         private readonly EventSystem sharedEventSystem;
         private readonly ILoadingOverlay loading;
         private readonly AppFlowSystem flow;
+        private readonly NetworkRunnerService network;
 
         public FrontendSceneCoordinator(
-            EventSystem sharedEventSystem, ILoadingOverlay loading = null, AppFlowSystem flow = null)
+            EventSystem sharedEventSystem,
+            ILoadingOverlay loading = null,
+            AppFlowSystem flow = null,
+            NetworkRunnerService network = null)
         {
             this.sharedEventSystem = sharedEventSystem;
             this.loading = loading;
             this.flow = flow;
+            this.network = network;
         }
 
         public void Start()
@@ -203,15 +209,28 @@ namespace Game.Bootstrap
         /// </remarks>
         private void RestoreFrontendIfNoGameplayRemains()
         {
+            // While a room session stands, Fusion owns the screen: it swaps the
+            // lobby in with a Single load that unloads the preloaded copy on the
+            // way, and stepping in between would put Home back over the lobby
+            // and make Home the active scene under Fusion's feet. The case this
+            // method exists for — a discarded preload — has no session.
+            if (network != null && (network.HasRoomSession || network.IsRoomExitPending))
+            {
+                return;
+            }
+
             for (var index = 0; index < SceneManager.sceneCount; index++)
             {
                 var scene = SceneManager.GetSceneAt(index);
-                if (!scene.isLoaded || IsFrontend(scene) || LoadingScene.IsLoading(scene))
+
+                // A scene still loading is not isLoaded yet but is on its way,
+                // so it counts: the screen is about to be somebody else's.
+                if (!scene.IsValid() || IsFrontend(scene) || LoadingScene.IsLoading(scene))
                 {
                     continue;
                 }
 
-                // A gameplay scene is still up; it owns the screen.
+                // A gameplay scene is up or arriving; it owns the screen.
                 return;
             }
 
