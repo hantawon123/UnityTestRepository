@@ -118,3 +118,12 @@ Unity 테스트 로그와 XML은 작업용 문서 저장소의 `.build/lobby-pro
 - 초기 테스트의 렌더 단계 KCC 입력은 다음 fixed update에 사라져 이동 검증 실패. 실제 NetworkEvents.OnInput 전달 및 이벤트 초기화로 테스트 구성을 수정한 후 통과. 생산 코드 추가 변경 없음.
 - 기존 EditMode 192/192 통과(qa-carryable-contract.xml). 별도 PC 다중 접속 및 WebGL 빌드 재배포는 미실행.
 - 참고: https://docs.unity3d.com/6000.3/Documentation/ScriptReference/Rigidbody-excludeLayers.html 및 저장소 KCC.Physics.cs의 레이어 기반 질의/ComputePenetration 경로 확인.
+
+
+## 로비 → 경기 씬 전환 시 제거된 상호작용 대상 참조 정리
+
+- 사용자 재현: 로비에서 PLAYGROUND 이동 중 PlayerInteractor.TryGetPrompt의 aimedTarget.transform 접근에서 MissingReferenceException. 플레이 중 물건 파괴 행동 없이도 씬 정리로 기존 CarryableItem이 제거될 수 있음.
+- 이번 건에 한해 Client 수정 허용. PlayerInteractor의 공통 HUD 갱신 진입점에서 Unity null 검사로 제거된 조준·강조·소지 대상 참조를 실제 null로 정리. 비활성화 시 조준 참조를 해제하고 제거된 강조 대상 접근을 차단. 살아 있는 물건의 상호작용 및 네트워크 판정 변경 없음.
+- 제거 직후 HUD 표시/숨김 및 비활성화 회귀 테스트 3개: 수정 전 3개 실패, 수정 후 통과. 테스트는 실제 오브젝트 제거로 씬 정리 후의 참조 상태를 재현하며 실제 다중 접속 씬 전환 전체를 자동 재현한 것은 아님.
+- 함께 실행한 기존 소지자 복구 테스트는 수정 전에도 EditMode의 Rigidbody 보간 후 Transform 동기화를 즉시 기대해 실패. 실제 권한 적용 위치인 Rigidbody.position을 검사하도록 수정. 생산 물리 코드는 변경하지 않음.
+- 최종 Unity EditMode 소지 상태 복구·상호작용 안내·네트워크 계약 테스트 121/121 통과 (qa-destroyed-target-final.xml). WebGL 빌드/배포 및 MR 생성 없음.

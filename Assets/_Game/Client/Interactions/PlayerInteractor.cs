@@ -457,6 +457,12 @@ namespace Game.Client.Interactions
 
         private void RefreshInteractionCue()
         {
+            // Scene unload can destroy targets before the next aim update.
+            // Unity's null check also detects destroyed native objects; type patterns do not.
+            if (aimedTarget == null) aimedTarget = null;
+            if (highlightedItem == null) highlightedItem = null;
+            if (CarriedItem == null) CarriedItem = null;
+
             var nextHighlight = CanShowWorldPrompt(
                                     HudVisible,
                                     interactionPromptVisible,
@@ -469,7 +475,7 @@ namespace Game.Client.Interactions
 
             if (highlightedItem != nextHighlight)
             {
-                highlightedItem?.SetAimed(false, 1f);
+                if (highlightedItem != null) highlightedItem.SetAimed(false, 1f);
                 nextHighlight?.SetAimed(true, interactionConfig.AimedHighlightIntensity);
                 highlightedItem = nextHighlight;
             }
@@ -525,7 +531,8 @@ namespace Game.Client.Interactions
 
         private void ClearInteractionCue()
         {
-            highlightedItem?.SetAimed(false, 1f);
+            aimedTarget = null;
+            if (highlightedItem != null) highlightedItem.SetAimed(false, 1f);
             highlightedItem = null;
             promptView?.Hide();
         }
