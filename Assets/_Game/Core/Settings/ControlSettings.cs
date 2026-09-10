@@ -11,6 +11,7 @@ namespace Game.Core.Settings
     public enum ControlAction
     {
         MicrophoneTalk,
+        VoiceToggle,
         MoveForward,
         MoveLeft,
         MoveBackward,
@@ -343,6 +344,7 @@ namespace Game.Core.Settings
         private static readonly (ControlAction Action, string Code)[] Bindings =
         {
             (ControlAction.MicrophoneTalk, "g"),
+            (ControlAction.VoiceToggle, "b"),
             (ControlAction.MoveForward, "w"),
             (ControlAction.MoveLeft, "a"),
             (ControlAction.MoveBackward, "s"),

@@ -431,6 +431,8 @@ namespace Game.Client.Settings
                 {
                     case Core.Settings.ControlAction.MicrophoneTalk:
                         return "마이크 송출";
+                    case Core.Settings.ControlAction.VoiceToggle:
+                        return "음성 켜고 끄기";
                     case Core.Settings.ControlAction.MoveForward:
                         return "앞으로 이동";
                     case Core.Settings.ControlAction.MoveLeft:
