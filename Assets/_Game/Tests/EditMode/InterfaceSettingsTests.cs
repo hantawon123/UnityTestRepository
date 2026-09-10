@@ -29,8 +29,8 @@ namespace Game.Architecture.Tests
             Assert.That(counts[InterfaceOption.InGameUi], Is.EqualTo(2));
             Assert.That(counts[InterfaceOption.FpsCounter], Is.EqualTo(2));
             Assert.That(counts[InterfaceOption.PingCounter], Is.EqualTo(2));
-            Assert.That(counts[InterfaceOption.PlayerNames], Is.EqualTo(3));
-            Assert.That(counts[InterfaceOption.OwnNickname], Is.EqualTo(3));
+            Assert.That(counts[InterfaceOption.PlayerNames], Is.EqualTo(2));
+            Assert.That(counts[InterfaceOption.StreamerMode], Is.EqualTo(2));
             Assert.That(counts[InterfaceOption.BeginnerGuide], Is.EqualTo(2));
             Assert.That(counts[InterfaceOption.ChatScope], Is.EqualTo(2));
         }
@@ -46,8 +46,12 @@ namespace Game.Architecture.Tests
             Assert.That(defaults.IsOn(InterfaceOption.FpsCounter), Is.True);
             Assert.That(defaults.IsOn(InterfaceOption.PingCounter), Is.True);
             Assert.That(defaults.IsOn(InterfaceOption.PlayerNames), Is.True);
-            Assert.That(defaults.IsOn(InterfaceOption.OwnNickname), Is.True);
             Assert.That(defaults.IsOn(InterfaceOption.BeginnerGuide), Is.True);
+
+            Assert.That(
+                defaults.IsOn(InterfaceOption.StreamerMode),
+                Is.False,
+                "It changes what everybody else sees, so it is not done to somebody who never asked.");
 
             Assert.That(
                 defaults.Get(InterfaceOption.ChatScope),
@@ -68,26 +72,21 @@ namespace Game.Architecture.Tests
             Assert.That(catalog.Label(InterfaceOption.ChatScope, "on"), Does.Contain("친구만"));
         }
 
+        /// <summary>
+        /// Both name rows are simply on or off now. 친구만 was a third answer
+        /// on each, and the friend list is only the chat row's business.
+        /// </summary>
         [Test]
-        public void NameRows_OfferFriendsOnlyBetweenOnAndOff()
+        public void NameRows_AreOnOrOff_AndStepBetweenTheTwo()
         {
-            var names = InterfaceCatalog.Shipped.For(InterfaceOption.PlayerNames);
+            foreach (var option in new[] { InterfaceOption.PlayerNames, InterfaceOption.StreamerMode })
+            {
+                var names = InterfaceCatalog.Shipped.For(option);
 
-            Assert.That(names.Step("on", 1).Code, Is.EqualTo(InterfaceCatalog.FriendsOnly));
-            Assert.That(names.Step(InterfaceCatalog.FriendsOnly, 1).Code, Is.EqualTo("off"));
-            Assert.That(names.Step("off", 1).Code, Is.EqualTo("on"), "And it wraps.");
-        }
-
-        [Test]
-        public void IsOn_IsFalseForFriendsOnly()
-        {
-            var settings = InterfaceCatalog.Shipped.Defaults
-                .With(InterfaceOption.PlayerNames, InterfaceCatalog.FriendsOnly);
-
-            Assert.That(
-                settings.IsOn(InterfaceOption.PlayerNames),
-                Is.False,
-                "Friends-only is not simply on; the HUD has to ask which it is.");
+                Assert.That(names.All.Count, Is.EqualTo(2), $"{option} offers more than on and off.");
+                Assert.That(names.Step("on", 1).Code, Is.EqualTo("off"));
+                Assert.That(names.Step("off", 1).Code, Is.EqualTo("on"), "And it wraps.");
+            }
         }
 
         [Test]

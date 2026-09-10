@@ -853,9 +853,9 @@ namespace Game.Client.Settings
                 case Core.Settings.InterfaceOption.PingCounter:
                     return "핑 표시";
                 case Core.Settings.InterfaceOption.PlayerNames:
-                    return "플레이어 이름 표시";
-                case Core.Settings.InterfaceOption.OwnNickname:
-                    return "내 닉네임 표시";
+                    return "다른 플레이어 이름 표시";
+                case Core.Settings.InterfaceOption.StreamerMode:
+                    return "스트리머 모드";
                 case Core.Settings.InterfaceOption.BeginnerGuide:
                     return "초심자 가이드 항상 표시";
                 case Core.Settings.InterfaceOption.ChatScope:

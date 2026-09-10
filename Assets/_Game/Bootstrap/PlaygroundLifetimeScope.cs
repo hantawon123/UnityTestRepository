@@ -233,7 +233,7 @@ namespace Game.Bootstrap
                     views[avatar] = view;
                 }
 
-                view.SetNickname(presentation.Name(avatar.PlayerId, avatar.Nickname.ToString()));
+                view.SetNickname(presentation.NameplateName(avatar.PlayerId, avatar.Nickname.ToString()));
             }
         }
 
