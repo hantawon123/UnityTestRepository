@@ -90,6 +90,46 @@ namespace Game.Editor
             new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Stun_End.fbx", "Stun_End", 36, false),
             new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Jump.fbx", "Carry_Jump", 32, false),
             new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_Land.fbx", "Carry_Land", 20, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands.fbx", "Carry_TwoHands", 60, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_PutUp_TwoHands.fbx", "PutUp_TwoHands", 20, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_PutDown_TwoHands.fbx", "PutDown_TwoHands", 20, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Throw_TwoHands.fbx", "Throw_TwoHands", 24, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Throw_TwoHands_Walk.fbx", "Throw_TwoHands_Walk", 24, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Throw_TwoHands_Run.fbx", "Throw_TwoHands_Run", 24, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Throw_TwoHands_Crouch.fbx", "Throw_TwoHands_Crouch", 24, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Throw_TwoHands_Crouch_Walk.fbx", "Throw_TwoHands_Crouch_Walk", 24, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Throw_TwoHands_Prone.fbx", "Throw_TwoHands_Prone", 24, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Throw_TwoHands_Crawl.fbx", "Throw_TwoHands_Crawl", 24, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Crouch_Start.fbx", "Carry_TwoHands_Crouch_Start", 24, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Crouch_End.fbx", "Carry_TwoHands_Crouch_End", 24, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Prone_Start.fbx", "Carry_TwoHands_Prone_Start", 24, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Prone_End.fbx", "Carry_TwoHands_Prone_End", 24, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Crouch_To_Prone.fbx", "Carry_TwoHands_Crouch_To_Prone", 36, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Prone_To_Crouch.fbx", "Carry_TwoHands_Prone_To_Crouch", 36, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_PutUp_TwoHands_Crouch.fbx", "PutUp_TwoHands_Crouch", 20, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_PutDown_TwoHands_Crouch.fbx", "PutDown_TwoHands_Crouch", 20, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_PutUp_TwoHands_Prone.fbx", "PutUp_TwoHands_Prone", 20, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_PutDown_TwoHands_Prone.fbx", "PutDown_TwoHands_Prone", 20, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Walk_Forward.fbx", "Carry_TwoHands_Walk_Forward", 24, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Walk_Back.fbx", "Carry_TwoHands_Walk_Back", 24, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Walk_Left.fbx", "Carry_TwoHands_Walk_Left", 24, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Walk_Right.fbx", "Carry_TwoHands_Walk_Right", 24, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Run_Forward.fbx", "Carry_TwoHands_Run_Forward", 19, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Run_Back.fbx", "Carry_TwoHands_Run_Back", 19, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Run_Left.fbx", "Carry_TwoHands_Run_Left", 19, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Run_Right.fbx", "Carry_TwoHands_Run_Right", 19, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Crouch_Idle.fbx", "Carry_TwoHands_Crouch_Idle", 60, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Crouch_Walk_Forward.fbx", "Carry_TwoHands_Crouch_Walk_Forward", 36, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Crouch_Walk_Back.fbx", "Carry_TwoHands_Crouch_Walk_Back", 36, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Crouch_Walk_Left.fbx", "Carry_TwoHands_Crouch_Walk_Left", 36, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Crouch_Walk_Right.fbx", "Carry_TwoHands_Crouch_Walk_Right", 36, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Prone_Idle.fbx", "Carry_TwoHands_Prone_Idle", 60, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Crawl_Forward.fbx", "Carry_TwoHands_Crawl_Forward", 36, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Crawl_Back.fbx", "Carry_TwoHands_Crawl_Back", 36, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Crawl_Left.fbx", "Carry_TwoHands_Crawl_Left", 36, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Crawl_Right.fbx", "Carry_TwoHands_Crawl_Right", 36, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Jump.fbx", "Carry_TwoHands_Jump", 32, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Carry_TwoHands_Land.fbx", "Carry_TwoHands_Land", 20, false),
         };
 
         private static bool appliedThisDomain;
@@ -221,11 +261,17 @@ namespace Game.Editor
                    states.Any(state => state.name == "Hit_Walk") &&
                    states.Any(state => state.name == "Stunned") &&
                    states.Any(state => state.name == "Throw") &&
+                   states.Any(state => state.name == "Throw_TwoHands") &&
+                   states.Any(state => state.name == "Throw_TwoHands_Walk") &&
+                   states.Any(state => state.name == "Throw_TwoHands_Prone") &&
                    states.Any(state => state.name == "Walk_Left") &&
                    states.Any(state => state.name == "Jump") &&
-                   states.Any(state => state.name == "Carry_Idle") &&
-                   states.Any(state => state.name == "Carry_Jump") &&
-                   states.Any(state => state.name == "Carry_Land") &&
+                   states.Any(state => state.name == "Carry_TwoHands") &&
+                   states.Any(state => state.name == "PutUp_TwoHands") &&
+                   states.Any(state => state.name == "PutDown_TwoHands") &&
+                   states.Any(state => state.name == "Carry_TwoHands_Jump") &&
+                   states.Any(state => state.name == "Carry_TwoHands_Land") &&
+                   states.Any(state => state.name == "Carry_TwoHands_Crouch_Start") &&
                    states.Any(state => state.name == "Crouch_Idle") &&
                    states.Any(state => state.name == "Stun_Idle") &&
                    states.Any(state => state.name == "Pickup_Crouch") &&

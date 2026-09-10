@@ -92,6 +92,7 @@ namespace Game.Bootstrap
 
             var captureStartedAt = Time.realtimeSinceStartupAsDouble;
             var matchScene = PlaygroundMatchScene.Capture(gameObject.scene);
+            sceneRoots = gameObject.scene.GetRootGameObjects();
             Debug.Log(
                 $"[SceneTiming] Playground scene capture completed, " +
                 $"elapsed={Time.realtimeSinceStartupAsDouble - captureStartedAt:F3}s.");
