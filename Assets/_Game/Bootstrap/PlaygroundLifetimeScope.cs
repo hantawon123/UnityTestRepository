@@ -104,7 +104,7 @@ namespace Game.Bootstrap
             builder.Register<MatchRuntimeFactory>(Lifetime.Scoped);
             builder.RegisterEntryPoint<NetworkMatchRuntimeCoordinator>();
             builder.RegisterEntryPoint<NetworkInteractionSceneBridge>()
-                .WithParameter(false).WithParameter(gameObject.scene);
+                .WithParameter(false).WithParameter(gameObject.scene).AsSelf();
             builder.RegisterEntryPoint<NetworkHighlightPlaybackController>().AsSelf();
             builder.RegisterEntryPoint<InGamePlayerNameplatePresenter>();
 
