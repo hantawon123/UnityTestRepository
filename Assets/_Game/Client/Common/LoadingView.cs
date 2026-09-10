@@ -546,17 +546,47 @@ namespace Game.Client.Common
                 return graphicSprite;
             }
 
+            graphicSprite = LoadGraphicSprite();
+            return graphicSprite;
+        }
+
+        private static Sprite LoadGraphicSprite()
+        {
 #if UNITY_EDITOR
-            var fromProject = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(GraphicAssetPath);
-            if (fromProject != null)
+            var sprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(GraphicAssetPath);
+            if (sprite != null)
             {
-                graphicSprite = fromProject;
-                return graphicSprite;
+                return sprite;
+            }
+
+            var texture = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(GraphicAssetPath);
+            if (texture != null)
+            {
+                return Sprite.Create(
+                    texture,
+                    new Rect(0f, 0f, texture.width, texture.height),
+                    new Vector2(0.5f, 0.5f),
+                    100f);
             }
 #endif
 
-            graphicSprite = Resources.Load<Sprite>(GraphicResource);
-            return graphicSprite;
+            var fromResources = Resources.Load<Sprite>(GraphicResource);
+            if (fromResources != null)
+            {
+                return fromResources;
+            }
+
+            var resourceTexture = Resources.Load<Texture2D>(GraphicResource);
+            if (resourceTexture == null)
+            {
+                return null;
+            }
+
+            return Sprite.Create(
+                resourceTexture,
+                new Rect(0f, 0f, resourceTexture.width, resourceTexture.height),
+                new Vector2(0.5f, 0.5f),
+                100f);
         }
 
         private void EnsureOverlayCanvas()
