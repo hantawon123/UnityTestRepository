@@ -1,6 +1,6 @@
 using Game.Client.Players;
-using Game.Core.Lobby;
 using Game.Core.Players;
+using Game.Core.Settings;
 using Game.SOAP.Config;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -22,8 +22,7 @@ namespace Game.Client.Interactions
     }
 
     /// <summary>
-    /// 플레이어의 상호작용 담당: 카메라 중앙(크로스헤어)으로 조준한 대상을 감지하고
-    /// F키 입력을 대상에 전달한다. 입력 의도만 다루며, 상태 확정은 각 대상이 수행한다.
+    /// 조준한 대상을 감지하고 물건 상호작용 키 입력을 대상에 전달한다.
     /// </summary>
     public sealed class PlayerInteractor : MonoBehaviour, ICarriedItemDropper, ICarryingState
     {
@@ -39,6 +38,7 @@ namespace Game.Client.Interactions
             RefreshInteractionCue();
         }
 
+        private static ControlSettingsSystem sharedSettings;
         private bool interactionPromptVisible = true;
 
         public bool InteractionPromptsAllowed => interactionPromptVisible;
@@ -49,6 +49,34 @@ namespace Game.Client.Interactions
         /// </summary>
         public static bool CanShowWorldPrompt(bool hudVisible, bool promptEnabled, bool cursorLocked) =>
             hudVisible && promptEnabled && cursorLocked;
+
+        /// <summary>
+        /// Hands the 컨트롤 tab's applied 물건 상호작용 key to world prompts.
+        /// Pass null to fall back to the shipped key, as tests do.
+        /// </summary>
+        public static void UseSettings(ControlSettingsSystem settings)
+        {
+            if (sharedSettings != null)
+            {
+                sharedSettings.Changed -= OnSharedSettingsChanged;
+            }
+
+            sharedSettings = settings;
+            if (sharedSettings != null)
+            {
+                sharedSettings.Changed += OnSharedSettingsChanged;
+            }
+
+            RefreshBoundPrompts();
+        }
+
+        public static string InteractKeyLabel()
+        {
+            var code = sharedSettings != null
+                ? sharedSettings.Current.Get(ControlAction.Interact)
+                : ControlCatalog.Defaults.Get(ControlAction.Interact);
+            return ControlCatalog.KeyLabel(code);
+        }
 
         public void SetHudVisible(bool visible)
         {
@@ -502,18 +530,20 @@ namespace Game.Client.Interactions
             promptView?.Hide();
         }
 
-        private static string InteractKeyLabel()
+        private static void OnSharedSettingsChanged(ControlSettings _) => RefreshBoundPrompts();
+
+        private static void RefreshBoundPrompts()
         {
-            for (var index = 0; index < ControlKeyGuide.Bindings.Count; index++)
+            var interactors = UnityEngine.Object.FindObjectsByType<PlayerInteractor>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (var index = 0; index < interactors.Length; index++)
             {
-                var binding = ControlKeyGuide.Bindings[index];
-                if (binding.InputActionPath == "Player/Interact")
+                if (interactors[index] != null)
                 {
-                    return binding.KeyLabel;
+                    interactors[index].RefreshInteractionCue();
                 }
             }
-
-            return "F";
         }
 
         private Component FindAimedTarget()

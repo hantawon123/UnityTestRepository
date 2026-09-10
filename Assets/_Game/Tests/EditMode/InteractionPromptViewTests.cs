@@ -1,13 +1,22 @@
 using Game.Bootstrap;
 using Game.Client.Home;
 using Game.Client.Interactions;
+using Game.Client.Match;
+using Game.Core.Settings;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Architecture.Tests
 {
     public sealed class InteractionPromptViewTests
     {
+        [SetUp]
+        public void UnbindSettings() => PlayerInteractor.UseSettings(null);
+
+        [TearDown]
+        public void TearDownSettings() => PlayerInteractor.UseSettings(null);
+
         [Test]
         public void Carryable_UsesPickupPrompt()
         {
@@ -55,6 +64,11 @@ namespace Game.Architecture.Tests
                 Assert.That(view.KeyLabel.gameObject.activeSelf, Is.True);
                 Assert.That(view.KeyIcon.gameObject.activeSelf, Is.False);
                 Assert.That(view.KeyLabel.text, Is.EqualTo("F"));
+                Assert.That(
+                    view.KeyBox.GetComponent<LayoutElement>().preferredWidth,
+                    Is.EqualTo(HidingActiveHudView.MeasureKeyChipWidth(
+                        view.KeyLabel.text,
+                        view.KeyLabel.preferredWidth)));
                 Assert.That(view.ActionLabel.text, Is.EqualTo("물건 잡기"));
                 Assert.That(view.ActionLabel.color, Is.EqualTo(Color.white));
                 Assert.That(view.ActionLabel.fontSize, Is.EqualTo(InteractionPromptView.LabelFontSize));
@@ -83,6 +97,9 @@ namespace Game.Architecture.Tests
                 Assert.That(view.ActionLabel.text, Is.EqualTo("배치"));
                 Assert.That(view.ActionLabel.fontSize, Is.EqualTo(18f));
                 Assert.That(view.KeyBox.color.a, Is.EqualTo(0.27f));
+                Assert.That(
+                    view.KeyBox.GetComponent<LayoutElement>().preferredWidth,
+                    Is.EqualTo(InteractionPromptView.KeyBoxSize));
 
                 Object.DestroyImmediate(follow);
             }
@@ -116,12 +133,72 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void Prompt_GrowsKeyBoxWidthToFitKeyLabel()
+        {
+            InteractionPromptView view = null;
+            try
+            {
+                view = InteractionPromptView.Create();
+                var follow = new GameObject("Follow");
+                view.Show("F", "물건 잡기", follow.transform);
+
+                var box = view.KeyBox.GetComponent<LayoutElement>();
+                Assert.That(box.preferredHeight, Is.EqualTo(InteractionPromptView.KeyBoxSize));
+                Assert.That(box.preferredWidth, Is.EqualTo(HidingActiveHudView.KeyChipWidth));
+
+                view.Show("SPACE", "물건 잡기", follow.transform);
+                Assert.That(
+                    box.preferredWidth,
+                    Is.EqualTo(HidingActiveHudView.MeasureKeyChipWidth(
+                        view.KeyLabel.text,
+                        view.KeyLabel.preferredWidth)));
+                Assert.That(box.preferredWidth, Is.GreaterThan(HidingActiveHudView.KeyChipWidth));
+                Assert.That(box.preferredHeight, Is.EqualTo(InteractionPromptView.KeyBoxSize));
+
+                Object.DestroyImmediate(follow);
+            }
+            finally
+            {
+                if (view != null)
+                {
+                    Object.DestroyImmediate(view.gameObject);
+                }
+            }
+        }
+
+        [Test]
         public void WorldPrompt_StaysOffWhenTheCursorIsFree()
         {
             Assert.That(PlayerInteractor.CanShowWorldPrompt(true, true, true), Is.True);
             Assert.That(PlayerInteractor.CanShowWorldPrompt(true, true, false), Is.False);
             Assert.That(PlayerInteractor.CanShowWorldPrompt(true, false, true), Is.False);
             Assert.That(PlayerInteractor.CanShowWorldPrompt(false, true, true), Is.False);
+        }
+
+        [Test]
+        public void InteractKeyLabel_UsesShippedKeyWhenSettingsAreUnbound()
+        {
+            Assert.That(PlayerInteractor.InteractKeyLabel(), Is.EqualTo("F"));
+        }
+
+        [Test]
+        public void InteractKeyLabel_FollowsAppliedControlBinding()
+        {
+            var system = new ControlSettingsSystem(new InMemoryControlSettingsStore());
+            PlayerInteractor.UseSettings(system);
+
+            Assert.That(PlayerInteractor.InteractKeyLabel(), Is.EqualTo("F"));
+
+            system.Apply(system.Current.With(ControlAction.Interact, "k"));
+            Assert.That(PlayerInteractor.InteractKeyLabel(), Is.EqualTo("K"));
+
+            system.Apply(system.Current
+                .With(ControlAction.PrimaryAction, ControlCatalog.Unbound)
+                .With(ControlAction.Interact, ControlCatalog.MouseLeft));
+            Assert.That(PlayerInteractor.InteractKeyLabel(), Is.EqualTo("좌클릭"));
+
+            system.Apply(system.Current.With(ControlAction.Interact, ControlCatalog.Unbound));
+            Assert.That(PlayerInteractor.InteractKeyLabel(), Is.EqualTo(ControlCatalog.UnboundLabel));
         }
     }
 }
