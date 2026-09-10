@@ -72,6 +72,14 @@ namespace Game.Tests.EditMode
                 Show(scope, true);
                 Assert.IsTrue(renderer.forceRenderingOff);
                 Assert.IsFalse(collider.enabled);
+                // A later replay cleanup restores an occluding wall, while others
+                // are still watching. The skipped peer must keep its lobby clear.
+                renderer.forceRenderingOff = false;
+                collider.enabled = true;
+                typeof(LobbyLifetimeScope).GetMethod("HideOutgoingGeometry", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(scope, null);
+                Assert.IsTrue(renderer.forceRenderingOff);
+                Assert.IsFalse(collider.enabled);
                 Show(scope, false);
                 Assert.IsFalse(renderer.forceRenderingOff);
                 Assert.IsTrue(collider.enabled);

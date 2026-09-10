@@ -334,6 +334,9 @@ namespace Game.Bootstrap
 
             var visible = stagingNetwork.IsLocalHighlightComplete;
             if (visible != stagingVisible) SetStagingVisible(visible);
+            // Replay camera cleanup can restore occluders after the local skip.
+            // This peer owns lobby visibility until the shared timeline finishes.
+            if (visible) HideOutgoingGeometry();
         }
 
         private void PrepareHighlightStaging(NetworkRunnerService network)
@@ -406,6 +409,16 @@ namespace Game.Bootstrap
                 outgoingColliderStates[index] = outgoingColliders[index].enabled;
         }
 
+        private void HideOutgoingGeometry()
+        {
+            for (var index = 0; index < outgoingRenderers.Length; index++)
+                if (outgoingRenderers[index] != null)
+                    outgoingRenderers[index].forceRenderingOff = true;
+            for (var index = 0; index < outgoingColliders.Length; index++)
+                if (outgoingColliders[index] != null)
+                    outgoingColliders[index].enabled = false;
+        }
+
         private void SetStagingVisible(bool visible)
         {
             stagingVisible = visible;
@@ -429,12 +442,7 @@ namespace Game.Bootstrap
             {
                 // The outgoing scene can stay loaded until every peer finishes.
                 // Hide its geometry and collisions before revealing the lobby.
-                for (var index = 0; index < outgoingRenderers.Length; index++)
-                    if (outgoingRenderers[index] != null)
-                        outgoingRenderers[index].forceRenderingOff = true;
-                for (var index = 0; index < outgoingColliders.Length; index++)
-                    if (outgoingColliders[index] != null)
-                        outgoingColliders[index].enabled = false;
+                HideOutgoingGeometry();
                 SceneManager.SetActiveScene(gameObject.scene);
                 foreach (var cover in FindObjectsByType<HighlightTransitionView>(
                              FindObjectsInactive.Include,
