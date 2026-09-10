@@ -1,3 +1,4 @@
+using System;
 using Game.Client.Home;
 using TMPro;
 using UnityEngine;
@@ -10,6 +11,7 @@ namespace Game.Client.Common
         bool IsPresented { get; }
         void Show();
         void Hide();
+        void HideImmediate();
     }
 
     /// <summary>
@@ -29,6 +31,13 @@ namespace Game.Client.Common
         public const string GraphicResource = "UI/Loading/BG_Loading";
         public const float FallbackAspectRatio = 1920f / 861f;
 
+        public const float BounceHeight = 10f;
+        public const float LetterSeconds = 0.14f;
+        /// <summary>
+        /// Successful hides wait at least this long. A slower scene switch
+        /// keeps the cover up until that work finishes.
+        /// </summary>
+        public const float MinimumVisibleSeconds = 2f;
         public static readonly Vector2 LabelSize = new Vector2(900f, 36f);
 
         [SerializeField]
@@ -45,9 +54,13 @@ namespace Game.Client.Common
         private bool previewOnAwake;
 
         private bool shown;
-        private int shownAtFrame;
+        private float animationElapsed;
+        private float shownAtUnscaled;
+        private bool hideRequested;
+        private Vector3[][] restVertices;
+        private bool hasRestPose;
 
-        public bool IsPresented => shown && isActiveAndEnabled && Time.frameCount > shownAtFrame + 1;
+        public bool IsPresented => shown;
 
         public static LoadingView Create(Transform parent)
         {
@@ -58,7 +71,9 @@ namespace Game.Client.Common
             }
 
             Stretch((RectTransform)rootObject.transform);
-            return rootObject.AddComponent<LoadingView>();
+            var view = rootObject.AddComponent<LoadingView>();
+            view.WarmUp();
+            return view;
         }
 
         public static Vector2 FitGraphicSize(float canvasWidth, float canvasHeight, float aspect)
@@ -86,6 +101,33 @@ namespace Game.Client.Common
             return FallbackAspectRatio;
         }
 
+        public static float LetterBounce(int letterIndex, int letterCount, float elapsed)
+        {
+            if (letterCount <= 0 || letterIndex < 0 || letterIndex >= letterCount)
+            {
+                return 0f;
+            }
+
+            var cycle = letterCount * LetterSeconds;
+            if (cycle <= 0f)
+            {
+                return 0f;
+            }
+
+            var time = elapsed < 0f ? 0f : elapsed % cycle;
+            var current = Mathf.FloorToInt(time / LetterSeconds);
+            if (current != letterIndex)
+            {
+                return 0f;
+            }
+
+            var local = (time - (current * LetterSeconds)) / LetterSeconds;
+            return Mathf.Sin(local * Mathf.PI) * BounceHeight;
+        }
+
+        public static bool HasMetMinimum(float shownAtUnscaled, float nowUnscaled) =>
+            nowUnscaled - shownAtUnscaled >= MinimumVisibleSeconds;
+
         private void OnEnable()
         {
             EnsureLayout();
@@ -101,10 +143,29 @@ namespace Game.Client.Common
             }
         }
 
+        public void WarmUp()
+        {
+            if (!gameObject.activeSelf)
+            {
+                gameObject.SetActive(true);
+            }
+
+            EnsureLayout();
+            TryCaptureRestPose();
+            SetVisualsVisible(false);
+        }
+
         public void Show()
         {
+            if (shown)
+            {
+                hideRequested = false;
+                transform.SetAsLastSibling();
+                SetVisualsVisible(true);
+                return;
+            }
+
             shown = true;
-            shownAtFrame = Time.frameCount;
             if (!gameObject.activeSelf)
             {
                 gameObject.SetActive(true);
@@ -112,12 +173,66 @@ namespace Game.Client.Common
 
             EnsureLayout();
             transform.SetAsLastSibling();
+            animationElapsed = 0f;
+            shownAtUnscaled = Time.unscaledTime;
+            hideRequested = false;
             SetVisualsVisible(true);
         }
 
         public void Hide()
         {
+            if (!shown)
+            {
+                return;
+            }
+
+            hideRequested = true;
+            TryCompleteHide(Time.unscaledTime);
+        }
+
+        public void HideImmediate()
+        {
+            hideRequested = false;
+            if (!shown)
+            {
+                return;
+            }
+
+            Close();
+        }
+
+        private void LateUpdate()
+        {
+            if (hideRequested)
+            {
+                TryCompleteHide(Time.unscaledTime);
+            }
+
+            if (!shown || label == null || !label.gameObject.activeInHierarchy)
+            {
+                return;
+            }
+
+            animationElapsed += Mathf.Min(Time.unscaledDeltaTime, 0.04f);
+            AnimateLetters();
+        }
+
+        private void TryCompleteHide(float nowUnscaled)
+        {
+            if (!hideRequested || !HasMetMinimum(shownAtUnscaled, nowUnscaled))
+            {
+                return;
+            }
+
+            Close();
+        }
+
+        private void Close()
+        {
             shown = false;
+            hideRequested = false;
+            animationElapsed = 0f;
+            hasRestPose = false;
             SetVisualsVisible(false);
         }
 
@@ -285,7 +400,128 @@ namespace Game.Client.Common
             label.color = Color.white;
             label.raycastTarget = false;
             label.maskable = false;
-            label.text = LabelText;
+            if (label.text != LabelText)
+            {
+                label.text = LabelText;
+                hasRestPose = false;
+            }
+        }
+
+        private void AnimateLetters()
+        {
+            if (!hasRestPose && !TryCaptureRestPose())
+            {
+                return;
+            }
+
+            var textInfo = label.textInfo;
+            if (textInfo == null || textInfo.characterCount == 0)
+            {
+                return;
+            }
+
+            if (!RestoreRestPose(textInfo))
+            {
+                hasRestPose = false;
+                return;
+            }
+
+            var visibleCount = 0;
+            for (var index = 0; index < textInfo.characterCount; index++)
+            {
+                if (textInfo.characterInfo[index].isVisible)
+                {
+                    visibleCount++;
+                }
+            }
+
+            var visibleIndex = 0;
+            for (var index = 0; index < textInfo.characterCount; index++)
+            {
+                var character = textInfo.characterInfo[index];
+                if (!character.isVisible)
+                {
+                    continue;
+                }
+
+                var offsetY = LetterBounce(visibleIndex, visibleCount, animationElapsed);
+                visibleIndex++;
+                if (Mathf.Abs(offsetY) < 0.01f)
+                {
+                    continue;
+                }
+
+                var vertices = textInfo.meshInfo[character.materialReferenceIndex].vertices;
+                var vertexIndex = character.vertexIndex;
+                vertices[vertexIndex].y += offsetY;
+                vertices[vertexIndex + 1].y += offsetY;
+                vertices[vertexIndex + 2].y += offsetY;
+                vertices[vertexIndex + 3].y += offsetY;
+            }
+
+            label.UpdateVertexData(TMP_VertexDataUpdateFlags.Vertices);
+        }
+
+        private bool TryCaptureRestPose()
+        {
+            if (label == null)
+            {
+                return false;
+            }
+
+            label.ForceMeshUpdate(ignoreActiveState: true, forceTextReparsing: false);
+            var textInfo = label.textInfo;
+            if (textInfo == null || textInfo.meshInfo == null || textInfo.characterCount == 0)
+            {
+                return false;
+            }
+
+            var meshes = textInfo.meshInfo;
+            if (restVertices == null || restVertices.Length != meshes.Length)
+            {
+                restVertices = new Vector3[meshes.Length][];
+            }
+
+            for (var index = 0; index < meshes.Length; index++)
+            {
+                var source = meshes[index].vertices;
+                if (source == null)
+                {
+                    continue;
+                }
+
+                if (restVertices[index] == null || restVertices[index].Length != source.Length)
+                {
+                    restVertices[index] = new Vector3[source.Length];
+                }
+
+                Array.Copy(source, restVertices[index], source.Length);
+            }
+
+            hasRestPose = true;
+            return true;
+        }
+
+        private bool RestoreRestPose(TMP_TextInfo textInfo)
+        {
+            if (restVertices == null || restVertices.Length != textInfo.meshInfo.Length)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < textInfo.meshInfo.Length; index++)
+            {
+                var vertices = textInfo.meshInfo[index].vertices;
+                var rest = restVertices[index];
+                if (vertices == null || rest == null || vertices.Length != rest.Length)
+                {
+                    return false;
+                }
+
+                Array.Copy(rest, vertices, rest.Length);
+            }
+
+            return true;
         }
 
         private Vector2 ResolveCanvasSize()
@@ -370,16 +606,16 @@ namespace Game.Client.Common
 
         private void SetVisualsVisible(bool visible)
         {
-            var background = transform.Find("Background");
-            if (background != null)
+            var canvas = GetComponent<Canvas>();
+            if (canvas != null)
             {
-                background.gameObject.SetActive(visible);
+                canvas.enabled = visible;
             }
 
-            var content = transform.Find("Content");
-            if (content != null)
+            var raycaster = GetComponent<GraphicRaycaster>();
+            if (raycaster != null)
             {
-                content.gameObject.SetActive(visible);
+                raycaster.enabled = visible;
             }
         }
 

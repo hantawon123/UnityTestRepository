@@ -73,7 +73,49 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void Hide_TurnsTheCoverOff()
+        public void LetterBounce_MovesOneLetterAtATime()
+        {
+            Assert.That(LoadingView.LetterBounce(0, 3, 0f), Is.EqualTo(0f).Within(0.01f));
+            Assert.That(
+                LoadingView.LetterBounce(0, 3, LoadingView.LetterSeconds * 0.5f),
+                Is.EqualTo(LoadingView.BounceHeight).Within(0.01f));
+            Assert.That(LoadingView.LetterBounce(1, 3, LoadingView.LetterSeconds * 0.5f), Is.Zero);
+            Assert.That(
+                LoadingView.LetterBounce(1, 3, LoadingView.LetterSeconds * 1.5f),
+                Is.EqualTo(LoadingView.BounceHeight).Within(0.01f));
+            Assert.That(LoadingView.LetterBounce(0, 3, LoadingView.LetterSeconds * 1.5f), Is.Zero);
+        }
+
+        [Test]
+        public void HasMetMinimum_RequiresTwoSeconds()
+        {
+            Assert.That(LoadingView.HasMetMinimum(10f, 11.99f), Is.False);
+            Assert.That(LoadingView.HasMetMinimum(10f, 12f), Is.True);
+            Assert.That(LoadingView.MinimumVisibleSeconds, Is.EqualTo(2f));
+        }
+
+        [Test]
+        public void Create_WarmsTheCoverWithoutShowingIt()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = LoadingView.Create(canvas.transform);
+
+                Assert.That(view.IsPresented, Is.False);
+                Assert.That(view.GetComponent<Canvas>().enabled, Is.False);
+                Assert.That(view.transform.Find("Background"), Is.Not.Null);
+                Assert.That(view.transform.Find("Content/Label"), Is.Not.Null);
+                Assert.That(view.transform.Find("Content").gameObject.activeSelf, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void Hide_KeepsTheCoverUntilTheMinimumHasPassed()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
             try
@@ -82,8 +124,51 @@ namespace Game.Architecture.Tests
                 view.Show();
                 view.Hide();
 
-                Assert.That(view.transform.Find("Background").gameObject.activeSelf, Is.False);
-                Assert.That(view.transform.Find("Content").gameObject.activeSelf, Is.False);
+                Assert.That(view.IsPresented, Is.True);
+                Assert.That(view.GetComponent<Canvas>().enabled, Is.True);
+                Assert.That(view.transform.Find("Background").gameObject.activeSelf, Is.True);
+                Assert.That(view.transform.Find("Content").gameObject.activeSelf, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void HideImmediate_TurnsTheCoverOff()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = LoadingView.Create(canvas.transform);
+                view.Show();
+                view.HideImmediate();
+
+                Assert.That(view.IsPresented, Is.False);
+                Assert.That(view.GetComponent<Canvas>().enabled, Is.False);
+                Assert.That(view.transform.Find("Background").gameObject.activeSelf, Is.True);
+                Assert.That(view.transform.Find("Content").gameObject.activeSelf, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void OverlayAttach_AppliesAPendingShow()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var overlay = new LoadingOverlay();
+                overlay.Show();
+                var view = LoadingView.Create(canvas.transform);
+                overlay.Attach(view);
+
+                Assert.That(view.IsPresented, Is.True);
+                Assert.That(overlay.IsPresented, Is.True);
             }
             finally
             {
