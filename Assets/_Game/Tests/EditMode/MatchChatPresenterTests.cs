@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Client.Match;
+using Game.Client.Players;
 using Game.Core.Lobby;
 using NUnit.Framework;
 
@@ -91,6 +92,44 @@ namespace Game.Tests.EditMode
                 Assert.That(panel.type, Is.EqualTo(UnityEngine.UI.Image.Type.Sliced));
                 Assert.That(panel.color, Is.EqualTo(MatchChatBubbleView.BubbleColor));
                 Assert.That(panel.color.a, Is.EqualTo(0.27f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(parent);
+                UnityEngine.Object.DestroyImmediate(player);
+            }
+        }
+
+        [Test]
+        public void Bubble_SitsAboveNameplate()
+        {
+            var parent = new UnityEngine.GameObject("ChatRoot");
+            var player = new UnityEngine.GameObject("Player");
+            try
+            {
+                var visual = new UnityEngine.GameObject("Visual");
+                visual.transform.SetParent(player.transform, false);
+                var body = UnityEngine.GameObject.CreatePrimitive(UnityEngine.PrimitiveType.Cube);
+                body.transform.SetParent(visual.transform, false);
+                body.transform.localPosition = new UnityEngine.Vector3(0f, 0.5f, 0f);
+
+                var nameplate = PlayerNameplateView.Attach(player.transform);
+                nameplate.SetNickname("이름");
+                nameplate.RefreshPlacement();
+
+                var bubbles = MatchChatBubbleView.Create(parent.transform);
+                bubbles.BindPlayer("P1", player.transform);
+                bubbles.Show(new LobbyChatMessage("P1", "이름", "안녕"));
+                bubbles.RefreshPlacement();
+
+                var bubble = player.transform.Find("Match Chat Bubble")
+                    .GetComponent<UnityEngine.RectTransform>();
+                var halfHeight = bubble.rect.height * 0.5f * UnityEngine.Mathf.Abs(bubble.lossyScale.y);
+                var expected = nameplate.PositionAbove(
+                    MatchChatBubbleView.NameplateClearance, halfHeight);
+
+                Assert.That(bubble.position.y, Is.GreaterThan(nameplate.transform.position.y));
+                Assert.That(bubble.position.y, Is.EqualTo(expected.y).Within(0.02f));
             }
             finally
             {

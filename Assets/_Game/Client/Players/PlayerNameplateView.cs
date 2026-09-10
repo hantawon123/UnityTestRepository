@@ -21,6 +21,24 @@ namespace Game.Client.Players
 
         public bool HasNickname => displayedName.Length > 0;
 
+        internal float WorldHalfHeight
+        {
+            get
+            {
+                var height = label != null ? label.rectTransform.rect.height : 1.2f;
+                return height * 0.5f * Mathf.Abs(transform.lossyScale.y);
+            }
+        }
+
+        internal Vector3 PositionAbove(float clearance, float objectHalfHeight)
+        {
+            RefreshPlacement();
+            var top = HasNickname
+                ? transform.position + Vector3.up * WorldHalfHeight
+                : ResolveHeadTop();
+            return top + Vector3.up * (clearance + objectHalfHeight);
+        }
+
         public static PlayerNameplateView Attach(Transform playerRoot)
         {
             var child = playerRoot.Find(ObjectName);

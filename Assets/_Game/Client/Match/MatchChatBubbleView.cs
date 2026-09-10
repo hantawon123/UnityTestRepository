@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Client.Home;
+using Game.Client.Players;
 using Game.Core.Lobby;
 using TMPro;
 using UnityEngine;
@@ -15,7 +16,7 @@ namespace Game.Client.Match
         void Clear();
     }
 
-    /// <summary>Shows the latest match chat message above each player.</summary>
+    /// <summary>Shows the latest match chat message just above each player's nickname.</summary>
     public sealed class MatchChatBubbleView : MonoBehaviour, IMatchChatBubbleView
     {
         public const float FontSize = 8f;
@@ -24,7 +25,8 @@ namespace Game.Client.Match
         public const float MaxBubbleWidth = 210f;
         public const float MinBubbleHeight = 24f;
         public const float MaxBubbleHeight = 80f;
-        private const float HeightOffset = 2f;
+        internal const float NameplateClearance = 0.08f;
+        private const float FallbackHeightOffset = 2f;
         private const float VisibleSeconds = 3.5f;
         private const float CanvasScale = 0.01f;
         private const float HorizontalPadding = 18f;
@@ -102,7 +104,9 @@ namespace Game.Client.Match
             font ??= HomeUiFonts.ApplyRegular();
         }
 
-        private void LateUpdate()
+        private void LateUpdate() => RefreshPlacement();
+
+        internal void RefreshPlacement()
         {
             if (followCamera == null || !followCamera.isActiveAndEnabled)
             {
@@ -129,6 +133,7 @@ namespace Game.Client.Match
             canvas.sortingOrder = 120;
 
             var canvasRect = canvasObject.GetComponent<RectTransform>();
+            canvasRect.pivot = new Vector2(0.5f, 0.5f);
             canvasRect.sizeDelta = new Vector2(MinBubbleWidth, MinBubbleHeight);
             canvasRect.localScale = Vector3.one * CanvasScale;
 
@@ -186,6 +191,7 @@ namespace Game.Client.Match
             private readonly TMP_Text text;
             private Transform playerRoot;
             private Transform follow;
+            private PlayerNameplateView nameplate;
             private float hideAt = -1f;
 
             public bool IsDestroyed => canvas == null;
@@ -202,6 +208,7 @@ namespace Game.Client.Match
             {
                 playerRoot = value;
                 follow = value == null ? null : value.Find("Visual") ?? value;
+                nameplate = value == null ? null : value.GetComponentInChildren<PlayerNameplateView>();
             }
 
             public void Show(string value)
@@ -240,7 +247,7 @@ namespace Game.Client.Match
                     text.font = currentFont;
                 }
 
-                canvas.position = follow.position + Vector3.up * HeightOffset;
+                canvas.position = ResolveWorldPosition();
                 if (camera != null)
                 {
                     canvas.rotation = camera.transform.rotation;
@@ -254,6 +261,22 @@ namespace Game.Client.Match
                 {
                     Hide();
                 }
+            }
+
+            private Vector3 ResolveWorldPosition()
+            {
+                if (nameplate == null && playerRoot != null)
+                {
+                    nameplate = playerRoot.GetComponentInChildren<PlayerNameplateView>();
+                }
+
+                var halfHeight = canvas.rect.height * 0.5f * Mathf.Abs(canvas.lossyScale.y);
+                if (nameplate != null)
+                {
+                    return nameplate.PositionAbove(NameplateClearance, halfHeight);
+                }
+
+                return follow.position + Vector3.up * (FallbackHeightOffset + halfHeight);
             }
         }
     }
