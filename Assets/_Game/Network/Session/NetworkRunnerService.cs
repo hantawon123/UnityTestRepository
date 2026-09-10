@@ -1737,34 +1737,6 @@ namespace Game.Network.Session
             }
         }
 
-        /// <summary>
-        /// Lets a lobby preload go when the room it was started for is not
-        /// going to be made.
-        /// </summary>
-        /// <remarks>
-        /// A preload is parked with <c>allowSceneActivation = false</c>, and
-        /// Unity runs scene loads one at a time: everything asked for after it
-        /// waits behind it, forever. A player who opened the create-room form,
-        /// closed it, and then pressed 환경설정 was pressing a button whose scene
-        /// load sat in that queue with no error and no end. Screens already
-        /// loaded still opened, which is what made it look like anything but
-        /// this.
-        /// <para>
-        /// Nothing happens while a room is actually being entered on the
-        /// preload; that path finishes it itself.
-        /// </para>
-        /// </remarks>
-        public void ReleaseLobbyPreload()
-        {
-            if (_lobbyPreload == null || _lobbyPreloadEntering)
-            {
-                return;
-            }
-
-            Debug.Log("[SceneTiming] Lobby background preload released.");
-            CleanupLobbyPreloadAsync().Forget(Debug.LogException);
-        }
-
         private async UniTask CompleteLobbyPreloadAndEnterAsync(
             NetworkRunner runner)
         {

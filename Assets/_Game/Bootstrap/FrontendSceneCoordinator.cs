@@ -176,10 +176,53 @@ namespace Game.Bootstrap
         {
             if (!IsFrontend(scene))
             {
+                RestoreFrontendIfNoGameplayRemains();
                 return;
             }
 
             ClearLoad(scene.name);
+        }
+
+        /// <summary>
+        /// Puts the menu back when the last gameplay scene has gone.
+        /// </summary>
+        /// <remarks>
+        /// Loading a gameplay scene switches every frontend off (see
+        /// <see cref="OnSceneLoaded"/>), and nothing switched them back on when
+        /// that scene left without another taking its place. A lobby preload
+        /// that is discarded — the room was never made — does exactly that: it
+        /// has to be activated to be unloaded, the activation hides Home, and
+        /// Home stayed dark with its camera off. Any gameplay scene that unloads
+        /// while a frontend is what the player should be seeing is the same
+        /// case.
+        /// <para>
+        /// Leaving a match is unaffected: Home is loaded before the match scene
+        /// unloads, so <see cref="OnSceneLoaded"/> has already shown it and this
+        /// shows it again, which changes nothing.
+        /// </para>
+        /// </remarks>
+        private void RestoreFrontendIfNoGameplayRemains()
+        {
+            for (var index = 0; index < SceneManager.sceneCount; index++)
+            {
+                var scene = SceneManager.GetSceneAt(index);
+                if (!scene.isLoaded || IsFrontend(scene) || LoadingScene.IsLoading(scene))
+                {
+                    continue;
+                }
+
+                // A gameplay scene is still up; it owns the screen.
+                return;
+            }
+
+            var wanted = string.IsNullOrEmpty(desiredScene) ? Home : desiredScene;
+            if (!TryShow(wanted) && !TryShow(Home))
+            {
+                return;
+            }
+
+            Debug.Log(
+                $"[SceneTiming] Gameplay scene gone with no successor; frontend {wanted} shown again.");
         }
 
         private bool TryShow(string sceneName)

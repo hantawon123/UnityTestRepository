@@ -36,7 +36,6 @@ namespace Game.Bootstrap
             builder.Register<NetworkHomeApplicationHost>(Lifetime.Scoped)
                 .As<IHomeApplicationHost>();
             builder.RegisterEntryPoint<RoomBrowserWarmup>();
-            builder.RegisterEntryPoint<CreateRoomWarmup>();
             builder.RegisterEntryPoint<RegionSwitcher>();
             builder.RegisterComponent(homeMenuView).As<IHomeMenuView>();
 
@@ -120,61 +119,6 @@ namespace Game.Bootstrap
                 rooms.RefreshAsync(CancellationToken.None)
                     .Forget(exception => Debug.LogException(exception));
             }
-        }
-
-        /// <summary>
-        /// Starts loading the Lobby scene while the create-room form is open,
-        /// so the wait after pressing 만들기 is the room being made rather than
-        /// a scene being read off disk.
-        /// </summary>
-        /// <remarks>
-        /// The room browser used to do this, from a create form it no longer
-        /// has.
-        /// <para>
-        /// The preload is parked, not finished — the scene is read but held
-        /// short of activation — and Unity runs scene loads one at a time, so
-        /// anything asked for behind it waits until it is let go. Closing the
-        /// form without making a room therefore releases it at once, and so
-        /// does leaving Home; a parked load left behind is a 환경설정 button
-        /// that does nothing, with no error to say why.
-        /// </para>
-        /// </remarks>
-        private sealed class CreateRoomWarmup : IStartable, System.IDisposable
-        {
-            private readonly IHomeMenuView view;
-            private readonly NetworkRunnerService network;
-
-            public CreateRoomWarmup(IHomeMenuView view, NetworkRunnerService network)
-            {
-                this.view = view;
-                this.network = network;
-            }
-
-            public void Start()
-            {
-                view.ActionClicked += OnActionClicked;
-                view.CreateRoomDismissed += OnCreateRoomDismissed;
-            }
-
-            public void Dispose()
-            {
-                view.ActionClicked -= OnActionClicked;
-                view.CreateRoomDismissed -= OnCreateRoomDismissed;
-
-                // Leaving Home with the form's preload still parked would block
-                // the next screen's load just the same.
-                network.ReleaseLobbyPreload();
-            }
-
-            private void OnActionClicked(HomeMenuAction action)
-            {
-                if (action == HomeMenuAction.CreateRoom)
-                {
-                    network.PrepareLobbyScene();
-                }
-            }
-
-            private void OnCreateRoomDismissed() => network.ReleaseLobbyPreload();
         }
 
         /// <summary>
