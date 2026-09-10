@@ -120,6 +120,7 @@ namespace Game.Bootstrap
             builder.RegisterComponent(loading).As<ILoadingView>();
             builder.RegisterBuildCallback(container =>
                 container.Resolve<ILoadingOverlay>().Attach(container.Resolve<ILoadingView>()));
+            builder.RegisterEntryPoint<LoadingSceneCoordinator>();
             builder.RegisterEntryPoint<LoadingOverlayCoordinator>();
 
             var inputObject = new GameObject("UI EventSystem");
