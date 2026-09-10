@@ -221,6 +221,12 @@ namespace Game.Tests.EditMode
                 for (var field = 0; field < 4; field++) Step(field, 1);
                 Assert.That(view.ReadDraft().MatchRules, Is.EqualTo(rules));
                 view.SetEditable(true);
+                Step(0, 1);
+                Assert.That(view.ReadDraft().MatchRules.HidingDurationSeconds, Is.EqualTo(15));
+                Step(1, 1);
+                Assert.That(view.ReadDraft().MatchRules.SearchingDurationSeconds, Is.EqualTo(120));
+                Step(0, -1);
+                Step(1, -1);
                 for (var field = 0; field < 4; field++) Step(field, -1);
                 Assert.That(view.ReadDraft().MatchRules, Is.EqualTo(rules));
                 foreach (var speed in new[] { 1f, 1.5f, 2f, 3f })
@@ -241,6 +247,14 @@ namespace Game.Tests.EditMode
             }
             finally { UnityEngine.Object.DestroyImmediate(root); }
         }
+        [Test]
+        public void DurationLabels_FollowSliderSteps()
+        {
+            Assert.That(PlaySettingsView.FormatHidingDuration(30), Is.EqualTo("30초"));
+            Assert.That(PlaySettingsView.FormatSearchingDuration(300), Is.EqualTo("5분"));
+            Assert.That(PlaySettingsView.FormatSearchingDuration(90), Is.EqualTo("1분 30초"));
+        }
+
         private static PlaySettingsDraft Draft(int capacity) =>
             new("방", "CODE", false, null, capacity, 3, "playground");
 

@@ -26,7 +26,7 @@ namespace Game.Client.Lobby
         public const float ApplyPaddingHorizontal = 80f;
         public const float ApplyPaddingVertical = 11f;
         public const int ApplyButtonRadius = 32;
-        public const int LayoutVersion = 25;
+        public const int LayoutVersion = 29;
 
         public const string RegularFontResource = "Fonts/Paperlogy-4Regular";
         public const string MediumFontResource = "Fonts/Paperlogy-5Medium";
@@ -46,6 +46,7 @@ namespace Game.Client.Lobby
             public static readonly Color Underline = FromHex(0xF5F3F1, 0.5f);
             public static readonly Color ApplyFill = FromHex(0xFF7032);
             public static readonly Color Divider = FromHex(0xF5F3F1, 0.16f);
+            public static readonly Color DefaultMark = FromHex(0xF5F3F1, 0.85f);
         }
 
         public static class FontSize
@@ -81,6 +82,10 @@ namespace Game.Client.Lobby
             public const float RoomCodeValueWidth = 160f;
             public const float RoomCodeControlSpacing = 8f;
             public const float ControlValueWidth = 132f;
+            public const float DurationValueWidth = 88f;
+            public const float DefaultMarkWidth = 2f;
+            public const float DefaultMarkHeight = 16f;
+            public const int SliderTrackRadius = 4;
             public const float ControlSpacing = 24f;
             public const float PickerSpacing = 16f;
             public const float MapColumnSpacing = 8f;

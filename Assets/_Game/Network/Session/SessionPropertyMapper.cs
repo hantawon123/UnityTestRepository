@@ -142,9 +142,9 @@ namespace Game.Network.Session
         {
             properties[SessionPropertyKeys.MatchRules] = JsonUtility.ToJson(new RulesPayload
             {
-                version = 1,
+                version = 2,
                 hiding = settings.HidingDurationSeconds,
-                searching = settings.SearchingDurationMinutes,
+                searching = settings.SearchingDurationSeconds,
                 sprint = settings.SprintMultiplier,
                 stun = settings.StunHitCount,
                 category = settings.CategoryId
@@ -157,9 +157,20 @@ namespace Game.Network.Session
             try
             {
                 var payload = JsonUtility.FromJson<RulesPayload>(json);
+                if (payload.version == 2)
+                {
+                    return MatchRuleSettings.TryCreateSeconds(
+                        payload.hiding, payload.searching, payload.sprint, payload.stun,
+                        payload.category, out var rules, out _)
+                        ? rules
+                        : fallback;
+                }
+
                 return payload.version == 1 && MatchRuleSettings.TryCreate(
                     payload.hiding, payload.searching, payload.sprint, payload.stun,
-                    payload.category, out var rules, out _) ? rules : fallback;
+                    payload.category, out var legacy, out _)
+                    ? legacy
+                    : fallback;
             }
             catch (ArgumentException)
             {

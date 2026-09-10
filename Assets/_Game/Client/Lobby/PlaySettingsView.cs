@@ -80,6 +80,10 @@ namespace Game.Client.Lobby
         private readonly List<Text> ruleValues = new();
         private readonly List<Button> ruleMinus = new();
         private readonly List<Button> rulePlus = new();
+        private Slider hidingSlider;
+        private Text hidingValue;
+        private Slider searchingSlider;
+        private Text searchingValue;
 
         private string title = string.Empty;
         private string roomCode = string.Empty;
@@ -106,6 +110,7 @@ namespace Game.Client.Lobby
             EnsureOverlay();
             EnsureLayout();
             BindRuleControls();
+            BindDurationSliders();
             if (titleInput != null) titleInput.onValueChanged.AddListener(OnTitleChanged);
             Bind(openButton, () => OpenRequested?.Invoke());
             Bind(closeButton, RequestClose);
@@ -126,6 +131,7 @@ namespace Game.Client.Lobby
         private void OnDisable()
         {
             if (titleInput != null) titleInput.onValueChanged.RemoveListener(OnTitleChanged);
+            UnbindDurationSliders();
             foreach (var button in ruleMinus) Unbind(button);
             foreach (var button in rulePlus) Unbind(button);
             Unbind(applyButton);
@@ -439,9 +445,9 @@ namespace Game.Client.Lobby
         private void NormalizeCategoryRules()
         {
             var categoryId = PlaySettingsCategoryCatalog.GetOption(selectedCategoryIndex).Id;
-            if (MatchRuleSettings.TryCreate(
+            if (MatchRuleSettings.TryCreateSeconds(
                     matchRules.HidingDurationSeconds,
-                    matchRules.SearchingDurationMinutes,
+                    matchRules.SearchingDurationSeconds,
                     matchRules.SprintMultiplier,
                     matchRules.StunHitCount,
                     categoryId,
@@ -505,23 +511,100 @@ namespace Game.Client.Lobby
         {
             for (var i = 0; i < ruleValues.Count; i++)
             {
-                var index = i;
+                var index = i + 2;
                 Bind(ruleMinus[i], () => ChangeRule(index, -1));
                 Bind(rulePlus[i], () => ChangeRule(index, 1));
             }
+        }
+
+        private void BindDurationSliders()
+        {
+            if (hidingSlider != null)
+            {
+                hidingSlider.onValueChanged.RemoveListener(OnHidingSliderChanged);
+                hidingSlider.onValueChanged.AddListener(OnHidingSliderChanged);
+            }
+
+            if (searchingSlider != null)
+            {
+                searchingSlider.onValueChanged.RemoveListener(OnSearchingSliderChanged);
+                searchingSlider.onValueChanged.AddListener(OnSearchingSliderChanged);
+            }
+        }
+
+        private void UnbindDurationSliders()
+        {
+            if (hidingSlider != null)
+            {
+                hidingSlider.onValueChanged.RemoveListener(OnHidingSliderChanged);
+            }
+
+            if (searchingSlider != null)
+            {
+                searchingSlider.onValueChanged.RemoveListener(OnSearchingSliderChanged);
+            }
+        }
+
+        private void OnHidingSliderChanged(float value)
+        {
+            SetDurationSeconds(
+                SnapDuration(
+                    Mathf.RoundToInt(value),
+                    MatchRuleSettings.MinHidingDurationSeconds,
+                    MatchRuleSettings.MaxHidingDurationSeconds,
+                    MatchRuleSettings.HidingDurationStepSeconds),
+                matchRules.SearchingDurationSeconds);
+        }
+
+        private void OnSearchingSliderChanged(float value)
+        {
+            SetDurationSeconds(
+                matchRules.HidingDurationSeconds,
+                SnapDuration(
+                    Mathf.RoundToInt(value),
+                    MatchRuleSettings.MinSearchingDurationSeconds,
+                    MatchRuleSettings.MaxSearchingDurationSeconds,
+                    MatchRuleSettings.SearchingDurationStepSeconds));
+        }
+
+        private void SetDurationSeconds(int hidingSeconds, int searchingSeconds)
+        {
+            if (!editable)
+            {
+                RefreshRuleControls();
+                return;
+            }
+
+            ApplyMatchRules(
+                hidingSeconds,
+                searchingSeconds,
+                matchRules.SprintMultiplier,
+                matchRules.StunHitCount);
         }
 
         private void ChangeRule(int index, int direction)
         {
             if (!editable) return;
             var hiding = matchRules.HidingDurationSeconds;
-            var searching = matchRules.SearchingDurationMinutes;
+            var searching = matchRules.SearchingDurationSeconds;
             var speed = matchRules.SprintMultiplier;
             var hp = matchRules.StunHitCount;
             switch (index)
             {
-                case 0: hiding += direction; break;
-                case 1: searching += direction; break;
+                case 0:
+                    hiding = SnapDuration(
+                        hiding + (direction * MatchRuleSettings.HidingDurationStepSeconds),
+                        MatchRuleSettings.MinHidingDurationSeconds,
+                        MatchRuleSettings.MaxHidingDurationSeconds,
+                        MatchRuleSettings.HidingDurationStepSeconds);
+                    break;
+                case 1:
+                    searching = SnapDuration(
+                        searching + (direction * MatchRuleSettings.SearchingDurationStepSeconds),
+                        MatchRuleSettings.MinSearchingDurationSeconds,
+                        MatchRuleSettings.MaxSearchingDurationSeconds,
+                        MatchRuleSettings.SearchingDurationStepSeconds);
+                    break;
                 case 2:
                     var next = Array.IndexOf(SprintOptions, speed) + direction;
                     if (next < 0 || next >= SprintOptions.Length) return;
@@ -529,26 +612,56 @@ namespace Game.Client.Lobby
                 case 3: hp += direction; break;
                 default: return;
             }
-            if (MatchRuleSettings.TryCreate(hiding, searching, speed, hp, matchRules.CategoryId,
-                out var updated, out _)) matchRules = updated;
+
+            ApplyMatchRules(hiding, searching, speed, hp);
+        }
+
+        private void ApplyMatchRules(int hiding, int searching, float speed, int hp)
+        {
+            if (MatchRuleSettings.TryCreateSeconds(
+                    hiding,
+                    searching,
+                    speed,
+                    hp,
+                    matchRules.CategoryId,
+                    out var updated,
+                    out _))
+            {
+                matchRules = updated;
+            }
+
             RefreshRuleControls();
         }
 
         private void RefreshRuleControls()
         {
-            if (ruleValues.Count == 0) return;
-            var values = new[] { matchRules.HidingDurationSeconds, matchRules.SearchingDurationMinutes,
-                Array.IndexOf(SprintOptions, matchRules.SprintMultiplier), matchRules.StunHitCount };
-            var min = new[] { MatchRuleSettings.MinHidingDurationSeconds, MatchRuleSettings.MinSearchingDurationMinutes,
-                0, MatchRuleSettings.MinStunHitCount };
-            var max = new[] { MatchRuleSettings.MaxHidingDurationSeconds, MatchRuleSettings.MaxSearchingDurationMinutes,
-                SprintOptions.Length - 1, MatchRuleSettings.MaxStunHitCount };
+            ShowDurationSlider(
+                hidingSlider,
+                hidingValue,
+                matchRules.HidingDurationSeconds,
+                FormatHidingDuration(matchRules.HidingDurationSeconds));
+            ShowDurationSlider(
+                searchingSlider,
+                searchingValue,
+                matchRules.SearchingDurationSeconds,
+                FormatSearchingDuration(matchRules.SearchingDurationSeconds));
+
+            if (ruleValues.Count == 0)
+            {
+                return;
+            }
+
+            var values = new[]
+            {
+                Array.IndexOf(SprintOptions, matchRules.SprintMultiplier),
+                matchRules.StunHitCount
+            };
+            var min = new[] { 0, MatchRuleSettings.MinStunHitCount };
+            var max = new[] { SprintOptions.Length - 1, MatchRuleSettings.MaxStunHitCount };
             var labels = new[]
             {
-                values[0] + "초",
-                values[1] + "분",
                 matchRules.SprintMultiplier + "배",
-                values[3] + "회"
+                values[1] + "회"
             };
             for (var i = 0; i < ruleValues.Count; i++)
             {
@@ -556,6 +669,35 @@ namespace Game.Client.Lobby
                 ruleMinus[i].interactable = editable && values[i] > min[i];
                 rulePlus[i].interactable = editable && values[i] < max[i];
             }
+        }
+
+        private void ShowDurationSlider(Slider slider, Text value, int seconds, string label)
+        {
+            if (slider != null)
+            {
+                slider.SetValueWithoutNotify(seconds);
+                slider.interactable = editable;
+            }
+
+            if (value != null)
+            {
+                value.text = label;
+            }
+        }
+
+        private static int SnapDuration(int value, int min, int max, int step)
+        {
+            var snapped = min + (Mathf.RoundToInt((value - min) / (float)step) * step);
+            return Mathf.Clamp(snapped, min, max);
+        }
+
+        internal static string FormatHidingDuration(int seconds) => seconds + "초";
+
+        internal static string FormatSearchingDuration(int seconds)
+        {
+            var minutes = seconds / 60;
+            var remain = seconds % 60;
+            return remain == 0 ? minutes + "분" : minutes + "분 " + remain + "초";
         }
 
         private void RefreshCounters()
