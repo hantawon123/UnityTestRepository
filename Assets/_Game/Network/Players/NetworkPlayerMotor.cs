@@ -20,6 +20,8 @@ namespace Game.Network.Players
         private PlayerKCCMovementProcessor movementProcessor;
         private IPlayerInputIntentSource inputSource;
         private bool hasPendingTeleport;
+        public bool LocalPresentationInputBlocked { get; set; }
+
         private Pose pendingTeleport;
         private PlayerPosture? pendingPosture;
 
@@ -159,7 +161,7 @@ namespace Game.Network.Players
         /// <summary>Called only for the local player's object from OnInput.</summary>
         public NetworkPlayerInput CaptureInput()
         {
-            if (!IsConfigured || Object == null || !Object.HasInputAuthority)
+            if (LocalPresentationInputBlocked || !IsConfigured || Object == null || !Object.HasInputAuthority)
             {
                 return default;
             }

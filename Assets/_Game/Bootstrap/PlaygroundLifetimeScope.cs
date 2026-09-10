@@ -115,7 +115,12 @@ namespace Game.Bootstrap
                     matchHudView.gameObject.AddComponent<Game.Client.Settings.InterfaceHudView>()
                         .Bind(c.Resolve<Game.Core.Settings.InterfaceSettingsSystem>(), () => network.LocalPingMilliseconds);
                 });
-                builder.RegisterEntryPoint<NetworkMatchHudPresenter>();
+                builder.RegisterEntryPoint<NetworkMatchHudPresenter>().AsSelf();
+                builder.RegisterBuildCallback(c =>
+                {
+                    var presenter = c.Resolve<NetworkMatchHudPresenter>();
+                    c.Resolve<NetworkInteractionSceneBridge>().BindPresentationInput(() => presenter.BlocksGameplayInput);
+                });
             }
 
             var chatCanvas = matchHudView == null

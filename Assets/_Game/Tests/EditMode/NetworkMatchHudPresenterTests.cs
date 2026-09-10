@@ -16,6 +16,22 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkMatchHudPresenterTests
     {
+        private IReadOnlyList<Game.Core.Items.ItemDefinition> previousCatalog;
+
+        [SetUp]
+        public void PrepareCatalog()
+        {
+            previousCatalog = Game.Core.Items.ItemCatalog.Definitions;
+            Game.Core.Items.ItemCatalog.Configure(new[]
+            {
+                new Game.Core.Items.ItemDefinition("Soda_01", "food", "탄산음료"),
+                new Game.Core.Items.ItemDefinition("Burger_01", "food", "햄버거")
+            });
+        }
+
+        [TearDown]
+        public void RestoreCatalog() => Game.Core.Items.ItemCatalog.Configure(previousCatalog);
+
         [TestCase(false)]
         [TestCase(true)]
         public void GameEnd_FadesOutThenCoversBeforeResult(bool phaseFirst)
@@ -392,14 +408,17 @@ namespace Game.Architecture.Tests
                 network.ServerTime = 150d;
                 presenter.Tick();
                 Assert.That(view.IsPhaseIntroPresented(phase), Is.True);
+                Assert.That(presenter.BlocksGameplayInput, Is.True);
                 Assert.That(view.RemainingSeconds, Is.EqualTo(displayedTime));
                 network.Publish(new MatchStateSnapshot(phase, 153d + duration));
                 network.ServerTime = 152.9d;
                 presenter.Tick();
                 Assert.That(view.IsPhaseIntroPresented(phase), Is.True);
+                Assert.That(presenter.BlocksGameplayInput, Is.True);
                 network.ServerTime = 153d;
                 presenter.Tick();
                 Assert.That(view.IsPhaseIntroPresented(phase), Is.False);
+                Assert.That(presenter.BlocksGameplayInput, Is.False);
                 Assert.That(view.RemainingSeconds, Is.EqualTo(displayedTime));
                 network.ServerTime = 154d;
                 presenter.Tick();
