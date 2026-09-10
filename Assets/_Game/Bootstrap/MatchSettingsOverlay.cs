@@ -23,6 +23,7 @@ namespace Game.Bootstrap
         private bool chatWasEnabled;
         private bool layoutConfigured;
         private int dismissedFrame = -1;
+        private int restoreCursorFrame = -1;
         public bool IsOpen { get; private set; }
 
         public MatchSettingsOverlay(SettingsView view, SettingsPresenter presenter,
@@ -45,6 +46,20 @@ namespace Game.Bootstrap
 
         public void Tick()
         {
+            if (restoreCursorFrame >= 0 && Time.frameCount > restoreCursorFrame)
+            {
+                restoreCursorFrame = -1;
+                if (!IsOpen && Application.isFocused && !network.IsResultSceneLoaded &&
+                    !network.IsHighlightInProgress && !PlayerMovement.IsTextInputFocused())
+                {
+                    if (camera != null)
+                    {
+                        camera.SetEscapeReleasesCursor(false);
+                        camera.SetCursorCaptureEnabled(true);
+                    }
+                    Debug.Log($"[QA-Cursor] deferred restore frame={Time.frameCount} lock={Cursor.lockState} focus={Application.isFocused} rig={(camera == null ? 0 : camera.GetInstanceID())}");
+                }
+            }
             if (network.IsResultSceneLoaded || network.IsHighlightInProgress || network.IsWaitingForMatch)
             {
                 if (IsOpen) view.gameObject.SetActive(false);
@@ -59,6 +74,7 @@ namespace Game.Bootstrap
             }
             if (!network.IsRuntimeReady || PlayerMovement.IsTextInputFocused() ||
                 Keyboard.current == null || !Keyboard.current.escapeKey.wasPressedThisFrame) return;
+            restoreCursorFrame = -1;
             IsOpen = true;
             chatWasEnabled = chat.enabled;
             chat.enabled = false;
@@ -70,6 +86,7 @@ namespace Game.Bootstrap
             }
             view.gameObject.SetActive(true);
             ConfigureLayout();
+            MatchTransitionDiagnostics.Dump("settings-open");
         }
 
         private void OnPanelDismissed() => dismissedFrame = Time.frameCount;
@@ -107,12 +124,15 @@ namespace Game.Bootstrap
             if (chat != null) chat.enabled = chatWasEnabled;
             if (camera != null && !network.IsResultSceneLoaded && !network.IsHighlightInProgress)
                 camera.SetCursorCaptureEnabled(true);
+            restoreCursorFrame = Time.frameCount;
+            MatchTransitionDiagnostics.Dump("settings-closed");
         }
 
         private void Leave()
         {
             if (!IsOpen) return;
             view.gameObject.SetActive(false);
+            restoreCursorFrame = -1;
             exit.RequestLeave();
         }
 

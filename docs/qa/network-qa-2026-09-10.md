@@ -63,3 +63,11 @@ Unity 테스트 로그와 XML은 작업용 문서 저장소의 `.build/lobby-pro
 - ESC 닫기 후 카메라가 동일 ESC로 커서를 다시 해제하지 않도록 경기 설정에서 EscapeReleasesCursor 관리. 크기는 100% 유지.
 - 스킵 후 이전 맵 숨김은 Renderer.enabled까지 비활성화하며 원래 활성 상태를 보관/복원. 다른 참가자가 재생 중일 때 Playground 씬 자체의 존재는 유지. 실제 다중 플레이의 맵 재노출 해결 여부는 미확정.
 - 사용자가 Editor를 닫은 뒤 WebGL 대상 EditMode 검증 실행: NetworkContractTests, ResultPresentationTests, LobbyHighlightHandoffTests, NetworkMatchHudPresenterTests 총 154/154 통과. 로그: qa-menu-regression.xml / qa-menu-regression.log.
+
+## 재발 진단 로그
+
+기존 맵 숨김 및 커서 수정 이후에도 사용자가 같은 증상을 재현. 해결 완료로 처리하지 않음.
+
+- QA-Transition: 스킵 현재/전체 전후, 로비 표시 후 1초 간격 3회, 설정창 열기/닫기에 씬 목록, 캐시된 경기 루트, 렌더러 drawable 개수, 카메라/리그 및 아바타 위치 기록.
+- QA-Cursor: ESC 닫기 다음 프레임의 캡처 복원 결과 기록. 같은 프레임 이후 커서가 풀리는 상황을 위해 한 번 지연 복원. 채팅/포커스 이탈/결과 전환 시에는 적용하지 않음.
+- Unity Console Collapse 해제 후 ESC 열기/닫기 및 Space/Space/Tab 재현. Editor.log를 종료 전에 확보해 분석. 현재 사용자의 Editor 실행 중으로 자동 테스트 미실행.

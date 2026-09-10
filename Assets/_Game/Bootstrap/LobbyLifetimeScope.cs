@@ -92,6 +92,8 @@ namespace Game.Bootstrap
         private bool[] outgoingColliderStates = Array.Empty<bool>();
         private bool highlightStaging;
         private bool stagingVisible;
+        private int diagnosticSamples;
+        private float nextDiagnosticTime;
 
         private sealed class LobbyStartCountdown : ITickable
         {
@@ -323,6 +325,12 @@ namespace Game.Bootstrap
 
         private void Update()
         {
+            if (diagnosticSamples > 0 && Time.unscaledTime >= nextDiagnosticTime)
+            {
+                diagnosticSamples--;
+                nextDiagnosticTime = Time.unscaledTime + 1f;
+                MatchTransitionDiagnostics.Dump($"lobby-sample staging={highlightStaging} visible={stagingVisible} outgoing={outgoingRenderers.Length} highlight={stagingNetwork?.IsHighlightInProgress} localComplete={stagingNetwork?.IsLocalHighlightComplete}");
+            }
             if (!highlightStaging || stagingNetwork == null) return;
             if (!stagingNetwork.IsHighlightInProgress)
             {
@@ -349,6 +357,7 @@ namespace Game.Bootstrap
         {
             stagingNetwork = network;
             highlightStaging = true;
+            MatchTransitionDiagnostics.Dump("lobby-staging-prepare");
         }
 
         private void CaptureStagingPresentation()
@@ -435,6 +444,11 @@ namespace Game.Bootstrap
 
         private void SetStagingVisible(bool visible)
         {
+            if (visible && !stagingVisible)
+            {
+                diagnosticSamples = 3;
+                nextDiagnosticTime = Time.unscaledTime;
+            }
             stagingVisible = visible;
             for (var index = 0; index < stagingRenderers.Length; index++)
                 if (stagingRenderers[index] != null)

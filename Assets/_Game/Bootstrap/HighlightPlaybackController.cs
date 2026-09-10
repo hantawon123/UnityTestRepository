@@ -213,6 +213,7 @@ namespace Game.Bootstrap
         public bool SkipCurrent()
         {
             if (!TryGetLocalPlaybackPosition(out _, out var remaining)) return false;
+            MatchTransitionDiagnostics.Dump("skip-current");
             localSkipOffset += remaining;
             return true;
         }
@@ -225,11 +226,13 @@ namespace Game.Bootstrap
                 return false;
             }
 
+            MatchTransitionDiagnostics.Dump("skip-all-before-stop");
             skippedAll = true;
             var wasReady = readinessConfirmed;
             StopPlayback();
             readinessConfirmed = wasReady;
             TryFinishLocalViewing();
+            MatchTransitionDiagnostics.Dump("skip-all-after-stop");
             return true;
         }
 
