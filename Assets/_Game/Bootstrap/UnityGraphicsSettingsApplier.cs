@@ -30,6 +30,8 @@ namespace Game.Bootstrap
     {
         public void Apply(GraphicsSettings settings)
         {
+            // ShadowQuality remains a saved/displayed preference only.
+            // WebGL intentionally disables realtime shadows in its pipeline asset.
             ApplyWindow(settings);
             ApplyFrameCap(settings.Get(GraphicsOption.FpsLimit));
             ApplyTextureQuality(settings.Get(GraphicsOption.TextureQuality));
