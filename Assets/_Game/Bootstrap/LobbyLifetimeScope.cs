@@ -136,7 +136,10 @@ namespace Game.Bootstrap
             // objects are never shifted or hidden with it.
             sceneRoots = gameObject.scene.GetRootGameObjects();
             foreach (var root in sceneRoots)
+            {
+                if (root == null) continue;
                 foreach (var item in root.GetComponentsInChildren<CarryableItem>(true)) lobbyItems.Add(item);
+            }
             base.Awake();
         }
 
@@ -346,6 +349,7 @@ namespace Game.Bootstrap
             var behaviours = new List<Behaviour>();
             foreach (var root in sceneRoots)
             {
+                if (root == null) continue;
                 renderers.AddRange(root.GetComponentsInChildren<Renderer>(true));
                 colliders.AddRange(root.GetComponentsInChildren<Collider>(true));
                 foreach (var behaviour in root.GetComponentsInChildren<Behaviour>(true))
@@ -377,6 +381,8 @@ namespace Game.Bootstrap
             var outgoingBodies = new List<Collider>();
             foreach (var root in playground.SceneRoots)
             {
+                // Assigned items are roots too, and may have been destroyed during the match.
+                if (root == null) continue;
                 outgoingMeshes.AddRange(root.GetComponentsInChildren<Renderer>(true));
                 outgoingBodies.AddRange(root.GetComponentsInChildren<Collider>(true));
                 foreach (var behaviour in root.GetComponentsInChildren<Behaviour>(true))
