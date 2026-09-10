@@ -54,9 +54,14 @@ namespace Game.Client.Combat
         [SerializeField, HideInInspector]
         private bool usesNetworkState;
         private bool networkStunned;
+        private int networkHitCount;
+        private bool hasNetworkHitCount;
 
         /// <summary>공격 모션 재생 등 표현 계층이 구독하는 공격 실행 알림.</summary>
         public event System.Action AttackPerformed;
+
+        /// <summary>피격 모션 재생 등 표현 계층이 구독하는 피격 알림.</summary>
+        public event System.Action HitReceived;
 
         /// <summary>표현 계층(애니메이션)이 참조하는 전투 설정.</summary>
         public CombatConfigSO Config => combatConfig;
@@ -140,6 +145,24 @@ namespace Game.Client.Combat
         {
             usesNetworkState = true;
             networkStunned = stunned;
+        }
+
+        public void SetNetworkHitCount(int hitCount)
+        {
+            usesNetworkState = true;
+            if (hasNetworkHitCount && hitCount > networkHitCount)
+            {
+                NotifyHitReceived();
+            }
+
+            networkHitCount = hitCount;
+            hasNetworkHitCount = true;
+        }
+
+        private void NotifyHitReceived()
+        {
+            hitFlashUntil = Time.time + HitFlashSeconds;
+            HitReceived?.Invoke();
         }
 
         private void OnEnable()
@@ -240,6 +263,7 @@ namespace Game.Client.Combat
             }
 
             hitFlashUntil = Time.time + HitFlashSeconds;
+            HitReceived?.Invoke();
 
             if (movement != null)
             {
