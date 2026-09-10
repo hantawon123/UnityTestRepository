@@ -62,8 +62,7 @@ namespace Game.Editor
             // 아이스크림 통 느낌의 작은 통(15×17×13 cm)
             "Products/SM_Prop_Product_06", "Products/SM_Prop_Product_17", "Products/SM_Prop_Product_18",
             "Products/SM_Prop_Product_19", "Products/SM_Prop_Product_39", "Products/SM_Prop_Product_40",
-            // 냉동 도시락 트레이
-            "Food/SM_Prop_Food_Takeaway_Container_01",
+            // 도시락 트레이(Food_Takeaway_Container_01)는 빈 쟁반처럼 보여 제외
         };
 
         private static readonly string[] FridgePalette =
