@@ -114,13 +114,20 @@ Photon Fusion 이라 **이 규칙을 어기면 데이터가 통째로 못 쓰게
 이때 `user_public_id`는 그 행동의 주체이고, `from_host`는 `true`, `client_session_id`는
 호스트의 세션입니다.
 
-**호스트가 대신 보내려면 호스트가 전원의 `userId`를 알아야 합니다.** 알고 있습니다.
-`PlayerAvatar.UserId`와 `MatchSessionState.ParticipantUserIds`가 `[Networked]`로 복제되어
-호스트가 좌석별 `public_id`를 읽습니다(지라 S15P21D205-864).
+**호스트가 대신 보내려면 호스트가 전원의 `userId`를 알아야 합니다.** 그 값은
+`MatchParticipant.UserId`에서 읽습니다(S15P21D205-864). 각 클라이언트가 연결 토큰에
+자기 계정의 `userId`를 실어 보내고, 호스트가 `PlayerAvatar.UserId`로 복제하며,
+`PlayerRoster`가 `RoomParticipant.UserId`로 옮기고 경기 시작 때 `MatchParticipant`로 넘어갑니다.
+호스트가 바뀌어도 `MatchSessionState.ParticipantUserIds`에 남아 있어 새 호스트도 같은 값을 봅니다.
 
-로그인하지 않은 참가자는 `user_public_id`가 null 이고, 그 경기 안에서는 `params.seat`으로만
-구분됩니다. 발행 시점에 UUID 형식을 검사해 아닌 값은 null 로 바꿉니다 — 서버가 형식 위반을
-**배치 전체의 400** 으로 답하기 때문입니다(7절).
+`PlayerRegistry.IdOf`가 돌려주는 `"P3"` 같은 값은 방 안에서만 쓰는 좌석 키라 `user_public_id`에
+넣으면 안 됩니다.
+
+**로그인하지 않은 플레이어는 `MatchParticipant.UserId`가 `null`입니다.** 그대로 보내면 서버가
+계정 없음으로 저장하고, 그 경기 안에서는 `params.seat`으로만 구분됩니다. **빈 문자열로 바꾸면
+안 됩니다** — 서버의 `userPublicId`는 UUID 형식 검사를 받고 빈 문자열은 그 검사를 통과하지
+못해 **배치 전체가 400** 이 됩니다(7절). 발행 시점에 형식을 확인해 아닌 값을 null 로 바꾸는
+이유가 그것입니다.
 
 ### 각 클라이언트가 보낸다 — 그 클라이언트만 아는 것
 
