@@ -66,6 +66,46 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void OpenFromWorld_UnappliedClose_KeepsScreenAndDoesNotReturnToRoom()
+        {
+            using var fixture = new Fixture();
+            fixture.Presenter.Start();
+            fixture.Presenter.OpenPlaySettingsFromWorld();
+            fixture.Settings.UnappliedChanges = true;
+            fixture.Menu.VisibleCalls.Clear();
+
+            fixture.Settings.RequestClose();
+
+            Assert.That(fixture.Menu.IsOpen, Is.False);
+            Assert.That(fixture.Menu.VisibleCalls, Has.No.Member(true));
+
+            fixture.Settings.UnappliedChanges = false;
+            fixture.Settings.RequestClose();
+
+            Assert.That(fixture.Menu.IsOpen, Is.False);
+            Assert.That(fixture.Menu.VisibleCalls, Has.No.Member(true));
+        }
+
+        [Test]
+        public void OpenFromMenu_UnappliedClose_DoesNotReturnToMenu()
+        {
+            using var fixture = new Fixture();
+            fixture.Presenter.Start();
+            fixture.Menu.ClickPlaySettings();
+            fixture.Settings.UnappliedChanges = true;
+            fixture.Menu.VisibleCalls.Clear();
+
+            fixture.Settings.RequestClose();
+
+            Assert.That(fixture.Menu.VisibleCalls, Has.No.Member(true));
+
+            fixture.Settings.UnappliedChanges = false;
+            fixture.Settings.RequestClose();
+
+            Assert.That(fixture.Menu.VisibleCalls, Has.Member(true));
+        }
+
+        [Test]
         public void OpenFromWorld_WhileMenuIsUp_DoesNothing()
         {
             using var fixture = new Fixture();
@@ -147,6 +187,22 @@ namespace Game.Tests.EditMode
             fixture.Presenter.ToggleShortcut(LobbyShortcutKind.Players);
 
             Assert.That(fixture.Shortcuts.IsOpen, Is.False);
+            Assert.That(fixture.Menu.VisibleCalls, Has.No.Member(true));
+        }
+
+        [Test]
+        public void ToggleShortcut_Character_WhileOverlayOpen_ClosesIt()
+        {
+            using var fixture = new Fixture();
+            var closed = false;
+            fixture.Presenter.Start();
+            fixture.Presenter.OpenCharacterScreen(() => closed = true, fromWorld: true);
+            fixture.Menu.VisibleCalls.Clear();
+
+            fixture.Presenter.ToggleShortcut(LobbyShortcutKind.Character);
+
+            Assert.That(closed, Is.True);
+            Assert.That(fixture.Menu.IsOpen, Is.False);
             Assert.That(fixture.Menu.VisibleCalls, Has.No.Member(true));
         }
 
@@ -236,6 +292,32 @@ namespace Game.Tests.EditMode
 
             Assert.That(fixture.Menu.IsOpen, Is.False);
             Assert.That(fixture.Menu.VisibleCalls, Has.No.Member(true));
+        }
+
+        [Test]
+        public void SettingsFromWorld_ThenClose_IgnoresUnappliedPlaySettings()
+        {
+            using var fixture = new Fixture();
+            var requested = 0;
+            fixture.Presenter.SettingsOpenRequested += () => requested++;
+            fixture.Presenter.Start();
+            fixture.Presenter.OpenSettingsScreen(() => { }, fromWorld: true);
+            fixture.Settings.UnappliedChanges = true;
+
+            fixture.Presenter.OnScreenClosed();
+            fixture.Presenter.HandleEscape();
+
+            Assert.That(requested, Is.EqualTo(1));
+            Assert.That(fixture.Menu.IsOpen, Is.False);
+        }
+
+        [Test]
+        public void ObjectPrompts_HideWhileAnyLobbyModalIsOpen()
+        {
+            Assert.That(LobbyPauseMenuPresenter.ShowsObjectPrompts(false, false), Is.True);
+            Assert.That(LobbyPauseMenuPresenter.ShowsObjectPrompts(true, false), Is.False);
+            Assert.That(LobbyPauseMenuPresenter.ShowsObjectPrompts(false, true), Is.False);
+            Assert.That(LobbyPauseMenuPresenter.ShowsObjectPrompts(true, true), Is.False);
         }
 
         [Test]
@@ -363,9 +445,13 @@ namespace Game.Tests.EditMode
             public event Action InviteRequested { add { } remove { } }
             public event Action CopyPasswordRequested { add { } remove { } }
             public event Action StartRequested { add { } remove { } }
+            public event Action ApplyRequested { add { } remove { } }
+            public bool UnappliedChanges;
+            public bool HasUnappliedChanges => UnappliedChanges;
             public void SetVisible(bool visible) { }
             public void SetEditable(bool editable) { }
             public void SetDraft(PlaySettingsDraft draft) { }
+            public void SetUnappliedWarningVisible(bool visible) { }
             public PlaySettingsDraft ReadDraft() =>
                 new("방", "CODE", false, null, 6, 3, "playground");
             public void RequestClose()

@@ -7,8 +7,8 @@ namespace Game.Client.Lobby
     /// <summary>
     /// 로비 서벽의 작업대(공구판 + 책상)를 하나로 묶은 작전 계획판.
     /// 조준하고 F키를 누르면 방 설정 화면이 열린다.
-    /// 방장은 편집, 나머지는 읽기 전용으로 보는 것은 설정 화면 쪽 규칙이며,
-    /// 안내 문구는 방장·비방장 모두 "방 설정"이다.
+    /// 방장은 편집하고 나머지는 읽기 전용으로 본다. 안내 문구도 그래서
+    /// 방장은 "방 설정", 나머지는 "방 설정 보기"다.
     /// </summary>
     /// <remarks>
     /// Scene component with no dependencies of its own: the presenter that
@@ -26,8 +26,11 @@ namespace Game.Client.Lobby
     [RequireComponent(typeof(Collider))]
     public sealed class LobbyPlanBoardInteractable : MonoBehaviour, IInteractable
     {
+        public const string HostPrompt = "방 설정";
+        public const string GuestPrompt = "방 설정 보기";
+
         [SerializeField]
-        private string prompt = "방 설정";
+        private string prompt = HostPrompt;
 
         [Tooltip("바인딩된 동안 켜 두는 작업대 실루엣. 없으면 실루엣 없이 동작한다.")]
         [SerializeField]
@@ -37,12 +40,23 @@ namespace Game.Client.Lobby
         [SerializeField]
         private GameObject label;
 
+        private Func<bool> isLocalHost;
         private Action onInteract;
 
         public bool IsBound => onInteract != null;
 
-        public string InteractionPrompt =>
-            string.IsNullOrWhiteSpace(prompt) ? "방 설정" : prompt;
+        public string InteractionPrompt
+        {
+            get
+            {
+                if (isLocalHost != null && !isLocalHost())
+                {
+                    return GuestPrompt;
+                }
+
+                return string.IsNullOrWhiteSpace(prompt) ? HostPrompt : prompt;
+            }
+        }
 
         public Color InteractionPromptColor => Color.black;
 
@@ -86,12 +100,14 @@ namespace Game.Client.Lobby
                 throw new ArgumentNullException(nameof(localHostQuery));
             }
 
+            isLocalHost = localHostQuery;
             onInteract = interact ?? throw new ArgumentNullException(nameof(interact));
             SetHighlightVisible(true);
         }
 
         public void Unbind()
         {
+            isLocalHost = null;
             onInteract = null;
             SetHighlightVisible(false);
         }

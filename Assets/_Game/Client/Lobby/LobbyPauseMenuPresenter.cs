@@ -1,9 +1,11 @@
 using System;
 using Game.Client.Cameras;
+using Game.Client.Interactions;
 using Game.Client.Players;
 using Game.Core.Lobby;
 using R3;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using VContainer.Unity;
 
@@ -40,6 +42,7 @@ namespace Game.Client.Lobby
         private readonly LobbyExitPresenter exit;
         private readonly ILobbyShortcutOverlay shortcuts;
         private readonly Action shortcutClose;
+        private readonly Action playSettingsClose;
         private IDisposable hostSubscription;
         private PlayerCameraController cameraRig;
         private PlayerMovement lockedMovement;
@@ -94,6 +97,7 @@ namespace Game.Client.Lobby
             this.shortcuts = shortcuts
                 ?? throw new ArgumentNullException(nameof(shortcuts));
             shortcutClose = this.shortcuts.RequestClose;
+            playSettingsClose = this.playSettings.RequestClose;
         }
 
         public void Start()
@@ -144,6 +148,7 @@ namespace Game.Client.Lobby
             {
                 SetCursorCaptured(false);
                 LockMovement();
+                RefreshObjectPrompts();
             }
 
             if (Keyboard.current == null)
@@ -192,8 +197,9 @@ namespace Game.Client.Lobby
         }
 
         /// <summary>
-        /// Esc backs out of an open screen, then opens environment settings.
-        /// Leaving the room is 게임 나가기 on that overlay, not this key.
+        /// Esc backs out of an open screen, or opens environment settings from
+        /// the room. The same key closes that overlay. Leaving the room is
+        /// 게임 나가기 on it, not this key.
         /// </summary>
         public void HandleEscape()
         {
@@ -234,6 +240,7 @@ namespace Game.Client.Lobby
 
             SetCursorCaptured(false);
             LockMovement();
+            RefreshObjectPrompts();
         }
 
         /// <summary>
@@ -254,6 +261,8 @@ namespace Game.Client.Lobby
             view.SetVisible(false);
             SetCursorCaptured(true);
             ReleaseMovement();
+            ClearUiSelection();
+            RefreshObjectPrompts();
         }
 
         /// <remarks>
@@ -270,6 +279,7 @@ namespace Game.Client.Lobby
             view.SetVisible(false);
             SetCursorCaptured(false);
             LockMovement();
+            RefreshObjectPrompts();
         }
 
         /// <summary>
@@ -292,8 +302,9 @@ namespace Game.Client.Lobby
             SetCursorCaptured(false);
             LockMovement();
             openedFromWorld = true;
-            StepAsideFor(playSettings.RequestClose);
+            StepAsideFor(playSettingsClose);
             playSettings.RequestOpen();
+            RefreshObjectPrompts();
         }
 
         /// <remarks>
@@ -301,7 +312,7 @@ namespace Game.Client.Lobby
         /// player is still in the menu, and re-capturing the cursor here would
         /// hand them a settings screen they cannot click.
         /// </remarks>
-        private void OnPlaySettingsClicked() => StepAsideFor(playSettings.RequestClose);
+        private void OnPlaySettingsClicked() => StepAsideFor(playSettingsClose);
 
         /// <summary>
         /// Opens a 1 / 2 overlay from the room. Closing it returns to
@@ -310,7 +321,18 @@ namespace Game.Client.Lobby
         /// </summary>
         public void ToggleShortcut(LobbyShortcutKind kind)
         {
-            if (kind == LobbyShortcutKind.None || HasForeignScreen)
+            if (kind == LobbyShortcutKind.None)
+            {
+                return;
+            }
+
+            if (kind == LobbyShortcutKind.Character && characterOverlayOpen)
+            {
+                closeOpenScreen?.Invoke();
+                return;
+            }
+
+            if (HasForeignScreen)
             {
                 return;
             }
@@ -349,6 +371,7 @@ namespace Game.Client.Lobby
             }
 
             shortcuts.Show(kind);
+            RefreshObjectPrompts();
         }
 
         private bool HasForeignScreen =>
@@ -371,6 +394,19 @@ namespace Game.Client.Lobby
         /// </remarks>
         public void OnScreenClosed()
         {
+            // Play settings refuses to leave while a draft is still dirty. A
+            // close request that still arrives must not recapture the cursor,
+            // or 적용하기 becomes unreachable. Only that screen: a dirty draft
+            // left in the background must not keep Esc from returning the
+            // mouse to the room.
+            if (closeOpenScreen == playSettingsClose && playSettings.HasUnappliedChanges)
+            {
+                SetCursorCaptured(false);
+                LockMovement();
+                RefreshObjectPrompts();
+                return;
+            }
+
             characterOverlayOpen = false;
             if (closeOpenScreen == null)
             {
@@ -386,6 +422,7 @@ namespace Game.Client.Lobby
 
             closeOpenScreen = null;
             view.SetVisible(true);
+            RefreshObjectPrompts();
         }
 
         /// <remarks>
@@ -420,6 +457,7 @@ namespace Game.Client.Lobby
             view.SetVisible(false);
             ReleaseMovement();
             SetCursorCaptured(false);
+            RefreshObjectPrompts();
             exit.RequestLeave();
         }
 
@@ -438,6 +476,37 @@ namespace Game.Client.Lobby
 
             rig.SetEscapeReleasesCursor(false);
             rig.SetCursorCaptureEnabled(captured);
+        }
+
+        private static void ClearUiSelection()
+        {
+            if (EventSystem.current != null)
+            {
+                EventSystem.current.SetSelectedGameObject(null);
+            }
+        }
+
+        private void RefreshObjectPrompts()
+        {
+            SetObjectPromptsVisible(ShowsObjectPrompts(view.IsOpen, closeOpenScreen != null));
+        }
+
+        /// <summary>
+        /// World key chips on the plan board, carryables and placement stay
+        /// off for as long as a lobby modal is up.
+        /// </summary>
+        public static bool ShowsObjectPrompts(bool pauseMenuOpen, bool overlayOpen) =>
+            !pauseMenuOpen && !overlayOpen;
+
+        private static void SetObjectPromptsVisible(bool visible)
+        {
+            var interactors = UnityEngine.Object.FindObjectsByType<PlayerInteractor>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (var index = 0; index < interactors.Length; index++)
+            {
+                interactors[index].SetInteractionPromptVisible(visible);
+            }
         }
 
         private void LockMovement()

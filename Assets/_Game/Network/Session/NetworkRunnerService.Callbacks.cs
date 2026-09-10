@@ -504,7 +504,7 @@ namespace Game.Network.Session
                     if (!replacementRunner.SessionInfo.UpdateCustomProperties(
                         new Dictionary<string, SessionProperty>
                         {
-                            [SessionPropertyKeys.HostNickname] = SanitiseNickname(_profile?.Nickname),
+                            [SessionPropertyKeys.HostNickname] = PublicHostNickname,
                         }))
                         Debug.LogWarning("[Network] Could not update the migrated room's host name.");
                 }

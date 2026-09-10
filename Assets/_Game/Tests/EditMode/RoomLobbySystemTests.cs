@@ -20,9 +20,22 @@ namespace Game.Tests.EditMode
             Assert.That(settings.HidingDurationSeconds, Is.EqualTo(30));
             Assert.That(settings.SearchingDurationMinutes, Is.EqualTo(5));
             Assert.That(settings.SearchingDurationSeconds, Is.EqualTo(300));
+            Assert.That(MatchRuleSettings.HidingDurationStepSeconds, Is.EqualTo(5));
+            Assert.That(MatchRuleSettings.SearchingDurationStepSeconds, Is.EqualTo(60));
             Assert.That(settings.SprintMultiplier, Is.EqualTo(1f));
             Assert.That(settings.StunHitCount, Is.EqualTo(3));
             Assert.That(settings.UsesRandomCategory, Is.True);
+        }
+
+        [Test]
+        public void MatchRuleSettings_AcceptsThirtySecondSearchingSteps()
+        {
+            Assert.That(
+                MatchRuleSettings.TryCreateSeconds(30, 90, 1f, 3, null, out var settings, out var error),
+                Is.True);
+            Assert.That(error, Is.EqualTo(MatchRuleSettingsError.None));
+            Assert.That(settings.SearchingDurationSeconds, Is.EqualTo(90));
+            Assert.That(settings.SearchingDurationMinutes, Is.EqualTo(1));
         }
 
         [TestCase(10, 1, 0.5f, 1)]

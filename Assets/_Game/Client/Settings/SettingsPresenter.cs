@@ -46,6 +46,12 @@ namespace Game.Client.Settings
         private readonly AppFlowSystem appFlow;
         private readonly Action closeSettings;
 
+        /// <summary>
+        /// Lobby overlay: the player confirmed 게임 나가기. Home never raises
+        /// this; there is no leave-game control on that screen.
+        /// </summary>
+        public event Action LeaveGameConfirmed;
+
         private GeneralSettings generalDraft;
         private GeneralSettings generalApplied;
         private GraphicsSettings graphicsDraft;
@@ -161,6 +167,7 @@ namespace Game.Client.Settings
             view.FeedbackDismissed += OnFeedbackDismissed;
             view.ResetRequested += OnResetRequested;
             view.ApplyRequested += OnApplyRequested;
+            view.LeaveGameRequested += OnLeaveGameRequested;
             view.ConfirmAccepted += OnConfirmAccepted;
             view.ConfirmDeclined += OnConfirmDeclined;
             view.ConfirmDismissed += OnConfirmDismissed;
@@ -222,6 +229,7 @@ namespace Game.Client.Settings
             view.FeedbackDismissed -= OnFeedbackDismissed;
             view.ResetRequested -= OnResetRequested;
             view.ApplyRequested -= OnApplyRequested;
+            view.LeaveGameRequested -= OnLeaveGameRequested;
             view.ConfirmAccepted -= OnConfirmAccepted;
             view.ConfirmDeclined -= OnConfirmDeclined;
             view.ConfirmDismissed -= OnConfirmDismissed;
@@ -498,7 +506,16 @@ namespace Game.Client.Settings
 
                 if (!string.IsNullOrEmpty(code))
                 {
-                    if (controlDraft.TryRebind(action, code, out var moved, out var holder))
+                    // Refused the same way a key another row holds is: named,
+                    // so the player knows it is not theirs to give.
+                    if (ControlCatalog.IsReserved(code, out var reservedBy))
+                    {
+                        view.ShowNotice(
+                            SettingsStyle.Controls.InUseTitle,
+                            SettingsStyle.Controls.InUseMessage(
+                                ControlCatalog.KeyLabel(code), reservedBy));
+                    }
+                    else if (controlDraft.TryRebind(action, code, out var moved, out var holder))
                     {
                         controlDraft = moved;
                     }
@@ -672,6 +689,16 @@ namespace Game.Client.Settings
             Ask(SettingsConfirmKind.ResetAll);
         }
 
+        private void OnLeaveGameRequested()
+        {
+            if (IsPanelUp)
+            {
+                return;
+            }
+
+            Ask(SettingsConfirmKind.LeaveGame);
+        }
+
         /// <summary>Leaves, or asks first if there is something to lose.</summary>
         private void OnBackRequested()
         {
@@ -718,6 +745,9 @@ namespace Game.Client.Settings
                 case SettingsConfirmKind.Discard:
                     Apply();
                     Leave();
+                    break;
+                case SettingsConfirmKind.LeaveGame:
+                    LeaveGameConfirmed?.Invoke();
                     break;
             }
         }

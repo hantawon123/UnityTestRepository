@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Client.Home;
+using Game.Client.Players;
 using Game.Core.Lobby;
 using TMPro;
 using UnityEngine;
@@ -15,20 +16,20 @@ namespace Game.Client.Match
         void Clear();
     }
 
-    /// <summary>Shows the latest match chat message above each player.</summary>
+    /// <summary>Shows the latest match chat message just above each player's nickname.</summary>
     public sealed class MatchChatBubbleView : MonoBehaviour, IMatchChatBubbleView
     {
         public const float FontSize = 8f;
+        public const int CornerRadius = 4;
         public static readonly Color BubbleColor = new(0f, 0f, 0f, 0.27f);
-        public const float MinBubbleWidth = 40f;
         public const float MaxBubbleWidth = 210f;
-        public const float MinBubbleHeight = 24f;
         public const float MaxBubbleHeight = 80f;
-        private const float HeightOffset = 2f;
+        internal const float NameplateClearance = 0.04f;
+        private const float FallbackHeightOffset = 2f;
         private const float VisibleSeconds = 3.5f;
         private const float CanvasScale = 0.01f;
-        private const float HorizontalPadding = 18f;
-        private const float VerticalPadding = 10f;
+        private const float HorizontalPadding = 3f;
+        private const float VerticalPadding = 2f;
 
         private readonly Dictionary<string, Bubble> bubbles = new(StringComparer.Ordinal);
         private readonly Dictionary<string, LobbyChatMessage> pending =
@@ -102,7 +103,9 @@ namespace Game.Client.Match
             font ??= HomeUiFonts.ApplyRegular();
         }
 
-        private void LateUpdate()
+        private void LateUpdate() => RefreshPlacement();
+
+        internal void RefreshPlacement()
         {
             if (followCamera == null || !followCamera.isActiveAndEnabled)
             {
@@ -129,7 +132,8 @@ namespace Game.Client.Match
             canvas.sortingOrder = 120;
 
             var canvasRect = canvasObject.GetComponent<RectTransform>();
-            canvasRect.sizeDelta = new Vector2(MinBubbleWidth, MinBubbleHeight);
+            canvasRect.pivot = new Vector2(0.5f, 0.5f);
+            canvasRect.sizeDelta = new Vector2(HorizontalPadding * 2f, VerticalPadding * 2f);
             canvasRect.localScale = Vector3.one * CanvasScale;
 
             var scaler = canvasObject.GetComponent<CanvasScaler>();
@@ -148,9 +152,9 @@ namespace Game.Client.Match
             panelRect.offsetMin = Vector2.zero;
             panelRect.offsetMax = Vector2.zero;
             var panel = panelObject.GetComponent<Image>();
-            panel.sprite = HomeUiFonts.RoundedSprite;
+            panel.sprite = HomeUiFonts.Rounded(CornerRadius);
             panel.type = Image.Type.Sliced;
-            panel.pixelsPerUnitMultiplier = 1.2f;
+            panel.pixelsPerUnitMultiplier = 1f;
             panel.color = BubbleColor;
             panel.raycastTarget = false;
 
@@ -162,8 +166,8 @@ namespace Game.Client.Match
             var textRect = textObject.GetComponent<RectTransform>();
             textRect.anchorMin = Vector2.zero;
             textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = new Vector2(9f, 5f);
-            textRect.offsetMax = new Vector2(-9f, -5f);
+            textRect.offsetMin = new Vector2(HorizontalPadding, VerticalPadding);
+            textRect.offsetMax = new Vector2(-HorizontalPadding, -VerticalPadding);
             var text = textObject.GetComponent<TextMeshProUGUI>();
             EnsureFont();
             text.font = font;
@@ -186,6 +190,7 @@ namespace Game.Client.Match
             private readonly TMP_Text text;
             private Transform playerRoot;
             private Transform follow;
+            private PlayerNameplateView nameplate;
             private float hideAt = -1f;
 
             public bool IsDestroyed => canvas == null;
@@ -202,6 +207,7 @@ namespace Game.Client.Match
             {
                 playerRoot = value;
                 follow = value == null ? null : value.Find("Visual") ?? value;
+                nameplate = value == null ? null : value.GetComponentInChildren<PlayerNameplateView>();
             }
 
             public void Show(string value)
@@ -210,11 +216,11 @@ namespace Game.Client.Match
                 text.text = message;
                 var preferred = text.GetPreferredValues(
                     message,
-                    MaxBubbleWidth - HorizontalPadding,
-                    MaxBubbleHeight - VerticalPadding);
+                    MaxBubbleWidth - (HorizontalPadding * 2f),
+                    MaxBubbleHeight - (VerticalPadding * 2f));
                 canvas.sizeDelta = new Vector2(
-                    Mathf.Clamp(preferred.x + HorizontalPadding, MinBubbleWidth, MaxBubbleWidth),
-                    Mathf.Clamp(preferred.y + VerticalPadding, MinBubbleHeight, MaxBubbleHeight));
+                    Mathf.Min(preferred.x + (HorizontalPadding * 2f), MaxBubbleWidth),
+                    Mathf.Min(preferred.y + (VerticalPadding * 2f), MaxBubbleHeight));
                 canvas.gameObject.SetActive(true);
                 hideAt = Time.unscaledTime + VisibleSeconds;
             }
@@ -240,7 +246,7 @@ namespace Game.Client.Match
                     text.font = currentFont;
                 }
 
-                canvas.position = follow.position + Vector3.up * HeightOffset;
+                canvas.position = ResolveWorldPosition();
                 if (camera != null)
                 {
                     canvas.rotation = camera.transform.rotation;
@@ -254,6 +260,22 @@ namespace Game.Client.Match
                 {
                     Hide();
                 }
+            }
+
+            private Vector3 ResolveWorldPosition()
+            {
+                if (nameplate == null && playerRoot != null)
+                {
+                    nameplate = playerRoot.GetComponentInChildren<PlayerNameplateView>();
+                }
+
+                var halfHeight = canvas.rect.height * 0.5f * Mathf.Abs(canvas.lossyScale.y);
+                if (nameplate != null)
+                {
+                    return nameplate.PositionAbove(NameplateClearance, halfHeight);
+                }
+
+                return follow.position + Vector3.up * (FallbackHeightOffset + halfHeight);
             }
         }
     }

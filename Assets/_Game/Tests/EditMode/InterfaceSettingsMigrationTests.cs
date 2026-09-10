@@ -82,14 +82,25 @@ namespace Game.Architecture.Tests
             Assert.That(settings.Get(InterfaceOption.StreamerMode), Is.EqualTo(InterfaceCatalog.Off));
         }
 
+        /// <summary>
+        /// With neither row saved there is nothing to carry over, and the
+        /// system falls back to the catalogue's own answer.
+        /// </summary>
+        /// <remarks>
+        /// Asks only about this row. Whether the store found anything at all
+        /// depends on the other eight rows, which belong to whoever last used
+        /// this machine — an earlier version of this test asserted on that and
+        /// failed as soon as somebody opened the 인터페이스 tab.
+        /// </remarks>
         [Test]
-        public void NothingSavedEither_Way_LeavesTheRowToItsDefault()
+        public void NeitherRowSaved_LeavesTheRowToItsDefault()
         {
+            new PlayerPrefsInterfaceSettingsStore().TryLoad(out var settings);
+
             Assert.That(
-                new PlayerPrefsInterfaceSettingsStore().TryLoad(out var settings),
-                Is.False,
-                "Nothing was saved, so the system starts from the catalogue.");
-            Assert.That(settings.Get(InterfaceOption.StreamerMode), Is.Empty);
+                settings.Get(InterfaceOption.StreamerMode),
+                Is.Empty,
+                "Nothing was carried over, so the catalogue decides.");
         }
     }
 }

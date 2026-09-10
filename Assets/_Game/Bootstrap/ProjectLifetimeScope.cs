@@ -44,6 +44,14 @@ namespace Game.Bootstrap
         [Tooltip("Backend address. Leave empty for the deployed server; set http://localhost:8080 to work against a local one.")]
         private string _backendBaseUrl;
 
+        [SerializeField]
+        [Tooltip("Picture for the mouse pointer. 32x32, imported as Cursor with Read/Write on. Empty keeps the system arrow.")]
+        private Texture2D _cursor;
+
+        [SerializeField]
+        [Tooltip("Pixel of the cursor picture that clicks, from its top-left. An arrow's tip, a hand's fingertip.")]
+        private Vector2 _cursorHotspot;
+
         protected override void Configure(IContainerBuilder builder)
         {
             // Built here rather than in RegisterServices: it reads this
@@ -102,6 +110,16 @@ namespace Game.Bootstrap
             // resize; a test container must not touch one.
             builder.RegisterEntryPoint<GraphicsSettingsStartup>();
             builder.RegisterEntryPoint<CameraSettingsBinder>();
+            builder.RegisterEntryPoint<KeySettingGuideBinder>();
+
+            // Only when a picture was given: the system arrow needs no setting,
+            // and a test container has no texture to hand over.
+            if (_cursor != null)
+            {
+                builder.RegisterEntryPoint<CursorSkin>()
+                    .WithParameter(_cursor)
+                    .WithParameter(_cursorHotspot);
+            }
             builder.RegisterEntryPoint<NetworkInterfaceSettings>();
 
             // Built here rather than in RegisterServices: the device identifier
@@ -308,6 +326,10 @@ namespace Game.Bootstrap
             builder.Register<HomeMenuSystem>(Lifetime.Singleton);
             builder.Register<FriendListSystem>(Lifetime.Singleton);
             builder.Register<InterfacePresentation>(Lifetime.Singleton);
+
+            // One pseudonym for the whole visit, so the room list and the room
+            // itself call a player the same thing.
+            builder.Register<PublishedPlayerName>(Lifetime.Singleton);
             builder.Register<FriendSearchSystem>(Lifetime.Singleton);
 
             // Registered here so every container has one, with a store that
@@ -387,7 +409,8 @@ namespace Game.Bootstrap
                         c.Resolve<PlayerSpawner>(),
                         c.Resolve<PlayerProfile>(),
                         networkScenes,
-                        c.Resolve<ServerRegionSystem>()),
+                        c.Resolve<ServerRegionSystem>(),
+                        c.Resolve<PublishedPlayerName>()),
                     Lifetime.Singleton)
                 .AsSelf()
                 .As<IRoomSessionProbe>()

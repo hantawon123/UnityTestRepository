@@ -29,7 +29,7 @@ namespace Game.Bootstrap
         {
             menu.SettingsClicked += OpenFromMenu;
             pause.SettingsOpenRequested += OpenFromWorld;
-            view.LeaveGameRequested += OnLeaveGame;
+            presenter.LeaveGameConfirmed += OnLeaveGame;
             view.Closed += OnClosed;
         }
 
@@ -44,7 +44,15 @@ namespace Game.Bootstrap
             chatWasEnabled = chat.enabled;
             chat.enabled = false;
             view.gameObject.SetActive(true);
-            pause.OpenSettingsScreen(view.RequestBack, fromWorld);
+            pause.OpenSettingsScreen(Hide, fromWorld);
+        }
+
+        private void Hide()
+        {
+            if (view != null)
+            {
+                view.gameObject.SetActive(false);
+            }
         }
 
         private void OnLeaveGame()
@@ -61,7 +69,7 @@ namespace Game.Bootstrap
                 chat.enabled = chatWasEnabled;
             }
 
-            view.gameObject.SetActive(false);
+            Hide();
             pause.LeaveRoom();
         }
 
@@ -85,7 +93,7 @@ namespace Game.Bootstrap
         {
             menu.SettingsClicked -= OpenFromMenu;
             pause.SettingsOpenRequested -= OpenFromWorld;
-            view.LeaveGameRequested -= OnLeaveGame;
+            presenter.LeaveGameConfirmed -= OnLeaveGame;
             view.Closed -= OnClosed;
             if (opened && chat != null) chat.enabled = chatWasEnabled;
         }
