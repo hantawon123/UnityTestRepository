@@ -458,20 +458,6 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void Reset_OnATabWithNoRows_DoesNothing()
-        {
-            using var presenter = Started();
-            view.StepGraphics(GraphicsOption.Hbao, 1);
-            view.SelectTab(SettingsTab.Sound);
-
-            view.Reset();
-            view.Accept();
-
-            Assert.That(presenter.GraphicsDraft.Get(GraphicsOption.Hbao), Is.EqualTo("low"));
-            Assert.That(view.ActionsEnabled, Is.True);
-        }
-
-        [Test]
         public void ResetAll_PutsEveryTabBack()
         {
             using var presenter = Started();

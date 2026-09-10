@@ -87,10 +87,13 @@ namespace Game.Bootstrap
         private bool[] outgoingBehaviourStates = Array.Empty<bool>();
         private Renderer[] outgoingRenderers = Array.Empty<Renderer>();
         private bool[] outgoingRendererStates = Array.Empty<bool>();
+        private bool[] outgoingRendererEnabledStates = Array.Empty<bool>();
         private Collider[] outgoingColliders = Array.Empty<Collider>();
         private bool[] outgoingColliderStates = Array.Empty<bool>();
         private bool highlightStaging;
         private bool stagingVisible;
+        private int diagnosticSamples;
+        private float nextDiagnosticTime;
 
         private sealed class LobbyStartCountdown : ITickable
         {
@@ -322,6 +325,12 @@ namespace Game.Bootstrap
 
         private void Update()
         {
+            if (diagnosticSamples > 0 && Time.unscaledTime >= nextDiagnosticTime)
+            {
+                diagnosticSamples--;
+                nextDiagnosticTime = Time.unscaledTime + 1f;
+                MatchTransitionDiagnostics.Dump($"lobby-sample staging={highlightStaging} visible={stagingVisible} outgoing={outgoingRenderers.Length} highlight={stagingNetwork?.IsHighlightInProgress} localComplete={stagingNetwork?.IsLocalHighlightComplete}");
+            }
             if (!highlightStaging || stagingNetwork == null) return;
             if (!stagingNetwork.IsHighlightInProgress)
             {
@@ -334,12 +343,21 @@ namespace Game.Bootstrap
 
             var visible = stagingNetwork.IsLocalHighlightComplete;
             if (visible != stagingVisible) SetStagingVisible(visible);
+            // Replay camera cleanup can restore occluders after the local skip.
+            // This peer owns lobby visibility until the shared timeline finishes.
+            if (visible) HideOutgoingGeometry();
+        }
+
+        private void LateUpdate()
+        {
+            if (highlightStaging && stagingVisible) HideOutgoingGeometry();
         }
 
         private void PrepareHighlightStaging(NetworkRunnerService network)
         {
             stagingNetwork = network;
             highlightStaging = true;
+            MatchTransitionDiagnostics.Dump("lobby-staging-prepare");
         }
 
         private void CaptureStagingPresentation()
@@ -382,7 +400,9 @@ namespace Game.Bootstrap
             foreach (var root in playground.SceneRoots)
             {
                 // Assigned items are roots too, and may have been destroyed during the match.
-                if (root == null) continue;
+                // The gameplay rig is transferred to Lobby but remains in the old root snapshot.
+                if (root == null || root.GetComponent<PlayerCameraController>() != null ||
+                    (root.GetComponent<Camera>() != null && root.scene == gameObject.scene)) continue;
                 outgoingMeshes.AddRange(root.GetComponentsInChildren<Renderer>(true));
                 outgoingBodies.AddRange(root.GetComponentsInChildren<Collider>(true));
                 foreach (var behaviour in root.GetComponentsInChildren<Behaviour>(true))
@@ -398,16 +418,38 @@ namespace Game.Bootstrap
                 outgoingBehaviourStates[index] = outgoingBehaviours[index].enabled;
             outgoingRenderers = outgoingMeshes.ToArray();
             outgoingRendererStates = new bool[outgoingRenderers.Length];
+            outgoingRendererEnabledStates = new bool[outgoingRenderers.Length];
             for (var index = 0; index < outgoingRenderers.Length; index++)
+            {
                 outgoingRendererStates[index] = outgoingRenderers[index].forceRenderingOff;
+                outgoingRendererEnabledStates[index] = outgoingRenderers[index].enabled;
+            }
             outgoingColliders = outgoingBodies.ToArray();
             outgoingColliderStates = new bool[outgoingColliders.Length];
             for (var index = 0; index < outgoingColliders.Length; index++)
                 outgoingColliderStates[index] = outgoingColliders[index].enabled;
         }
 
+        private void HideOutgoingGeometry()
+        {
+            for (var index = 0; index < outgoingRenderers.Length; index++)
+                if (outgoingRenderers[index] != null)
+                {
+                    outgoingRenderers[index].forceRenderingOff = true;
+                    outgoingRenderers[index].enabled = false;
+                }
+            for (var index = 0; index < outgoingColliders.Length; index++)
+                if (outgoingColliders[index] != null)
+                    outgoingColliders[index].enabled = false;
+        }
+
         private void SetStagingVisible(bool visible)
         {
+            if (visible && !stagingVisible)
+            {
+                diagnosticSamples = 3;
+                nextDiagnosticTime = Time.unscaledTime;
+            }
             stagingVisible = visible;
             for (var index = 0; index < stagingRenderers.Length; index++)
                 if (stagingRenderers[index] != null)
@@ -429,12 +471,7 @@ namespace Game.Bootstrap
             {
                 // The outgoing scene can stay loaded until every peer finishes.
                 // Hide its geometry and collisions before revealing the lobby.
-                for (var index = 0; index < outgoingRenderers.Length; index++)
-                    if (outgoingRenderers[index] != null)
-                        outgoingRenderers[index].forceRenderingOff = true;
-                for (var index = 0; index < outgoingColliders.Length; index++)
-                    if (outgoingColliders[index] != null)
-                        outgoingColliders[index].enabled = false;
+                HideOutgoingGeometry();
                 SceneManager.SetActiveScene(gameObject.scene);
                 foreach (var cover in FindObjectsByType<HighlightTransitionView>(
                              FindObjectsInactive.Include,
@@ -446,7 +483,10 @@ namespace Game.Bootstrap
             {
                 for (var index = 0; index < outgoingRenderers.Length; index++)
                     if (outgoingRenderers[index] != null)
+                    {
                         outgoingRenderers[index].forceRenderingOff = outgoingRendererStates[index];
+                        outgoingRenderers[index].enabled = outgoingRendererEnabledStates[index];
+                    }
                 for (var index = 0; index < outgoingColliders.Length; index++)
                     if (outgoingColliders[index] != null)
                         outgoingColliders[index].enabled = outgoingColliderStates[index];
@@ -473,9 +513,23 @@ namespace Game.Bootstrap
         {
             var rig = FindFirstObjectByType<PlayerCameraController>(FindObjectsInactive.Include);
             if (rig == null) rig = Instantiate(cameraRigPrefab);
-            if (highlightStaging && rig.gameObject.scene != gameObject.scene &&
-                rig.transform.parent == null)
-                SceneManager.MoveGameObjectToScene(rig.gameObject, gameObject.scene);
+            if (highlightStaging)
+            {
+                // Keep the Brain/output paired with the rig through replay -> lobby.
+                // Replacing only the output camera can leave the lobby viewing the replay pose.
+                var output = Camera.main;
+                if (output != null && output.gameObject.scene != gameObject.scene && output.transform.parent == null)
+                {
+                    foreach (var root in sceneRoots)
+                        if (root != null)
+                            foreach (var other in root.GetComponentsInChildren<Camera>(true))
+                                other.enabled = false;
+                    SceneManager.MoveGameObjectToScene(output.gameObject, gameObject.scene);
+                    Debug.Log($"[QA-Transition] transferred output camera={output.GetInstanceID()} with rig={rig.GetInstanceID()}");
+                }
+                if (rig.gameObject.scene != gameObject.scene && rig.transform.parent == null)
+                    SceneManager.MoveGameObjectToScene(rig.gameObject, gameObject.scene);
+            }
             rig.BindSettings(settings);
             rig.RequireExplicitFollowTarget();
         }

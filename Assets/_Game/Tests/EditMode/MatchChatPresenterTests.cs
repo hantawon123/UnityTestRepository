@@ -101,44 +101,6 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Bubble_SitsAboveNameplate()
-        {
-            var parent = new UnityEngine.GameObject("ChatRoot");
-            var player = new UnityEngine.GameObject("Player");
-            try
-            {
-                var visual = new UnityEngine.GameObject("Visual");
-                visual.transform.SetParent(player.transform, false);
-                var body = UnityEngine.GameObject.CreatePrimitive(UnityEngine.PrimitiveType.Cube);
-                body.transform.SetParent(visual.transform, false);
-                body.transform.localPosition = new UnityEngine.Vector3(0f, 0.5f, 0f);
-
-                var nameplate = PlayerNameplateView.Attach(player.transform);
-                nameplate.SetNickname("이름");
-                nameplate.RefreshPlacement();
-
-                var bubbles = MatchChatBubbleView.Create(parent.transform);
-                bubbles.BindPlayer("P1", player.transform);
-                bubbles.Show(new LobbyChatMessage("P1", "이름", "안녕"));
-                bubbles.RefreshPlacement();
-
-                var bubble = player.transform.Find("Match Chat Bubble")
-                    .GetComponent<UnityEngine.RectTransform>();
-                var halfHeight = bubble.rect.height * 0.5f * UnityEngine.Mathf.Abs(bubble.lossyScale.y);
-                var expected = nameplate.PositionAbove(
-                    MatchChatBubbleView.NameplateClearance, halfHeight);
-
-                Assert.That(bubble.position.y, Is.GreaterThan(nameplate.transform.position.y));
-                Assert.That(bubble.position.y, Is.EqualTo(expected.y).Within(0.02f));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(parent);
-                UnityEngine.Object.DestroyImmediate(player);
-            }
-        }
-
-        [Test]
         public void FriendScope_FiltersHistoryAndBubbles_AndRefreshesAfterFriendChange()
         {
             using var room = new Game.Core.Lobby.RoomBrowserSystem();

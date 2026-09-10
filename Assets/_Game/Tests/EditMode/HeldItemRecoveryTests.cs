@@ -46,13 +46,67 @@ namespace Game.Architecture.Tests
                 Assert.That(wrong.CarriedItem, Is.Null);
                 Assert.That(item.IsCarried, Is.EqualTo(authoritativeHolder == 1));
                 if (authoritativeHolder == 1) Assert.That(correct.CarriedItem, Is.SameAs(item));
-                else Assert.That(item.transform.position, Is.EqualTo(pose.position));
+                // OnNetworkPose updates the physics pose; interpolated Transform sync needs a player loop.
+                else Assert.That(item.GetComponent<Rigidbody>().position, Is.EqualTo(pose.position));
             }
             finally
             {
                 Object.DestroyImmediate(itemObject);
                 Object.DestroyImmediate(player0);
                 Object.DestroyImmediate(player1);
+            }
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void DestroyedSceneItem_HudRefreshClearsStaleReferences(bool hudVisible)
+        {
+            var itemObject = new GameObject("OutgoingSceneItem", typeof(Rigidbody));
+            var playerObject = new GameObject("PersistentPlayer");
+            try
+            {
+                var interactor = playerObject.AddComponent<PlayerInteractor>();
+                var item = itemObject.AddComponent<CarryableItem>();
+                typeof(PlayerInteractor).GetField("aimedTarget", Private).SetValue(interactor, item);
+                typeof(PlayerInteractor).GetField("highlightedItem", Private).SetValue(interactor, item);
+                typeof(PlayerInteractor).GetProperty("CarriedItem").SetValue(interactor, item);
+                Object.DestroyImmediate(itemObject);
+
+                Assert.DoesNotThrow(() => interactor.SetHudVisible(hudVisible));
+                Assert.That(Field<Component>(interactor, "aimedTarget"), Is.Null);
+                Assert.That(Field<CarryableItem>(interactor, "highlightedItem"), Is.Null);
+                Assert.That(interactor.CarriedItem, Is.Null);
+                Assert.That(interactor.IsCarrying, Is.False);
+            }
+            finally
+            {
+                if (itemObject != null) Object.DestroyImmediate(itemObject);
+                Object.DestroyImmediate(playerObject);
+            }
+        }
+
+        [Test]
+        public void DestroyedSceneItem_DisableClearsAimWithoutAccessingHighlight()
+        {
+            var itemObject = new GameObject("OutgoingSceneItem", typeof(Rigidbody));
+            var playerObject = new GameObject("PersistentPlayer");
+            try
+            {
+                var interactor = playerObject.AddComponent<PlayerInteractor>();
+                var item = itemObject.AddComponent<CarryableItem>();
+                typeof(PlayerInteractor).GetField("aimedTarget", Private).SetValue(interactor, item);
+                typeof(PlayerInteractor).GetField("highlightedItem", Private).SetValue(interactor, item);
+                Object.DestroyImmediate(itemObject);
+
+                Assert.DoesNotThrow(() => typeof(PlayerInteractor)
+                    .GetMethod("OnDisable", Private).Invoke(interactor, null));
+                Assert.That(Field<Component>(interactor, "aimedTarget"), Is.Null);
+                Assert.That(Field<CarryableItem>(interactor, "highlightedItem"), Is.Null);
+            }
+            finally
+            {
+                if (itemObject != null) Object.DestroyImmediate(itemObject);
+                Object.DestroyImmediate(playerObject);
             }
         }
 

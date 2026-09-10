@@ -994,8 +994,8 @@ namespace Game.Network.Session
 
         internal static NetworkProjectConfig ConfigureSession(NetworkProjectConfig config)
         {
-#if UNITY_WEBGL && !UNITY_EDITOR
-            // Browser play uses the existing Host/Client rules. Native defaults stay unchanged.
+#if UNITY_WEBGL
+            // Fusion also checks this in the Editor when WebGL is the active build target.
             config.AllowClientServerModesInWebGL = true;
 #endif
             // Runtime-only policy; the serialized project settings remain available for restoration.
