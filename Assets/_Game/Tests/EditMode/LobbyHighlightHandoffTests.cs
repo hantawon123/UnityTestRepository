@@ -18,13 +18,17 @@ namespace Game.Tests.EditMode
             var lobbyObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
             var mapObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
             var destroyedItem = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var sharedRig = new GameObject("Transferred camera rig");
+            sharedRig.SetActive(false);
+            sharedRig.AddComponent<Game.Client.Cameras.PlayerCameraController>();
+            var sharedCamera = sharedRig.AddComponent<Camera>();
             try
             {
                 var lobby = lobbyRoot.AddComponent<LobbyLifetimeScope>();
                 var playground = playgroundRoot.AddComponent<PlaygroundLifetimeScope>();
                 Set(lobby, "sceneRoots", destroyedLobbyRoot ? new[] { destroyedItem, lobbyObject } : new[] { lobbyObject });
                 typeof(PlaygroundLifetimeScope).GetField("sceneRoots", BindingFlags.Instance | BindingFlags.NonPublic)
-                    .SetValue(playground, new[] { destroyedItem, mapObject });
+                    .SetValue(playground, new[] { destroyedItem, mapObject, sharedRig });
                 Object.DestroyImmediate(destroyedItem);
 
                 Assert.DoesNotThrow(() => typeof(LobbyLifetimeScope)
@@ -37,9 +41,12 @@ namespace Game.Tests.EditMode
                 Assert.That(lobbyObject.GetComponent<Renderer>().forceRenderingOff, Is.False);
                 Assert.That(mapObject.GetComponent<Renderer>().forceRenderingOff, Is.True);
                 Assert.That(mapObject.GetComponent<Collider>().enabled, Is.False);
+                Assert.That(sharedCamera.enabled, Is.True,
+                    "The transferred lobby rig must not be disabled with the outgoing map.");
             }
             finally
             {
+                Object.DestroyImmediate(sharedRig);
                 Object.DestroyImmediate(destroyedItem);
                 Object.DestroyImmediate(mapObject);
                 Object.DestroyImmediate(lobbyObject);

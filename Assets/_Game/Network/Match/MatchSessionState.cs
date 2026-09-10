@@ -737,7 +737,7 @@ namespace Game.Network.Match
             StarterOf(Runner)?.TryHoldObject(info.Source, objectId);
         }
 
-        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
         public void RPC_RequestRelease(
             Vector3 position,
             Quaternion rotation,
@@ -749,7 +749,7 @@ namespace Game.Network.Match
                 RPC_InteractionRejected(info.Source, "release");
         }
 
-        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
         public void RPC_RequestDrop(
             Vector3 position,
             Quaternion rotation,
@@ -761,7 +761,7 @@ namespace Game.Network.Match
                 RPC_InteractionRejected(info.Source, "drop");
         }
 
-        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
         public void RPC_RequestThrow(
             Vector3 position,
             Quaternion rotation,

@@ -48,3 +48,11 @@ Unity 테스트 로그와 XML은 작업용 문서 저장소의 `.build/lobby-pro
 - 위 후속 수정은 자동 테스트를 재실행하지 않았으며, 이전 242개 통과 결과에 포함되지 않음. 열린 사용자 Unity의 재컴파일과 실플레이 확인 필요.
 - Fusion RejoinSession NullReferenceException 직전에 Game does not exist 오류 확인. 재입장 시도 원인은 아직 미확정이며 해결 완료로 처리하지 않음.
 - 사용자 요청에 따라 QA 브랜치를 origin에 push하며 MR은 생성하지 않음.
+
+## 설정 모달 및 Space/Space/Tab 스킵 후속
+
+- Bootstrap 설정 조립에서 기존 1920x1080 UI를 중앙 정렬한 80% 크기로 축소. CanvasScaler Expand로 화면비가 달라도 전체가 들어오도록 처리하고 게임 HUD 위로 표시.
+- 열린 설정은 ESC로 기존 RequestBack 경로 호출. 확인/피드백 창에서 소비한 ESC가 같은 프레임에 설정까지 닫지 않도록 처리.
+- 이전 경기 SceneRoots 배열에 남은 재사용 PlayerCameraController 루트를 로비 전환의 숨김 대상에서 제외. 프레임 후반에도 이전 맵 숨김 유지. 실제 재현 해결 여부는 플레이 검증 필요.
+- 사용자 오류 두 개는 동일한 RPC_RequestThrow 거절 응답의 Player:None 대상 오류. 던지기/놓기/떨어뜨리기 RPC에 SourceIsHostPlayer를 지정해 호스트 발신자를 명시.
+- 카메라 루트가 이전 씬 배열에 남은 경우의 회귀 테스트 추가. 사용자 Unity 세션을 종료하지 않았으므로 이번 자동 테스트는 미실행.

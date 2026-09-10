@@ -7,6 +7,7 @@ using Game.Client.Settings;
 using Game.Network.Session;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 using VContainer.Unity;
 
 namespace Game.Bootstrap
@@ -20,6 +21,8 @@ namespace Game.Bootstrap
         private readonly NetworkRunnerService network;
         private PlayerCameraController camera;
         private bool chatWasEnabled;
+        private bool layoutConfigured;
+        private int dismissedFrame = -1;
         public bool IsOpen { get; private set; }
 
         public MatchSettingsOverlay(SettingsView view, SettingsPresenter presenter,
@@ -36,6 +39,8 @@ namespace Game.Bootstrap
         {
             presenter.LeaveGameConfirmed += Leave;
             view.Closed += OnClosed;
+            view.ConfirmDismissed += OnPanelDismissed;
+            view.FeedbackDismissed += OnPanelDismissed;
         }
 
         public void Tick()
@@ -46,7 +51,13 @@ namespace Game.Bootstrap
                 return;
             }
 
-            if (IsOpen || !network.IsRuntimeReady || PlayerMovement.IsTextInputFocused() ||
+            if (IsOpen)
+            {
+                if (dismissedFrame != Time.frameCount && Keyboard.current != null &&
+                    Keyboard.current.escapeKey.wasPressedThisFrame) view.RequestBack();
+                return;
+            }
+            if (!network.IsRuntimeReady || PlayerMovement.IsTextInputFocused() ||
                 Keyboard.current == null || !Keyboard.current.escapeKey.wasPressedThisFrame) return;
             IsOpen = true;
             chatWasEnabled = chat.enabled;
@@ -54,6 +65,31 @@ namespace Game.Bootstrap
             camera = UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>();
             if (camera != null) camera.SetCursorCaptureEnabled(false);
             view.gameObject.SetActive(true);
+            ConfigureLayout();
+        }
+
+        private void OnPanelDismissed() => dismissedFrame = Time.frameCount;
+
+        private void ConfigureLayout()
+        {
+            if (layoutConfigured) return;
+            var canvas = view.GetComponentInChildren<Canvas>(true);
+            if (canvas == null) return;
+            var scaler = canvas.GetComponent<CanvasScaler>();
+            scaler.referenceResolution = new Vector2(1920f, 1080f) / 0.8f;
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
+            canvas.sortingOrder = 10000;
+            var content = new GameObject("Match Settings Content", typeof(RectTransform))
+                .GetComponent<RectTransform>();
+            content.SetParent(canvas.transform, false);
+            content.anchorMin = content.anchorMax = content.pivot = new Vector2(0.5f, 0.5f);
+            content.sizeDelta = new Vector2(1920f, 1080f);
+            for (var i = canvas.transform.childCount - 1; i >= 0; i--)
+            {
+                var child = canvas.transform.GetChild(i);
+                if (child != content) child.SetParent(content, false);
+            }
+            layoutConfigured = true;
         }
 
         private void OnClosed()
@@ -77,6 +113,8 @@ namespace Game.Bootstrap
         {
             presenter.LeaveGameConfirmed -= Leave;
             view.Closed -= OnClosed;
+            view.ConfirmDismissed -= OnPanelDismissed;
+            view.FeedbackDismissed -= OnPanelDismissed;
             if (IsOpen && chat != null) chat.enabled = chatWasEnabled;
         }
     }

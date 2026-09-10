@@ -339,6 +339,11 @@ namespace Game.Bootstrap
             if (visible) HideOutgoingGeometry();
         }
 
+        private void LateUpdate()
+        {
+            if (highlightStaging && stagingVisible) HideOutgoingGeometry();
+        }
+
         private void PrepareHighlightStaging(NetworkRunnerService network)
         {
             stagingNetwork = network;
@@ -385,7 +390,8 @@ namespace Game.Bootstrap
             foreach (var root in playground.SceneRoots)
             {
                 // Assigned items are roots too, and may have been destroyed during the match.
-                if (root == null) continue;
+                // The gameplay rig is transferred to Lobby but remains in the old root snapshot.
+                if (root == null || root.GetComponent<PlayerCameraController>() != null) continue;
                 outgoingMeshes.AddRange(root.GetComponentsInChildren<Renderer>(true));
                 outgoingBodies.AddRange(root.GetComponentsInChildren<Collider>(true));
                 foreach (var behaviour in root.GetComponentsInChildren<Behaviour>(true))
