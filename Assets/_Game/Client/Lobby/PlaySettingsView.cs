@@ -2,14 +2,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Game.Client.Home;
-using Game.Client.Players;
 using Game.Client.Rooms;
 using Game.Client.Settings;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
 using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 namespace Game.Client.Lobby
@@ -105,7 +103,6 @@ namespace Game.Client.Lobby
         private MatchRuleSettings matchRules = MatchRuleSettings.Default;
         private IReadOnlyList<PlaySettingsMapOption> mapOptions = PlaySettingsMapCatalog.All;
         private readonly Dictionary<Button, UnityEngine.Events.UnityAction> boundActions = new();
-        private int openedOnFrame = int.MinValue;
 
         public event Action OpenRequested;
         public event Action CloseRequested;
@@ -167,33 +164,6 @@ namespace Game.Client.Lobby
             StopCopyFeedback(resetVisuals: true);
         }
 
-        private void Update()
-        {
-            if (overlayRoot == null || !overlayRoot.activeInHierarchy)
-            {
-                return;
-            }
-
-            if (Time.frameCount <= openedOnFrame)
-            {
-                return;
-            }
-
-            // F closes the board the same way looking at it opens it. The
-            // title field needs that key as a letter, so it keeps the press
-            // while the cursor is in the box.
-            if (PlayerMovement.IsTextInputFocused())
-            {
-                return;
-            }
-
-            var keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.fKey.wasPressedThisFrame)
-            {
-                RequestClose();
-            }
-        }
-
         public void SetVisible(bool visible)
         {
             EnsureOverlay();
@@ -209,10 +179,9 @@ namespace Game.Client.Lobby
             }
 
             SetBackButtonVisible(visible);
-            SetGameStartLabelVisible(visible);
+            RefreshGameStartVisible();
             if (visible)
             {
-                openedOnFrame = Time.frameCount;
                 BringOverlayForward();
                 RebuildSettingsScrollLayout();
                 EnsureMapUiReady();
@@ -450,6 +419,7 @@ namespace Game.Client.Lobby
             RefreshCategory();
             RefreshMapSelection(scrollIntoView: false);
             RefreshApplyChrome();
+            RefreshGameStartVisible();
         }
 
         public void SetDraft(PlaySettingsDraft draft)
@@ -924,7 +894,7 @@ namespace Game.Client.Lobby
                 EnsureGameStartLabel(hudRoot, existingOverlay);
                 overlayRoot.SetActive(panel.activeSelf);
                 SetBackButtonVisible(overlayRoot.activeSelf);
-                SetGameStartLabelVisible(overlayRoot.activeSelf);
+                RefreshGameStartVisible();
                 return;
             }
 
@@ -944,7 +914,7 @@ namespace Game.Client.Lobby
 
             overlayRoot.SetActive(panel.activeSelf);
             SetBackButtonVisible(overlayRoot.activeSelf);
-            SetGameStartLabelVisible(overlayRoot.activeSelf);
+            RefreshGameStartVisible();
         }
 
         private bool TryAdoptOverlay(RectTransform panelTransform)
@@ -1272,6 +1242,14 @@ namespace Game.Client.Lobby
                 rect,
                 PlaySettingsStyle.Overlay.GameStartHoverScale,
                 PlaySettingsStyle.Overlay.GameStartHoverSeconds);
+        }
+
+        private void RefreshGameStartVisible()
+        {
+            var shown = editable &&
+                        ((overlayRoot != null && overlayRoot.activeSelf) ||
+                         (panel != null && panel.activeSelf));
+            SetGameStartLabelVisible(shown);
         }
 
         private void SetGameStartLabelVisible(bool visible)

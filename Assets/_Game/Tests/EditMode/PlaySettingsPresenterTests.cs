@@ -339,9 +339,9 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void RealView_GuestHidesApplyAndRevert()
+        public void RealView_GuestHidesApplyRevertAndGameStart()
         {
-            var root = new GameObject("Guest chrome test");
+            var root = new GameObject("Guest chrome test", typeof(RectTransform));
             var panel = new GameObject("PlaySettingsPanel", typeof(RectTransform));
             panel.transform.SetParent(root.transform, false);
             root.SetActive(false);
@@ -357,14 +357,19 @@ namespace Game.Tests.EditMode
                     .Invoke(view, null);
                 view.SetDraft(Draft(4));
                 view.SetEditable(false);
+                view.SetVisible(true);
                 var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
                 var apply = (Button)typeof(PlaySettingsView).GetField("applyButton", flags).GetValue(view);
                 var revert = (Button)typeof(PlaySettingsView).GetField("revertButton", flags).GetValue(view);
+                var start = (Button)typeof(PlaySettingsView).GetField("gameStartButton", flags).GetValue(view);
                 Assert.That(apply.gameObject.activeSelf, Is.False);
                 Assert.That(revert.gameObject.activeSelf, Is.False);
+                Assert.That(start, Is.Not.Null);
+                Assert.That(start.gameObject.activeSelf, Is.False);
                 view.SetEditable(true);
                 Assert.That(apply.gameObject.activeSelf, Is.True);
                 Assert.That(revert.gameObject.activeSelf, Is.True);
+                Assert.That(start.gameObject.activeSelf, Is.True);
             }
             finally { UnityEngine.Object.DestroyImmediate(root); }
         }
