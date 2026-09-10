@@ -66,7 +66,11 @@ namespace Game.Network.Match
         /// 경기 배치(숨기기 초기 배치 등)는 이 신호 이후 다시 적용해야 한다.
         /// </summary>
         event Action SceneLoaded;
-        bool BindMatchSession(MatchSessionCoordinator session, Pose shredderEjectionPose);
+        /// <summary>
+        /// 경기 세션을 네트워크에 묶는다. 파쇄기 튕김 지점은 맵의 파쇄기 수만큼(1개 이상) 넘기고,
+        /// 서버는 요청한 플레이어와 가장 가까운 지점을 고른다.
+        /// </summary>
+        bool BindMatchSession(MatchSessionCoordinator session, IReadOnlyList<Pose> shredderEjectionPoses);
         bool UnbindMatchSession(MatchSessionCoordinator session);
         bool TryInitializeAssignedItems(IReadOnlyList<PlayerItemAssignment> assignments);
         bool TryPublishMatchState(MatchStateSnapshot snapshot);

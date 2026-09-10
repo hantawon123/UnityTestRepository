@@ -55,8 +55,7 @@ namespace Game.Network.Match
         private MatchSessionState _state;
         private MatchMigrationCheckpoint _checkpoint;
         private MatchSessionCoordinator _session;
-        private Pose _shredderEjectionPose;
-        private bool _hasShredderEjectionPose;
+        private IReadOnlyList<Pose> _shredderEjectionPoses = Array.Empty<Pose>();
         private bool _returningToLobby;
         private bool _lastPublishedStarted;
         private string[] _countdownParticipants;
@@ -469,11 +468,18 @@ namespace Game.Network.Match
 
         public void BindSession(
             MatchSessionCoordinator session,
-            Pose shredderEjectionPose)
+            IReadOnlyList<Pose> shredderEjectionPoses)
         {
             if (session == null)
             {
                 throw new ArgumentNullException(nameof(session));
+            }
+
+            if (shredderEjectionPoses == null || shredderEjectionPoses.Count == 0)
+            {
+                throw new ArgumentException(
+                    "At least one shredder ejection pose is required.",
+                    nameof(shredderEjectionPoses));
             }
 
             UnbindSession();
@@ -486,8 +492,7 @@ namespace Game.Network.Match
             _session.MapObjectEjected += OnMapObjectEjected;
             _session.FinalWarningStarted += OnFinalWarningStarted;
             _session.MatchEnded += OnMatchEnded;
-            _shredderEjectionPose = shredderEjectionPose;
-            _hasShredderEjectionPose = true;
+            _shredderEjectionPoses = shredderEjectionPoses;
 
             if (_session.CurrentPhase != MatchPhase.Waiting)
             {
@@ -947,12 +952,13 @@ namespace Game.Network.Match
 
         public bool TryUseShredder(PlayerRef source)
         {
-            if (!_hasShredderEjectionPose ||
-                !TryGetPlayerIndex(source, out var playerIndex) ||
+            if (!TryGetPlayerIndex(source, out var playerIndex) ||
                 !TryGetPlayerPose(playerIndex, out var playerPose) ||
-                !_interactionRules.IsWithinInteractionDistance(
+                !TrySelectShredderEjectionPose(
+                    _shredderEjectionPoses,
                     playerPose.position,
-                    _shredderEjectionPose.position))
+                    _interactionRules.IsWithinInteractionDistance,
+                    out var ejectionPose))
             {
                 return false;
             }
@@ -976,7 +982,7 @@ namespace Game.Network.Match
 
             if (!_session.TryUseShredderOnHeldMapObject(
                     playerIndex,
-                    _shredderEjectionPose,
+                    ejectionPose,
                     now))
             {
                 return false;
@@ -985,7 +991,46 @@ namespace Game.Network.Match
             PublishRemainingDestructionUses(playerIndex);
             return _state.TrySetObjectPendingEjection(
                 objectId,
-                _shredderEjectionPose);
+                ejectionPose);
+        }
+
+        /// <summary>
+        /// 플레이어가 상호작용 거리 안에 있는 파쇄기 중 가장 가까운 것의 튕김 지점을 고른다.
+        /// 파쇄기가 여러 대인 맵에서 클라이언트가 어느 파쇄기를 눌렀는지 RPC로 보내지 않아도
+        /// 서버가 같은 판단을 내릴 수 있다(상호작용 거리 안에 두 대가 겹치지 않는다는 배치 전제).
+        /// </summary>
+        internal static bool TrySelectShredderEjectionPose(
+            IReadOnlyList<Pose> ejectionPoses,
+            Vector3 playerPosition,
+            Func<Vector3, Vector3, bool> isWithinInteractionDistance,
+            out Pose selected)
+        {
+            selected = default;
+            if (ejectionPoses == null || isWithinInteractionDistance == null)
+            {
+                return false;
+            }
+
+            var found = false;
+            var bestDistance = float.MaxValue;
+            for (var index = 0; index < ejectionPoses.Count; index++)
+            {
+                var candidate = ejectionPoses[index];
+                if (!isWithinInteractionDistance(playerPosition, candidate.position))
+                {
+                    continue;
+                }
+
+                var distance = (candidate.position - playerPosition).sqrMagnitude;
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    selected = candidate;
+                    found = true;
+                }
+            }
+
+            return found;
         }
 
         public bool TryHandlePlayerLeft(PlayerRef player)
@@ -1275,7 +1320,7 @@ namespace Game.Network.Match
             _publishedRoomStatus = false;
             _lastPublishedPhase = MatchPhase.Waiting;
             UnbindSession();
-            _hasShredderEjectionPose = false;
+            _shredderEjectionPoses = Array.Empty<Pose>();
             _returningToLobby = false;
             _playing.Clear();
             _room.Clear();

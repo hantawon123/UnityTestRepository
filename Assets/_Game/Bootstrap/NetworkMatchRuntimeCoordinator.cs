@@ -21,6 +21,26 @@ namespace Game.Bootstrap
             IReadOnlyList<WorldObjectState> initialWorldObjects,
             Pose shredderEjectionPose,
             IReadOnlyList<Pose> hidingWaitingSpawnPoints = null)
+            : this(
+                placementValidator,
+                spawnPoints,
+                itemDefinitions,
+                initialWorldObjects,
+                new[] { shredderEjectionPose },
+                hidingWaitingSpawnPoints)
+        {
+        }
+
+        /// <summary>
+        /// 파쇄기가 여러 대인 맵용. 서버는 요청한 플레이어와 가장 가까운 튕김 지점을 쓴다.
+        /// </summary>
+        public NetworkMatchRuntimeConfiguration(
+            IPlacementValidator placementValidator,
+            IReadOnlyList<Pose> spawnPoints,
+            IReadOnlyList<ItemDefinition> itemDefinitions,
+            IReadOnlyList<WorldObjectState> initialWorldObjects,
+            IReadOnlyList<Pose> shredderEjectionPoses,
+            IReadOnlyList<Pose> hidingWaitingSpawnPoints = null)
         {
             PlacementValidator = placementValidator ??
                 throw new ArgumentNullException(nameof(placementValidator));
@@ -29,7 +49,15 @@ namespace Game.Bootstrap
                 throw new ArgumentNullException(nameof(itemDefinitions));
             InitialWorldObjects = initialWorldObjects ??
                 throw new ArgumentNullException(nameof(initialWorldObjects));
-            ShredderEjectionPose = shredderEjectionPose;
+            if (shredderEjectionPoses == null || shredderEjectionPoses.Count == 0)
+            {
+                throw new ArgumentException(
+                    "At least one shredder ejection pose is required.",
+                    nameof(shredderEjectionPoses));
+            }
+
+            ShredderEjectionPoses = shredderEjectionPoses;
+            ShredderEjectionPose = shredderEjectionPoses[0];
             HidingWaitingSpawnPoints = hidingWaitingSpawnPoints ?? spawnPoints;
             if (HidingWaitingSpawnPoints.Count < spawnPoints.Count)
             {
@@ -43,7 +71,12 @@ namespace Game.Bootstrap
         public IReadOnlyList<Pose> SpawnPoints { get; }
         public IReadOnlyList<ItemDefinition> ItemDefinitions { get; }
         public IReadOnlyList<WorldObjectState> InitialWorldObjects { get; }
+        /// <summary>첫 파쇄기의 튕김 지점. 파쇄기가 하나인 맵과의 호환용.</summary>
         public Pose ShredderEjectionPose { get; }
+
+        /// <summary>모든 파쇄기의 튕김 지점(1개 이상).</summary>
+        public IReadOnlyList<Pose> ShredderEjectionPoses { get; }
+
         public IReadOnlyList<Pose> HidingWaitingSpawnPoints { get; }
     }
 
@@ -254,7 +287,7 @@ namespace Game.Bootstrap
                 if (migration == null) created.Session.EnablePhaseIntros(waitForReady: true);
                 if (!network.BindMatchSession(
                         created.Session,
-                        configuration.ShredderEjectionPose) ||
+                        configuration.ShredderEjectionPoses) ||
                     !(migration != null ? createdRuntime.ResumeMatch() : createdRuntime.StartMatch()))
                 {
                     throw new InvalidOperationException(

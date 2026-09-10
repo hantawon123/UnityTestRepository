@@ -77,3 +77,12 @@
   - BoxCollider는 두께 있는 상자라 씬 뷰에 선이 두 줄 보이며, 막는 면은 안쪽 선이다.
 - 콜라이더 수: 구역 안 6,779개(convex 메시 1,356·박스 5,400). Read/Write를 켠 뒤 상품 메시 콜라이더가 조준 광선에 잡히는 것을 확인(가격표 레이캐스트 OK) → 907에서 BoxCollider로 굳이 바꾸지 않아도 됨. 단 convex 메시 콜라이더 수천 개는 물리 비용이 있어 상호작용 없는 장식은 콜라이더 제거 검토.
 - 남은 것(사용자 직접): 스폰 6·대기 스폰 6·파쇄기·탈출 지점 배치(909·908), 진열대 위 올라가기 정책, 통로 폭 확인.
+
+### 5. 스폰과 파쇄기 (2026-09-11, 909·908)
+
+- **스폰 10개(909)**: `SpawnPoints/SpawnPoint_1~10`은 사용자가 직접 배치("이걸로 갈거야"). 검증: 전부 바닥 위(y 0.85), 막힘 없음, 경계 안, `MatchSceneConfiguration.spawnPoints` 10/10 연결. 대기 스폰은 만들지 않음(경계 안에서 시작).
+  - **무작위 배정**: `MatchSceneConfiguration.shuffleSpawnPoints`(opt-in, 마트 `SpawnPoints`에 켬). 인스턴스별 첫 `CaptureSpawnPoses()`에서 피셔-예이츠 순열을 캐시해 스포너·매치 런타임·재배치가 같은 순서를 본다. 스포너는 `seat % count`라 10개 중 인원수만큼이 매치마다 다르게 쓰인다. Playground·로비는 꺼짐.
+- **파쇄기 2대(908)**: 후보 두 곳(서쪽 벽 A, 동쪽 벽 B)을 제안했고 사용자가 **둘 다 쓰기로 결정** → 같은 외형의 임시 박스 파쇄기 `Shredder_A`(−16.35, 0.45, −11.42)·`Shredder_B`(10.78, 0.45, −6.19, y 270°). 구성: 큐브 0.8×0.9×0.8 + BoxCollider + `ShredderInteractable`, 자식 `ShredderSpot`(앞 0.9 m, y 0.6 = 튕김 지점)·`ShredderTarget`(앞 2.5 m). 실제 모델은 907/912에서 교체.
+  - **코드(다중 파쇄기 지원)**: 씬 캡처가 `ShredderSpot` 이름 전부를 모아 `NetworkMatchRuntimeConfiguration.ShredderEjectionPoses`로 넘기고, `INetworkMatchAuthority.BindMatchSession`이 목록을 받는다. 서버 `MatchStarter.TryUseShredder`는 RPC를 바꾸지 않고 **요청한 플레이어와 상호작용 거리 안에서 가장 가까운 튕김 지점**을 고른다(`TrySelectShredderEjectionPose`). 전제: 두 파쇄기가 상호작용 거리 안에 겹치지 않게 배치. HUD 마커는 카메라(로컬 플레이어)에서 가장 가까운 파쇄기를 가리킨다. 기존 단일 `ShredderEjectionPose`는 첫 파쇄기를 가리켜 Playground 호환.
+  - 검증: EditMode 테스트 `ShredderSelection_*` 2개, `Configuration_ExposesEveryShredderEjectionPose_*` 추가.
+- 남은 것: 탈출 지점 마커(913, 규칙 파트와 이름 협의), 마트 씬 LifetimeScope와 `NetworkScenes` 연결(910) 후 실제 플레이로 파쇄기 두 대 동작 확인.

@@ -103,7 +103,20 @@ namespace Game.Bootstrap
                 }
             }
 
-            var ejectionPoint = FindTransform(scene, "ShredderSpot");
+            // 파쇄기가 여러 대면 'ShredderSpot' 이름의 튕김 지점도 여러 개다. 전부 모아 서버가 가장 가까운 것을 고르게 한다.
+            var ejectionPoints = FindAllTransforms(scene, "ShredderSpot");
+            if (ejectionPoints.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    "Playground is missing required object 'ShredderSpot'.");
+            }
+
+            var ejectionPoses = new Pose[ejectionPoints.Count];
+            for (var index = 0; index < ejectionPoints.Count; index++)
+            {
+                ejectionPoses[index] = new Pose(ejectionPoints[index].position, ejectionPoints[index].rotation);
+            }
+
             var spawnPoints = CaptureSpawnPoints(scene);
             var configuration = new NetworkMatchRuntimeConfiguration(
                 new PhysicsPlacementValidator(
@@ -113,7 +126,7 @@ namespace Game.Bootstrap
                 spawnPoints,
                 assignmentDefinitions,
                 worldObjects,
-                new Pose(ejectionPoint.position, ejectionPoint.rotation),
+                ejectionPoses,
                 CaptureWaitingSpawnPoints(scene, spawnPoints));
 
             return new PlaygroundMatchScene(
@@ -204,6 +217,24 @@ namespace Game.Bootstrap
 
             throw new InvalidOperationException(
                 $"Playground is missing required object '{objectName}'.");
+        }
+
+        private static List<Transform> FindAllTransforms(Scene scene, string objectName)
+        {
+            var found = new List<Transform>();
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                foreach (var transform in root.GetComponentsInChildren<Transform>(
+                             includeInactive: true))
+                {
+                    if (string.Equals(transform.name, objectName, StringComparison.Ordinal))
+                    {
+                        found.Add(transform);
+                    }
+                }
+            }
+
+            return found;
         }
 
         private static bool TryFindTransform(

@@ -1298,14 +1298,14 @@ namespace Game.Network.Session
 
         public bool BindMatchSession(
             MatchSessionCoordinator session,
-            Pose shredderEjectionPose)
+            IReadOnlyList<Pose> shredderEjectionPoses)
         {
             if (!IsServer || _matchStarter == null || session == null)
             {
                 return false;
             }
 
-            _matchStarter.BindSession(session, shredderEjectionPose);
+            _matchStarter.BindSession(session, shredderEjectionPoses);
             MatchMigration = null;
             return true;
         }
