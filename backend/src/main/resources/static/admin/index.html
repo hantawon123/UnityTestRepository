@@ -52,6 +52,10 @@
   button:hover { background: #f3f4f6; }
   button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
   button.primary:hover { background: #33363c; }
+  /* 되돌릴 수 없는 것만 빨갛습니다. 확인 창이 없으므로 색이 유일한 경고입니다.
+     숨김까지 같이 칠하면 이 색이 "지운다"가 아니라 "치운다"로 읽혀 무뎌집니다. */
+  button.danger { color: var(--warn); border-color: var(--warn); }
+  button.danger:hover { background: #fdf2f2; }
   button:disabled { opacity: .5; cursor: default; }
   .row {
     display: flex; align-items: center; gap: 14px;
@@ -75,6 +79,11 @@
   }
   .detail div { padding: 5px 0; border-bottom: 1px solid var(--line); }
   .detail div:last-child { border-bottom: 0; }
+  /* 사유는 늘어나고 버튼은 오른쪽에 붙습니다. 메모가 길어도 버튼 자리가 밀리지
+     않도록 텍스트 쪽만 줄어들게 둡니다. */
+  .entry { display: flex; align-items: center; gap: 10px; }
+  .entry > span:first-child { flex: 1; min-width: 0; }
+  .entry button { padding: 4px 9px; font-size: 13px; }
   .memo { color: var(--muted); }
   .notice { padding: 10px 12px; border-radius: 7px; font-size: 14px; margin-bottom: 12px; }
   .notice.bad { background: #fef2f2; color: var(--warn); }
@@ -104,6 +113,7 @@
     border-radius: 8px; white-space: pre-wrap; word-break: break-word;
   }
   .feedback .head { display: flex; align-items: baseline; gap: 8px; }
+  .feedback .head .actions button { padding: 4px 9px; font-size: 13px; }
   .feedback .meta { color: var(--muted); font-size: 12px; margin-top: 6px; }
   .id { color: var(--muted); font-size: 12px; font-family: ui-monospace, monospace; }
   [hidden] { display: none !important; }
@@ -329,8 +339,13 @@
     const actions = document.createElement('div');
     actions.className = 'actions';
 
+    // 치운 뒤 목록을 다시 그리면 이 줄은 버려지고 새 줄이 생깁니다. 펼쳐 둔 상태를
+    // 되살리려면 새 줄에서 같은 사람을 찾아야 하므로 표시를 남겨 둡니다.
+    row.dataset.userId = user.userId;
+
     const open = document.createElement('button');
     open.textContent = '내용';
+    open.className = 'detail-toggle';
     open.addEventListener('click', () => toggleDetail(row, user, open));
     actions.appendChild(open);
 
@@ -340,6 +355,17 @@
       actions.appendChild(decide(user, 'ACTIONED', '문제 있음', true));
       actions.appendChild(decide(user, 'DISMISSED', '문제 없음', false));
     }
+
+    // 사람 단위로 치웁니다. 판단과 나란히 두는 이유는 운영자가 같은 줄에서 "판단한다"
+    // 와 "그냥 치운다"를 고르기 때문입니다. 숨김은 검토 상태를 건드리지 않습니다.
+    //
+    // status 를 함께 보냅니다. 이 줄의 건수는 지금 고른 상태의 것이므로, 상태를 빼고
+    // 부르면 화면이 "1건"이라고 말한 자리에서 보이지도 않던 신고까지 사라집니다.
+    // 삭제는 되돌릴 수 없어 그 차이가 그대로 손실이 됩니다.
+    const target = '/reports/' + encodeURIComponent(user.userId);
+    const scope = '?status=' + encodeURIComponent(el('status').value);
+    actions.appendChild(cleanup('숨김', target + '/hidden' + scope, 'PATCH', load, false));
+    actions.appendChild(cleanup('삭제', target + scope, 'DELETE', load, true));
 
     row.append(who, counts, time, actions);
     return row;
@@ -374,6 +400,45 @@
     return button;
   }
 
+  /**
+   * 치우거나 지우는 버튼 하나.
+   *
+   * 숨김과 완전 삭제가 같은 모양을 쓰는 이유는 운영자에게 둘의 차이가 "다시 볼 수
+   * 있는가"뿐이기 때문입니다. 되돌릴 수 없는 쪽만 danger 로 칠해 구분합니다.
+   *
+   * <b>확인 창이 없습니다.</b> 누르면 그 자리에서 실행됩니다. 삭제는 되돌릴 수 없고
+   * 숨긴 것을 되살리려면 DB 를 열어야 하므로, 잘못 누르면 화면에서 할 수 있는 일이
+   * 없습니다. 그렇게 하기로 정한 것입니다(S15P21D205-900).
+   */
+  function cleanup(label, path, method, done, danger) {
+    const button = document.createElement('button');
+    button.textContent = label;
+    if (danger) button.className = 'danger';
+
+    button.addEventListener('click', async (event) => {
+      // 지금은 줄이나 펼침 상자에 클릭 핸들러가 없어 이것이 없어도 동작이 같습니다.
+      // 줄 전체를 눌러 펼치도록 바꿀 때 이 버튼이 그것까지 건드리지 않게 미리 막아
+      // 둡니다. 그때 이 한 줄이 없으면 치우려던 클릭이 펼치기도 함께 실행합니다.
+      event.stopPropagation();
+      button.disabled = true;
+
+      try {
+        const result = await call(path, { method: method });
+
+        // 목록을 먼저 다시 그립니다. 그리는 쪽이 알림을 지우므로 순서가 반대면
+        // 방금 띄운 문구가 그 자리에서 사라집니다.
+        await done();
+
+        // 0 이면 그 사이에 다른 사람이 이미 치운 것입니다. 오류가 아닙니다.
+        say(result.affected > 0 ? '치웠습니다.' : '이미 치워져 있었습니다.', 'good');
+      } catch (ignored) {
+        button.disabled = false;
+      }
+    });
+
+    return button;
+  }
+
   async function toggleDetail(row, user, button) {
     const open = row.nextElementSibling;
     if (open && open.classList.contains('detail')) {
@@ -391,18 +456,56 @@
 
     for (const report of reports) {
       const line = document.createElement('div');
-      line.textContent = report.reason + ' · ' + when(report.createdAt);
+      line.className = 'entry';
+
+      const text = document.createElement('span');
+      text.textContent = report.reason + ' · ' + when(report.createdAt);
       if (report.memo) {
         const memo = document.createElement('span');
         memo.className = 'memo';
         memo.textContent = ' — ' + report.memo;
-        line.appendChild(memo);
+        text.appendChild(memo);
       }
+      line.appendChild(text);
+
+      // 건별로 치웁니다. 사람 단위로는 과한 경우 - 다섯 건 중 한 건만 스팸일 때 -
+      // 를 위한 자리입니다. 치운 뒤에는 펼침을 다시 그려야 그 줄이 사라집니다.
+      const entry = '/reports/entries/' + report.id;
+      const redraw = () => reopenDetail(user);
+      const actions = document.createElement('span');
+      actions.className = 'actions';
+      actions.appendChild(cleanup('숨김', entry + '/hidden', 'PATCH', redraw, false));
+      actions.appendChild(cleanup('삭제', entry, 'DELETE', redraw, true));
+      line.appendChild(actions);
+
       box.appendChild(line);
     }
 
     row.after(box);
     button.textContent = '접기';
+  }
+
+  /**
+   * 펼쳐진 상세를 다시 그립니다.
+   *
+   * 목록부터 다시 불러야 합니다. 줄 하나만 지우면 바깥 목록의 건수가 그대로 남아
+   * "3건"이라고 적힌 줄 아래에 두 건만 보이게 됩니다.
+   *
+   * 그러면 이 row 는 버려지므로, 새로 그려진 목록에서 같은 사람을 찾아 다시 펼칩니다.
+   * 펼친 채로 두는 이유는 건별로 치우는 사람은 대개 연달아 누르기 때문입니다. 매번
+   * 접히면 다섯 건 중 셋을 치우는 데 펼치기를 세 번 더 해야 합니다.
+   */
+  async function reopenDetail(user) {
+    await load();
+
+    // 그 사람의 마지막 한 건을 치웠으면 줄 자체가 사라집니다. 펼칠 대상이 없는 것이
+    // 정상이고, 그때는 목록만 새로 그려진 채로 둡니다.
+    const row = el('rows').querySelector('[data-user-id="' + CSS.escape(user.userId) + '"]');
+    if (!row) {
+      return;
+    }
+
+    await toggleDetail(row, user, row.querySelector('.detail-toggle'));
   }
 
   async function load() {
@@ -500,6 +603,15 @@
     at.className = 'when';
     at.textContent = when(item.createdAt);
     head.appendChild(at);
+
+    // 머리줄 끝에 답니다. 본문 아래에 두면 긴 피드백에서는 버튼이 화면 밖으로 밀려
+    // 스크롤해야 보입니다. 치우려는 사람은 본문을 다 읽지 않고도 누릅니다.
+    const target = '/feedback/' + item.id;
+    const actions = document.createElement('span');
+    actions.className = 'actions';
+    actions.appendChild(cleanup('숨김', target + '/hidden', 'PATCH', loadFeedback, false));
+    actions.appendChild(cleanup('삭제', target, 'DELETE', loadFeedback, true));
+    head.appendChild(actions);
 
     row.appendChild(head);
 

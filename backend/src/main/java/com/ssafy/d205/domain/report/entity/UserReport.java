@@ -84,6 +84,19 @@ public class UserReport {
     @Column(name = "reviewed_by", length = 32)
     private String reviewedBy;
 
+    /**
+     * 운영자가 숨긴 시각. 보이는 신고는 null 입니다.
+     *
+     * <p>숨김은 완전 삭제와 다릅니다. 행이 남아 있어서 무고성 신고를 세는 집계가 비지
+     * 않고, 잘못 숨긴 것을 DB 에서 되찾을 수 있습니다. 대신 <b>화면에서 되돌릴 방법은
+     * 없습니다</b> - 숨긴 것만 보는 조회를 두지 않았습니다.
+     *
+     * <p>불리언이 아니라 시각인 이유는 되찾을 때 시각이 유일한 단서이기 때문입니다.
+     * "어제 잘못 눌렀다"는 말에서 행을 찾으려면 언제 숨겼는지가 있어야 합니다.
+     */
+    @Column(name = "deleted_at", length = 14)
+    private String deletedAt;
+
     private UserReport(Integer reporterSeq, Integer reportedSeq,
                        ReportReason reason, String memo, String now) {
         this.reporterSeq = reporterSeq;
@@ -113,5 +126,21 @@ public class UserReport {
         this.status = decision;
         this.reviewedBy = reviewer;
         this.reviewedAt = now;
+    }
+
+    /**
+     * 운영자가 이 신고를 목록에서 치웁니다.
+     *
+     * <p>검토 상태를 건드리지 않습니다. 숨기는 것과 판단하는 것은 다른 일입니다 -
+     * 미검토인 채로 치운 신고를 나중에 DB 에서 되찾으면 그때 판단하면 되고, 여기서
+     * 임의로 DISMISSED 를 찍으면 운영자가 내리지 않은 판단이 기록에 남습니다.
+     *
+     * <p>이미 숨긴 것을 다시 숨겨도 시각을 덮어쓰지 않습니다. 처음 치운 시각이 되찾을
+     * 때의 단서이고, 두 번째 클릭이 그것을 지울 이유가 없습니다.
+     */
+    public void hide(String now) {
+        if (this.deletedAt == null) {
+            this.deletedAt = now;
+        }
     }
 }
