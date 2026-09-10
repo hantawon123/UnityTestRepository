@@ -3,6 +3,7 @@ package com.ssafy.d205.domain.admin.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -87,7 +88,59 @@ public class AdminReportController {
         return new ReviewResult(reviewed);
     }
 
+    /**
+     * 그 사람의 신고를 전부 목록에서 치웁니다. 행은 남습니다.
+     *
+     * <p>검토 상태를 바꾸지 않습니다. 숨기는 것과 판단하는 것은 다른 일이고, 여기서
+     * 임의로 DISMISSED 를 찍으면 운영자가 내리지 않은 판단이 기록에 남습니다.
+     *
+     * <p>PATCH 인 이유는 행의 한 필드를 바꾸는 것이기 때문입니다. DELETE 는 아래 완전
+     * 삭제가 씁니다. 둘을 같은 메서드로 두면 되돌릴 수 있는 것과 없는 것이 요청만
+     * 보고는 구분되지 않습니다.
+     */
+    @PatchMapping("/{userId}/hidden")
+    public HideResult hide(@PathVariable String userId) {
+        return new HideResult(reportReviewService.hide(userId));
+    }
+
+    /**
+     * 그 사람의 신고를 통째로 지웁니다. <b>되돌릴 수 없습니다.</b>
+     *
+     * <p>숨긴 것까지 함께 지웁니다. 운영자가 보기에 "이 사람 신고 전부 삭제"인데 숨긴
+     * 것만 남으면 나중에 그 행들의 출처를 아무도 설명하지 못합니다.
+     */
+    @DeleteMapping("/{userId}")
+    public HideResult purge(@PathVariable String userId) {
+        return new HideResult(reportReviewService.purge(userId));
+    }
+
+    /**
+     * 신고 한 건을 목록에서 치웁니다.
+     *
+     * <p>경로에 {@code entries} 를 둔 이유는 위의 {@code /{userId}} 와 갈라놓기
+     * 위해서입니다. 사용자는 UUID 로, 신고는 순번으로 가리키므로 같은 자리에 두면
+     * 무엇을 받는 경로인지가 값의 모양에 달리게 됩니다.
+     *
+     * <p>없는 번호를 줘도 200 입니다. 두 사람이 같은 화면을 보다가 둘 다 눌렀을 때
+     * 뒤에 누른 쪽에게 404 를 주면 무엇이 잘못됐는지 알 수 없는데, 원하는 결과는 이미
+     * 이루어져 있습니다. 응답의 affected 가 0 이면 그런 경우입니다.
+     */
+    @PatchMapping("/entries/{reportId}/hidden")
+    public HideResult hideEntry(@PathVariable Integer reportId) {
+        return new HideResult(reportReviewService.hideEntry(reportId) ? 1 : 0);
+    }
+
+    /** 신고 한 건을 지웁니다. <b>되돌릴 수 없습니다.</b> 없는 번호도 200 입니다. */
+    @DeleteMapping("/entries/{reportId}")
+    public HideResult purgeEntry(@PathVariable Integer reportId) {
+        return new HideResult(reportReviewService.purgeEntry(reportId) ? 1 : 0);
+    }
+
     /** @param reviewed 이번 요청이 마무리한 건수. 0 이면 이미 처리돼 있었다는 뜻입니다. */
     public record ReviewResult(int reviewed) {
+    }
+
+    /** @param affected 이번 요청이 치우거나 지운 건수. 0 이면 이미 그렇게 돼 있었다는 뜻입니다. */
+    public record HideResult(int affected) {
     }
 }

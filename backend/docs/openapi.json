@@ -52,6 +52,15 @@
         },
         "type" : "object"
       },
+      "CleanupResult" : {
+        "properties" : {
+          "affected" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "FeedbackItem" : {
         "properties" : {
           "buildVer" : {
@@ -59,6 +68,10 @@
           },
           "createdAt" : {
             "type" : "string"
+          },
+          "id" : {
+            "format" : "int32",
+            "type" : "integer"
           },
           "message" : {
             "type" : "string"
@@ -227,6 +240,15 @@
         ],
         "type" : "object"
       },
+      "HideResult" : {
+        "properties" : {
+          "affected" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "InviteListResponse" : {
         "properties" : {
           "invites" : {
@@ -372,6 +394,10 @@
         "properties" : {
           "createdAt" : {
             "type" : "string"
+          },
+          "id" : {
+            "format" : "int32",
+            "type" : "integer"
           },
           "memo" : {
             "type" : "string"
@@ -922,6 +948,68 @@
         ]
       }
     },
+    "/api/v1/admin/feedback/{feedbackId}" : {
+      "delete" : {
+        "operationId" : "purge_1",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "feedbackId",
+            "required" : true,
+            "schema" : {
+              "format" : "int32",
+              "type" : "integer"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CleanupResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-feedback-controller"
+        ]
+      }
+    },
+    "/api/v1/admin/feedback/{feedbackId}/hidden" : {
+      "patch" : {
+        "operationId" : "hide_1",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "feedbackId",
+            "required" : true,
+            "schema" : {
+              "format" : "int32",
+              "type" : "integer"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CleanupResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-feedback-controller"
+        ]
+      }
+    },
     "/api/v1/admin/reports" : {
       "get" : {
         "operationId" : "list_2",
@@ -958,7 +1046,97 @@
         ]
       }
     },
+    "/api/v1/admin/reports/entries/{reportId}" : {
+      "delete" : {
+        "operationId" : "purgeEntry",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "reportId",
+            "required" : true,
+            "schema" : {
+              "format" : "int32",
+              "type" : "integer"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/HideResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-report-controller"
+        ]
+      }
+    },
+    "/api/v1/admin/reports/entries/{reportId}/hidden" : {
+      "patch" : {
+        "operationId" : "hideEntry",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "reportId",
+            "required" : true,
+            "schema" : {
+              "format" : "int32",
+              "type" : "integer"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/HideResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-report-controller"
+        ]
+      }
+    },
     "/api/v1/admin/reports/{userId}" : {
+      "delete" : {
+        "operationId" : "purge",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "userId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/HideResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-report-controller"
+        ]
+      },
       "get" : {
         "operationId" : "detail",
         "parameters" : [
@@ -1028,6 +1206,36 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ReviewResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-report-controller"
+        ]
+      }
+    },
+    "/api/v1/admin/reports/{userId}/hidden" : {
+      "patch" : {
+        "operationId" : "hide",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "userId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/HideResult"
                 }
               }
             },

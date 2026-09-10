@@ -1,6 +1,7 @@
 package com.ssafy.d205.domain.report.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -14,6 +15,10 @@ import com.ssafy.d205.domain.report.entity.UserReport;
  * <p>조회가 여기 생긴 것은 S15P21D205-543 부터입니다. 그 전까지 비워 둔 이유는 부를
  * 곳이 없는 조회는 실제로 필요한 모양이 정해지기 전에 계약처럼 굳기 때문입니다.
  * 이제 화면이 정해졌으므로 그 화면이 필요로 하는 모양으로 만듭니다.
+ *
+ * <p><b>읽는 조회는 전부 {@code deleted_at IS NULL} 을 답니다</b>(S15P21D205-900). 하나라도
+ * 빠뜨리면 운영자가 숨긴 신고가 그 경로로만 다시 나타나고, 목록과 상세와 건수가 서로 다른
+ * 말을 하기 시작합니다. 조회를 새로 만들 때도 같습니다.
  */
 public interface UserReportRepository extends JpaRepository<UserReport, Integer> {
 
@@ -47,6 +52,7 @@ public interface UserReportRepository extends JpaRepository<UserReport, Integer>
               FROM user_reports r
               JOIN users u ON u.users_seq = r.reported_seq
              WHERE r.status = :status
+               AND r.deleted_at IS NULL
              GROUP BY r.reported_seq, u.public_id, u.nickname
              ORDER BY MAX(r.created_at) DESC
             """, nativeQuery = true)
@@ -68,6 +74,7 @@ public interface UserReportRepository extends JpaRepository<UserReport, Integer>
               FROM user_reports r
               JOIN users u ON u.users_seq = r.reported_seq
              WHERE r.status = :status
+               AND r.deleted_at IS NULL
              GROUP BY u.public_id, r.reason
             """, nativeQuery = true)
     List<ReasonCountRow> countReasonsByStatus(@Param("status") String status);
@@ -84,14 +91,16 @@ public interface UserReportRepository extends JpaRepository<UserReport, Integer>
      * 목록의 reporterCount 로 충분합니다.
      */
     @Query(value = """
-            SELECT r.reason      AS reason,
-                   r.memo        AS memo,
-                   r.created_at  AS createdAt,
-                   r.status      AS status
+            SELECT r.user_reports_seq AS id,
+                   r.reason           AS reason,
+                   r.memo             AS memo,
+                   r.created_at       AS createdAt,
+                   r.status           AS status
               FROM user_reports r
               JOIN users u ON u.users_seq = r.reported_seq
              WHERE u.public_id = :userId
                AND (:status IS NULL OR r.status = :status)
+               AND r.deleted_at IS NULL
              ORDER BY r.created_at DESC
             """, nativeQuery = true)
     List<ReportDetailRow> findByReportedUserId(@Param("userId") String userId,
@@ -112,6 +121,38 @@ public interface UserReportRepository extends JpaRepository<UserReport, Integer>
             SELECT r FROM UserReport r
              WHERE r.status = com.ssafy.d205.domain.report.entity.ReportStatus.PENDING
                AND r.reportedSeq = :reportedSeq
+               AND r.deletedAt IS NULL
             """)
     List<UserReport> findPendingAbout(@Param("reportedSeq") Integer reportedSeq);
+
+    /**
+     * 한 사람에 대한 신고 중 아직 보이는 것 전부. 사람 단위 숨김이 씁니다.
+     *
+     * <p>검토 상태를 보지 않습니다. 숨김은 "치운다"이지 "판단한다"가 아니고, 운영자가
+     * 사람 단위로 치울 때는 미검토든 이미 본 것이든 눈앞에서 사라지기를 기대합니다.
+     *
+     * <p>이미 숨긴 것을 빼는 이유는 {@link UserReport#hide(String)} 가 시각을 덮어쓰지
+     * 않기 때문입니다. 넘겨도 결과는 같지만 부를 이유가 없습니다.
+     */
+    @Query("""
+            SELECT r FROM UserReport r
+             WHERE r.reportedSeq = :reportedSeq
+               AND r.deletedAt IS NULL
+            """)
+    List<UserReport> findVisibleAbout(@Param("reportedSeq") Integer reportedSeq);
+
+    /**
+     * 한 사람에 대한 신고를 통째로 지웁니다. 숨긴 것까지 함께 사라집니다.
+     *
+     * <p>엔티티를 읽어 와 지우지 않고 한 문장으로 지웁니다. 수백 건 쌓인 사람이 있을 수
+     * 있고, 지우기 전에 값을 볼 이유가 없습니다.
+     *
+     * <p>이미 숨긴 행도 지웁니다. 운영자가 보기에 "이 사람 신고 전부 삭제"인데 숨긴 것만
+     * 남으면 나중에 그 행들의 출처를 아무도 설명하지 못합니다.
+     *
+     * @return 지운 건수
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM UserReport r WHERE r.reportedSeq = :reportedSeq")
+    int deleteByReportedSeq(@Param("reportedSeq") Integer reportedSeq);
 }

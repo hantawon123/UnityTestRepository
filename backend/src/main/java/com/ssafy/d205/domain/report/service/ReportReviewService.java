@@ -78,7 +78,7 @@ public class ReportReviewService {
                         .findByReportedUserId(userId, status == null ? null : status.name())
                         .stream()
                         .map(row -> new ReportDetail(
-                                row.getReason(), row.getMemo(),
+                                row.getId(), row.getReason(), row.getMemo(),
                                 row.getCreatedAt(), row.getStatus()))
                         .toList());
     }
@@ -111,6 +111,84 @@ public class ReportReviewService {
         }
 
         return pending.size();
+    }
+
+    /**
+     * 한 사람에 대한 신고를 전부 목록에서 치웁니다.
+     *
+     * <p>검토 상태를 건드리지 않습니다. 숨김은 판단이 아닙니다 - 여기서 DISMISSED 를
+     * 찍으면 운영자가 내리지 않은 판단이 기록에 남고, 무고성 신고를 세는 집계가
+     * 조용히 틀어집니다.
+     *
+     * <p>치울 것이 없어도 성공입니다. {@link #review}와 같은 이유입니다.
+     *
+     * @return 이번에 치운 건수
+     */
+    @Transactional
+    public int hide(String userId) {
+        User target = target(userId);
+
+        List<UserReport> visible = userReportRepository.findVisibleAbout(target.getSeq());
+        String now = timeProvider.now();
+
+        for (UserReport report : visible) {
+            report.hide(now);
+        }
+
+        return visible.size();
+    }
+
+    /**
+     * 신고 한 건을 목록에서 치웁니다.
+     *
+     * <p>없는 번호를 줘도 성공입니다. 두 사람이 같은 화면을 보다가 둘 다 눌렀을 때
+     * 뒤에 누른 쪽이 받는 답이고, 원하는 결과는 이미 이루어져 있습니다. 404 를 주면
+     * "내가 뭘 잘못했나"를 확인할 방법이 없습니다.
+     *
+     * @return 이번에 치웠으면 true, 이미 없거나 숨겨져 있었으면 false
+     */
+    @Transactional
+    public boolean hideEntry(Integer reportId) {
+        return userReportRepository.findById(reportId)
+                .filter(report -> report.getDeletedAt() == null)
+                .map(report -> {
+                    report.hide(timeProvider.now());
+                    return true;
+                })
+                .orElse(false);
+    }
+
+    /**
+     * 한 사람에 대한 신고를 통째로 지웁니다. <b>되돌릴 수 없습니다.</b>
+     *
+     * <p>숨긴 것까지 함께 지웁니다. 운영자가 보기에 "이 사람 신고 전부 삭제"인데 숨긴
+     * 것만 남으면 나중에 그 행들의 출처를 아무도 설명하지 못합니다.
+     *
+     * <p>지우면 그 사람이 신고당한 이력이 사라집니다. 무고성 신고를 세는 근거도 함께
+     * 사라지므로, 눈앞에서 치우는 것이 목적이라면 {@link #hide} 가 맞습니다.
+     *
+     * @return 지운 건수
+     */
+    @Transactional
+    public int purge(String userId) {
+        return userReportRepository.deleteByReportedSeq(target(userId).getSeq());
+    }
+
+    /**
+     * 신고 한 건을 지웁니다. <b>되돌릴 수 없습니다.</b>
+     *
+     * <p>없는 번호를 줘도 성공입니다. {@link #hideEntry} 와 같은 이유입니다.
+     *
+     * @return 이번에 지웠으면 true, 이미 없었으면 false
+     */
+    @Transactional
+    public boolean purgeEntry(Integer reportId) {
+        if (!userReportRepository.existsById(reportId)) {
+            return false;
+        }
+
+        userReportRepository.deleteById(reportId);
+        return true;
     }
 
     /**

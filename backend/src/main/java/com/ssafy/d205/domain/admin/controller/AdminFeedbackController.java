@@ -1,12 +1,16 @@
 package com.ssafy.d205.domain.admin.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ssafy.d205.domain.feedback.dto.FeedbackListResponse;
+import com.ssafy.d205.domain.feedback.service.FeedbackCleanupService;
 import com.ssafy.d205.domain.feedback.service.FeedbackReadService;
 
 /**
@@ -25,6 +29,7 @@ import com.ssafy.d205.domain.feedback.service.FeedbackReadService;
 public class AdminFeedbackController {
 
     private final FeedbackReadService feedbackReadService;
+    private final FeedbackCleanupService feedbackCleanupService;
 
     /**
      * 최근 피드백. 한 건씩 그대로 봅니다.
@@ -38,5 +43,36 @@ public class AdminFeedbackController {
     @GetMapping
     public FeedbackListResponse list(@RequestParam(required = false) Integer limit) {
         return feedbackReadService.recent(limit);
+    }
+
+    /**
+     * 피드백 한 건을 목록에서 치웁니다. 행은 남습니다.
+     *
+     * <p>읽음 표시가 아닙니다. 읽음을 두지 않은 이유는 UserFeedback 주석에 있고 그대로
+     * 유효합니다 - "읽음"이 "처리했음"처럼 읽히기 때문입니다. 이것은 <b>더는 목록에
+     * 띄우지 말라</b>는 뜻이고, 스팸 한 줄이 계속 위쪽을 차지하는 것을 막습니다.
+     *
+     * <p>PATCH 인 이유는 행의 한 필드를 바꾸는 것이기 때문입니다. 되돌릴 수 없는
+     * 완전 삭제는 아래 DELETE 입니다.
+     */
+    @PatchMapping("/{feedbackId}/hidden")
+    public CleanupResult hide(@PathVariable Integer feedbackId) {
+        return new CleanupResult(feedbackCleanupService.hide(feedbackId) ? 1 : 0);
+    }
+
+    /**
+     * 피드백 한 건을 지웁니다. <b>되돌릴 수 없습니다.</b>
+     *
+     * <p>없는 번호를 줘도 200 입니다. 두 사람이 같은 화면을 보다가 둘 다 눌렀을 때 뒤에
+     * 누른 쪽에게 404 를 주면 무엇이 잘못됐는지 알 수 없는데, 원하는 결과는 이미
+     * 이루어져 있습니다. 응답의 affected 가 0 이면 그런 경우입니다.
+     */
+    @DeleteMapping("/{feedbackId}")
+    public CleanupResult purge(@PathVariable Integer feedbackId) {
+        return new CleanupResult(feedbackCleanupService.purge(feedbackId) ? 1 : 0);
+    }
+
+    /** @param affected 이번 요청이 치우거나 지운 건수. 0 이면 이미 그렇게 돼 있었다는 뜻입니다. */
+    public record CleanupResult(int affected) {
     }
 }
