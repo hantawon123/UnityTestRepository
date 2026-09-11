@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using Game.Client.Cameras;
 using Game.Network.Players;
 using UnityEngine;
@@ -26,11 +26,11 @@ namespace Game.Bootstrap
                     var visible = 0;
                     foreach (var r in renderers)
                         if (r.enabled && !r.forceRenderingOff && r.gameObject.activeInHierarchy) visible++;
-                    log.Append($"\n  root={root.name} id={root.GetInstanceID()} scene={root.scene.name} active={root.activeInHierarchy} renderers={renderers.Length} drawable={visible}");
+                    log.Append($"\n  root={root.name} id={root.GetInstanceID()} scene={root.scene.name} active={root.activeInHierarchy} pos={root.transform.position} renderers={renderers.Length} drawable={visible}");
                 }
             }
             foreach (var camera in Object.FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None))
-                log.Append($"\n camera={camera.name} id={camera.GetInstanceID()} scene={camera.gameObject.scene.name} enabled={camera.enabled} active={camera.gameObject.activeInHierarchy} depth={camera.depth} pos={camera.transform.position} rot={camera.transform.eulerAngles}");
+                log.Append($"\n camera={camera.name} id={camera.GetInstanceID()} scene={camera.gameObject.scene.name} enabled={camera.enabled} active={camera.gameObject.activeInHierarchy} depth={camera.depth} mask={camera.cullingMask} near={camera.nearClipPlane} far={camera.farClipPlane} targetTexture={camera.targetTexture} pos={camera.transform.position} rot={camera.transform.eulerAngles}");
             foreach (var rig in Object.FindObjectsByType<PlayerCameraController>(FindObjectsInactive.Include, FindObjectsSortMode.None))
                 log.Append($"\n rig={rig.GetInstanceID()} scene={rig.gameObject.scene.name} enabled={rig.enabled} active={rig.gameObject.activeInHierarchy} target={(rig.FollowTarget == null ? "none" : rig.FollowTarget.name)} pos={rig.transform.position}");
             foreach (var avatar in Object.FindObjectsByType<PlayerAvatar>(FindObjectsInactive.Include, FindObjectsSortMode.None))
