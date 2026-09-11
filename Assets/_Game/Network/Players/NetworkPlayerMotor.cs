@@ -20,6 +20,8 @@ namespace Game.Network.Players
         private PlayerKCCMovementProcessor movementProcessor;
         private IPlayerInputIntentSource inputSource;
         private bool hasPendingTeleport;
+        public bool LocalPresentationInputBlocked { get; set; }
+
         private Pose pendingTeleport;
         private PlayerPosture? pendingPosture;
 
@@ -101,6 +103,12 @@ namespace Game.Network.Players
             kcc = GetComponent<KCC>();
             movementProcessor = GetComponent<PlayerKCCMovementProcessor>();
 
+            var carryableMask = LayerMask.GetMask("Carryable");
+            // KCC queries provide blocking/grounding; PhysX must not push props
+            // with the avatar's kinematic body. Prop gravity/contact stays active.
+            kcc.SetCollisionLayerMask(kcc.Settings.CollisionLayerMask | carryableMask);
+            GetComponent<Rigidbody>().excludeLayers |= carryableMask;
+
             var behaviours = GetComponents<MonoBehaviour>();
             for (var index = 0; index < behaviours.Length; index++)
             {
@@ -159,7 +167,7 @@ namespace Game.Network.Players
         /// <summary>Called only for the local player's object from OnInput.</summary>
         public NetworkPlayerInput CaptureInput()
         {
-            if (!IsConfigured || Object == null || !Object.HasInputAuthority)
+            if (LocalPresentationInputBlocked || !IsConfigured || Object == null || !Object.HasInputAuthority)
             {
                 return default;
             }
@@ -187,6 +195,7 @@ namespace Game.Network.Players
 
             var settings = inputSource.MovementSettings;
             var grounded = kcc.FixedData.IsGrounded;
+            var postureBeforeInput = Posture;
             var requestedPosture = ResolvePosture(
                 Posture,
                 grounded,
@@ -220,7 +229,7 @@ namespace Game.Network.Players
                 SprintMultiplier);
             kcc.SetInputDirection(direction);
 
-            if (grounded &&
+            if (CanJump(grounded, postureBeforeInput, Posture) &&
                 input.WasPressed(NetworkPlayerButton.Jump, PreviousButtons))
             {
                 var gravity = -Physics.gravity.y * settings.GravityMultiplier;
@@ -401,14 +410,13 @@ namespace Game.Network.Players
                     : PlayerPosture.Prone;
             }
 
-            if (input.WasPressed(NetworkPlayerButton.Jump, previous) &&
-                current != PlayerPosture.Standing)
-            {
+            if (input.WasPressed(NetworkPlayerButton.Jump, previous))
                 current = PlayerPosture.Standing;
-            }
-
             return current;
         }
+
+        internal static bool CanJump(bool grounded, PlayerPosture before, PlayerPosture after) =>
+            grounded && before == PlayerPosture.Standing && after == PlayerPosture.Standing;
 
         internal static float MoveSpeedForPosture(
             PlayerMovementSettings settings,

@@ -1,54 +1,42 @@
 using System;
 using Game.Client.Cameras;
-using Game.Client.Interactions;
 using Game.Client.Lobby;
 using Game.Client.Match;
 using Game.Client.Players;
 using Game.Client.Settings;
 using Game.Core.Match;
-using Game.Core.Ports;
-using Game.Network.Match;
+using Game.Network.Session;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 using VContainer.Unity;
 
 namespace Game.Bootstrap
 {
-    /// <summary>
-    /// In-match Esc opens the same environment-settings overlay the lobby
-    /// uses, and Esc again closes it. 게임 나가기 leaves the room.
-    /// </summary>
-    public sealed class MatchSettingsOverlay : IStartable, ITickable, ILateTickable, IDisposable
+    public sealed class MatchSettingsOverlay : IStartable, ITickable, IDisposable
     {
-        public const int OverlaySortingOrder = 250;
-
         private readonly SettingsView view;
         private readonly SettingsPresenter presenter;
-        private readonly MatchChatView chat;
-        private readonly IKeyCapture keys;
         private readonly LobbyExitPresenter exit;
-        private readonly INetworkMatchEvents events;
-        private bool opened;
+        private readonly MatchChatView chat;
+        private readonly NetworkRunnerService network;
+        private PlayerCameraController camera;
         private bool chatWasEnabled;
-        private MatchPhase currentPhase;
-        private PlayerCameraController cameraRig;
-        private PlayerMovement lockedMovement;
+        private bool layoutConfigured;
+        private int dismissedFrame = -1;
+        private int restoreCursorFrame = -1;
+        private bool ownsGameplayCursor;
+        private float nextCursorDiagnostic;
+        public bool IsOpen { get; private set; }
 
-        public MatchSettingsOverlay(
-            SettingsView view,
-            SettingsPresenter presenter,
-            MatchChatView chat,
-            IKeyCapture keys,
-            LobbyExitPresenter exit,
-            INetworkMatchEvents events)
+        public MatchSettingsOverlay(SettingsView view, SettingsPresenter presenter,
+            LobbyExitPresenter exit, MatchChatView chat, NetworkRunnerService network)
         {
-            this.view = view ?? throw new ArgumentNullException(nameof(view));
-            this.presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
-            this.chat = chat ?? throw new ArgumentNullException(nameof(chat));
-            this.keys = keys ?? throw new ArgumentNullException(nameof(keys));
-            this.exit = exit ?? throw new ArgumentNullException(nameof(exit));
-            this.events = events ?? throw new ArgumentNullException(nameof(events));
+            this.view = view;
+            this.presenter = presenter;
+            this.exit = exit;
+            this.chat = chat;
+            this.network = network;
         }
 
         public static bool BlocksEscapeDuringPresentation(MatchPhase phase)
@@ -72,242 +60,142 @@ namespace Game.Bootstrap
 
         public void Start()
         {
-            presenter.LeaveGameConfirmed += OnLeaveGame;
+            presenter.LeaveGameConfirmed += Leave;
             view.Closed += OnClosed;
-            events.MatchStateReceived += OnMatchStateReceived;
-            BindCameraEsc(false);
+            view.ConfirmDismissed += OnPanelDismissed;
+            view.FeedbackDismissed += OnPanelDismissed;
         }
 
         public void Tick()
         {
-            if (opened && lockedMovement == null)
+            if (ownsGameplayCursor && !IsOpen && network.IsRuntimeReady &&
+                !network.IsWaitingForMatch && !network.IsHighlightInProgress && !network.IsResultSceneLoaded &&
+                Application.isFocused && !PlayerMovement.IsTextInputFocused() &&
+                (Keyboard.current == null || !Keyboard.current.escapeKey.isPressed) &&
+                (Cursor.lockState != CursorLockMode.Locked || Cursor.visible) && camera != null)
             {
-                SetCursorCaptured(false);
-                LockMovement();
-                SetObjectPromptsVisible(false);
+                camera.SetCursorCaptureEnabled(true);
+                if (Time.unscaledTime >= nextCursorDiagnostic)
+                {
+                    nextCursorDiagnostic = Time.unscaledTime + 1f;
+                    Debug.Log($"[QA-Cursor] maintained gameplay capture frame={Time.frameCount} lock={Cursor.lockState} visible={Cursor.visible}");
+                }
             }
-        }
-
-        public void LateTick()
-        {
-            if (Keyboard.current == null)
+            if (restoreCursorFrame >= 0 && Time.frameCount > restoreCursorFrame &&
+                (Keyboard.current == null || !Keyboard.current.escapeKey.isPressed))
             {
+                restoreCursorFrame = -1;
+                if (!IsOpen && Application.isFocused && !network.IsResultSceneLoaded &&
+                    !network.IsHighlightInProgress && !PlayerMovement.IsTextInputFocused())
+                {
+                    if (camera != null)
+                    {
+                        camera.SetEscapeReleasesCursor(false);
+                        // Force a fresh native capture after the Escape event has finished.
+                        Cursor.lockState = CursorLockMode.None;
+                        camera.SetCursorCaptureEnabled(true);
+                    }
+                    Debug.Log($"[QA-Cursor] deferred restore frame={Time.frameCount} lock={Cursor.lockState} focus={Application.isFocused} rig={(camera == null ? 0 : camera.GetInstanceID())}");
+                }
+            }
+            if (network.IsResultSceneLoaded || network.IsHighlightInProgress || network.IsWaitingForMatch)
+            {
+                if (IsOpen) view.gameObject.SetActive(false);
                 return;
             }
 
-            if (!Keyboard.current.escapeKey.wasPressedThisFrame)
+            if (IsOpen)
             {
+                if (dismissedFrame != Time.frameCount && Keyboard.current != null &&
+                    Keyboard.current.escapeKey.wasPressedThisFrame) view.RequestBack();
                 return;
             }
-
-            if (!ShouldHandleEscape(
-                    PlayerMovement.IsTextInputFocused() || chat.ConsumedEscapeThisFrame,
-                    keys.IsCapturing,
+            if (!network.IsRuntimeReady ||
+                Keyboard.current == null ||
+                !Keyboard.current.escapeKey.wasPressedThisFrame ||
+                !ShouldHandleEscape(
+                    PlayerMovement.IsTextInputFocused() ||
+                    (chat != null && chat.ConsumedEscapeThisFrame),
+                    false,
                     view.BlocksEscape,
-                    view.ConsumedEscapeThisFrame,
-                    BlocksEscapeDuringPresentation(currentPhase)))
+                    view.ConsumedEscapeThisFrame))
             {
                 return;
             }
 
-            if (opened)
-            {
-                Hide();
-                return;
-            }
-
-            Open();
-        }
-
-        public void Dispose()
-        {
-            presenter.LeaveGameConfirmed -= OnLeaveGame;
-            view.Closed -= OnClosed;
-            events.MatchStateReceived -= OnMatchStateReceived;
-            if (opened && chat != null)
-            {
-                chat.enabled = chatWasEnabled;
-            }
-
-            ReleaseMovement();
-            BindCameraEsc(true);
-        }
-
-        private void OnMatchStateReceived(MatchStateSnapshot received)
-        {
-            currentPhase = received.Phase;
-            if (BlocksEscapeDuringPresentation(currentPhase) && opened)
-            {
-                CloseForPresentation();
-            }
-        }
-
-        private void CloseForPresentation()
-        {
-            if (!opened)
-            {
-                return;
-            }
-
-            opened = false;
-            presenter.Open();
-            if (chat != null)
-            {
-                chat.enabled = chatWasEnabled;
-            }
-
-            Hide();
-            ReleaseMovement();
-            SetCursorCaptured(false);
-            ClearUiSelection();
-            SetObjectPromptsVisible(true);
-        }
-
-        private void Open()
-        {
-            if (opened)
-            {
-                return;
-            }
-
-            opened = true;
+            restoreCursorFrame = -1;
+            ownsGameplayCursor = false;
+            IsOpen = true;
             chatWasEnabled = chat.enabled;
             chat.enabled = false;
+            camera = UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>();
+            if (camera != null)
+            {
+                camera.SetEscapeReleasesCursor(false);
+                camera.SetCursorCaptureEnabled(false);
+            }
             view.gameObject.SetActive(true);
-            RaiseOverlayCanvas();
-            presenter.Open();
-            SetCursorCaptured(false);
-            LockMovement();
-            ClearUiSelection();
-            SetObjectPromptsVisible(false);
+            ConfigureLayout();
+            MatchTransitionDiagnostics.Dump("settings-open");
         }
 
-        private void Hide()
+        private void OnPanelDismissed() => dismissedFrame = Time.frameCount;
+
+        private void ConfigureLayout()
         {
-            if (view != null)
-            {
-                view.gameObject.SetActive(false);
-            }
+            if (layoutConfigured) return;
+            var canvas = view.GetComponentInChildren<Canvas>(true);
+            if (canvas == null) return;
+            ConfigureCanvas(canvas);
+            layoutConfigured = true;
         }
 
-        private void OnLeaveGame()
+        internal static void ConfigureCanvas(Canvas canvas)
         {
-            if (!opened)
-            {
-                return;
-            }
-
-            opened = false;
-            presenter.Open();
-            if (chat != null)
-            {
-                chat.enabled = chatWasEnabled;
-            }
-
-            Hide();
-            ReleaseMovement();
-            SetCursorCaptured(false);
-            SetObjectPromptsVisible(true);
-            exit.RequestLeave();
+            var scaler = canvas.GetComponent<CanvasScaler>();
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
+            canvas.sortingOrder = 10000;
+            var content = new GameObject("Match Settings Content", typeof(RectTransform))
+                .GetComponent<RectTransform>();
+            content.SetParent(canvas.transform, false);
+            content.anchorMin = content.anchorMax = content.pivot = new Vector2(0.5f, 0.5f);
+            content.sizeDelta = new Vector2(1920f, 1080f);
+            // Preserve sibling order: the background must remain behind the menu.
+            while (canvas.transform.GetChild(0) != content)
+                canvas.transform.GetChild(0).SetParent(content, false);
         }
 
         private void OnClosed()
         {
-            if (!opened)
-            {
-                return;
-            }
-
-            opened = false;
+            if (!IsOpen) return;
+            IsOpen = false;
             presenter.Open();
-            if (chat != null)
-            {
-                chat.enabled = chatWasEnabled;
-            }
-
-            SetCursorCaptured(true);
-            ReleaseMovement();
-            ClearUiSelection();
-            SetObjectPromptsVisible(true);
+            if (chat != null) chat.enabled = chatWasEnabled;
+            if (camera != null && !network.IsResultSceneLoaded && !network.IsHighlightInProgress)
+                camera.SetCursorCaptureEnabled(true);
+            ownsGameplayCursor = true;
+            restoreCursorFrame = Time.frameCount;
+            MatchTransitionDiagnostics.Dump("settings-closed");
         }
 
-        private void RaiseOverlayCanvas()
+        private void Leave()
         {
-            var canvas = view.GetComponentInChildren<Canvas>(true);
-            if (canvas != null)
-            {
-                canvas.sortingOrder = OverlaySortingOrder;
-            }
+            if (!IsOpen) return;
+            view.gameObject.SetActive(false);
+            restoreCursorFrame = -1;
+            ownsGameplayCursor = false;
+            exit.RequestLeave();
         }
 
-        private void SetCursorCaptured(bool captured)
+        public void Dispose()
         {
-            var rig = ResolveCameraRig();
-            if (rig == null)
-            {
-                return;
-            }
-
-            rig.SetEscapeReleasesCursor(false);
-            rig.SetCursorCaptureEnabled(captured);
-        }
-
-        private void BindCameraEsc(bool releasesCursor)
-        {
-            ResolveCameraRig()?.SetEscapeReleasesCursor(releasesCursor);
-        }
-
-        private void LockMovement()
-        {
-            var movement = ResolveCameraRig()?.FollowMovement;
-            if (movement == null)
-            {
-                return;
-            }
-
-            movement.IsMovementLocked = true;
-            lockedMovement = movement;
-        }
-
-        private void ReleaseMovement()
-        {
-            if (lockedMovement == null)
-            {
-                return;
-            }
-
-            lockedMovement.IsMovementLocked = false;
-            lockedMovement = null;
-        }
-
-        private PlayerCameraController ResolveCameraRig()
-        {
-            if (cameraRig == null)
-            {
-                cameraRig = UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>(
-                    FindObjectsInactive.Include);
-            }
-
-            return cameraRig;
-        }
-
-        private static void ClearUiSelection()
-        {
-            if (EventSystem.current != null)
-            {
-                EventSystem.current.SetSelectedGameObject(null);
-            }
-        }
-
-        private static void SetObjectPromptsVisible(bool visible)
-        {
-            var interactors = UnityEngine.Object.FindObjectsByType<PlayerInteractor>(
-                FindObjectsInactive.Include,
-                FindObjectsSortMode.None);
-            for (var index = 0; index < interactors.Length; index++)
-            {
-                interactors[index].SetInteractionPromptVisible(visible);
-            }
+            if (camera != null) camera.SetEscapeReleasesCursor(true);
+            presenter.LeaveGameConfirmed -= Leave;
+            view.Closed -= OnClosed;
+            view.ConfirmDismissed -= OnPanelDismissed;
+            view.FeedbackDismissed -= OnPanelDismissed;
+            if (IsOpen && chat != null) chat.enabled = chatWasEnabled;
         }
     }
 }

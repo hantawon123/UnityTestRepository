@@ -16,6 +16,27 @@ namespace Game.Architecture.Tests
     public sealed class ResultPresentationTests
     {
         [Test]
+        public void MatchSettingsLayout_PreservesBackgroundBeforeMenu()
+        {
+            var root = new UnityEngine.GameObject("Settings test", typeof(UnityEngine.Canvas),
+                typeof(UnityEngine.UI.CanvasScaler));
+            try
+            {
+                foreach (var name in new[] { "Background", "Panel", "Confirm" })
+                    new UnityEngine.GameObject(name, typeof(UnityEngine.RectTransform)).transform.SetParent(root.transform, false);
+                MatchSettingsOverlay.ConfigureCanvas(root.GetComponent<UnityEngine.Canvas>());
+                var content = root.transform.GetChild(0);
+                Assert.That(root.transform.childCount, Is.EqualTo(1));
+                Assert.That(content.GetChild(0).name, Is.EqualTo("Background"));
+                Assert.That(content.GetChild(1).name, Is.EqualTo("Panel"));
+                Assert.That(content.GetChild(2).name, Is.EqualTo("Confirm"));
+                Assert.That(root.GetComponent<UnityEngine.UI.CanvasScaler>().referenceResolution,
+                    Is.EqualTo(new UnityEngine.Vector2(1920f, 1080f)));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+        }
+
+        [Test]
         public void HighlightPhase_ShowsResultBeforePreparingLobby()
         {
             using var room = CreateRoom();
@@ -60,6 +81,8 @@ namespace Game.Architecture.Tests
             network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 100d));
             controller.Tick(HighlightPresentationTiming.FadeSeconds);
             network.IsResultSceneLoaded = true;
+            // Observe scene readiness before advancing its display-duration clock.
+            controller.Tick(HighlightPresentationTiming.FadeSeconds);
             controller.Tick(
                 HighlightPresentationTiming.FadeSeconds +
                 NetworkResultLobbyReturnController.ResultDisplaySeconds);

@@ -111,10 +111,6 @@ namespace Game.Architecture.Tests
             }
         }
 
-        [TestCase(null)]
-        [TestCase("")]
-        [TestCase("broken")]
-        [TestCase("{}")]
         [Test]
         public void PackedRules_Version1ReadsMinutes_Version2ReadsSeconds()
         {
@@ -132,6 +128,10 @@ namespace Game.Architecture.Tests
             Assert.That(read.SearchingDurationSeconds, Is.EqualTo(90));
         }
 
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("broken")]
+        [TestCase("{}")]
         [TestCase("{\"version\":2}")]
         [TestCase("{\"version\":1,\"hiding\":0,\"searching\":5,\"sprint\":1,\"stun\":3}")]
         public void InvalidPackedRules_KeepLastValidSettings(string payload)

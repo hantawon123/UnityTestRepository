@@ -1065,8 +1065,9 @@ namespace Game.Server.Match
             if (playerIndex < 0 || playerIndex >= Assignments.Count ||
                 !CanActDuringHidingTurn(playerIndex, now) ||
                 outcome.GetHeldItemOwner(playerIndex) == playerIndex ||
-                !placements.TryGetPlacement(playerIndex, out var placement) ||
-                !placementValidator.IsValid(placement.ItemId, placement.Pose)) return false;
+                !placements.TryGetPlacement(playerIndex, out var placement)) return false;
+            // Placement was already accepted by authority. A subsequent physics
+            // update (settling, rolling or bouncing) must not revoke completion.
             CompleteHidingTurn(playerIndex, placement.Pose.position);
             return flow.SkipCurrentHidingTurn(now);
         }

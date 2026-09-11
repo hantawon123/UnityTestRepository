@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using Game.Bootstrap;
 using Game.Client.Interactions;
 using Game.Core.Items;
+using Game.SOAP.Config;
+using System.Linq;
 using NUnit.Framework;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -58,35 +60,14 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void Playground_ContainsEveryMvpItemCatalogEntry()
+        public void Catalog_HasRealCarryablePrefabs()
         {
-            var scene = SceneManager.GetSceneByPath(PlaygroundScenePath);
-            var openedForTest = !scene.isLoaded;
-
-            if (openedForTest)
+            var catalog = ItemCatalogSO.Load();
+            foreach (var item in catalog.categories.Where(c => c.enabled).SelectMany(c => c.items.Where(i => i.enabled)))
             {
-                scene = EditorSceneManager.OpenScene(PlaygroundScenePath, OpenSceneMode.Additive);
-            }
-
-            try
-            {
-                var carryableItems = CollectCarryableItems(scene);
-
-                foreach (var definition in ItemCatalog.Definitions)
-                {
-                    Assert.That(
-                        carryableItems.Exists(item =>
-                            item.name.StartsWith(definition.ItemId, StringComparison.Ordinal)),
-                        Is.True,
-                        $"{definition.ItemId}: Playground에 대응하는 CarryableItem이 없습니다.");
-                }
-            }
-            finally
-            {
-                if (openedForTest)
-                {
-                    EditorSceneManager.CloseScene(scene, removeScene: true);
-                }
+                Assert.That(item.prefab.GetComponent<CarryableItem>(), Is.Not.Null, item.id);
+                Assert.That(item.prefab.GetComponent<Rigidbody>(), Is.Not.Null, item.id);
+                Assert.That(item.prefab.GetComponent<Collider>(), Is.Not.Null, item.id);
             }
         }
 
@@ -102,7 +83,7 @@ namespace Game.Architecture.Tests
                 var failure = Assert.Throws<InvalidOperationException>(
                     () => PlaygroundMatchScene.Capture(scene));
 
-                Assert.That(failure.Message, Does.Contain("is missing item"));
+                Assert.That(failure.Message, Does.Contain("ShredderSpot"));
             }
             finally
             {
@@ -138,7 +119,7 @@ namespace Game.Architecture.Tests
                     Is.GreaterThan(64),
                     "64개 초과 동기화 경로를 실제 맵 구성으로 검증해야 합니다.");
                 Assert.That(
-                    carryableCount,
+                    captured.NetworkConfiguration.InitialWorldObjects.Count + MatchRulesSO.MaxPlayerCount,
                     Is.LessThanOrEqualTo(
                         Game.Network.Match.MatchSessionState.MaxReplicatedObjects),
                     "Playground의 모든 CarryableItem이 네트워크 상태 용량 안에 들어야 합니다.");
@@ -155,23 +136,41 @@ namespace Game.Architecture.Tests
                     Is.LessThanOrEqualTo(PlaygroundMatchScene.MaxReplayObjectCount),
                     "하이라이트 샘플 수는 라이브 동기화 용량과 별도로 제한해야 합니다.");
 
-                foreach (var source in ItemCatalog.Definitions)
-                {
-                    Assert.That(
-                        ContainsWorldObject(
-                            captured.NetworkConfiguration.InitialWorldObjects,
-                            source.ItemId),
-                        Is.True,
-                        $"{source.ItemId}: 맵 원본은 배정 후에도 일반 물건으로 남아야 합니다.");
-                }
-
                 foreach (var assigned in captured.NetworkConfiguration.ItemDefinitions)
                 {
-                    Assert.That(
-                        assigned.ItemId,
-                        Does.StartWith("Assigned_"),
-                        "배정 물건은 맵 원본과 다른 런타임 ID를 써야 합니다.");
+                    var instance = carryableItems.Single(i => i.ObjectId == assigned.ItemId);
+                    Assert.That(instance.gameObject.activeSelf, Is.False);
+                    Assert.That(ContainsWorldObject(captured.NetworkConfiguration.InitialWorldObjects, assigned.ItemId), Is.False);
                 }
+                Assert.That(captured.NetworkConfiguration.ItemDefinitions.Count, Is.EqualTo(ItemCatalog.Definitions.Count));
+
+                var rules = ScriptableObject.CreateInstance<MatchRulesSO>();
+                try
+                {
+                    var config = captured.NetworkConfiguration;
+                    foreach (var category in ItemCatalog.Categories.Concat(new[] { string.Empty }).ToArray())
+                    {
+                        Assert.That(Game.Core.Lobby.MatchRuleSettings.TryCreate(30, 5, 1f, 3, category, out var settings, out _), Is.True);
+                        using var match = new Game.Server.Match.MatchRuntimeFactory(rules).CreateSession(
+                            Enumerable.Range(0, 6).Select(i => "player_" + i).ToArray(), config.PlacementValidator,
+                            config.SpawnPoints, config.ItemDefinitions, new System.Random(42), config.InitialWorldObjects,
+                            matchRules: settings);
+                        var allocated = match.Session.Assignments;
+                        Assert.That(allocated.Select(a => a.Item.ItemId).Distinct().Count(), Is.EqualTo(6));
+                        Assert.That(allocated.Select(a => a.Item.Category).Distinct().Count(), Is.EqualTo(1));
+                        if (category.Length > 0) Assert.That(allocated.All(a => a.Item.Category == category), Is.True);
+                        foreach (var assignment in allocated)
+                        {
+                            var item = carryableItems.Single(i => i.ObjectId == assignment.Item.ItemId);
+                            item.gameObject.SetActive(true);
+                            Assert.That(captured.RuntimeContext.ReplayObjects.Any(o => o.ObjectId == assignment.Item.ItemId), Is.True,
+                                "Every assigned item must remain in replay even when the catalog exceeds replay capacity.");
+                            item.gameObject.SetActive(false);
+                        }
+                    }
+                }
+                finally { UnityEngine.Object.DestroyImmediate(rules); }
+
             }
             finally
             {

@@ -64,6 +64,47 @@ namespace Game.Client
             "Carry_Crawl_Right",
             "Carry_Jump",
             "Carry_Land",
+            // 양손 들기
+            "PutUp_TwoHands",
+            "Carry_TwoHands",
+            "Carry_TwoHands_Walk_Forward",
+            "Carry_TwoHands_Walk_Back",
+            "Carry_TwoHands_Walk_Left",
+            "Carry_TwoHands_Walk_Right",
+            "Carry_TwoHands_Run_Forward",
+            "Carry_TwoHands_Run_Back",
+            "Carry_TwoHands_Run_Left",
+            "Carry_TwoHands_Run_Right",
+            "Carry_TwoHands_Crouch_Idle",
+            "Carry_TwoHands_Crouch_Walk_Forward",
+            "Carry_TwoHands_Crouch_Walk_Back",
+            "Carry_TwoHands_Crouch_Walk_Left",
+            "Carry_TwoHands_Crouch_Walk_Right",
+            "Carry_TwoHands_Prone_Idle",
+            "Carry_TwoHands_Crawl_Forward",
+            "Carry_TwoHands_Crawl_Back",
+            "Carry_TwoHands_Crawl_Left",
+            "Carry_TwoHands_Crawl_Right",
+            "Carry_TwoHands_Jump",
+            "Carry_TwoHands_Land",
+            "Throw_TwoHands",
+            "Throw_TwoHands_Walk",
+            "Throw_TwoHands_Run",
+            "Throw_TwoHands_Crouch",
+            "Throw_TwoHands_Crouch_Walk",
+            "Throw_TwoHands_Prone",
+            "Throw_TwoHands_Crawl",
+            "Carry_TwoHands_Crouch_Start",
+            "Carry_TwoHands_Crouch_End",
+            "Carry_TwoHands_Prone_Start",
+            "Carry_TwoHands_Prone_End",
+            "Carry_TwoHands_Crouch_To_Prone",
+            "Carry_TwoHands_Prone_To_Crouch",
+            "PutUp_TwoHands_Crouch",
+            "PutDown_TwoHands_Crouch",
+            "PutUp_TwoHands_Prone",
+            "PutDown_TwoHands_Prone",
+            "PutDown_TwoHands",
             // 집기·놓기
             "Pickup_Low",
             "Pickup_Crouch",
@@ -95,6 +136,7 @@ namespace Game.Client
             "웅크리기",
             "엎드리기",
             "들기",
+            "양손 들기",
             "집기·놓기",
             "전투",
             "기타",
@@ -435,7 +477,8 @@ namespace Game.Client
 
         private static bool IsAirborne(string state)
         {
-            return state == "Jump" || state == "Carry_Jump" || state == "Fall";
+            return state == "Fall" ||
+                   state.EndsWith("Jump", System.StringComparison.Ordinal);
         }
 
         private static bool KeepsFloorContact(string state)
@@ -623,6 +666,14 @@ namespace Game.Client
             if (string.IsNullOrEmpty(state))
             {
                 return "기타";
+            }
+
+            if (state.StartsWith("Carry_TwoHands", System.StringComparison.Ordinal) ||
+                state.StartsWith("PutUp_TwoHands", System.StringComparison.Ordinal) ||
+                state.StartsWith("PutDown_TwoHands", System.StringComparison.Ordinal) ||
+                state.StartsWith("Throw_TwoHands", System.StringComparison.Ordinal))
+            {
+                return "양손 들기";
             }
 
             if (state.StartsWith("Carry", System.StringComparison.Ordinal))

@@ -31,6 +31,9 @@ namespace Game.Bootstrap
 
         private static readonly string[] Frontends = { Home, Room, Closet, Settings };
 
+        /// <summary>How long a frontend load may take before it is called stuck.</summary>
+        private const double StallWarningSeconds = 5d;
+
         private string desiredScene;
         private readonly Dictionary<string, AsyncOperation> loads =
             new Dictionary<string, AsyncOperation>(StringComparer.Ordinal);
@@ -108,7 +111,22 @@ namespace Game.Bootstrap
                 return;
             }
 
-            await SceneLoadSlicer.LoadAdditiveAsync(sceneName);
+            // A scene load that goes quiet for this long is not slow, it is
+            // stuck behind another load parked with allowSceneActivation off
+            // — Unity runs them one at a time. Say so; the wait itself carries
+            // on, because the parked load may still be let go.
+            var load = SceneLoadSlicer.LoadAdditiveAsync(sceneName);
+            var finishedFirst = await UniTask.WhenAny(
+                load, UniTask.Delay(System.TimeSpan.FromSeconds(StallWarningSeconds), ignoreTimeScale: true));
+            if (finishedFirst != 0)
+            {
+                Debug.LogWarning(
+                    $"[SceneTiming] Frontend switch to {sceneName} has been loading for " +
+                    $"{StallWarningSeconds:F0}s. Another scene load is probably parked " +
+                    "(allowSceneActivation = false) ahead of it.");
+                await load;
+            }
+
             if (!TryShow(sceneName))
             {
                 // Said out loud. The screen that asked for this has already
@@ -163,6 +181,7 @@ namespace Game.Bootstrap
 
             ClearLoad(scene.name);
         }
+
 
         private bool TryShow(string sceneName)
         {
@@ -221,7 +240,14 @@ namespace Game.Bootstrap
         {
             if (string.Equals(visibleScene, Home, StringComparison.Ordinal))
             {
+                // Every menu screen, not just the browser. Opening the
+                // create-room form parks a lobby preload, and Unity runs scene
+                // loads one at a time, so a screen that still had to load after
+                // that would wait behind the parked load with no end and no
+                // error. A screen already loaded only has its roots switched on.
                 EnsureLoaded(Room);
+                EnsureLoaded(Settings);
+                EnsureLoaded(Closet);
             }
             else if (string.Equals(visibleScene, Room, StringComparison.Ordinal))
             {

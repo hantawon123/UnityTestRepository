@@ -457,7 +457,7 @@ namespace Game.Tests.EditMode
         [Test]
         public void RealView_GameStartMatchesLeaveGamePlate()
         {
-            var root = new GameObject("Game start chrome test");
+            var root = new GameObject("Game start chrome test", typeof(RectTransform));
             var panel = new GameObject("PlaySettingsPanel", typeof(RectTransform));
             panel.transform.SetParent(root.transform, false);
             root.SetActive(false);

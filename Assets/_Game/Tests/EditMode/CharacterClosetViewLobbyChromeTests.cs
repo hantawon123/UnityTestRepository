@@ -18,6 +18,9 @@ namespace Game.Architecture.Tests
                 var view = root.AddComponent<CharacterClosetView>();
                 view.ConfigureAsLobbyOverlay();
                 root.SetActive(true);
+                typeof(CharacterClosetView).GetMethod("Awake",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, null);
 
                 var frame = FindPanel(root, SettingsStyle.Frame.Size);
                 Assert.That(frame, Is.Not.Null);
@@ -68,7 +71,10 @@ namespace Game.Architecture.Tests
             var root = new GameObject("Home Closet");
             try
             {
-                root.AddComponent<CharacterClosetView>();
+                var view = root.AddComponent<CharacterClosetView>();
+                typeof(CharacterClosetView).GetMethod("Awake",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, null);
 
                 Assert.That(FindPanel(root, SettingsStyle.Frame.Size), Is.Null);
                 Assert.That(Find(root, "Glow"), Is.Null);

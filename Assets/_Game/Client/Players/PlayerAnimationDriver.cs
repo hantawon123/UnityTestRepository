@@ -16,10 +16,10 @@ namespace Game.Client.Players
         private const string HitState = "Hit";
         private const string StunnedState = "Stunned";
         private const string JumpState = "Jump";
-        private const string CarryJumpState = "Carry_Jump";
+        private const string CarryJumpState = "Carry_TwoHands_Jump";
         private const string AirborneState = "Fall";
         private const string LandState = "Land";
-        private const string CarryLandState = "Carry_Land";
+        private const string CarryLandState = "Carry_TwoHands_Land";
         private const float SpeedDampTime = 0.1f;
         private const float CrossFadeSeconds = 0.15f;
         private const float DirectionDeadZone = 0.2f;
@@ -157,27 +157,43 @@ namespace Game.Client.Players
             PlayOneShot(clip, ClipSeconds(clip));
         }
 
-        public void PlayThrow() => PlayOneShot("Throw", 24f / 30f);
+        public void PlayThrow()
+        {
+            var settings = movement.MovementSettings;
+            var speed = usesNetworkState ? networkSpeed : movement.PlanarSpeed;
+            var clip = ResolveThrowClip(
+                movement.Posture, speed, settings.WalkSpeed, settings.SprintSpeed);
+            PlayOneShot(clip, 24f / 30f);
+        }
 
         internal static string ResolvePickupClip(PlayerPosture posture) => posture switch
         {
-            PlayerPosture.Crouching => "Pickup_Crouch",
-            PlayerPosture.Prone => "Pickup_Prone",
-            _ => "Pickup_Low",
+            PlayerPosture.Crouching => "PutUp_TwoHands_Crouch",
+            PlayerPosture.Prone => "PutUp_TwoHands_Prone",
+            _ => "PutUp_TwoHands",
         };
 
         internal static string ResolvePutDownClip(PlayerPosture posture) => posture switch
         {
-            PlayerPosture.Crouching => "PutDown_Crouch",
-            PlayerPosture.Prone => "PutDown_Prone",
-            _ => "PutDown_Low",
+            PlayerPosture.Crouching => "PutDown_TwoHands_Crouch",
+            PlayerPosture.Prone => "PutDown_TwoHands_Prone",
+            _ => "PutDown_TwoHands",
         };
 
-        private static float ClipSeconds(string clip) => clip switch
+        private static float ClipSeconds(string clip)
         {
-            "Pickup_Low" or "PutDown_Low" => 60f / 30f,
-            _ => 48f / 30f,
-        };
+            if (clip.StartsWith("PutUp_TwoHands", System.StringComparison.Ordinal) ||
+                clip.StartsWith("PutDown_TwoHands", System.StringComparison.Ordinal))
+            {
+                return 20f / 30f;
+            }
+
+            return clip switch
+            {
+                "Pickup_Low" or "PutDown_Low" => 60f / 30f,
+                _ => 48f / 30f,
+            };
+        }
 
         public void ApplyNetworkState(
             float planarSpeed,
@@ -311,7 +327,7 @@ namespace Game.Client.Players
 
             if (posture != lastPosture)
             {
-                var transition = TransitionClip(lastPosture, posture);
+                var transition = TransitionClip(lastPosture, posture, carrying);
                 lastPosture = posture;
                 if (transition != null)
                 {
@@ -360,6 +376,21 @@ namespace Game.Client.Players
         internal static string ResolveLandClip(bool carrying) =>
             carrying ? CarryLandState : LandState;
 
+        internal static string ResolveThrowClip(
+            PlayerPosture posture,
+            float planarSpeed,
+            float walkSpeed,
+            float sprintSpeed)
+        {
+            if (posture == PlayerPosture.Prone)
+            {
+                return planarSpeed > 0.15f ? "Throw_TwoHands_Crawl" : "Throw_TwoHands_Prone";
+            }
+
+            return ResolveCombatLocomotionClip(
+                "Throw_TwoHands", posture, planarSpeed, walkSpeed, sprintSpeed);
+        }
+
         internal static string ResolvePunchClip(
             PlayerPosture posture,
             float planarSpeed,
@@ -405,6 +436,7 @@ namespace Game.Client.Players
         internal static bool IsMovementInterruptible(string state) =>
             !string.IsNullOrEmpty(state) &&
             (state.StartsWith("Pickup", System.StringComparison.Ordinal) ||
+             state.StartsWith("PutUp", System.StringComparison.Ordinal) ||
              state.StartsWith("PutDown", System.StringComparison.Ordinal) ||
              IsLandState(state));
 
@@ -432,11 +464,16 @@ namespace Game.Client.Players
             {
                 if (!moving)
                 {
-                    return carrying ? "Carry_Prone_Idle" : "Prone_Idle";
+                    return carrying ? "Carry_TwoHands_Prone_Idle" : "Prone_Idle";
                 }
 
                 return carrying
-                    ? DirectionClip("Carry_Crawl_Forward", "Carry_Crawl_Back", "Carry_Crawl_Left", "Carry_Crawl_Right", direction)
+                    ? DirectionClip(
+                        "Carry_TwoHands_Crawl_Forward",
+                        "Carry_TwoHands_Crawl_Back",
+                        "Carry_TwoHands_Crawl_Left",
+                        "Carry_TwoHands_Crawl_Right",
+                        direction)
                     : DirectionClip("Crawl_Forward", "Crawl_Back", "Crawl_Left", "Crawl_Right", direction);
             }
 
@@ -444,15 +481,15 @@ namespace Game.Client.Players
             {
                 if (!moving)
                 {
-                    return carrying ? "Carry_Crouch_Idle" : "Crouch_Idle";
+                    return carrying ? "Carry_TwoHands_Crouch_Idle" : "Crouch_Idle";
                 }
 
                 return carrying
                     ? DirectionClip(
-                        "Carry_Crouch_Walk_Forward",
-                        "Carry_Crouch_Walk_Back",
-                        "Carry_Crouch_Walk_Left",
-                        "Carry_Crouch_Walk_Right",
+                        "Carry_TwoHands_Crouch_Walk_Forward",
+                        "Carry_TwoHands_Crouch_Walk_Back",
+                        "Carry_TwoHands_Crouch_Walk_Left",
+                        "Carry_TwoHands_Crouch_Walk_Right",
                         direction)
                     : DirectionClip(
                         "Crouch_Walk_Forward",
@@ -464,18 +501,28 @@ namespace Game.Client.Players
 
             if (!moving)
             {
-                return carrying ? "Carry_Idle" : "Idle";
+                return carrying ? "Carry_TwoHands" : "Idle";
             }
 
             if (speed >= (walkSpeed + sprintSpeed) * 0.5f)
             {
                 return carrying
-                    ? DirectionClip("Carry_Run_Forward", "Carry_Run_Back", "Carry_Run_Left", "Carry_Run_Right", direction)
+                    ? DirectionClip(
+                        "Carry_TwoHands_Run_Forward",
+                        "Carry_TwoHands_Run_Back",
+                        "Carry_TwoHands_Run_Left",
+                        "Carry_TwoHands_Run_Right",
+                        direction)
                     : DirectionClip("Run_Forward", "Run_Back", "Run_Left", "Run_Right", direction);
             }
 
             return carrying
-                ? DirectionClip("Carry_Walk_Forward", "Carry_Walk_Back", "Carry_Walk_Left", "Carry_Walk_Right", direction)
+                ? DirectionClip(
+                    "Carry_TwoHands_Walk_Forward",
+                    "Carry_TwoHands_Walk_Back",
+                    "Carry_TwoHands_Walk_Left",
+                    "Carry_TwoHands_Walk_Right",
+                    direction)
                 : DirectionClip("Walk_Forward", "Walk_Back", "Walk_Left", "Walk_Right", direction);
         }
 
@@ -527,7 +574,8 @@ namespace Game.Client.Players
 
             // Punch_Walk / Hit_Run 등은 하체가 섞여 있어도 임팩트 타이밍을 늘리지 않는다.
             if (state.StartsWith("Punch", System.StringComparison.Ordinal) ||
-                state.StartsWith("Hit", System.StringComparison.Ordinal))
+                state.StartsWith("Hit", System.StringComparison.Ordinal) ||
+                state.StartsWith("Throw", System.StringComparison.Ordinal))
             {
                 return 1f;
             }
@@ -573,22 +621,33 @@ namespace Game.Client.Players
             return 0f;
         }
 
-        private static string TransitionClip(PlayerPosture from, PlayerPosture to) => (from, to) switch
+        internal static string TransitionClip(PlayerPosture from, PlayerPosture to, bool carrying) => (from, to) switch
         {
-            (PlayerPosture.Standing, PlayerPosture.Crouching) => "Crouch_Start",
-            (PlayerPosture.Crouching, PlayerPosture.Standing) => "Crouch_End",
-            (PlayerPosture.Standing, PlayerPosture.Prone) => "Prone_Start",
-            (PlayerPosture.Crouching, PlayerPosture.Prone) => "Crouch_To_Prone",
-            (PlayerPosture.Prone, PlayerPosture.Standing) => "Prone_End",
-            (PlayerPosture.Prone, PlayerPosture.Crouching) => "Prone_To_Crouch",
+            (PlayerPosture.Standing, PlayerPosture.Crouching) =>
+                carrying ? "Carry_TwoHands_Crouch_Start" : "Crouch_Start",
+            (PlayerPosture.Crouching, PlayerPosture.Standing) =>
+                carrying ? "Carry_TwoHands_Crouch_End" : "Crouch_End",
+            (PlayerPosture.Standing, PlayerPosture.Prone) =>
+                carrying ? "Carry_TwoHands_Prone_Start" : "Prone_Start",
+            (PlayerPosture.Crouching, PlayerPosture.Prone) =>
+                carrying ? "Carry_TwoHands_Crouch_To_Prone" : "Crouch_To_Prone",
+            (PlayerPosture.Prone, PlayerPosture.Standing) =>
+                carrying ? "Carry_TwoHands_Prone_End" : "Prone_End",
+            (PlayerPosture.Prone, PlayerPosture.Crouching) =>
+                carrying ? "Carry_TwoHands_Prone_To_Crouch" : "Prone_To_Crouch",
             _ => null
         };
 
-        private static float TransitionSeconds(string clip) => clip switch
+        private static float TransitionSeconds(string clip)
         {
-            "Crouch_To_Prone" or "Prone_To_Crouch" => 36f / 30f,
-            _ => 24f / 30f
-        };
+            if (clip.IndexOf("Crouch_To_Prone", System.StringComparison.Ordinal) >= 0 ||
+                clip.IndexOf("Prone_To_Crouch", System.StringComparison.Ordinal) >= 0)
+            {
+                return 36f / 30f;
+            }
+
+            return 24f / 30f;
+        }
 
         private static bool HasParameter(Animator target, string name)
         {

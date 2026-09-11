@@ -94,6 +94,7 @@ namespace Game.Bootstrap
 
             var captureStartedAt = Time.realtimeSinceStartupAsDouble;
             var matchScene = PlaygroundMatchScene.Capture(gameObject.scene);
+            sceneRoots = gameObject.scene.GetRootGameObjects();
             Debug.Log(
                 $"[SceneTiming] Playground scene capture completed, " +
                 $"elapsed={Time.realtimeSinceStartupAsDouble - captureStartedAt:F3}s.");
@@ -103,7 +104,7 @@ namespace Game.Bootstrap
             builder.Register<MatchRuntimeFactory>(Lifetime.Scoped);
             builder.RegisterEntryPoint<NetworkMatchRuntimeCoordinator>();
             builder.RegisterEntryPoint<NetworkInteractionSceneBridge>()
-                .WithParameter(false).WithParameter(gameObject.scene);
+                .WithParameter(false).WithParameter(gameObject.scene).AsSelf();
             builder.RegisterEntryPoint<NetworkHighlightPlaybackController>().AsSelf();
             builder.RegisterEntryPoint<InGamePlayerNameplatePresenter>();
 
@@ -116,7 +117,14 @@ namespace Game.Bootstrap
                     matchHudView.gameObject.AddComponent<Game.Client.Settings.InterfaceHudView>()
                         .Bind(c.Resolve<Game.Core.Settings.InterfaceSettingsSystem>(), () => network.LocalPingMilliseconds);
                 });
-                builder.RegisterEntryPoint<NetworkMatchHudPresenter>();
+                builder.RegisterEntryPoint<NetworkMatchHudPresenter>().AsSelf();
+                builder.RegisterBuildCallback(c =>
+                {
+                    var presenter = c.Resolve<NetworkMatchHudPresenter>();
+                    var settings = c.Resolve<MatchSettingsOverlay>();
+                    c.Resolve<NetworkInteractionSceneBridge>().BindPresentationInput(
+                        () => presenter.BlocksGameplayInput || settings.IsOpen);
+                });
             }
 
             var chatCanvas = matchHudView == null
@@ -132,9 +140,6 @@ namespace Game.Bootstrap
                         c.Resolve<PlayerProfile>()),
                     Lifetime.Scoped)
                 .As<ILobbyChatLog>();
-            builder.RegisterEntryPoint<MatchChatPresenter>();
-            builder.RegisterEntryPoint<ChatBubbleBinder>();
-
             var settingsObject = new GameObject("Match Settings");
             settingsObject.transform.SetParent(transform, false);
             settingsObject.SetActive(false);
@@ -145,7 +150,17 @@ namespace Game.Bootstrap
                 .WithParameter<Action>(() => settingsObject.SetActive(false));
             builder.Register<LobbyExitPresenter>(Lifetime.Scoped);
             builder.RegisterEntryPoint<NetworkLobbyExitBridge>();
-            builder.RegisterEntryPoint<MatchSettingsOverlay>().WithParameter(chatView);
+            builder.RegisterEntryPoint<MatchSettingsOverlay>().AsSelf().WithParameter(chatView);
+            if (matchHudView == null)
+            {
+                builder.RegisterBuildCallback(c =>
+                {
+                    var settings = c.Resolve<MatchSettingsOverlay>();
+                    c.Resolve<NetworkInteractionSceneBridge>().BindPresentationInput(() => settings.IsOpen);
+                });
+            }
+            builder.RegisterEntryPoint<MatchChatPresenter>();
+            builder.RegisterEntryPoint<ChatBubbleBinder>();
 
             // Registered beside the asset, which the project scope has no
             // reference to. Its own check rather than the voice one below,
