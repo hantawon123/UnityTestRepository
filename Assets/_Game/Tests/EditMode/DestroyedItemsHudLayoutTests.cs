@@ -21,7 +21,7 @@ namespace Game.Architecture.Tests
                 "Soda_01",
                 new[] { "Pineapple_01", "Burger_01" });
 
-            Assert.That(slots.Length, Is.EqualTo(4));
+            Assert.That(slots.Length, Is.EqualTo(3));
             Assert.That(slots[0].ItemId, Is.EqualTo("Soda_01"));
             Assert.That(slots[0].IsOwn, Is.True);
             Assert.That(slots[0].ShowPreview, Is.True);
@@ -30,7 +30,6 @@ namespace Game.Architecture.Tests
             Assert.That(slots[1].IsOwn, Is.False);
             Assert.That(slots[1].ShowPreview, Is.True);
             Assert.That(slots[2].ItemId, Is.EqualTo("Burger_01"));
-            Assert.That(slots[3].ShowPreview, Is.False);
         }
 
         [Test]
@@ -47,13 +46,13 @@ namespace Game.Architecture.Tests
                 "Soda_01",
                 new[] { "Burger_01", "Soda_01" });
 
+            Assert.That(slots.Length, Is.EqualTo(2));
             Assert.That(slots[0].ItemId, Is.EqualTo("Soda_01"));
             Assert.That(slots[0].IsOwn, Is.True);
             Assert.That(slots[0].ShowPreview, Is.True);
             Assert.That(slots[0].Grayscale, Is.True);
             Assert.That(slots[1].ItemId, Is.EqualTo("Burger_01"));
             Assert.That(slots[1].Grayscale, Is.False);
-            Assert.That(slots[2].ShowPreview, Is.False);
         }
 
         [Test]
@@ -70,10 +69,32 @@ namespace Game.Architecture.Tests
                 null,
                 null);
 
+            Assert.That(slots.Length, Is.EqualTo(2));
             Assert.That(slots[0].ItemId, Is.EqualTo("Soda_01"));
             Assert.That(slots[0].IsOwn, Is.False);
             Assert.That(slots[1].ItemId, Is.EqualTo("Pineapple_01"));
-            Assert.That(slots[2].ShowPreview, Is.False);
+        }
+
+        [Test]
+        public void Build_ShowsOnlyLocalItemBeforeAnyDestruction()
+        {
+            var slots = DestroyedItemsHudLayout.Build(
+                4,
+                new[]
+                {
+                    new PlayerItemStatusSnapshot("Soda_01", false),
+                    new PlayerItemStatusSnapshot("Burger_01", false),
+                    new PlayerItemStatusSnapshot("Pineapple_01", false),
+                    new PlayerItemStatusSnapshot("Cup1_C3", false),
+                },
+                "Soda_01",
+                System.Array.Empty<string>());
+
+            Assert.That(slots.Length, Is.EqualTo(1));
+            Assert.That(slots[0].ItemId, Is.EqualTo("Soda_01"));
+            Assert.That(slots[0].IsOwn, Is.True);
+            Assert.That(slots[0].ShowPreview, Is.True);
+            Assert.That(slots[0].Grayscale, Is.False);
         }
     }
 }

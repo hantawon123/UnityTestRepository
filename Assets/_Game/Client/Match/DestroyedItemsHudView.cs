@@ -18,9 +18,9 @@ namespace Game.Client.Match
     }
 
     /// <summary>
-    /// Top-left circles for assignment items. The local item stays leftmost
-    /// with an orange ring; other destroyed items fill in destruction order.
-    /// Empty slots show "?".
+    /// Top-left circles for assignment items. The local item is shown from
+    /// search start with an orange ring; other items appear only after they
+    /// are destroyed, in destruction order.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class DestroyedItemsHudView : MonoBehaviour, IDestroyedItemsHudView
@@ -107,19 +107,18 @@ namespace Game.Client.Match
             System.Collections.Generic.IReadOnlyList<string> destroyedItemIdsInOrder)
         {
             EnsureLayout();
-            var count = Mathf.Clamp(playerCount, 0, RoomSettings.MaxPlayerCount);
-            if (count <= 0)
+            laidOutSlots = DestroyedItemsHudLayout.Build(
+                playerCount,
+                statuses,
+                localItemId,
+                destroyedItemIdsInOrder);
+            if (laidOutSlots.Length == 0)
             {
                 Hide();
                 return;
             }
 
-            EnsureSlots(count);
-            laidOutSlots = DestroyedItemsHudLayout.Build(
-                count,
-                statuses,
-                localItemId,
-                destroyedItemIdsInOrder);
+            EnsureSlots(laidOutSlots.Length);
             retryPreviews = false;
             for (var index = 0; index < slots.Length; index++)
             {

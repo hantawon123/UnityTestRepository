@@ -1,7 +1,6 @@
 using Game.Client.Match;
 using Game.Core.Match;
 using NUnit.Framework;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,13 +9,21 @@ namespace Game.Architecture.Tests
     public sealed class DestroyedItemsHudViewTests
     {
         [Test]
-        public void Show_BuildsPlayerCountSlotsWithQuestionMarks()
+        public void Show_ShowsOnlyLocalSlotBeforeAnyDestruction()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
             try
             {
                 var view = DestroyedItemsHudView.Create(canvas.transform);
-                view.Show(6, System.Array.Empty<PlayerItemStatusSnapshot>());
+                view.Show(
+                    6,
+                    new[]
+                    {
+                        new PlayerItemStatusSnapshot("Soda_01", false),
+                        new PlayerItemStatusSnapshot("Burger_01", false),
+                    },
+                    "Soda_01",
+                    System.Array.Empty<string>());
 
                 var panel = view.transform.Find("Panel");
                 Assert.That(panel, Is.Not.Null);
@@ -25,25 +32,17 @@ namespace Game.Architecture.Tests
                 Assert.That(DestroyedItemsHudView.PreviewTextureSize, Is.EqualTo(256));
                 Assert.That(DestroyedItemsHudView.QuestionFontSize, Is.EqualTo(30f));
 
-                for (var index = 0; index < 6; index++)
-                {
-                    var slot = panel.Find($"Slot{index}");
-                    Assert.That(slot, Is.Not.Null);
-                    var fill = slot.Find(DestroyedItemsHudView.FillName)?.GetComponent<Image>();
-                    Assert.That(fill, Is.Not.Null);
-                    Assert.That(fill.color, Is.EqualTo(DestroyedItemsHudView.SlotColor));
-                    var question = slot.Find($"{DestroyedItemsHudView.FillName}/Question")
-                        ?.GetComponent<TMP_Text>();
-                    Assert.That(question, Is.Not.Null);
-                    Assert.That(question.text, Is.EqualTo(DestroyedItemsHudView.QuestionMark));
-                    Assert.That(question.fontSize, Is.EqualTo(DestroyedItemsHudView.QuestionFontSize));
-                    Assert.That(question.gameObject.activeSelf, Is.True);
-                    Assert.That(slot.GetComponent<LayoutElement>().preferredWidth, Is.EqualTo(100f));
-                    Assert.That(slot.GetComponent<LayoutElement>().preferredHeight, Is.EqualTo(100f));
-                    Assert.That(
-                        slot.Find(DestroyedItemsHudView.OwnBorderName).gameObject.activeSelf,
-                        Is.False);
-                }
+                var slot = panel.Find("Slot0");
+                Assert.That(slot, Is.Not.Null);
+                var fill = slot.Find(DestroyedItemsHudView.FillName)?.GetComponent<Image>();
+                Assert.That(fill, Is.Not.Null);
+                Assert.That(fill.color, Is.EqualTo(DestroyedItemsHudView.SlotColor));
+                Assert.That(slot.GetComponent<LayoutElement>().preferredWidth, Is.EqualTo(100f));
+                Assert.That(slot.GetComponent<LayoutElement>().preferredHeight, Is.EqualTo(100f));
+                Assert.That(
+                    slot.Find(DestroyedItemsHudView.OwnBorderName).gameObject.activeSelf,
+                    Is.True);
+                Assert.That(panel.Find("Slot1"), Is.Null);
             }
             finally
             {
@@ -52,7 +51,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void Show_KeepsUnknownSlotsWhenSomeItemsAreDestroyed()
+        public void Show_DoesNotCreateUnknownSlotsWhenSomeItemsAreDestroyed()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
             try
@@ -67,14 +66,10 @@ namespace Game.Architecture.Tests
                         new PlayerItemStatusSnapshot("Pineapple_01", false),
                     });
 
-                var intact = view.transform.Find(
-                    $"Panel/Slot1/{DestroyedItemsHudView.FillName}/Question");
-                Assert.That(intact.gameObject.activeSelf, Is.True);
-                Assert.That(
-                    view.transform.Find(
-                        $"Panel/Slot2/{DestroyedItemsHudView.FillName}/Question")
-                        .gameObject.activeSelf,
-                    Is.True);
+                var panel = view.transform.Find("Panel");
+                Assert.That(panel.Find("Slot0"), Is.Not.Null);
+                Assert.That(panel.Find("Slot1"), Is.Null);
+                Assert.That(panel.Find("Slot2"), Is.Null);
             }
             finally
             {
@@ -119,6 +114,7 @@ namespace Game.Architecture.Tests
                     view.transform.Find($"Panel/Slot1/{DestroyedItemsHudView.OwnBorderName}")
                         .gameObject.activeSelf,
                     Is.False);
+                Assert.That(view.transform.Find("Panel/Slot2"), Is.Null);
             }
             finally
             {
@@ -186,6 +182,7 @@ namespace Game.Architecture.Tests
                     panel.Find($"Slot0/{DestroyedItemsHudView.OwnBorderName}")
                         .gameObject.activeSelf,
                     Is.True);
+                Assert.That(panel.Find("Slot1"), Is.Null);
             }
             finally
             {

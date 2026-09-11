@@ -1,17 +1,19 @@
 using System;
 using Game.Client.Interactions;
 using Game.Core.Items;
+using Game.SOAP.Config;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Game.Client.Match
 {
     /// <summary>
-    /// Renders the assigned carryable's mesh onto a RawImage so the hiding
-    /// briefing can show the object itself, not only its name.
+    /// Renders the catalog prefab onto a RawImage so hiding and searching
+    /// briefings show the same authored asset, not the live placed instance.
     /// </summary>
     internal sealed class HidingIntroItemPreview
     {
+        public const float IntroImageSize = 360f;
         private const float RotationDegreesPerSecond = 28f;
         private static readonly Vector3 StagePosition = new(0f, -2500f, 0f);
 
@@ -44,6 +46,18 @@ namespace Game.Client.Match
 
         public bool HasPreview => target != null && target.enabled && target.texture != null;
 
+        public static void NormalizeImage(RawImage target)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            target.color = Color.white;
+            target.uvRect = new Rect(0f, 0f, 1f, 1f);
+            target.rectTransform.sizeDelta = new Vector2(IntroImageSize, IntroImageSize);
+        }
+
         public void Show(string itemId)
         {
             Clear();
@@ -52,15 +66,14 @@ namespace Game.Client.Match
                 return;
             }
 
-            var source = FindSource(itemId);
-            if (source == null)
+            if (!TryResolveVisual(itemId, out var source, out var copyRootPose))
             {
                 target.enabled = false;
                 return;
             }
 
             EnsureStage();
-            model = CopyVisuals(source.transform, stage.transform);
+            model = CopyVisuals(source, stage.transform, copyRootPose);
             if (model == null)
             {
                 target.enabled = false;
@@ -245,11 +258,11 @@ namespace Game.Client.Match
             }
         }
 
-        private static Transform CopyVisuals(Transform source, Transform parent)
+        private static Transform CopyVisuals(Transform source, Transform parent, bool copyRootPose)
         {
             var root = new GameObject("Preview Model");
             root.transform.SetParent(parent, false);
-            CopyVisualRecursive(source, root.transform);
+            CopyVisualRecursive(source, root.transform, copyRootPose);
             if (root.GetComponentInChildren<Renderer>() == null)
             {
                 UnityEngine.Object.Destroy(root);
@@ -259,11 +272,14 @@ namespace Game.Client.Match
             return root.transform;
         }
 
-        private static void CopyVisualRecursive(Transform source, Transform dest)
+        private static void CopyVisualRecursive(Transform source, Transform dest, bool copyLocalPose)
         {
-            dest.localPosition = source.localPosition;
-            dest.localRotation = source.localRotation;
-            dest.localScale = source.localScale;
+            if (copyLocalPose)
+            {
+                dest.localPosition = source.localPosition;
+                dest.localRotation = source.localRotation;
+                dest.localScale = source.localScale;
+            }
 
             var filter = source.GetComponent<MeshFilter>();
             var renderer = source.GetComponent<MeshRenderer>();
@@ -286,7 +302,7 @@ namespace Game.Client.Match
 
                 var childCopy = new GameObject(child.name);
                 childCopy.transform.SetParent(dest, false);
-                CopyVisualRecursive(child, childCopy.transform);
+                CopyVisualRecursive(child, childCopy.transform, copyLocalPose: true);
             }
         }
 
@@ -367,7 +383,31 @@ namespace Game.Client.Match
             return copy;
         }
 
-        private static CarryableItem FindSource(string itemId)
+        private static bool TryResolveVisual(string itemId, out Transform source, out bool copyRootPose)
+        {
+            var catalog = Resources.Load<ItemCatalogSO>(ItemCatalogSO.ResourcePath);
+            var prefab = catalog != null ? catalog.PrefabOf(itemId) : null;
+            if (prefab != null)
+            {
+                source = prefab.transform;
+                copyRootPose = true;
+                return true;
+            }
+
+            var sceneItem = FindSceneItem(itemId);
+            if (sceneItem != null)
+            {
+                source = sceneItem.transform;
+                copyRootPose = false;
+                return true;
+            }
+
+            source = null;
+            copyRootPose = false;
+            return false;
+        }
+
+        private static CarryableItem FindSceneItem(string itemId)
         {
             var visualId = ItemCatalog.VisualSourceIdOf(itemId);
             if (string.IsNullOrEmpty(visualId) && string.IsNullOrEmpty(itemId))

@@ -176,6 +176,8 @@ namespace Game.Client.Match
                 itemPreview = transform.Find("Content/ItemPreview")?.GetComponent<RawImage>();
             }
 
+            HidingIntroItemPreview.NormalizeImage(itemPreview);
+
             if (preview == null && itemPreview != null)
             {
                 preview = new HidingIntroItemPreview(itemPreview, rotates: true);
@@ -217,7 +219,7 @@ namespace Game.Client.Match
             Place(content, new Vector2(0.5f, 0.5f), new Vector2(0f, 20f), new Vector2(1200f, 640f));
 
             itemPreview = CreateRawImage(content, "ItemPreview");
-            Place(itemPreview.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, 160f), new Vector2(360f, 360f));
+            Place(itemPreview.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, 160f), new Vector2(HidingIntroItemPreview.IntroImageSize, HidingIntroItemPreview.IntroImageSize));
             preview = new HidingIntroItemPreview(itemPreview, rotates: true);
 
             messageText = CreateText(

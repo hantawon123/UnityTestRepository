@@ -26,8 +26,8 @@ namespace Game.Client.Match
     }
 
     /// <summary>
-    /// Leftmost slot is the local assignment. Remaining slots fill in
-    /// destruction order.
+    /// The local assignment is shown from search start. Other items appear
+    /// only after they are destroyed, in destruction order.
     /// </summary>
     public static class DestroyedItemsHudLayout
     {
@@ -40,10 +40,9 @@ namespace Game.Client.Match
             var count = playerCount < 0
                 ? 0
                 : Math.Min(playerCount, RoomSettings.MaxPlayerCount);
-            var slots = new DestroyedItemHudSlot[count];
             if (count == 0)
             {
-                return slots;
+                return Array.Empty<DestroyedItemHudSlot>();
             }
 
             statuses ??= Array.Empty<PlayerItemStatusSnapshot>();
@@ -56,20 +55,20 @@ namespace Game.Client.Match
             }
 
             var order = CollectDestroyedOrder(destroyedItemIdsInOrder, statuses, destroyedById);
-            var write = 0;
+            var slots = new List<DestroyedItemHudSlot>(count);
             var local = string.IsNullOrWhiteSpace(localItemId) ? null : localItemId.Trim();
             if (local != null)
             {
                 var ownDestroyed = destroyedById.TryGetValue(local, out var destroyed) &&
                                    destroyed;
-                slots[write++] = new DestroyedItemHudSlot(
+                slots.Add(new DestroyedItemHudSlot(
                     local,
                     showPreview: true,
                     isOwn: true,
-                    grayscale: ownDestroyed);
+                    grayscale: ownDestroyed));
             }
 
-            for (var index = 0; index < order.Count && write < count; index++)
+            for (var index = 0; index < order.Count && slots.Count < count; index++)
             {
                 if (local != null &&
                     string.Equals(order[index], local, StringComparison.Ordinal))
@@ -77,14 +76,14 @@ namespace Game.Client.Match
                     continue;
                 }
 
-                slots[write++] = new DestroyedItemHudSlot(
+                slots.Add(new DestroyedItemHudSlot(
                     order[index],
                     showPreview: true,
                     isOwn: false,
-                    grayscale: false);
+                    grayscale: false));
             }
 
-            return slots;
+            return slots.ToArray();
         }
 
         private static List<string> CollectDestroyedOrder(

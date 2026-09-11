@@ -54,6 +54,11 @@ namespace Game.Architecture.Tests
                 var hint = view.transform.Find("Content/Hint")?.GetComponent<TMPro.TMP_Text>();
                 Assert.That(hint, Is.Not.Null);
                 Assert.That(hint.text, Is.EqualTo(HidingIntroView.HintText));
+
+                var preview = view.transform.Find("Content/ItemPreview")?.GetComponent<UnityEngine.UI.RawImage>();
+                Assert.That(preview, Is.Not.Null);
+                Assert.That(preview.rectTransform.sizeDelta, Is.EqualTo(new Vector2(360f, 360f)));
+                Assert.That(preview.color, Is.EqualTo(Color.white));
             }
             finally
             {

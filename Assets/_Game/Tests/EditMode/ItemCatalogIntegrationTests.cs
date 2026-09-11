@@ -26,6 +26,16 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void PrefabOf_ReturnsTheCatalogPrefab()
+        {
+            var catalog = ItemCatalogSO.Load();
+            var item = catalog.categories.First(c => c.enabled).items.First(i => i.enabled);
+            Assert.That(catalog.PrefabOf(item.id), Is.SameAs(item.prefab));
+            Assert.That(catalog.PrefabOf("missing_item"), Is.Null);
+            Assert.That(catalog.PrefabOf("  "), Is.Null);
+        }
+
+        [Test]
         public void Random_ChoosesOneCategory_AndCanReachEveryEnabledCategory()
         {
             ItemCatalogSO.Load();
