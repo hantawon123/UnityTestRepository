@@ -219,6 +219,7 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 | `SELF_FRIEND_REQUEST` | 400 | 자기에게 친구 요청 | UI 에서 미리 막습니다 |
 | `ACCOUNT_NOT_FOUND` | 404 | 부르는 사람의 계정이 없음 | **계정을 다시 발급받아야 합니다** |
 | `TARGET_NOT_FOUND` | 404 | 상대를 찾을 수 없음 | "그 사용자가 없습니다" |
+| `SUSPENDED` | 403 | 정지된 계정 | **더 진행할 수 없습니다.** 안내를 띄우고 멈춥니다. 계정 발급을 다시 불러도 같은 응답입니다 |
 | `FRIEND_REQUEST_NOT_FOUND` | 404 | 그 요청이 없음 | 목록을 다시 불러옵니다 |
 | `NOT_FRIENDS` | 404 | 친구가 아님 | 목록을 다시 불러옵니다 |
 | `NICKNAME_TAKEN` | 409 | 닉네임이 이미 쓰임 | 다른 이름을 받습니다 |
@@ -232,6 +233,14 @@ DateTime.ParseExact(createdAt, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
 `ACCOUNT_NOT_FOUND` 와 `TARGET_NOT_FOUND` 를 나눈 이유가 대응이 다르기 때문입니다.
 전자는 내 계정이 사라진 것이라 발급부터 다시 해야 하고, 후자는 화면에 메시지만 띄우면
 됩니다.
+
+`SUSPENDED` 는 그 둘과 또 다릅니다. **재시도로 풀리지 않습니다.** 운영자가 계정을 정지한
+상태이고, 계정 발급(`POST /api/v1/accounts`)과 `X-User-Id` 가 붙은 모든 요청이 같은
+응답을 줍니다. 그래서 `ACCOUNT_NOT_FOUND` 처럼 발급을 다시 부르면 같은 자리를 맴돕니다.
+안내를 띄우고 멈추는 것이 유일한 대응입니다.
+
+사유는 응답에 담기지 않습니다. 정지 사유는 신고 내용에서 나오므로 그대로 돌려주면 누가
+무엇을 신고했는지가 드러납니다.
 
 ---
 

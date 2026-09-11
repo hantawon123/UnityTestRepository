@@ -579,6 +579,27 @@
         ],
         "type" : "object"
       },
+      "SuspendRequest" : {
+        "properties" : {
+          "reason" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "reason"
+        ],
+        "type" : "object"
+      },
+      "SuspensionResult" : {
+        "properties" : {
+          "changed" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
       "UpdateAppearanceRequest" : {
         "properties" : {
           "bodyColor" : {
@@ -1290,6 +1311,74 @@
         },
         "tags" : [
           "admin-session-controller"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{userId}/suspension" : {
+      "delete" : {
+        "operationId" : "lift",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "userId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SuspensionResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-user-controller"
+        ]
+      },
+      "put" : {
+        "operationId" : "suspend",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "userId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SuspendRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SuspensionResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-user-controller"
         ]
       }
     },

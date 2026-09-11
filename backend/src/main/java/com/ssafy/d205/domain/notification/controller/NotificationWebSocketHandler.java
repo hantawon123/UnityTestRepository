@@ -106,6 +106,19 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
+        // 정지된 계정은 여기서도 막습니다.
+        //
+        // SuspensionInterceptor 가 못 잡는 유일한 경로입니다. 그쪽은 X-User-Id 헤더를
+        // 보는데, 브라우저의 WebSocket 은 헤더를 붙일 수 없어 이 채널은 HELLO 프레임에
+        // userId 를 담습니다(위 주석). 헤더가 없으니 인터셉터는 통과시킵니다.
+        //
+        // 막지 않으면 정지된 사람이 API 는 전부 403 을 받으면서 친구 요청과 초대 알림만
+        // 실시간으로 계속 받습니다.
+        if (user.get().isSuspended()) {
+            close(session, CloseStatus.POLICY_VIOLATION.withReason("SUSPENDED"));
+            return;
+        }
+
         cancelDeadline(session);
         WebSocketSession bound = registry.bind(user.get().getSeq(), session);
         bound.sendMessage(new TextMessage(HELLO_ACK));
