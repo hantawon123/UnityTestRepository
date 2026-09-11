@@ -167,7 +167,7 @@ namespace Game.Architecture.Tests
             try
             {
                 var hud = canvas.AddComponent<NetworkMatchHudView>();
-                hud.SetPhase(MatchPhase.Hiding, string.Empty);
+                hud.SetPhase(MatchPhase.Searching, string.Empty);
                 hud.SetDestroyedItems(
                     2,
                     new[]
@@ -193,9 +193,10 @@ namespace Game.Architecture.Tests
             }
         }
 
+        [TestCase(MatchPhase.Hiding)]
         [TestCase(MatchPhase.Highlight)]
         [TestCase(MatchPhase.Result)]
-        public void NetworkHud_HidesDestroyedItemsOnHighlightAndResult(MatchPhase phase)
+        public void NetworkHud_HidesDestroyedItemsOutsideSearching(MatchPhase phase)
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
             try

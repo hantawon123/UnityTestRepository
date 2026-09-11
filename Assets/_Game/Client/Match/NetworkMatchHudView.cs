@@ -534,7 +534,7 @@ namespace Game.Client.Match
 
         private static bool ShowsDestroyedItems(MatchPhase phase)
         {
-            return phase == MatchPhase.Hiding || phase == MatchPhase.Searching;
+            return phase == MatchPhase.Searching;
         }
 
         private void RefreshUrgencyBorder()
