@@ -75,6 +75,18 @@ namespace Game.Client.Home
 
         void SetProfileSettingsVisible(bool visible);
 
+        /// <summary>
+        /// Shows the notice that this account is suspended, over everything and
+        /// without a way out (S15P21D205-924).
+        /// </summary>
+        /// <remarks>
+        /// Only for <c>BackendFailure.Suspended</c>. Offline and timeout are
+        /// worth retrying and the player can carry on meanwhile; telling them
+        /// they had been suspended because the wifi dropped would be worse than
+        /// saying nothing.
+        /// </remarks>
+        void SetSuspendedNoticeVisible(bool visible);
+
         void SetNicknameAppliedFeedbackVisible(bool visible);
 
         /// <summary>
