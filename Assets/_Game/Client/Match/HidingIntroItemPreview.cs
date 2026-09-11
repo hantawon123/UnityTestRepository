@@ -8,12 +8,15 @@ using UnityEngine.UI;
 namespace Game.Client.Match
 {
     /// <summary>
-    /// Renders the catalog prefab onto a RawImage so hiding and searching
-    /// briefings show the same authored asset, not the live placed instance.
+    /// Renders the catalog prefab onto a RawImage for the hiding briefing
+    /// and the destroyed-items HUD.
     /// </summary>
     internal sealed class HidingIntroItemPreview
     {
+        public const string IntroSlotName = "ItemPreview";
         public const float IntroImageSize = 360f;
+        public const float IntroTopPadding = 72f;
+        private const string PreviewLayerName = "Item Preview";
         private const float RotationDegreesPerSecond = 28f;
         private static readonly Vector3 StagePosition = new(0f, -2500f, 0f);
 
@@ -46,16 +49,44 @@ namespace Game.Client.Match
 
         public bool HasPreview => target != null && target.enabled && target.texture != null;
 
-        public static void NormalizeImage(RawImage target)
+        public static RawImage EnsureIntroSlot(Transform introRoot)
         {
-            if (target == null)
+            if (introRoot == null)
+            {
+                return null;
+            }
+
+            var existing = introRoot.Find(IntroSlotName)?.GetComponent<RawImage>();
+            if (existing == null)
+            {
+                var slot = new GameObject(
+                    IntroSlotName,
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(RawImage));
+                slot.transform.SetParent(introRoot, false);
+                existing = slot.GetComponent<RawImage>();
+                existing.raycastTarget = false;
+            }
+
+            existing.color = Color.white;
+            existing.uvRect = new Rect(0f, 0f, 1f, 1f);
+            PlaceIntroSlot((RectTransform)existing.transform);
+            return existing;
+        }
+
+        private static void PlaceIntroSlot(RectTransform rect)
+        {
+            if (rect == null)
             {
                 return;
             }
 
-            target.color = Color.white;
-            target.uvRect = new Rect(0f, 0f, 1f, 1f);
-            target.rectTransform.sizeDelta = new Vector2(IntroImageSize, IntroImageSize);
+            rect.anchorMin = new Vector2(0.5f, 1f);
+            rect.anchorMax = new Vector2(0.5f, 1f);
+            rect.pivot = new Vector2(0.5f, 1f);
+            rect.anchoredPosition = new Vector2(0f, -IntroTopPadding);
+            rect.sizeDelta = new Vector2(IntroImageSize, IntroImageSize);
         }
 
         public void Show(string itemId)
@@ -110,17 +141,6 @@ namespace Game.Client.Match
             {
                 target.texture = grayscaleTexture;
             }
-        }
-
-        public void Tick(float deltaTime)
-        {
-            if (!rotates || model == null || camera == null)
-            {
-                return;
-            }
-
-            model.Rotate(Vector3.up, RotationDegreesPerSecond * deltaTime, Space.World);
-            camera.Render();
         }
 
         public void Dispose()
@@ -188,6 +208,7 @@ namespace Game.Client.Match
             stage = new GameObject("Hiding Intro Preview Stage");
             UnityEngine.Object.DontDestroyOnLoad(stage);
             stage.transform.position = StagePosition + stageOffset;
+            ApplyPreviewLayer(stage);
 
             texture = new RenderTexture(textureSize, textureSize, 16)
             {
@@ -197,6 +218,7 @@ namespace Game.Client.Match
 
             var cameraObject = new GameObject("Preview Camera");
             cameraObject.transform.SetParent(stage.transform, false);
+            ApplyPreviewLayer(cameraObject);
             camera = cameraObject.AddComponent<Camera>();
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = backgroundColor;
@@ -204,19 +226,21 @@ namespace Game.Client.Match
             camera.nearClipPlane = 0.05f;
             camera.farClipPlane = 20f;
             camera.targetTexture = texture;
-            camera.cullingMask = ~0;
+            camera.cullingMask = PreviewLayerMask;
             camera.depth = -100;
             camera.allowHDR = false;
             camera.allowMSAA = false;
 
             var lightObject = new GameObject("Preview Light");
             lightObject.transform.SetParent(stage.transform, false);
+            ApplyPreviewLayer(lightObject);
             lightObject.transform.localPosition = new Vector3(-1.2f, 2f, -1.5f);
             light = lightObject.AddComponent<Light>();
             light.type = LightType.Point;
             light.range = 12f;
             light.intensity = 2.4f;
             light.color = Color.white;
+            light.cullingMask = PreviewLayerMask;
 
             if (rotates)
             {
@@ -258,10 +282,37 @@ namespace Game.Client.Match
             }
         }
 
+        private static int PreviewLayer
+        {
+            get
+            {
+                var layer = LayerMask.NameToLayer(PreviewLayerName);
+                return layer >= 0 ? layer : 0;
+            }
+        }
+
+        private static int PreviewLayerMask
+        {
+            get
+            {
+                var layer = LayerMask.NameToLayer(PreviewLayerName);
+                return layer >= 0 ? 1 << layer : ~0;
+            }
+        }
+
+        private static void ApplyPreviewLayer(GameObject target)
+        {
+            if (target != null)
+            {
+                target.layer = PreviewLayer;
+            }
+        }
+
         private static Transform CopyVisuals(Transform source, Transform parent, bool copyRootPose)
         {
             var root = new GameObject("Preview Model");
             root.transform.SetParent(parent, false);
+            ApplyPreviewLayer(root);
             CopyVisualRecursive(source, root.transform, copyRootPose);
             if (root.GetComponentInChildren<Renderer>() == null)
             {
@@ -274,6 +325,8 @@ namespace Game.Client.Match
 
         private static void CopyVisualRecursive(Transform source, Transform dest, bool copyLocalPose)
         {
+            dest.gameObject.SetActive(source.gameObject.activeSelf);
+            ApplyPreviewLayer(dest.gameObject);
             if (copyLocalPose)
             {
                 dest.localPosition = source.localPosition;
@@ -291,6 +344,7 @@ namespace Game.Client.Match
                 dest.gameObject.AddComponent<MeshFilter>().sharedMesh = filter.sharedMesh;
                 var copy = dest.gameObject.AddComponent<MeshRenderer>();
                 copy.sharedMaterials = renderer.sharedMaterials;
+                copy.enabled = renderer.enabled;
             }
 
             foreach (Transform child in source)
@@ -333,18 +387,26 @@ namespace Game.Client.Match
         private static Bounds Encapsulate(Transform root)
         {
             var renderers = root.GetComponentsInChildren<Renderer>();
-            if (renderers.Length == 0)
+            Bounds? bounds = null;
+            for (var index = 0; index < renderers.Length; index++)
             {
-                return new Bounds(root.position, Vector3.one * 0.2f);
+                if (!renderers[index].enabled)
+                {
+                    continue;
+                }
+
+                if (bounds == null)
+                {
+                    bounds = renderers[index].bounds;
+                    continue;
+                }
+
+                var current = bounds.Value;
+                current.Encapsulate(renderers[index].bounds);
+                bounds = current;
             }
 
-            var bounds = renderers[0].bounds;
-            for (var index = 1; index < renderers.Length; index++)
-            {
-                bounds.Encapsulate(renderers[index].bounds);
-            }
-
-            return bounds;
+            return bounds ?? new Bounds(root.position, Vector3.one * 0.2f);
         }
 
         private Texture2D CreateGrayscaleCopy()

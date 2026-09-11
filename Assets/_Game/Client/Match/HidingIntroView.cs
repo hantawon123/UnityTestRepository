@@ -144,6 +144,7 @@ namespace Game.Client.Match
         private void EnsureLayout()
         {
             DestroyLegacyModal();
+            DestroyChild("Content/ItemPreview");
 
             if (root == null)
             {
@@ -171,13 +172,7 @@ namespace Game.Client.Match
                 hintText = transform.Find("Content/Hint")?.GetComponent<TMP_Text>();
             }
 
-            if (itemPreview == null)
-            {
-                itemPreview = transform.Find("Content/ItemPreview")?.GetComponent<RawImage>();
-            }
-
-            HidingIntroItemPreview.NormalizeImage(itemPreview);
-
+            itemPreview = HidingIntroItemPreview.EnsureIntroSlot(transform);
             if (preview == null && itemPreview != null)
             {
                 preview = new HidingIntroItemPreview(itemPreview, rotates: true);
@@ -218,10 +213,6 @@ namespace Game.Client.Match
             content.SetParent(transform, false);
             Place(content, new Vector2(0.5f, 0.5f), new Vector2(0f, 20f), new Vector2(1200f, 640f));
 
-            itemPreview = CreateRawImage(content, "ItemPreview");
-            Place(itemPreview.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, 160f), new Vector2(HidingIntroItemPreview.IntroImageSize, HidingIntroItemPreview.IntroImageSize));
-            preview = new HidingIntroItemPreview(itemPreview, rotates: true);
-
             messageText = CreateText(
                 content,
                 "Message",
@@ -231,7 +222,7 @@ namespace Game.Client.Match
             Place(
                 messageText.rectTransform,
                 new Vector2(0.5f, 0.5f),
-                new Vector2(0f, -80f),
+                new Vector2(0f, 40f),
                 new Vector2(1400f, 80f));
 
             hintText = CreateText(
@@ -244,7 +235,7 @@ namespace Game.Client.Match
             Place(
                 hintText.rectTransform,
                 new Vector2(0.5f, 0.5f),
-                new Vector2(0f, -170f),
+                new Vector2(0f, -50f),
                 new Vector2(1400f, 80f));
         }
 
@@ -260,6 +251,11 @@ namespace Game.Client.Match
             if (content != null)
             {
                 content.gameObject.SetActive(visible);
+            }
+
+            if (itemPreview != null)
+            {
+                itemPreview.gameObject.SetActive(visible);
             }
         }
 
@@ -278,21 +274,6 @@ namespace Game.Client.Match
             {
                 gameObject.AddComponent<GraphicRaycaster>();
             }
-        }
-
-        private static RawImage CreateRawImage(Transform parent, string name)
-        {
-            var gameObject = new GameObject(
-                name,
-                typeof(RectTransform),
-                typeof(CanvasRenderer),
-                typeof(RawImage));
-            gameObject.transform.SetParent(parent, false);
-            var image = gameObject.GetComponent<RawImage>();
-            image.color = Color.white;
-            image.raycastTarget = false;
-            image.enabled = false;
-            return image;
         }
 
         private static RectTransform CreatePanel(
