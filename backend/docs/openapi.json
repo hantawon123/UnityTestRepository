@@ -18,6 +18,9 @@
           "nicknameSet" : {
             "type" : "boolean"
           },
+          "photonToken" : {
+            "type" : "string"
+          },
           "searchable" : {
             "type" : "boolean"
           },
@@ -390,6 +393,21 @@
         },
         "type" : "object"
       },
+      "PhotonAuthResponse" : {
+        "properties" : {
+          "Message" : {
+            "type" : "string"
+          },
+          "ResultCode" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "UserId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ReportDetail" : {
         "properties" : {
           "createdAt" : {
@@ -577,6 +595,27 @@
           "reason",
           "userId"
         ],
+        "type" : "object"
+      },
+      "SuspendRequest" : {
+        "properties" : {
+          "reason" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "reason"
+        ],
+        "type" : "object"
+      },
+      "SuspensionResult" : {
+        "properties" : {
+          "changed" : {
+            "type" : "boolean"
+          }
+        },
         "type" : "object"
       },
       "UpdateAppearanceRequest" : {
@@ -1293,6 +1332,74 @@
         ]
       }
     },
+    "/api/v1/admin/users/{userId}/suspension" : {
+      "delete" : {
+        "operationId" : "lift",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "userId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SuspensionResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-user-controller"
+        ]
+      },
+      "put" : {
+        "operationId" : "suspend",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "userId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SuspendRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SuspensionResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "admin-user-controller"
+        ]
+      }
+    },
     "/api/v1/events" : {
       "post" : {
         "operationId" : "ingest",
@@ -1642,6 +1749,52 @@
         },
         "tags" : [
           "invite-controller"
+        ]
+      }
+    },
+    "/api/v1/photon/auth" : {
+      "get" : {
+        "operationId" : "authenticate",
+        "parameters" : [
+          {
+            "in" : "query",
+            "name" : "userId",
+            "required" : false,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "query",
+            "name" : "token",
+            "required" : false,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "query",
+            "name" : "key",
+            "required" : false,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PhotonAuthResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "photon-auth-controller"
         ]
       }
     },

@@ -5,6 +5,17 @@ Shader "Game/AssignedItemOutline"
         _OutlineColor ("Outline Color", Color) = (0.9, 0.05, 0.05, 1)
         _OutlineWidth ("Outline Width", Range(0.001, 0.05)) = 0.012
         _OutlinePixels ("Outline Pixels", Float) = 0
+
+        // 아래는 렌더 상태만 바꾸는 값. 기본값은 기존 동작(앞면 컬링, 깊이 LEqual, 색 쓰기, 스텐실 없음)과 같다.
+        // InteractableFocusOutline의 SeeThrough(가려져도 보이기)가 마스크·껍질 재질에 다른 값을 넣는다.
+        [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Float) = 1
+        [Enum(UnityEngine.Rendering.CompareFunction)] _ZTest ("ZTest", Float) = 4
+        [Enum(UnityEngine.Rendering.ColorWriteMask)] _ColorMask ("Color Mask", Float) = 15
+        _StencilRef ("Stencil Ref", Float) = 0
+        _StencilReadMask ("Stencil Read Mask", Float) = 255
+        _StencilWriteMask ("Stencil Write Mask", Float) = 255
+        [Enum(UnityEngine.Rendering.CompareFunction)] _StencilComp ("Stencil Comp", Float) = 8
+        [Enum(UnityEngine.Rendering.StencilOp)] _StencilPass ("Stencil Pass", Float) = 0
     }
 
     SubShader
@@ -20,9 +31,18 @@ Shader "Game/AssignedItemOutline"
         {
             Name "AssignedItemOutline"
             Tags { "LightMode" = "SRPDefaultUnlit" }
-            Cull Front
+            Cull [_Cull]
             ZWrite Off
-            ZTest LEqual
+            ZTest [_ZTest]
+            ColorMask [_ColorMask]
+            Stencil
+            {
+                Ref [_StencilRef]
+                ReadMask [_StencilReadMask]
+                WriteMask [_StencilWriteMask]
+                Comp [_StencilComp]
+                Pass [_StencilPass]
+            }
 
             HLSLPROGRAM
             #pragma vertex Vert

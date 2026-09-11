@@ -26,14 +26,23 @@ namespace Game.Bootstrap
     {
         private readonly IAccountGateway accounts;
         private readonly PlayerProfile profile;
+        private readonly IPhotonCredentialStore credentials;
 
         private readonly UniTaskCompletionSource<bool> signedIn =
             new UniTaskCompletionSource<bool>();
 
-        public BackendSignIn(IAccountGateway accounts, PlayerProfile profile)
+        public BackendSignIn(
+            IAccountGateway accounts,
+            PlayerProfile profile,
+            IPhotonCredentialStore credentials = null)
         {
             this.accounts = accounts ?? throw new ArgumentNullException(nameof(accounts));
             this.profile = profile ?? throw new ArgumentNullException(nameof(profile));
+
+            // Optional so the tests that only care about signing in do not all
+            // have to hand one over. Null means the fallback below is skipped,
+            // which is the behaviour those tests already expect.
+            this.credentials = credentials;
         }
 
         /// <summary>
@@ -60,6 +69,23 @@ namespace Game.Bootstrap
         /// </remarks>
         public AccountSnapshot? Account { get; private set; }
 
+        /// <summary>
+        /// Why sign-in did not produce an account, or
+        /// <see cref="BackendFailure.None"/> when it did.
+        /// </summary>
+        /// <remarks>
+        /// Kept because the reasons are not interchangeable. Offline and
+        /// timeout are worth retrying and the player can carry on meanwhile;
+        /// <see cref="BackendFailure.Suspended"/> is neither, and the home
+        /// screen has to say so rather than leave every button failing in
+        /// silence. Before this the reason only reached a log line.
+        /// <para>
+        /// Read it after awaiting <see cref="Ready"/>. Before that it is
+        /// None because nothing has answered yet, not because it went well.
+        /// </para>
+        /// </remarks>
+        public BackendFailure Failure { get; private set; }
+
         public async UniTask StartAsync(CancellationToken cancellation)
         {
             try
@@ -72,7 +98,9 @@ namespace Game.Bootstrap
                     // delay the first screen or run forever behind it; the
                     // player can reach the friend panel and see it fail, which
                     // is a place a retry belongs.
+                    Failure = result.Failure;
                     Debug.LogWarning($"[Backend] Could not sign in: {result.Failure}.");
+                    UseRememberedCredentials(result.Failure);
                     return;
                 }
 
@@ -105,12 +133,58 @@ namespace Game.Bootstrap
         /// now comes from the account.
         /// </para>
         /// </remarks>
+        /// <summary>
+        /// Falls back to the pair saved by an earlier launch so Photon still
+        /// has something to authenticate with (S15P21D205-925).
+        /// </summary>
+        /// <remarks>
+        /// Without this, opening the game while the backend is down leaves no
+        /// token, Photon is connected to anonymously, and the dashboard turns
+        /// that away - so a server restart would stop people who were never
+        /// suspended from playing at all.
+        /// <para>
+        /// <b>Not done for every failure.</b> Suspended and AccountNotFound are
+        /// answers, not outages: the server was reached and said no. Reusing an
+        /// old token there would try the same rejected account again, and for
+        /// AccountNotFound it would name an account that no longer exists, so
+        /// the pair is dropped instead.
+        /// </para>
+        /// <para>
+        /// Only the id and token are restored. <see cref="Account"/> stays null
+        /// and <see cref="Ready"/> still answers false, so the friend panel and
+        /// the heartbeat skip their work exactly as before - this changes what
+        /// Photon is told, not whether the backend is considered reachable.
+        /// </para>
+        /// </remarks>
+        private void UseRememberedCredentials(BackendFailure failure)
+        {
+            if (credentials == null)
+            {
+                return;
+            }
+
+            if (failure == BackendFailure.Suspended || failure == BackendFailure.AccountNotFound)
+            {
+                credentials.Clear();
+                return;
+            }
+
+            if (!credentials.TryLoad(out var userId, out var photonToken))
+            {
+                return;
+            }
+
+            profile.AdoptUserId(userId, photonToken);
+            Debug.Log("[Backend] Signing in failed; using the credentials saved by an earlier launch.");
+        }
+
         private void AdoptServerNickname(AccountSnapshot account)
         {
             // The account id rides with the nickname into every room this
             // player joins, so the host can say whose actions it reports. Set
             // here, once, from the same answer that settles the name.
-            profile.AdoptUserId(account.UserId);
+            profile.AdoptUserId(account.UserId, account.PhotonToken);
+            credentials?.Save(account.UserId, account.PhotonToken);
 
             // Mirrored first, and whether the name itself changed or not: a
             // player who renamed on another machine comes back with the same

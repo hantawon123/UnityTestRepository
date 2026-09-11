@@ -1027,6 +1027,47 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void ShredderSelection_PicksNearestWithinInteractionDistance()
+        {
+            // 마트처럼 파쇄기가 두 대인 맵: 서버는 상호작용 거리 안에서 가장 가까운 튕김 지점을 고른다.
+            var west = new Pose(new Vector3(-16f, 0.6f, -11f), Quaternion.Euler(0f, 90f, 0f));
+            var east = new Pose(new Vector3(10f, 0.6f, -6f), Quaternion.Euler(0f, 270f, 0f));
+            var poses = new[] { west, east };
+            static bool WithinTwoMeters(Vector3 a, Vector3 b) => (a - b).sqrMagnitude <= 4f;
+
+            var nearEast = MatchStarter.TrySelectShredderEjectionPose(
+                poses, new Vector3(9f, 0f, -6f), WithinTwoMeters, out var selectedEast);
+            var nearWest = MatchStarter.TrySelectShredderEjectionPose(
+                poses, new Vector3(-15f, 0f, -11f), WithinTwoMeters, out var selectedWest);
+            var farFromBoth = MatchStarter.TrySelectShredderEjectionPose(
+                poses, Vector3.zero, WithinTwoMeters, out _);
+            var noShredders = MatchStarter.TrySelectShredderEjectionPose(
+                Array.Empty<Pose>(), new Vector3(9f, 0f, -6f), WithinTwoMeters, out _);
+
+            Assert.That(nearEast, Is.True);
+            Assert.That(selectedEast.position, Is.EqualTo(east.position));
+            Assert.That(selectedEast.rotation, Is.EqualTo(east.rotation));
+            Assert.That(nearWest, Is.True);
+            Assert.That(selectedWest.position, Is.EqualTo(west.position));
+            Assert.That(farFromBoth, Is.False,
+                "Standing away from every shredder must reject the request like the single-shredder rule.");
+            Assert.That(noShredders, Is.False);
+        }
+
+        [Test]
+        public void ShredderSelection_WhenBothInRange_PrefersCloserOne()
+        {
+            var a = new Pose(new Vector3(0f, 0f, 0f), Quaternion.identity);
+            var b = new Pose(new Vector3(3f, 0f, 0f), Quaternion.identity);
+            static bool Always(Vector3 x, Vector3 y) => true;
+
+            MatchStarter.TrySelectShredderEjectionPose(
+                new[] { a, b }, new Vector3(2f, 0f, 0f), Always, out var selected);
+
+            Assert.That(selected.position, Is.EqualTo(b.position));
+        }
+
+        [Test]
         public void ActionRequestRpcs_DeriveRequesterFromRpcInfo()
         {
             var names = new[]
@@ -1080,6 +1121,30 @@ namespace Game.Architecture.Tests
             Assert.That(scenes.MatchScene.IsValid, Is.True);
             Assert.That(scenes.LobbyScene.IsValid, Is.True);
             Assert.That(scenes.MatchScene, Is.Not.EqualTo(scenes.LobbyScene));
+        }
+
+        [Test]
+        public void NetworkScenes_MapsEveryCatalogMapToItsOwnBuildListedScene()
+        {
+            // 방장이 고를 수 있는 맵마다 씬이 하나씩 있어야 하고, 서로 다른 씬이어야 한다.
+            var scenes = AssetDatabase.LoadAssetAtPath<NetworkScenes>(
+                "Assets/_Game/Content/Settings/NetworkScenes.asset");
+            var resolved = new List<Fusion.SceneRef>();
+
+            foreach (var mapId in Game.Core.Maps.MapCatalog.MapIds)
+            {
+                Assert.That(scenes.HasMappedScene(mapId), Is.True, $"map '{mapId}' has no scene on NetworkScenes");
+                var scene = scenes.MatchSceneFor(mapId);
+                Assert.That(scene.IsValid, Is.True, $"map '{mapId}' scene is not in the build list");
+                Assert.That(scenes.IsMatchScene(scene), Is.True);
+                Assert.That(resolved, Has.No.Member(scene), $"map '{mapId}' shares a scene with another map");
+                resolved.Add(scene);
+            }
+
+            Assert.That(scenes.MatchSceneFor(Game.Core.Maps.MapCatalog.PlaygroundId), Is.EqualTo(scenes.MatchScene),
+                "The default match scene stays the playground for older callers.");
+            Assert.That(scenes.IsMatchScene(scenes.LobbyScene), Is.False);
+            Assert.That(scenes.IsMatchScene(default), Is.False);
         }
 
         [Test]

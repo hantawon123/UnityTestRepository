@@ -178,7 +178,12 @@ namespace Game.Backend
                     dto.nicknameSet,
                     dto.searchable,
                     dto.appearanceSet,
-                    ReadAppearance(dto)));
+                    ReadAppearance(dto),
+
+                    // Empty when the server runs without Photon authentication.
+                    // Null rather than "" so the connection code has one thing
+                    // to check instead of two.
+                    string.IsNullOrEmpty(dto.photonToken) ? null : dto.photonToken));
         }
     }
 }

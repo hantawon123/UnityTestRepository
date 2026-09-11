@@ -27,6 +27,11 @@ namespace Game.Backend
                 case "SELF_BLOCK": return BackendFailure.SelfRequest;
 
                 case "ACCOUNT_NOT_FOUND": return BackendFailure.AccountNotFound;
+
+                // Told apart from AccountNotFound because the response differs.
+                // That one means issue the account again; this one answers the
+                // same to that, so retrying walks in a circle.
+                case "SUSPENDED": return BackendFailure.Suspended;
                 case "TARGET_NOT_FOUND": return BackendFailure.TargetNotFound;
                 case "FRIEND_REQUEST_NOT_FOUND": return BackendFailure.RequestNotFound;
                 case "NOT_FRIENDS": return BackendFailure.NotFriends;
