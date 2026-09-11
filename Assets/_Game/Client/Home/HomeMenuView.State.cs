@@ -128,6 +128,24 @@ namespace Game.Client.Home
         private GameObject createRoomRoot;
         private TMP_InputField roomNameInput;
         private TMP_Text roomNameCounter;
+
+        /// <summary>
+        /// The syllable the IME is still building in the room-name box, which
+        /// never reaches the field's own text. See <c>composingText</c>.
+        /// </summary>
+        private string roomNameComposing = string.Empty;
+
+        /// <summary>
+        /// Set when the room-name box was deselected to end a refused
+        /// syllable, so the next frame gives it focus back.
+        /// </summary>
+        private bool roomNameRefocusPending;
+
+        /// <summary>
+        /// The syllable that was last dropped that way, so the same one is not
+        /// dropped again if the IME kept it.
+        /// </summary>
+        private string roomNameDroppedComposing = string.Empty;
         private TMP_Text privateSegment;
         private TMP_Text publicSegment;
         private RectTransform scopeIndicator;
@@ -197,6 +215,15 @@ namespace Game.Client.Home
             SetProfileSettingsVisible(false);
         }
 
+        /// <summary>
+        /// The IME reports its half-built syllable by polling only, so the
+        /// room-name box reads it here each frame it has focus.
+        /// </summary>
+        private void LateUpdate()
+        {
+            PollRoomNameComposition();
+        }
+
         private void OnDestroy()
         {
             ClearButtons(menuButtons);
@@ -227,6 +254,7 @@ namespace Game.Client.Home
             }
 
             WatchComposition(false);
+            WatchRoomNameComposition(false);
         }
 
         public void SetNickname(string nickname)
