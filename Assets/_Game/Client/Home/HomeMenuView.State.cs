@@ -41,6 +41,9 @@ namespace Game.Client.Home
         private Sprite rejectIcon;
 
         [SerializeField]
+        private Sprite friendPlusIcon;
+
+        [SerializeField]
         private Sprite closeIcon;
 
         [SerializeField]

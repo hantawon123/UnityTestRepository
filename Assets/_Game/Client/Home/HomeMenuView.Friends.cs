@@ -28,8 +28,7 @@ namespace Game.Client.Home
         public event Action<string> FriendRequestDeclined;
 
         /// <summary>
-        /// A request this player sent, taken back. The design has no place for
-        /// it yet, so nothing raises this.
+        /// A sent request cancelled from its search-result icon.
         /// </summary>
         public event Action<string> FriendRequestCancelled;
 
@@ -900,10 +899,10 @@ namespace Game.Client.Home
                 }
 
                 var hit = results[index];
-                row.Name.text = hit.Nickname;
+                row.Name.text = hit.Nickname
+                    + (hit.IsIncoming ? "  (받은 요청 · 수락)" : string.Empty);
 
-                // A request already sent greys the row out and stops it being
-                // sent twice, which is the only feedback the design gives.
+                // Pending requests cannot be sent again; their icon cancels them.
                 row.Name.color = hit.IsPending
                     ? HomeStyle.Palette.FriendOffline
                     : HomeStyle.Palette.FriendOnline;
@@ -912,13 +911,29 @@ namespace Game.Client.Home
                 if (!hit.IsPending)
                 {
                     var playerId = hit.PlayerId;
-                    row.Row.onClick.AddListener(() => FriendRequestClicked?.Invoke(playerId));
+                    if (hit.IsIncoming)
+                        row.Row.onClick.AddListener(() => FriendRequestAccepted?.Invoke(playerId));
+                    else
+                        row.Row.onClick.AddListener(() => FriendRequestClicked?.Invoke(playerId));
                 }
 
                 if (row.Trailing != null)
                 {
-                    row.Trailing.enabled = hit.IsPending && checkIcon != null;
-                    row.Trailing.sprite = checkIcon;
+                    row.Trailing.sprite = hit.IsPending ? rejectIcon : friendPlusIcon;
+                    row.Trailing.rectTransform.sizeDelta = Vector2.one * HomeStyle.Friends.RowIconSize;
+                    row.Trailing.enabled = row.Trailing.sprite != null;
+                    var action = row.Trailing.GetComponent<Button>()
+                        ?? row.Trailing.gameObject.AddComponent<Button>();
+                    action.targetGraphic = row.Trailing;
+                    action.transition = Selectable.Transition.None;
+                    action.onClick.RemoveAllListeners();
+                    var playerId = hit.PlayerId;
+                    if (hit.IsPending)
+                        action.onClick.AddListener(() => FriendRequestCancelled?.Invoke(playerId));
+                    else if (hit.IsIncoming)
+                        action.onClick.AddListener(() => FriendRequestAccepted?.Invoke(playerId));
+                    else
+                        action.onClick.AddListener(() => FriendRequestClicked?.Invoke(playerId));
                 }
             }
 
