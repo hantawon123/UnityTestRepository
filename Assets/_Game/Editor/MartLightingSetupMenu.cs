@@ -52,9 +52,15 @@ namespace Game.Editor
         private const int ReflectionRows = 4;
         private const int ReflectionResolution = 128;
 
-        /// <summary>이 x보다 서쪽은 창고·하역장 → 숨기기 유리 구역으로 어둡게.</summary>
+        /// <summary>이 x보다 서쪽은 창고·하역장.</summary>
         private const float WarehouseMaxX = -40f;
         private const float WarehouseIntensityScale = 0.5f;
+
+        /// <summary>
+        /// 창고를 어둡게 둘지. 처음엔 숨기기 유리 구역으로 어둡게 했지만 사용자 확인 결과 "무서운 분위기"가 되어
+        /// 2026-09-11 밝게 바꿈(false). true로 되돌리면 창고 포인트 세기 절반·채움 라이트 제외가 다시 적용된다.
+        /// </summary>
+        private const bool DimWarehouse = false;
 
         /// <summary>천장 스팟(형광등 역할) 베이크 세기. 팩 기본 2~3은 52×75 m 매장을 굽기엔 어두워서 올린다.</summary>
         private const float BakedSpotIntensity = 5f;
@@ -247,11 +253,17 @@ namespace Game.Editor
 
                 baked++;
 
-                if (light.type == LightType.Point && light.transform.position.x < WarehouseMaxX && !light.name.EndsWith(" (Dim)"))
+                var isDimmed = light.name.EndsWith(" (Dim)");
+                if (DimWarehouse && light.type == LightType.Point && light.transform.position.x < WarehouseMaxX && !isDimmed)
                 {
                     light.intensity *= WarehouseIntensityScale;
                     light.name += " (Dim)"; // 두 번 실행해도 다시 반으로 줄지 않게 표시
                     dimmed++;
+                }
+                else if (!DimWarehouse && isDimmed)
+                {
+                    light.intensity /= WarehouseIntensityScale; // 어둡게 했던 것을 되돌린다
+                    light.name = light.name.Substring(0, light.name.Length - " (Dim)".Length);
                 }
             }
 
@@ -348,17 +360,17 @@ namespace Game.Editor
         // ------------------------------------------------------------------ 2c. 어두운 구역 채움 라이트
 
         private const string FillLightPrefix = "FillLight_";
-        private const float FillSampleSpacing = 4f;
+        private const float FillSampleSpacing = 6f;
         private const float FillSampleHeight = 1.0f;
-        private const float FillCoverageFactor = 0.75f; // 라이트 범위의 이 비율 안에 들면 "비춰진다"고 본다
-        private const float FillLightRange = 12f;
-        private const float FillLightIntensity = 3f;
+        private const float FillCoverageFactor = 0.3f; // 라이트 범위의 이 비율 안에 들면 "비춰진다"고 본다. 0.3 = 사실상 6 m 격자로 천장 전등을 고르게 단다(사용자 요청: 밝은 매장)
+        private const float FillLightRange = 11f;
+        private const float FillLightIntensity = 3.5f;
         private const float FillLightBelowCeiling = 0.5f;
         private const float FillLightDefaultHeight = 4.5f;
 
         /// <summary>
         /// 경계 안 바닥을 격자로 훑어 어느 실내 라이트(스팟·포인트)의 범위에도 안 들어가는 지점에 Baked 포인트 라이트를 추가한다.
-        /// 창고 구역(x &lt; -40)은 어두운 콘셉트라 제외. 벽 속 지점은 건너뛴다. 다시 실행하면 FillLight_*를 지우고 새로 만든다.
+        /// <see cref="DimWarehouse"/>가 켜져 있을 때만 창고 구역(x &lt; -40) 제외. 벽 속 지점은 건너뛴다. 다시 실행하면 FillLight_*를 지우고 새로 만든다.
         /// </summary>
         [MenuItem(MenuRoot + "2c. Add Fill Lights In Dark Areas")]
         public static void AddFillLights()
@@ -406,7 +418,7 @@ namespace Game.Editor
             var covered = 0;
             for (var x = boundary.min.x + FillSampleSpacing * 0.5f; x < boundary.max.x; x += FillSampleSpacing)
             {
-                if (x < WarehouseMaxX)
+                if (DimWarehouse && x < WarehouseMaxX)
                 {
                     continue;
                 }
@@ -465,7 +477,7 @@ namespace Game.Editor
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
-            Debug.Log($"[Mart Lighting] 바닥 표본 {sampled}개 중 비춰진 {covered}, 채움 라이트 {created}개 추가(창고 제외). 씬 저장됨. 다음: 5번(Bake).");
+            Debug.Log($"[Mart Lighting] 바닥 표본 {sampled}개 중 비춰진 {covered}, 채움 라이트 {created}개 추가(창고 {(DimWarehouse ? "제외" : "포함")}). 씬 저장됨. 다음: 5번(Bake).");
         }
 
         // ------------------------------------------------------------------ 3. 설정·프로브
@@ -647,6 +659,80 @@ namespace Game.Editor
             var dataAsset = Lightmapping.lightingDataAsset;
             Debug.Log($"[Mart Lighting] Bake completed. lightmaps={LightmapSettings.lightmaps.Length}, " +
                       $"lightingData={(dataAsset != null ? AssetDatabase.GetAssetPath(dataAsset) : "none")}. 씬 저장됨.");
+        }
+
+        // ------------------------------------------------------------------ 7. 베이크 없이 실시간으로 되돌리기
+
+        /// <summary>
+        /// 베이크 전 상태(실시간 조명 + 스카이박스 환경광)로 되돌린다. 실시간 환경광은 지붕에 가려지지 않아 실내가
+        /// 균일하게 밝게 보인다(베이크는 지붕을 제대로 계산해 어두워짐). 그림자·접촉 음영은 사라지지만 밝고 단순한 룩.
+        /// 베이크 데이터 삭제, 자동 생성 라이트(FixtureLight_·FillLight_) 제거, 팩 조명 Realtime 복구, ContributeGI 해제.
+        /// </summary>
+        [MenuItem(MenuRoot + "7. Revert To Realtime Lighting (No Bake)")]
+        public static void RevertToRealtime()
+        {
+            var scene = EnsureSceneOpen();
+            if (!scene.IsValid())
+            {
+                return;
+            }
+
+            if (Lightmapping.isRunning)
+            {
+                Lightmapping.Cancel();
+            }
+
+            Lightmapping.Clear();
+            Lightmapping.ClearLightingDataAsset();
+
+            var removed = 0;
+            foreach (var light in Object.FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None).ToArray())
+            {
+                if (light.gameObject.scene != scene)
+                {
+                    continue;
+                }
+
+                if (light.name.StartsWith(FixtureLightPrefix) || light.name.StartsWith(FillLightPrefix))
+                {
+                    Undo.DestroyObjectImmediate(light.gameObject);
+                    removed++;
+                    continue;
+                }
+
+                Undo.RecordObject(light, "Revert Light To Realtime");
+                light.lightmapBakeType = LightmapBakeType.Realtime;
+                if (light.type != LightType.Directional)
+                {
+                    light.shadows = LightShadows.None;
+                }
+            }
+
+            RenderSettings.ambientMode = AmbientMode.Skybox;
+            RenderSettings.ambientIntensity = 1f;
+
+            var cleared = 0;
+            const StaticEditorFlags bakeFlags = StaticEditorFlags.ContributeGI | StaticEditorFlags.ReflectionProbeStatic;
+            foreach (var renderer in Object.FindObjectsByType<MeshRenderer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                if (renderer.gameObject.scene != scene)
+                {
+                    continue;
+                }
+
+                var flags = GameObjectUtility.GetStaticEditorFlags(renderer.gameObject);
+                if ((flags & bakeFlags) == 0)
+                {
+                    continue;
+                }
+
+                GameObjectUtility.SetStaticEditorFlags(renderer.gameObject, flags & ~bakeFlags);
+                cleared++;
+            }
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Debug.Log($"[Mart Lighting] 실시간 조명으로 되돌림: 자동 라이트 {removed}개 제거, ContributeGI 해제 {cleared}개, 베이크 데이터 삭제, 환경광 Skybox. 씬 저장됨.");
         }
 
         // ------------------------------------------------------------------ 내부
