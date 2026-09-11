@@ -65,6 +65,9 @@ namespace Game.Editor
         /// </summary>
         private static readonly Color BakedAmbient = new(0.55f, 0.57f, 0.60f, 1f);
 
+        /// <summary>간접광(튕긴 빛) 세기. 1차 베이크가 그늘진 곳이 많아 2배로. 설정 에셋이 이미 있어도 매번 덧씌운다.</summary>
+        private const float IndirectIntensity = 2f;
+
         private const int CarryableLayer = 7;
 
         // ------------------------------------------------------------------ 0. 라이트맵 UV
@@ -265,8 +268,8 @@ namespace Game.Editor
         {
             "SM_Prop_Lighting_Ceiling", "SM_Prop_Lighting_Spotlight", "SM_Prop_Wall_Light", "SM_Prop_Lighting_Wall",
         };
-        private const float FixtureLightRange = 9f;
-        private const float FixtureLightIntensity = 3.5f;
+        private const float FixtureLightRange = 13f;
+        private const float FixtureLightIntensity = 5f;
         private const float FixtureLightDrop = 0.35f; // 전등 중심에서 이만큼 아래에 광원을 둔다(갓 안에 갇히지 않게)
         private static readonly Color FixtureLightColor = new(1f, 0.965f, 0.91f, 1f);
 
@@ -342,6 +345,129 @@ namespace Game.Editor
             Debug.Log($"[Mart Lighting] 전등 소품 기준 Baked 포인트 라이트 {created}개 생성({FixtureLightsRootName} 아래). 씬 저장됨. 다음: 5번(Bake).");
         }
 
+        // ------------------------------------------------------------------ 2c. 어두운 구역 채움 라이트
+
+        private const string FillLightPrefix = "FillLight_";
+        private const float FillSampleSpacing = 4f;
+        private const float FillSampleHeight = 1.0f;
+        private const float FillCoverageFactor = 0.75f; // 라이트 범위의 이 비율 안에 들면 "비춰진다"고 본다
+        private const float FillLightRange = 12f;
+        private const float FillLightIntensity = 3f;
+        private const float FillLightBelowCeiling = 0.5f;
+        private const float FillLightDefaultHeight = 4.5f;
+
+        /// <summary>
+        /// 경계 안 바닥을 격자로 훑어 어느 실내 라이트(스팟·포인트)의 범위에도 안 들어가는 지점에 Baked 포인트 라이트를 추가한다.
+        /// 창고 구역(x &lt; -40)은 어두운 콘셉트라 제외. 벽 속 지점은 건너뛴다. 다시 실행하면 FillLight_*를 지우고 새로 만든다.
+        /// </summary>
+        [MenuItem(MenuRoot + "2c. Add Fill Lights In Dark Areas")]
+        public static void AddFillLights()
+        {
+            var scene = EnsureSceneOpen();
+            if (!scene.IsValid())
+            {
+                return;
+            }
+
+            if (!TryGetBoundary(out var boundary))
+            {
+                Debug.LogError("[Mart Lighting] 경계가 없어 채움 라이트를 만들 수 없습니다.");
+                return;
+            }
+
+            var root = GameObject.Find(EnvironmentRootName);
+            var lightsRoot = root.transform.Find(FixtureLightsRootName);
+            if (lightsRoot == null)
+            {
+                var go = new GameObject(FixtureLightsRootName);
+                Undo.RegisterCreatedObjectUndo(go, "Create Lights Root");
+                go.transform.SetParent(root.transform, false);
+                lightsRoot = go.transform;
+            }
+
+            foreach (var old in lightsRoot.GetComponentsInChildren<Light>(true).ToArray())
+            {
+                if (old.name.StartsWith(FillLightPrefix))
+                {
+                    Undo.DestroyObjectImmediate(old.gameObject);
+                }
+            }
+
+            var existing = Object.FindObjectsByType<Light>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
+                .Where(l => l.gameObject.scene == scene && l.type != LightType.Directional)
+                .Select(l => (pos: l.transform.position, range: l.range * FillCoverageFactor))
+                .ToList();
+
+            var layerMask = Physics.DefaultRaycastLayers & ~(1 << CarryableLayer);
+            var hits = new Collider[8];
+            var floorY = Mathf.Max(0f, boundary.min.y);
+            var created = 0;
+            var sampled = 0;
+            var covered = 0;
+            for (var x = boundary.min.x + FillSampleSpacing * 0.5f; x < boundary.max.x; x += FillSampleSpacing)
+            {
+                if (x < WarehouseMaxX)
+                {
+                    continue;
+                }
+
+                for (var z = boundary.min.z + FillSampleSpacing * 0.5f; z < boundary.max.z; z += FillSampleSpacing)
+                {
+                    var sample = new Vector3(x, floorY + FillSampleHeight, z);
+                    // 벽·가구 속이거나 바닥이 없는 지점(건물 밖)은 건너뛴다.
+                    if (Physics.OverlapSphereNonAlloc(sample, 0.3f, hits, layerMask, QueryTriggerInteraction.Ignore) > 0)
+                    {
+                        continue;
+                    }
+
+                    if (!Physics.Raycast(sample, Vector3.down, out var floorHit, 3f, layerMask, QueryTriggerInteraction.Ignore))
+                    {
+                        continue;
+                    }
+
+                    sampled++;
+                    var lit = false;
+                    foreach (var (pos, range) in existing)
+                    {
+                        if ((pos - sample).sqrMagnitude <= range * range)
+                        {
+                            lit = true;
+                            break;
+                        }
+                    }
+
+                    if (lit)
+                    {
+                        covered++;
+                        continue;
+                    }
+
+                    var lightY = Physics.Raycast(sample, Vector3.up, out var ceilingHit, 12f, layerMask, QueryTriggerInteraction.Ignore)
+                        ? ceilingHit.point.y - FillLightBelowCeiling
+                        : floorHit.point.y + FillLightDefaultHeight;
+                    var lightPos = new Vector3(x, Mathf.Max(floorHit.point.y + 2.5f, lightY), z);
+
+                    var go = new GameObject($"{FillLightPrefix}{created:D3}");
+                    Undo.RegisterCreatedObjectUndo(go, "Create Fill Light");
+                    go.transform.SetParent(lightsRoot, false);
+                    go.transform.position = lightPos;
+                    var light = go.AddComponent<Light>();
+                    light.type = LightType.Point;
+                    light.lightmapBakeType = LightmapBakeType.Baked;
+                    light.range = FillLightRange;
+                    light.intensity = FillLightIntensity;
+                    light.color = FixtureLightColor;
+                    light.shadows = LightShadows.Soft;
+                    created++;
+                    existing.Add((lightPos, FillLightRange * FillCoverageFactor));
+                }
+            }
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Debug.Log($"[Mart Lighting] 바닥 표본 {sampled}개 중 비춰진 {covered}, 채움 라이트 {created}개 추가(창고 제외). 씬 저장됨. 다음: 5번(Bake).");
+        }
+
         // ------------------------------------------------------------------ 3. 설정·프로브
 
         [MenuItem(MenuRoot + "3. Setup Lighting Settings, Light Probes, Reflection Probes")]
@@ -361,6 +487,8 @@ namespace Game.Editor
             }
 
             var settings = GetOrCreateLightingSettings();
+            settings.indirectScale = IndirectIntensity;
+            EditorUtility.SetDirty(settings);
             Lightmapping.lightingSettings = settings;
 
             RenderSettings.ambientMode = AmbientMode.Flat;
