@@ -47,6 +47,8 @@ namespace Game.Bootstrap
         private bool hasReportedPhase;
         private string assignedItemId;
         private string assignedItemDisplayName;
+        public bool BlocksGameplayInput => hidingIntroVisible || searchingIntroVisible;
+
         private bool hidingIntroVisible;
         private bool hidingIntroOpenedThisPhase;
         private double hidingIntroEndsAt;

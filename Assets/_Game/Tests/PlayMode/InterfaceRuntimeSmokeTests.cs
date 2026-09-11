@@ -18,6 +18,44 @@ namespace Game.Tests.PlayMode
 {
     public sealed class InterfaceRuntimeSmokeTests
     {
+        [UnityTest]
+        public IEnumerator Bubble_SitsAboveNameplate()
+        {
+            var parent = new UnityEngine.GameObject("ChatRoot");
+            var player = new UnityEngine.GameObject("Player");
+            try
+            {
+                var visual = new UnityEngine.GameObject("Visual");
+                visual.transform.SetParent(player.transform, false);
+                var body = UnityEngine.GameObject.CreatePrimitive(UnityEngine.PrimitiveType.Cube);
+                body.transform.SetParent(visual.transform, false);
+                body.transform.localPosition = new UnityEngine.Vector3(0f, 0.5f, 0f);
+
+                var nameplate = Game.Client.Players.PlayerNameplateView.Attach(player.transform);
+                nameplate.SetNickname("이름");
+
+                var bubbles = MatchChatBubbleView.Create(parent.transform);
+                bubbles.BindPlayer("P1", player.transform);
+                bubbles.Show(new Game.Core.Lobby.LobbyChatMessage("P1", "이름", "안녕"));
+                yield return null;
+                yield return null;
+
+                var bubble = player.transform.Find("Match Chat Bubble")
+                    .GetComponent<UnityEngine.RectTransform>();
+                var halfHeight = bubble.rect.height * 0.5f * UnityEngine.Mathf.Abs(bubble.lossyScale.y);
+                var nameRect = nameplate.GetComponent<TextMeshPro>().rectTransform;
+                var nameTop = nameRect.position.y + nameRect.rect.height * Mathf.Abs(nameRect.lossyScale.y) * 0.5f;
+                Assert.That(bubble.position.y - halfHeight, Is.GreaterThan(nameTop),
+                    "The bubble must leave a visible gap above the nickname.");
+            }
+            finally
+            {
+                UnityEngine.Object.Destroy(parent);
+                UnityEngine.Object.Destroy(player);
+            }
+            yield return null;
+        }
+
         private NetworkRunner runner;
         [UnityTest]
         public IEnumerator Hud_ChangesScaleWithoutAccumulation_AndKeepsEssentialPresentation()

@@ -7,6 +7,7 @@ using Fusion;
 using Fusion.Matchmaking;
 using Fusion.Sockets;
 using Game.Core.Home;
+using Game.Core.Settings;
 using Game.Core.Lobby;
 using Game.Core.Maps;
 using Game.Core.Ports;
@@ -157,6 +158,7 @@ namespace Game.Network.Session
         /// a name changed between two rooms is the name the second room sees.
         /// </remarks>
         private readonly PlayerProfile _profile;
+        private readonly PublishedPlayerName _publishedName;
 
         /// <summary>Where the authority's decision about starting is reported.</summary>
         private readonly IMatchStartSink _matchStartSink;
@@ -202,6 +204,18 @@ namespace Game.Network.Session
         private NetworkPlayerMotor _localInputMotor;
         private double _networkSceneLoadStartedAt = -1d;
         private double _roomEntryStartedAt = -1d;
+        /// <summary>
+        /// Where a parked load is taken to have finished reading. Unity says
+        /// 0.9; the float it reports can sit a hair under.
+        /// </summary>
+        private const float LobbyPreloadGateProgress = 0.89f;
+
+        /// <summary>
+        /// How long the room may wait for the parked load to reach the gate
+        /// before activation is allowed regardless.
+        /// </summary>
+        private const double LobbyPreloadGateSeconds = 3d;
+
         private double _lobbyPreloadStartedAt = -1d;
         private AsyncOperation _lobbyPreload;
         private GameObject[] _preloadedLobbyRoots = Array.Empty<GameObject>();
@@ -294,7 +308,8 @@ namespace Game.Network.Session
             PlayerSpawner spawner,
             PlayerProfile profile,
             NetworkScenes scenes = null,
-            ServerRegionSystem regions = null)
+            ServerRegionSystem regions = null,
+            PublishedPlayerName publishedName = null)
         {
             _roomListSink = roomListSink;
             _sessionSink = sessionSink;
@@ -304,6 +319,66 @@ namespace Game.Network.Session
             _profile = profile;
             _scenes = scenes;
             _regions = regions;
+            _publishedName = publishedName;
+        }
+
+        /// <summary>
+        /// The name to write into the session's own properties, which the room
+        /// browser reads.
+        /// </summary>
+        /// <remarks>
+        /// A room list is read by people who have not joined and may never
+        /// join, so a host in 스트리머 모드 must not be named there. This is the
+        /// one name that leaves the room, which is why it asks
+        /// <see cref="PublishedPlayerName"/> and the roster does not: what the
+        /// other players are sent is the real name, and their screens decide
+        /// what to draw.
+        /// <para>
+        /// Falls back to the profile when nothing was injected, which is what a
+        /// test container does.
+        /// </para>
+        /// </remarks>
+        private string PublicHostNickname =>
+            SanitiseNickname(_publishedName != null ? _publishedName.Current : _profile?.Nickname);
+
+        /// <summary>
+        /// Writes the host's public name into the session again, if it has
+        /// changed since it was last written.
+        /// </summary>
+        /// <remarks>
+        /// The name goes into the session's properties when the room is made
+        /// and when the host changes, and nowhere else — so a host who turned
+        /// 스트리머 모드 on after making the room stayed listed under their own
+        /// name for as long as the room stood. Nothing but the host may write
+        /// it, and a peer asking is told no rather than made to think.
+        /// <para>
+        /// Compares before writing. The caller may ask on every change to any
+        /// interface setting, and a session property update is a network round
+        /// trip that the room list then re-reads.
+        /// </para>
+        /// </remarks>
+        public bool RefreshHostNickname()
+        {
+            if (!IsServer || _runner.SessionInfo == null || !_runner.SessionInfo.IsValid)
+            {
+                return false;
+            }
+
+            var wanted = PublicHostNickname;
+            var properties = _runner.SessionInfo.Properties;
+            if (properties != null
+                && properties.TryGetValue(SessionPropertyKeys.HostNickname, out var current)
+                && current.IsString
+                && string.Equals((string)current, wanted, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            return _runner.SessionInfo.UpdateCustomProperties(
+                new Dictionary<string, SessionProperty>
+                {
+                    [SessionPropertyKeys.HostNickname] = wanted,
+                });
         }
 
         /// <summary>
@@ -795,7 +870,7 @@ namespace Game.Network.Session
                 IsVisible = request.AllowCreate ? request.IsVisible : (bool?)null,
                 SessionProperties = SessionPropertyMapper.BuildForStart(
                     request,
-                    SanitiseNickname(_profile?.Nickname)),
+                    PublicHostNickname),
                 ConnectionToken = SessionConnectionTokenCodec.Encode(
                     request.Password,
                     _profile?.Nickname,
@@ -926,8 +1001,8 @@ namespace Game.Network.Session
 
         internal static NetworkProjectConfig ConfigureSession(NetworkProjectConfig config)
         {
-#if UNITY_WEBGL && !UNITY_EDITOR
-            // Browser play uses the existing Host/Client rules. Native defaults stay unchanged.
+#if UNITY_WEBGL
+            // Fusion also checks this in the Editor when WebGL is the active build target.
             config.AllowClientServerModesInWebGL = true;
 #endif
             // Runtime-only policy; the serialized project settings remain available for restoration.
@@ -1693,8 +1768,19 @@ namespace Game.Network.Session
             var operation = _lobbyPreload;
             try
             {
+                // The gate is where a load parked with allowSceneActivation off
+                // comes to rest — nominally 0.9, in practice a float just under
+                // it, and with several additive scenes ahead in Unity's queue
+                // sometimes not reached at all while the room is already up.
+                // Waiting on it exactly left the player on the loading cover
+                // for ever with the room made. So: a tolerant threshold, and a
+                // deadline after which activation is simply allowed — that is
+                // the very thing the gate was waiting to do.
+                var gateOpenedAt = Time.realtimeSinceStartupAsDouble;
+                var gateDeadline = gateOpenedAt + LobbyPreloadGateSeconds;
                 await UniTask.WaitUntil(() => operation == null ||
-                    operation.isDone || operation.progress >= 0.9f ||
+                    operation.isDone || operation.progress >= LobbyPreloadGateProgress ||
+                    Time.realtimeSinceStartupAsDouble >= gateDeadline ||
                     !IsCurrentRunner(runner) || !runner.IsRunning);
 
                 if (operation == null || !IsCurrentRunner(runner) ||
@@ -1704,11 +1790,20 @@ namespace Game.Network.Session
                     return;
                 }
 
+                if (!operation.isDone && operation.progress < LobbyPreloadGateProgress)
+                {
+                    Debug.LogWarning(
+                        $"[SceneTiming] Lobby preload stuck at progress={operation.progress:F3} " +
+                        $"for {LobbyPreloadGateSeconds:F0}s; allowing activation anyway.");
+                }
+
                 Debug.Log(
                     $"[SceneTiming] Lobby preload reached activation gate, " +
                     $"elapsed={Time.realtimeSinceStartupAsDouble - _lobbyPreloadStartedAt:F3}s.");
+                await UniTask.NextFrame();
                 operation.allowSceneActivation = true;
                 await UniTask.WaitUntil(() => operation.isDone);
+                await UniTask.NextFrame();
                 RestoreLobbyPreloadPriority();
 
                 var lobby = SceneManager.GetSceneByBuildIndex(
@@ -1716,6 +1811,7 @@ namespace Game.Network.Session
                 if (!lobby.IsValid() || !lobby.isLoaded)
                 {
                     _lobbyPreload = null;
+                    await UniTask.NextFrame();
                     LoadLobbyScene(runner);
                     return;
                 }
@@ -1730,6 +1826,7 @@ namespace Game.Network.Session
                 Debug.Log(
                     $"[SceneTiming] Lobby preload activated for Fusion takeover, " +
                     $"elapsed={Time.realtimeSinceStartupAsDouble - _lobbyPreloadStartedAt:F3}s.");
+                await UniTask.NextFrame();
                 LoadLobbyScene(runner);
             }
             finally
@@ -1949,7 +2046,25 @@ namespace Game.Network.Session
                 return true;
             }
 
-            return LoadLobbyScene(runner);
+            EnterLobbySceneSlicedAsync(runner).Forget(Debug.LogException);
+            return true;
+        }
+
+        private async UniTask EnterLobbySceneSlicedAsync(NetworkRunner runner)
+        {
+            await UniTask.NextFrame();
+            if (!IsCurrentRunner(runner) || !runner.IsRunning || !runner.IsServer)
+            {
+                return;
+            }
+
+            if (_lobbyPreload != null)
+            {
+                await CompleteLobbyPreloadAndEnterAsync(runner);
+                return;
+            }
+
+            LoadLobbyScene(runner);
         }
 
         private bool TryCompleteHighlightViewing(PlayerRef player)

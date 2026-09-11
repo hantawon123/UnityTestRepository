@@ -60,6 +60,8 @@ namespace Game.Architecture.Tests
 
         public event Action ApplyRequested;
 
+        public event Action LeaveGameRequested;
+
         public event Action ConfirmAccepted;
 
         public event Action ConfirmDeclined;
@@ -251,6 +253,8 @@ namespace Game.Architecture.Tests
         public void Reset() => ResetRequested?.Invoke();
 
         public void Apply() => ApplyRequested?.Invoke();
+
+        public void LeaveGame() => LeaveGameRequested?.Invoke();
 
         public void Reopen() => Opened?.Invoke();
 

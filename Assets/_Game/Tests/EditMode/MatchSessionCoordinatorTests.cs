@@ -155,6 +155,30 @@ namespace Game.Tests.EditMode
             Assert.That(session.CurrentPhase, Is.EqualTo(MatchPhase.Searching));
             Assert.That(session.AllItemsPlaced, Is.True);
         }
+        [TestCase(1)]
+        [TestCase(2)]
+        public void CompleteHiding_AcceptsPlacementAfterAuthoritativePhysicsMovesIt(int playerCount)
+        {
+            using var matchState = new MatchState();
+            var match = CreateSession(matchState, 1234, playerCount);
+            match.Start(10d);
+            Assert.That(match.TryInitializeAssignedItem(0), Is.True);
+            Assert.That(match.TryReleaseHeldObject(0,
+                new Pose(new Vector3(.01f, 0, 0), Quaternion.identity), 11d), Is.True);
+
+            // The test validator rejects negative X. A physics update can move
+            // an accepted item across that boundary while it is still settling.
+            var moved = new Pose(new Vector3(-.01f, .02f, 0), Quaternion.Euler(0, 0, 1));
+            Assert.That(match.TryConfirmReleasedObjectPose(match.Assignments[0].Item.ItemId, moved), Is.True);
+            Assert.That(match.TryCompleteHidingTurn(0, 12d), Is.True);
+            Assert.That(match.TryGetItemPlacement(0, out var placement), Is.True);
+            Assert.That(placement.Pose.position, Is.EqualTo(moved.position));
+            Assert.That(placement.Pose.rotation, Is.EqualTo(moved.rotation));
+            match.AdvanceTime(12d, new Vector3[playerCount]);
+            if (playerCount == 1) Assert.That(match.CurrentPhase, Is.EqualTo(MatchPhase.Searching));
+            else Assert.That(match.GetCurrentHidingTurnIndex(12d), Is.EqualTo(1));
+        }
+
         [Test]
         public void AdvanceTime_FinalizesEachHidingTurnAndStartsSearching()
         {

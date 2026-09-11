@@ -13,34 +13,40 @@ namespace Game.Client.Settings
     /// what the mouse does in each.
     /// </summary>
     /// <remarks>
-    /// Four headed groups, laid out down a running cursor the way the 사운드
+    /// Five headed groups, laid out down a running cursor the way the 사운드
     /// page is. Its rows come in three shapes: a key button, a slider, and a
     /// picker.
     /// </remarks>
     public sealed partial class SettingsView
     {
-        private static readonly ControlAction[] KeyboardActions =
+        /// <summary>
+        /// What moves the player, in the order the rows are drawn: where they
+        /// are, how fast, what posture, and which way they see it from.
+        /// </summary>
+        private static readonly ControlAction[] MovementRows =
         {
             ControlAction.MoveForward,
             ControlAction.MoveLeft,
             ControlAction.MoveBackward,
             ControlAction.MoveRight,
-            ControlAction.PickUp,
-            ControlAction.Drop,
-            ControlAction.Throw,
+            ControlAction.Sprint,
+            ControlAction.Jump,
+            ControlAction.Crouch,
+            ControlAction.Prone,
+            ControlAction.ToggleView
+        };
+
+        /// <summary>What the player does to the world, in the same way.</summary>
+        private static readonly ControlAction[] ActionRows =
+        {
+            ControlAction.PrimaryAction,
+            ControlAction.Interact,
             ControlAction.PlacementMode,
-            ControlAction.Shredder,
             ControlAction.RotateLeft,
             ControlAction.RotateRight,
             ControlAction.RaiseObject,
             ControlAction.LowerObject,
-            ControlAction.Place,
-            ControlAction.Jump,
-            ControlAction.Sprint,
-            ControlAction.ToggleView,
-            ControlAction.Crouch,
-            ControlAction.Prone,
-            ControlAction.Attack
+            ControlAction.ToggleKeyGuide
         };
 
         private readonly Dictionary<ControlAction, KeyButton> keyButtons =
@@ -85,8 +91,8 @@ namespace Game.Client.Settings
         /// Swallows every click while a plate is waiting for a press.
         /// </summary>
         /// <remarks>
-        /// The press being waited for is often a mouse button — the design puts
-        /// 좌클릭 on three actions — and a click that both answers the wait and
+        /// The press being waited for is often a mouse button — 공격/던지기/배치
+        /// is on 좌클릭 — and a click that both answers the wait and
         /// works the button under the pointer would be a trap: choosing 좌클릭
         /// over 적용하기 would apply the settings.
         /// <para>
@@ -128,9 +134,16 @@ namespace Game.Client.Settings
 
             top = AddSection(page, SettingsStyle.Controls.MicrophoneHeading, top);
             top = AddKeyRow(page, ControlAction.MicrophoneTalk, top);
+            top = AddKeyRow(page, ControlAction.VoiceToggle, top);
 
-            top = AddSection(page, SettingsStyle.Controls.KeyboardHeading, top);
-            foreach (var action in KeyboardActions)
+            top = AddSection(page, SettingsStyle.Controls.KeyboardMoveHeading, top);
+            foreach (var action in MovementRows)
+            {
+                top = AddKeyRow(page, action, top);
+            }
+
+            top = AddSection(page, SettingsStyle.Controls.KeyboardActionHeading, top);
+            foreach (var action in ActionRows)
             {
                 top = AddKeyRow(page, action, top);
             }
@@ -198,7 +211,7 @@ namespace Game.Client.Settings
         /// </summary>
         /// <remarks>
         /// Outlined rather than filled, unlike the other buttons on this
-        /// screen: twenty-one filled plates down one page would read as a wall,
+        /// screen: eighteen filled plates down one page would read as a wall,
         /// and a key is a label as much as a control. It fills in while it
         /// waits for a press, which is the one moment it is doing something.
         /// </remarks>
@@ -268,7 +281,7 @@ namespace Game.Client.Settings
 
         /// <summary>
         /// One action's key plate, so a row can be redrawn without the view
-        /// keeping four fields for each of twenty-one rows.
+        /// keeping four fields for each of eighteen rows.
         /// </summary>
         private sealed class KeyButton
         {

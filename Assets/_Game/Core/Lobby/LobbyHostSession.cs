@@ -17,9 +17,14 @@ namespace Game.Core.Lobby
         public const int MinHidingDurationSeconds = 10;
         public const int MaxHidingDurationSeconds = 120;
         public const int DefaultHidingDurationSeconds = 30;
+        public const int HidingDurationStepSeconds = 5;
         public const int MinSearchingDurationMinutes = 1;
         public const int MaxSearchingDurationMinutes = 15;
         public const int DefaultSearchingDurationMinutes = 5;
+        public const int SearchingDurationStepSeconds = 60;
+        public const int MinSearchingDurationSeconds = MinSearchingDurationMinutes * 60;
+        public const int MaxSearchingDurationSeconds = MaxSearchingDurationMinutes * 60;
+        public const int DefaultSearchingDurationSeconds = DefaultSearchingDurationMinutes * 60;
         public const float DefaultSprintMultiplier = 1f;
         public const int MinStunHitCount = 1;
         public const int MaxStunHitCount = 10;
@@ -27,13 +32,13 @@ namespace Game.Core.Lobby
 
         private MatchRuleSettings(
             int hidingDurationSeconds,
-            int searchingDurationMinutes,
+            int searchingDurationSeconds,
             float sprintMultiplier,
             int stunHitCount,
             string categoryId)
         {
             HidingDurationSeconds = hidingDurationSeconds;
-            SearchingDurationMinutes = searchingDurationMinutes;
+            SearchingDurationSeconds = searchingDurationSeconds;
             SprintMultiplier = sprintMultiplier;
             StunHitCount = stunHitCount;
             CategoryId = categoryId?.Trim() ?? string.Empty;
@@ -41,14 +46,14 @@ namespace Game.Core.Lobby
 
         public static MatchRuleSettings Default => new(
             DefaultHidingDurationSeconds,
-            DefaultSearchingDurationMinutes,
+            DefaultSearchingDurationSeconds,
             DefaultSprintMultiplier,
             DefaultStunHitCount,
             string.Empty);
 
         public int HidingDurationSeconds { get; }
-        public int SearchingDurationMinutes { get; }
-        public int SearchingDurationSeconds => SearchingDurationMinutes * 60;
+        public int SearchingDurationSeconds { get; }
+        public int SearchingDurationMinutes => SearchingDurationSeconds / 60;
         public float SprintMultiplier { get; }
         public int StunHitCount { get; }
         public string CategoryId { get; }
@@ -63,14 +68,33 @@ namespace Game.Core.Lobby
             out MatchRuleSettings settings,
             out MatchRuleSettingsError error)
         {
+            return TryCreateSeconds(
+                hidingDurationSeconds,
+                searchingDurationMinutes * 60,
+                sprintMultiplier,
+                stunHitCount,
+                categoryId,
+                out settings,
+                out error);
+        }
+
+        public static bool TryCreateSeconds(
+            int hidingDurationSeconds,
+            int searchingDurationSeconds,
+            float sprintMultiplier,
+            int stunHitCount,
+            string categoryId,
+            out MatchRuleSettings settings,
+            out MatchRuleSettingsError error)
+        {
             if (hidingDurationSeconds < MinHidingDurationSeconds ||
                 hidingDurationSeconds > MaxHidingDurationSeconds)
             {
                 return Fail(MatchRuleSettingsError.InvalidHidingDuration, out settings, out error);
             }
 
-            if (searchingDurationMinutes < MinSearchingDurationMinutes ||
-                searchingDurationMinutes > MaxSearchingDurationMinutes)
+            if (searchingDurationSeconds < MinSearchingDurationSeconds ||
+                searchingDurationSeconds > MaxSearchingDurationSeconds)
             {
                 return Fail(MatchRuleSettingsError.InvalidSearchingDuration, out settings, out error);
             }
@@ -88,7 +112,7 @@ namespace Game.Core.Lobby
 
             settings = new MatchRuleSettings(
                 hidingDurationSeconds,
-                searchingDurationMinutes,
+                searchingDurationSeconds,
                 sprintMultiplier,
                 stunHitCount,
                 categoryId);

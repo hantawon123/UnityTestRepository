@@ -18,6 +18,9 @@ namespace Game.Architecture.Tests
                 var view = root.AddComponent<CharacterClosetView>();
                 view.ConfigureAsLobbyOverlay();
                 root.SetActive(true);
+                typeof(CharacterClosetView).GetMethod("Awake",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, null);
 
                 var frame = FindPanel(root, SettingsStyle.Frame.Size);
                 Assert.That(frame, Is.Not.Null);
@@ -48,6 +51,8 @@ namespace Game.Architecture.Tests
                         -CharacterClosetStyle.Overlay.LockerMargin.x,
                         -CharacterClosetStyle.Overlay.LockerMargin.y)));
 
+                Assert.That(Find(root, "BackButton"), Is.Null);
+
                 var reset = Find(root, "ResetButton").GetComponent<RectTransform>();
                 Assert.That(reset.parent.name, Is.EqualTo("Panel"));
                 Assert.That(
@@ -66,12 +71,16 @@ namespace Game.Architecture.Tests
             var root = new GameObject("Home Closet");
             try
             {
-                root.AddComponent<CharacterClosetView>();
+                var view = root.AddComponent<CharacterClosetView>();
+                typeof(CharacterClosetView).GetMethod("Awake",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(view, null);
 
                 Assert.That(FindPanel(root, SettingsStyle.Frame.Size), Is.Null);
                 Assert.That(Find(root, "Glow"), Is.Null);
                 Assert.That(Find(root, "Background"), Is.Not.Null);
                 Assert.That(Find(root, "CategoryRail").parent.name, Is.EqualTo("ClosetCanvas"));
+                Assert.That(Find(root, "BackButton"), Is.Not.Null);
             }
             finally
             {

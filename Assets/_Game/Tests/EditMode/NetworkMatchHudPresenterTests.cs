@@ -16,6 +16,22 @@ namespace Game.Architecture.Tests
 {
     public sealed class NetworkMatchHudPresenterTests
     {
+        private IReadOnlyList<Game.Core.Items.ItemDefinition> previousCatalog;
+
+        [SetUp]
+        public void PrepareCatalog()
+        {
+            previousCatalog = Game.Core.Items.ItemCatalog.Definitions;
+            Game.Core.Items.ItemCatalog.Configure(new[]
+            {
+                new Game.Core.Items.ItemDefinition("Soda_01", "food", "탄산음료"),
+                new Game.Core.Items.ItemDefinition("Burger_01", "food", "햄버거")
+            });
+        }
+
+        [TearDown]
+        public void RestoreCatalog() => Game.Core.Items.ItemCatalog.Configure(previousCatalog);
+
         [TestCase(false)]
         [TestCase(true)]
         public void GameEnd_FadesOutThenCoversBeforeResult(bool phaseFirst)
@@ -124,6 +140,50 @@ namespace Game.Architecture.Tests
             Assert.That(second.SkipAll(), Is.True);
             Assert.That(secondNetwork.CompleteHighlightCalls, Is.EqualTo(1));
             Assert.That(second.SkipCurrent(), Is.False);
+        }
+
+        [Test]
+        public void SwitchingHighlight_DisposesPreviousReplayCameraBeforeSkipAll()
+        {
+            var network = new FakeNetwork { ServerTime = 10d };
+            using var room = new RoomBrowserSystem();
+            using var playback = new NetworkHighlightPlaybackController(network, room, network, new FakeTransition());
+            var output = new GameObject("Replay output");
+            HighlightCameraDirector director = null;
+            try
+            {
+                output.AddComponent<Camera>();
+                output.AddComponent(Type.GetType("Unity.Cinemachine.CinemachineBrain, Unity.Cinemachine"));
+                playback.Start();
+                network.Publish(new MatchResult(MatchEndReason.TimeExpired, 0d, new[] { 0 }));
+                network.PublishReplay(CreateReplay(HighlightType.FirstBlood, HighlightType.FinalMoment));
+                network.Publish(new MatchStateSnapshot(MatchPhase.Highlight,
+                    30d + 2d * HighlightPresentationTiming.OverheadSeconds));
+                director = new HighlightCameraDirector(output.transform, output.transform,
+                    Array.Empty<Transform>(), Array.Empty<SceneWorldObjectReference>());
+                var oldCamera = GameObject.Find("[Highlight Cinemachine Rig]");
+                Assert.That(oldCamera, Is.Not.Null);
+                const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.NonPublic;
+                var type = typeof(NetworkHighlightPlaybackController);
+                type.GetField("cameraDirector", flags).SetValue(playback, director);
+                type.GetField("replayPlayer", flags).SetValue(playback,
+                    new HighlightReplayPlayer(Array.Empty<Transform>(), Array.Empty<SceneWorldObjectReference>()));
+                type.GetField("readinessConfirmed", flags).SetValue(playback, true);
+
+                Assert.That(playback.SkipCurrent(), Is.True);
+                network.ServerTime += 0.1d; // Next rendered frame after the skip.
+                playback.Tick();
+                Assert.That(oldCamera == null || !oldCamera.activeInHierarchy, Is.True,
+                    "The previous priority-100 camera must not survive the next highlight.");
+                playback.SkipAll();
+                Assert.That(GameObject.Find("[Highlight Cinemachine Rig]"), Is.Null);
+            }
+            finally
+            {
+                director?.Dispose();
+                UnityEngine.Object.DestroyImmediate(output);
+            }
         }
 
         [Test]
@@ -392,14 +452,17 @@ namespace Game.Architecture.Tests
                 network.ServerTime = 150d;
                 presenter.Tick();
                 Assert.That(view.IsPhaseIntroPresented(phase), Is.True);
+                Assert.That(presenter.BlocksGameplayInput, Is.True);
                 Assert.That(view.RemainingSeconds, Is.EqualTo(displayedTime));
                 network.Publish(new MatchStateSnapshot(phase, 153d + duration));
                 network.ServerTime = 152.9d;
                 presenter.Tick();
                 Assert.That(view.IsPhaseIntroPresented(phase), Is.True);
+                Assert.That(presenter.BlocksGameplayInput, Is.True);
                 network.ServerTime = 153d;
                 presenter.Tick();
                 Assert.That(view.IsPhaseIntroPresented(phase), Is.False);
+                Assert.That(presenter.BlocksGameplayInput, Is.False);
                 Assert.That(view.RemainingSeconds, Is.EqualTo(displayedTime));
                 network.ServerTime = 154d;
                 presenter.Tick();

@@ -36,11 +36,11 @@ namespace Game.Bootstrap
             builder.Register<NetworkHomeApplicationHost>(Lifetime.Scoped)
                 .As<IHomeApplicationHost>();
             builder.RegisterEntryPoint<RoomBrowserWarmup>();
-            builder.RegisterEntryPoint<CreateRoomWarmup>();
             builder.RegisterEntryPoint<RegionSwitcher>();
             builder.RegisterComponent(homeMenuView).As<IHomeMenuView>();
 
             builder.RegisterEntryPoint<HomeMenuPresenter>();
+            builder.RegisterEntryPoint<CreateRoomWarmup>();
             builder.RegisterEntryPoint<HomeExitNotice>().WithParameter(homeMenuView);
 
             // Carries this panel's requests to the backend and its answers
@@ -50,6 +50,8 @@ namespace Game.Bootstrap
             // Sends a rename on to the account and puts the old name back when
             // the server refuses it.
             builder.RegisterEntryPoint<HomeProfileBridge>();
+            builder.RegisterBuildCallback(container =>
+                container.Resolve<ILoadingOverlay>().Hide());
         }
 
         /// <remarks>
@@ -126,10 +128,13 @@ namespace Game.Bootstrap
         /// a scene being read off disk.
         /// </summary>
         /// <remarks>
-        /// The room browser used to do this, from a create form it no longer
-        /// has. Nothing forces the preload to be used: closing the form leaves a
-        /// finished load sitting as a cache, and leaving Home releases it with
-        /// the session.
+        /// The load is parked short of activation and cannot be cancelled —
+        /// Unity would have to activate the scene to let it go, and that runs
+        /// the lobby. So it is left where it is, and the room entry that
+        /// follows consumes it. Unity runs scene loads one at a time, which
+        /// means nothing else may need a fresh load while this is parked; the
+        /// frontend coordinator keeps every menu screen loaded from Home for
+        /// exactly that reason.
         /// </remarks>
         private sealed class CreateRoomWarmup : IStartable, System.IDisposable
         {
@@ -217,6 +222,7 @@ namespace Game.Bootstrap
             private readonly NetworkRunnerService network;
             private readonly IHomeMenuView view;
             private readonly AppFlowSystem appFlow;
+            private readonly ILoadingOverlay loading;
             private readonly UnityHomeApplicationHost fallback = new();
 
             public NetworkHomeApplicationHost(
@@ -224,13 +230,15 @@ namespace Game.Bootstrap
                 FrontendSceneCoordinator scenes,
                 NetworkRunnerService network,
                 IHomeMenuView view,
-                AppFlowSystem appFlow)
+                AppFlowSystem appFlow,
+                ILoadingOverlay loading)
             {
                 this.rooms = rooms;
                 this.scenes = scenes;
                 this.network = network;
                 this.view = view;
                 this.appFlow = appFlow;
+                this.loading = loading;
             }
 
             public void Quit() => fallback.Quit();
@@ -311,9 +319,11 @@ namespace Game.Bootstrap
             /// </remarks>
             private async UniTask JoinThenOpenLobbyAsync(string roomCode)
             {
+                await loading.ShowPainted();
                 var result = await rooms.EnterByCodeAsync(roomCode, null, CancellationToken.None);
                 if (!result.Ok)
                 {
+                    loading.HideImmediate();
                     Debug.LogWarning($"[Home] Joining an invited room failed: {result.Failure}.");
                     view.ShowConnectionError(
                         RoomEntryMessages.Describe(result.Failure, RoomEntrySource.Invite));
@@ -331,9 +341,11 @@ namespace Game.Bootstrap
 
             private async UniTask CreateThenOpenLobbyAsync(RoomCreateRequest request)
             {
+                await loading.ShowPainted();
                 var result = await rooms.CreateAsync(request, CancellationToken.None);
                 if (!result.Ok)
                 {
+                    loading.HideImmediate();
                     Debug.LogWarning($"[Home] Room creation failed: {result.Failure}.");
 
                     // The form stays open behind the notice, with what was typed
@@ -364,8 +376,18 @@ namespace Game.Bootstrap
             /// </summary>
             public void OpenLobby()
             {
+                OpenLobbyAsync().Forget(exception => Debug.LogException(exception));
+            }
+
+            private async UniTask OpenLobbyAsync()
+            {
+                Debug.Log("[SceneTiming] Open lobby requested from Home.");
+                await loading.ShowPainted();
+                await SceneLoadSlicer.YieldFrame();
+                Debug.Log("[SceneTiming] Open lobby: cover painted, entering lobby scene.");
                 if (!network.EnterLobbyScene())
                 {
+                    loading.HideImmediate();
                     Debug.LogError(
                         "[Session] Cannot enter Lobby without a running room session.");
                 }

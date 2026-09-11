@@ -2,13 +2,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Game.Client.Home;
-using Game.Client.Players;
 using Game.Client.Rooms;
+using Game.Client.Settings;
 using Game.Core.Lobby;
 using Game.Core.Rooms;
 using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 namespace Game.Client.Lobby
@@ -21,11 +20,15 @@ namespace Game.Client.Lobby
         event Action InviteRequested;
         event Action CopyPasswordRequested;
         event Action StartRequested;
+        event Action ApplyRequested;
+
+        bool HasUnappliedChanges { get; }
 
         void SetVisible(bool visible);
         void SetEditable(bool editable);
         void SetDraft(PlaySettingsDraft draft);
         PlaySettingsDraft ReadDraft();
+        void SetUnappliedWarningVisible(bool visible);
 
         /// <summary>
         /// Asks to be closed as if the panel's own close button was pressed.
@@ -80,6 +83,14 @@ namespace Game.Client.Lobby
         private readonly List<Text> ruleValues = new();
         private readonly List<Button> ruleMinus = new();
         private readonly List<Button> rulePlus = new();
+        private Slider hidingSlider;
+        private Text hidingValue;
+        private Slider searchingSlider;
+        private Text searchingValue;
+        private Image applyFill;
+        private Text applyLabel;
+        private Text applyWarning;
+        private PlaySettingsDraft appliedDraft;
 
         private string title = string.Empty;
         private string roomCode = string.Empty;
@@ -92,7 +103,6 @@ namespace Game.Client.Lobby
         private MatchRuleSettings matchRules = MatchRuleSettings.Default;
         private IReadOnlyList<PlaySettingsMapOption> mapOptions = PlaySettingsMapCatalog.All;
         private readonly Dictionary<Button, UnityEngine.Events.UnityAction> boundActions = new();
-        private int openedOnFrame = int.MinValue;
 
         public event Action OpenRequested;
         public event Action CloseRequested;
@@ -100,19 +110,25 @@ namespace Game.Client.Lobby
         public event Action InviteRequested;
         public event Action CopyPasswordRequested;
         public event Action StartRequested;
+        public event Action ApplyRequested;
+
+        public bool HasUnappliedChanges =>
+            editable && !ReadDraft().Equals(appliedDraft);
 
         private void OnEnable()
         {
             EnsureOverlay();
             EnsureLayout();
             BindRuleControls();
+            BindDurationSliders();
             if (titleInput != null) titleInput.onValueChanged.AddListener(OnTitleChanged);
             Bind(openButton, () => OpenRequested?.Invoke());
             Bind(closeButton, RequestClose);
             Bind(gameStartButton, RequestStart);
             Bind(copyRoomCodeButton, RequestCopyRoomCode);
             Bind(roomCodeHitButton, RequestCopyRoomCode);
-            Bind(applyButton, RequestClose);
+            Bind(applyButton, RequestApply);
+            Bind(revertButton, RequestRevert);
             Bind(maxPlayersMinusButton, () => SetMaxPlayers(maxPlayers - 1));
             Bind(maxPlayersPlusButton, () => SetMaxPlayers(maxPlayers + 1));
             Bind(destructionMinusButton, () => SetDestructionLimit(destructionLimit - 1));
@@ -126,9 +142,11 @@ namespace Game.Client.Lobby
         private void OnDisable()
         {
             if (titleInput != null) titleInput.onValueChanged.RemoveListener(OnTitleChanged);
+            UnbindDurationSliders();
             foreach (var button in ruleMinus) Unbind(button);
             foreach (var button in rulePlus) Unbind(button);
             Unbind(applyButton);
+            Unbind(revertButton);
             Unbind(openButton);
             Unbind(closeButton);
             Unbind(gameStartButton);
@@ -146,33 +164,6 @@ namespace Game.Client.Lobby
             StopCopyFeedback(resetVisuals: true);
         }
 
-        private void Update()
-        {
-            if (overlayRoot == null || !overlayRoot.activeInHierarchy)
-            {
-                return;
-            }
-
-            if (Time.frameCount <= openedOnFrame)
-            {
-                return;
-            }
-
-            // F closes the board the same way looking at it opens it. The
-            // title field needs that key as a letter, so it keeps the press
-            // while the cursor is in the box.
-            if (PlayerMovement.IsTextInputFocused())
-            {
-                return;
-            }
-
-            var keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.fKey.wasPressedThisFrame)
-            {
-                RequestClose();
-            }
-        }
-
         public void SetVisible(bool visible)
         {
             EnsureOverlay();
@@ -188,10 +179,9 @@ namespace Game.Client.Lobby
             }
 
             SetBackButtonVisible(visible);
-            SetGameStartLabelVisible(visible);
+            RefreshGameStartVisible();
             if (visible)
             {
-                openedOnFrame = Time.frameCount;
                 BringOverlayForward();
                 RebuildSettingsScrollLayout();
                 EnsureMapUiReady();
@@ -225,12 +215,99 @@ namespace Game.Client.Lobby
 
         public void RequestClose()
         {
+            if (HasUnappliedChanges)
+            {
+                SetUnappliedWarningVisible(true);
+                return;
+            }
+
             if (!editable || RoomSettings.IsValidTitle(ReadDraft().Title)) CloseRequested?.Invoke();
+        }
+
+        private void RequestApply()
+        {
+            if (!editable || !HasUnappliedChanges)
+            {
+                return;
+            }
+
+            if (!RoomSettings.IsValidTitle(ReadDraft().Title))
+            {
+                return;
+            }
+
+            ApplyRequested?.Invoke();
         }
 
         private void RequestStart()
         {
+            if (HasUnappliedChanges)
+            {
+                SetUnappliedWarningVisible(true);
+                return;
+            }
+
             if (!editable || RoomSettings.IsValidTitle(ReadDraft().Title)) StartRequested?.Invoke();
+        }
+
+        public void SetUnappliedWarningVisible(bool visible)
+        {
+            if (applyWarning != null)
+            {
+                applyWarning.gameObject.SetActive(visible);
+            }
+        }
+
+        private void RefreshApplyChrome()
+        {
+            var enabled = editable && HasUnappliedChanges;
+            if (applyButton != null)
+            {
+                applyButton.gameObject.SetActive(editable);
+                applyButton.interactable = enabled;
+            }
+
+            if (applyFill != null)
+            {
+                applyFill.color = enabled
+                    ? PlaySettingsStyle.Palette.ApplyFill
+                    : PlaySettingsStyle.Palette.ApplyOffFill;
+            }
+
+            if (applyLabel != null)
+            {
+                applyLabel.color = enabled
+                    ? PlaySettingsStyle.Palette.ApplyOnLabel
+                    : PlaySettingsStyle.Palette.ApplyOffLabel;
+            }
+
+            if (!enabled)
+            {
+                SetUnappliedWarningVisible(false);
+            }
+
+            RefreshRevertChrome();
+        }
+
+        private void RequestRevert()
+        {
+            if (!editable || !HasUnappliedChanges)
+            {
+                return;
+            }
+
+            SetDraft(appliedDraft);
+        }
+
+        private void RefreshRevertChrome()
+        {
+            if (revertButton == null)
+            {
+                return;
+            }
+
+            revertButton.gameObject.SetActive(editable);
+            revertButton.interactable = editable;
         }
 
         private void RequestCopyRoomCode()
@@ -341,6 +418,8 @@ namespace Game.Client.Lobby
             RefreshCounters();
             RefreshCategory();
             RefreshMapSelection(scrollIntoView: false);
+            RefreshApplyChrome();
+            RefreshGameStartVisible();
         }
 
         public void SetDraft(PlaySettingsDraft draft)
@@ -392,6 +471,9 @@ namespace Game.Client.Lobby
             RefreshCounters();
             RefreshCategory();
             RefreshMapSelection(scrollIntoView: true);
+            appliedDraft = ReadDraft();
+            SetUnappliedWarningVisible(false);
+            RefreshApplyChrome();
         }
 
         public PlaySettingsDraft ReadDraft()
@@ -413,6 +495,7 @@ namespace Game.Client.Lobby
             if (!editable) return;
             title = value;
             RefreshTitleCounter();
+            RefreshApplyChrome();
         }
 
         private void RefreshTitleCounter()
@@ -434,14 +517,15 @@ namespace Game.Client.Lobby
             selectedCategoryIndex = (selectedCategoryIndex + direction + options.Count) % options.Count;
             NormalizeCategoryRules();
             RefreshCategory();
+            RefreshApplyChrome();
         }
 
         private void NormalizeCategoryRules()
         {
             var categoryId = PlaySettingsCategoryCatalog.GetOption(selectedCategoryIndex).Id;
-            if (MatchRuleSettings.TryCreate(
+            if (MatchRuleSettings.TryCreateSeconds(
                     matchRules.HidingDurationSeconds,
-                    matchRules.SearchingDurationMinutes,
+                    matchRules.SearchingDurationSeconds,
                     matchRules.SprintMultiplier,
                     matchRules.StunHitCount,
                     categoryId,
@@ -484,6 +568,7 @@ namespace Game.Client.Lobby
                 RoomSettings.MinPlayerCount,
                 RoomSettings.MaxPlayerCount);
             RefreshCounters();
+            RefreshApplyChrome();
         }
 
         private void SetDestructionLimit(int value)
@@ -499,29 +584,107 @@ namespace Game.Client.Lobby
                         PlaySettingsDraft.MinDestructionLimit,
                         PlaySettingsDraft.MaxDestructionLimit);
             RefreshCounters();
+            RefreshApplyChrome();
         }
 
         private void BindRuleControls()
         {
             for (var i = 0; i < ruleValues.Count; i++)
             {
-                var index = i;
+                var index = i + 2;
                 Bind(ruleMinus[i], () => ChangeRule(index, -1));
                 Bind(rulePlus[i], () => ChangeRule(index, 1));
             }
+        }
+
+        private void BindDurationSliders()
+        {
+            if (hidingSlider != null)
+            {
+                hidingSlider.onValueChanged.RemoveListener(OnHidingSliderChanged);
+                hidingSlider.onValueChanged.AddListener(OnHidingSliderChanged);
+            }
+
+            if (searchingSlider != null)
+            {
+                searchingSlider.onValueChanged.RemoveListener(OnSearchingSliderChanged);
+                searchingSlider.onValueChanged.AddListener(OnSearchingSliderChanged);
+            }
+        }
+
+        private void UnbindDurationSliders()
+        {
+            if (hidingSlider != null)
+            {
+                hidingSlider.onValueChanged.RemoveListener(OnHidingSliderChanged);
+            }
+
+            if (searchingSlider != null)
+            {
+                searchingSlider.onValueChanged.RemoveListener(OnSearchingSliderChanged);
+            }
+        }
+
+        private void OnHidingSliderChanged(float value)
+        {
+            SetDurationSeconds(
+                SnapDuration(
+                    Mathf.RoundToInt(value),
+                    MatchRuleSettings.MinHidingDurationSeconds,
+                    MatchRuleSettings.MaxHidingDurationSeconds,
+                    MatchRuleSettings.HidingDurationStepSeconds),
+                matchRules.SearchingDurationSeconds);
+        }
+
+        private void OnSearchingSliderChanged(float value)
+        {
+            SetDurationSeconds(
+                matchRules.HidingDurationSeconds,
+                SnapDuration(
+                    Mathf.RoundToInt(value),
+                    MatchRuleSettings.MinSearchingDurationSeconds,
+                    MatchRuleSettings.MaxSearchingDurationSeconds,
+                    MatchRuleSettings.SearchingDurationStepSeconds));
+        }
+
+        private void SetDurationSeconds(int hidingSeconds, int searchingSeconds)
+        {
+            if (!editable)
+            {
+                RefreshRuleControls();
+                return;
+            }
+
+            ApplyMatchRules(
+                hidingSeconds,
+                searchingSeconds,
+                matchRules.SprintMultiplier,
+                matchRules.StunHitCount);
         }
 
         private void ChangeRule(int index, int direction)
         {
             if (!editable) return;
             var hiding = matchRules.HidingDurationSeconds;
-            var searching = matchRules.SearchingDurationMinutes;
+            var searching = matchRules.SearchingDurationSeconds;
             var speed = matchRules.SprintMultiplier;
             var hp = matchRules.StunHitCount;
             switch (index)
             {
-                case 0: hiding += direction; break;
-                case 1: searching += direction; break;
+                case 0:
+                    hiding = SnapDuration(
+                        hiding + (direction * MatchRuleSettings.HidingDurationStepSeconds),
+                        MatchRuleSettings.MinHidingDurationSeconds,
+                        MatchRuleSettings.MaxHidingDurationSeconds,
+                        MatchRuleSettings.HidingDurationStepSeconds);
+                    break;
+                case 1:
+                    searching = SnapDuration(
+                        searching + (direction * MatchRuleSettings.SearchingDurationStepSeconds),
+                        MatchRuleSettings.MinSearchingDurationSeconds,
+                        MatchRuleSettings.MaxSearchingDurationSeconds,
+                        MatchRuleSettings.SearchingDurationStepSeconds);
+                    break;
                 case 2:
                     var next = Array.IndexOf(SprintOptions, speed) + direction;
                     if (next < 0 || next >= SprintOptions.Length) return;
@@ -529,26 +692,57 @@ namespace Game.Client.Lobby
                 case 3: hp += direction; break;
                 default: return;
             }
-            if (MatchRuleSettings.TryCreate(hiding, searching, speed, hp, matchRules.CategoryId,
-                out var updated, out _)) matchRules = updated;
+
+            ApplyMatchRules(hiding, searching, speed, hp);
+        }
+
+        private void ApplyMatchRules(int hiding, int searching, float speed, int hp)
+        {
+            if (MatchRuleSettings.TryCreateSeconds(
+                    hiding,
+                    searching,
+                    speed,
+                    hp,
+                    matchRules.CategoryId,
+                    out var updated,
+                    out _))
+            {
+                matchRules = updated;
+            }
+
             RefreshRuleControls();
+            RefreshApplyChrome();
         }
 
         private void RefreshRuleControls()
         {
-            if (ruleValues.Count == 0) return;
-            var values = new[] { matchRules.HidingDurationSeconds, matchRules.SearchingDurationMinutes,
-                Array.IndexOf(SprintOptions, matchRules.SprintMultiplier), matchRules.StunHitCount };
-            var min = new[] { MatchRuleSettings.MinHidingDurationSeconds, MatchRuleSettings.MinSearchingDurationMinutes,
-                0, MatchRuleSettings.MinStunHitCount };
-            var max = new[] { MatchRuleSettings.MaxHidingDurationSeconds, MatchRuleSettings.MaxSearchingDurationMinutes,
-                SprintOptions.Length - 1, MatchRuleSettings.MaxStunHitCount };
+            ShowDurationSlider(
+                hidingSlider,
+                hidingValue,
+                matchRules.HidingDurationSeconds,
+                FormatHidingDuration(matchRules.HidingDurationSeconds));
+            ShowDurationSlider(
+                searchingSlider,
+                searchingValue,
+                matchRules.SearchingDurationSeconds,
+                FormatSearchingDuration(matchRules.SearchingDurationSeconds));
+
+            if (ruleValues.Count == 0)
+            {
+                return;
+            }
+
+            var values = new[]
+            {
+                Array.IndexOf(SprintOptions, matchRules.SprintMultiplier),
+                matchRules.StunHitCount
+            };
+            var min = new[] { 0, MatchRuleSettings.MinStunHitCount };
+            var max = new[] { SprintOptions.Length - 1, MatchRuleSettings.MaxStunHitCount };
             var labels = new[]
             {
-                values[0] + "초",
-                values[1] + "분",
                 matchRules.SprintMultiplier + "배",
-                values[3] + "회"
+                values[1] + "회"
             };
             for (var i = 0; i < ruleValues.Count; i++)
             {
@@ -556,6 +750,35 @@ namespace Game.Client.Lobby
                 ruleMinus[i].interactable = editable && values[i] > min[i];
                 rulePlus[i].interactable = editable && values[i] < max[i];
             }
+        }
+
+        private void ShowDurationSlider(Slider slider, Text value, int seconds, string label)
+        {
+            if (slider != null)
+            {
+                slider.SetValueWithoutNotify(seconds);
+                slider.interactable = editable;
+            }
+
+            if (value != null)
+            {
+                value.text = label;
+            }
+        }
+
+        private static int SnapDuration(int value, int min, int max, int step)
+        {
+            var snapped = min + (Mathf.RoundToInt((value - min) / (float)step) * step);
+            return Mathf.Clamp(snapped, min, max);
+        }
+
+        internal static string FormatHidingDuration(int seconds) => seconds + "초";
+
+        internal static string FormatSearchingDuration(int seconds)
+        {
+            var minutes = seconds / 60;
+            var remain = seconds % 60;
+            return remain == 0 ? minutes + "분" : minutes + "분 " + remain + "초";
         }
 
         private void RefreshCounters()
@@ -671,7 +894,7 @@ namespace Game.Client.Lobby
                 EnsureGameStartLabel(hudRoot, existingOverlay);
                 overlayRoot.SetActive(panel.activeSelf);
                 SetBackButtonVisible(overlayRoot.activeSelf);
-                SetGameStartLabelVisible(overlayRoot.activeSelf);
+                RefreshGameStartVisible();
                 return;
             }
 
@@ -691,7 +914,7 @@ namespace Game.Client.Lobby
 
             overlayRoot.SetActive(panel.activeSelf);
             SetBackButtonVisible(overlayRoot.activeSelf);
-            SetGameStartLabelVisible(overlayRoot.activeSelf);
+            RefreshGameStartVisible();
         }
 
         private bool TryAdoptOverlay(RectTransform panelTransform)
@@ -782,9 +1005,9 @@ namespace Game.Client.Lobby
                 closeButton.transform.SetAsLastSibling();
             }
 
-            if (gameStartLabel != null)
+            if (gameStartButton != null)
             {
-                gameStartLabel.transform.SetAsLastSibling();
+                gameStartButton.transform.SetAsLastSibling();
             }
         }
 
@@ -874,94 +1097,174 @@ namespace Game.Client.Lobby
                 return;
             }
 
-            if (gameStartLabel == null)
-            {
-                var existingStartLabel = overlay.Find("GameStartLabel") ?? hudRoot?.Find("GameStartLabel");
-                if (existingStartLabel != null)
-                {
-                    gameStartLabel = existingStartLabel.GetComponent<TextMeshProUGUI>();
-                }
+            RemoveLegacyGameStartLabel(overlay, hudRoot);
 
-                if (gameStartLabel == null)
+            if (gameStartButton == null)
+            {
+                var existing = overlay.Find("GameStartButton") ?? hudRoot?.Find("GameStartButton");
+                if (existing != null)
                 {
-                    CreateGameStartLabel(overlay);
+                    gameStartButton = existing.GetComponent<Button>();
+                    gameStartLabel = existing.GetComponentInChildren<TextMeshProUGUI>(true);
                 }
             }
 
-            if (gameStartLabel != null)
+            if (gameStartButton == null)
             {
-                gameStartLabel.transform.SetParent(overlay, false);
+                CreateGameStartButton(overlay);
+            }
+            else
+            {
+                gameStartButton.transform.SetParent(overlay, false);
+                StyleGameStartButton((RectTransform)gameStartButton.transform);
             }
 
-            EnsureGameStartButton();
+            Bind(gameStartButton, RequestStart);
         }
 
-        private void CreateGameStartLabel(RectTransform overlay)
+        private static void RemoveLegacyGameStartLabel(RectTransform overlay, RectTransform hudRoot)
         {
-            var labelGo = new GameObject("GameStartLabel", typeof(RectTransform));
-            var rect = labelGo.GetComponent<RectTransform>();
+            RemoveNamedChild(overlay, "GameStartLabel");
+            if (hudRoot != null && hudRoot != overlay)
+            {
+                RemoveNamedChild(hudRoot, "GameStartLabel");
+            }
+        }
+
+        private static void RemoveNamedChild(Transform root, string name)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            var child = root.Find(name);
+            if (child == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                UnityEngine.Object.Destroy(child.gameObject);
+            }
+            else
+            {
+                UnityEngine.Object.DestroyImmediate(child.gameObject);
+            }
+        }
+
+        private void CreateGameStartButton(RectTransform overlay)
+        {
+            var plate = new GameObject("GameStartButton", typeof(RectTransform), typeof(Image));
+            var rect = plate.GetComponent<RectTransform>();
             rect.SetParent(overlay, false);
+
+            var fill = plate.GetComponent<Image>();
+            fill.color = Color.white;
+            fill.raycastTarget = true;
+            plate.AddComponent<UiLinearGradient>();
+
+            var labelGo = new GameObject("Label", typeof(RectTransform));
+            var labelRect = labelGo.GetComponent<RectTransform>();
+            labelRect.SetParent(rect, false);
+            StretchRect(labelRect);
+            gameStartLabel = labelGo.AddComponent<TextMeshProUGUI>();
+            gameStartLabel.raycastTarget = false;
+
+            gameStartButton = plate.AddComponent<Button>();
+            gameStartButton.targetGraphic = fill;
+            gameStartButton.transition = Selectable.Transition.None;
+            plate.AddComponent<HomeLabelPop>();
+
+            StyleGameStartButton(rect);
+            plate.SetActive(false);
+        }
+
+        private void StyleGameStartButton(RectTransform rect)
+        {
             rect.anchorMin = new Vector2(1f, 0f);
             rect.anchorMax = new Vector2(1f, 0f);
             rect.pivot = new Vector2(1f, 0f);
             rect.anchoredPosition = PlaySettingsStyle.Overlay.GameStartPosition;
             rect.sizeDelta = PlaySettingsStyle.Overlay.GameStartSize;
 
-            gameStartLabel = labelGo.AddComponent<TextMeshProUGUI>();
-            var font = HomeUiFonts.ApplyExtraBold();
-            if (font != null)
+            var fill = rect.GetComponent<Image>();
+            if (fill != null)
             {
-                gameStartLabel.font = font;
-                if (font.material != null)
-                {
-                    gameStartLabel.fontSharedMaterial = font.material;
-                }
+                fill.sprite = HomeUiFonts.Rounded(PlaySettingsStyle.Overlay.GameStartRadius);
+                fill.type = Image.Type.Sliced;
+                fill.color = Color.white;
             }
 
-            gameStartLabel.fontSize = PlaySettingsStyle.FontSize.GameStart;
-            gameStartLabel.text = "게임시작";
-            gameStartLabel.alignment = TextAlignmentOptions.BottomRight;
-            gameStartLabel.color = Color.white;
-            gameStartLabel.raycastTarget = false;
-            gameStartLabel.textWrappingMode = TextWrappingModes.NoWrap;
-            gameStartLabel.overflowMode = TextOverflowModes.Overflow;
-            labelGo.SetActive(false);
-        }
+            var gradient = rect.GetComponent<UiLinearGradient>();
+            if (gradient != null)
+            {
+                gradient.Bind(
+                    SettingsStyle.Palette.LeaveGameStart,
+                    SettingsStyle.Palette.LeaveGameEnd,
+                    alongVertical: false);
+            }
 
-        private void EnsureGameStartButton()
-        {
             if (gameStartLabel == null)
             {
-                return;
+                gameStartLabel = rect.GetComponentInChildren<TextMeshProUGUI>(true);
             }
 
-            gameStartLabel.raycastTarget = true;
-            gameStartButton = gameStartLabel.GetComponent<Button>();
-            if (gameStartButton == null)
+            if (gameStartLabel != null)
             {
-                gameStartButton = gameStartLabel.gameObject.AddComponent<Button>();
+                var font = HomeUiFonts.Apply();
+                if (font != null)
+                {
+                    gameStartLabel.font = font;
+                    if (font.material != null)
+                    {
+                        gameStartLabel.fontSharedMaterial = font.material;
+                    }
+                }
+
+                gameStartLabel.fontSize = PlaySettingsStyle.FontSize.GameStart;
+                gameStartLabel.text = "게임 시작";
+                gameStartLabel.alignment = TextAlignmentOptions.Center;
+                gameStartLabel.color = SettingsStyle.Palette.ApplyOnLabel;
+                gameStartLabel.textWrappingMode = TextWrappingModes.NoWrap;
+                gameStartLabel.overflowMode = TextOverflowModes.Overflow;
             }
 
-            if (gameStartButton == null)
+            if (gameStartButton != null)
             {
-                return;
+                gameStartButton.targetGraphic = fill;
+                gameStartButton.transition = Selectable.Transition.None;
             }
 
-            gameStartButton.targetGraphic = gameStartLabel;
-            gameStartButton.transition = Selectable.Transition.None;
+            var pop = rect.GetComponent<HomeLabelPop>() ?? rect.gameObject.AddComponent<HomeLabelPop>();
+            pop.Bind(
+                rect,
+                PlaySettingsStyle.Overlay.GameStartHoverScale,
+                PlaySettingsStyle.Overlay.GameStartHoverSeconds);
+        }
+
+        private void RefreshGameStartVisible()
+        {
+            var shown = editable &&
+                        ((overlayRoot != null && overlayRoot.activeSelf) ||
+                         (panel != null && panel.activeSelf));
+            SetGameStartLabelVisible(shown);
         }
 
         private void SetGameStartLabelVisible(bool visible)
         {
-            if (gameStartLabel == null)
+            var root = gameStartButton != null ? gameStartButton.gameObject
+                : gameStartLabel != null ? gameStartLabel.gameObject : null;
+            if (root == null)
             {
                 return;
             }
 
-            gameStartLabel.gameObject.SetActive(visible);
+            root.SetActive(visible);
             if (visible)
             {
-                gameStartLabel.transform.SetAsLastSibling();
+                root.transform.SetAsLastSibling();
             }
         }
 

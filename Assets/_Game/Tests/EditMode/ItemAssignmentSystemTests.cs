@@ -2,11 +2,15 @@ using System;
 using System.Collections.Generic;
 using Game.Core.Items;
 using NUnit.Framework;
+using System.Linq;
+using Game.SOAP.Config;
 
 namespace Game.Tests.EditMode
 {
     public sealed class ItemAssignmentSystemTests
     {
+        [SetUp] public void LoadCatalog() => ItemCatalogSO.Load();
+
         private static readonly ItemDefinition[] Definitions =
         {
             new("bear", "toy"),
@@ -90,7 +94,7 @@ namespace Game.Tests.EditMode
         {
             var assigned = ItemCatalog.AssignedDefinition(0);
 
-            Assert.That(assigned.ItemId, Is.EqualTo("Assigned_0"));
+            Assert.That(assigned.ItemId, Is.EqualTo(ItemCatalog.Definitions[0].ItemId));
             Assert.That(
                 ItemCatalog.DisplayNameOf(assigned.ItemId),
                 Is.EqualTo(ItemCatalog.Definitions[0].DisplayName));
@@ -104,17 +108,17 @@ namespace Game.Tests.EditMode
         {
             Assert.That(
                 ItemCatalog.Categories,
-                Is.EqualTo(new[] { "food", "tableware", "decoration", "kitchen" }));
+                Is.EquivalentTo(ItemCatalogSO.Load().categories.Where(c => c.enabled).Select(c => c.id)));
 
             var food = ItemCatalog.DefinitionsInCategory("food");
 
-            Assert.That(food, Has.Count.EqualTo(3));
+            Assert.That(food, Has.Count.GreaterThanOrEqualTo(6));
             foreach (var item in food)
             {
                 Assert.That(item.Category, Is.EqualTo("food"));
             }
 
-            Assert.That(food[0].ItemId, Is.EqualTo("Soda_01"));
+            Assert.That(food.Select(i => i.ItemId).Distinct().Count(), Is.EqualTo(food.Count));
         }
 
         [Test]
@@ -131,7 +135,7 @@ namespace Game.Tests.EditMode
                     }
                 }
 
-                Assert.That(count, Is.EqualTo(6), category);
+                Assert.That(count, Is.GreaterThanOrEqualTo(6), category);
             }
         }
 

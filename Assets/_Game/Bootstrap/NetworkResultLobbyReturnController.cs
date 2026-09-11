@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Client.Match;
+using Game.Client.Common;
 using Game.Core.Lobby;
 using Game.Core.Match;
 using Game.Network.Match;
@@ -19,6 +20,7 @@ namespace Game.Bootstrap
         private readonly INetworkMatchEvents events;
         private readonly INetworkResultNavigation navigation;
         private readonly RoomBrowserSystem room;
+        private readonly ILoadingOverlay loading;
         private readonly ReactiveProperty<string> resultText = new("표시할 경기 결과가 없습니다.");
         private MatchPhase phase;
         private bool hasResult;
@@ -30,6 +32,7 @@ namespace Game.Bootstrap
         private double resultLoadAt = -1d;
         private double resultEndsAt = -1d;
         private bool highlightLobbyRequested;
+        private bool highlightPresented;
 
         public ReadOnlyReactiveProperty<string> ResultText => resultText;
         public string ResultHeadline { get; private set; } = string.Empty;
@@ -42,12 +45,22 @@ namespace Game.Bootstrap
         public IReadOnlyList<int> LastWinnerPlayerIndices { get; private set; } = Array.Empty<int>();
 
         public NetworkResultLobbyReturnController(
-            INetworkMatchEvents events, INetworkResultNavigation navigation, RoomBrowserSystem room)
+            INetworkMatchEvents events,
+            INetworkResultNavigation navigation,
+            RoomBrowserSystem room,
+            ILoadingOverlay loading = null)
         {
             this.events = events ?? throw new ArgumentNullException(nameof(events));
             this.navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
             this.room = room ?? throw new ArgumentNullException(nameof(room));
+            this.loading = loading;
         }
+
+        internal static bool ShouldShowForLobbyReturn(
+            MatchPhase currentPhase,
+            bool resultReady,
+            bool sawHighlight) =>
+            currentPhase == MatchPhase.Result && resultReady && !sawHighlight;
 
         public void Start()
         {
@@ -87,6 +100,11 @@ namespace Game.Bootstrap
                     !highlightLobbyRequested)
                     highlightLobbyRequested = navigation.PrepareLobbyForHighlights();
             }
+            else if (phase == MatchPhase.Highlight && hasResult &&
+                     navigation.IsResultSceneLoaded && resultEndsAt < 0d)
+            {
+                resultEndsAt = now + ResultDisplaySeconds;
+            }
             if (phase == MatchPhase.Result && !hasResult && !directLobbyResult)
             {
                 if (resultDataFallbackAt < 0d)
@@ -100,8 +118,19 @@ namespace Game.Bootstrap
                     resultText.Value = ResultSubtitle;
                 }
             }
+            if (ShouldShowForLobbyReturn(
+                    phase,
+                    hasResult || resultDataFallbackActive,
+                    highlightPresented))
+            {
+                loading?.Show();
+            }
             if (!navigation.IsServer || phase != MatchPhase.Result ||
                 (!hasResult && !resultDataFallbackActive) || returned) return;
+            if (!highlightPresented)
+            {
+                loading?.Show();
+            }
             if (navigation.RequestReturnToLobby())
                 returned = true;
         }
@@ -111,6 +140,15 @@ namespace Game.Bootstrap
             var rolledBackToSearching = snapshot.Phase == MatchPhase.Searching &&
                 phase is MatchPhase.Highlight or MatchPhase.Result;
             phase = snapshot.Phase;
+            if (phase == MatchPhase.Highlight)
+            {
+                highlightPresented = true;
+                loading?.HideImmediate();
+            }
+            if (phase == MatchPhase.Waiting || phase == MatchPhase.Hiding)
+            {
+                highlightPresented = false;
+            }
             if (phase != MatchPhase.Result)
             {
                 resultDataFallbackAt = -1d;

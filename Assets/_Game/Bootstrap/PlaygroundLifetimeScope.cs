@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Game.Client.Match;
+using Game.Client.Settings;
+using Game.Client.Lobby;
 using Game.Client.Players;
 using Game.Client.Voice;
+using Game.Client.Common;
 using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Match;
@@ -91,6 +94,7 @@ namespace Game.Bootstrap
 
             var captureStartedAt = Time.realtimeSinceStartupAsDouble;
             var matchScene = PlaygroundMatchScene.Capture(gameObject.scene);
+            sceneRoots = gameObject.scene.GetRootGameObjects();
             Debug.Log(
                 $"[SceneTiming] Playground scene capture completed, " +
                 $"elapsed={Time.realtimeSinceStartupAsDouble - captureStartedAt:F3}s.");
@@ -100,7 +104,7 @@ namespace Game.Bootstrap
             builder.Register<MatchRuntimeFactory>(Lifetime.Scoped);
             builder.RegisterEntryPoint<NetworkMatchRuntimeCoordinator>();
             builder.RegisterEntryPoint<NetworkInteractionSceneBridge>()
-                .WithParameter(false).WithParameter(gameObject.scene);
+                .WithParameter(false).WithParameter(gameObject.scene).AsSelf();
             builder.RegisterEntryPoint<NetworkHighlightPlaybackController>().AsSelf();
             builder.RegisterEntryPoint<InGamePlayerNameplatePresenter>();
 
@@ -113,7 +117,14 @@ namespace Game.Bootstrap
                     matchHudView.gameObject.AddComponent<Game.Client.Settings.InterfaceHudView>()
                         .Bind(c.Resolve<Game.Core.Settings.InterfaceSettingsSystem>(), () => network.LocalPingMilliseconds);
                 });
-                builder.RegisterEntryPoint<NetworkMatchHudPresenter>();
+                builder.RegisterEntryPoint<NetworkMatchHudPresenter>().AsSelf();
+                builder.RegisterBuildCallback(c =>
+                {
+                    var presenter = c.Resolve<NetworkMatchHudPresenter>();
+                    var settings = c.Resolve<MatchSettingsOverlay>();
+                    c.Resolve<NetworkInteractionSceneBridge>().BindPresentationInput(
+                        () => presenter.BlocksGameplayInput || settings.IsOpen);
+                });
             }
 
             var chatCanvas = matchHudView == null
@@ -129,8 +140,37 @@ namespace Game.Bootstrap
                         c.Resolve<PlayerProfile>()),
                     Lifetime.Scoped)
                 .As<ILobbyChatLog>();
+            var settingsObject = new GameObject("Match Settings");
+            settingsObject.transform.SetParent(transform, false);
+            settingsObject.SetActive(false);
+            var settingsView = settingsObject.AddComponent<SettingsView>();
+            settingsView.ConfigureAsLobbyOverlay();
+            builder.RegisterComponent(settingsView).As<ISettingsView>().AsSelf();
+            builder.RegisterEntryPoint<SettingsPresenter>().AsSelf()
+                .WithParameter<Action>(() => settingsObject.SetActive(false));
+            builder.Register<LobbyExitPresenter>(Lifetime.Scoped);
+            builder.RegisterEntryPoint<NetworkLobbyExitBridge>();
+            builder.RegisterEntryPoint<MatchSettingsOverlay>().AsSelf().WithParameter(chatView);
+            if (matchHudView == null)
+            {
+                builder.RegisterBuildCallback(c =>
+                {
+                    var settings = c.Resolve<MatchSettingsOverlay>();
+                    c.Resolve<NetworkInteractionSceneBridge>().BindPresentationInput(() => settings.IsOpen);
+                });
+            }
             builder.RegisterEntryPoint<MatchChatPresenter>();
             builder.RegisterEntryPoint<ChatBubbleBinder>();
+
+            // Registered beside the asset, which the project scope has no
+            // reference to. Its own check rather than the voice one below,
+            // because the keys matter to a match that has no microphone in it.
+            if (inputActions != null)
+            {
+                builder.RegisterInstance<IControlBindingApplier>(
+                    new InputSystemControlBindingApplier(inputActions));
+                builder.RegisterEntryPoint<ControlBindingBridge>();
+            }
 
             // The rig on the runner keeps carrying voice through the match on
             // its own. What the match lacks is a way to speak to it, so the
@@ -144,9 +184,13 @@ namespace Game.Bootstrap
                 builder.RegisterEntryPoint<VoicePresenter>();
             }
 
-            builder.RegisterBuildCallback(_ => Debug.Log(
+            builder.RegisterBuildCallback(container =>
+            {
+                container.Resolve<ILoadingOverlay>().Hide();
+                Debug.Log(
                 $"[SceneTiming] Playground scope ready, " +
-                $"elapsed={Time.realtimeSinceStartupAsDouble - configureStartedAt:F3}s."));
+                $"elapsed={Time.realtimeSinceStartupAsDouble - configureStartedAt:F3}s.");
+            });
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -223,7 +267,9 @@ namespace Game.Bootstrap
                     views[avatar] = view;
                 }
 
-                view.SetNickname(presentation.Name(avatar.PlayerId, avatar.Nickname.ToString()));
+                view.SetNickname(IsLocalAvatar(avatar)
+                    ? string.Empty
+                    : presentation.Name(avatar.PlayerId, avatar.Nickname.ToString()));
             }
         }
 
@@ -238,6 +284,11 @@ namespace Game.Bootstrap
             }
 
             views.Clear();
+        }
+
+        private static bool IsLocalAvatar(PlayerAvatar avatar)
+        {
+            return avatar.Object != null && avatar.Object.IsValid && avatar.IsOwner;
         }
     }
 

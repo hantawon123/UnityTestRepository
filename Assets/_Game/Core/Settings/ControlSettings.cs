@@ -5,31 +5,30 @@ namespace Game.Core.Settings
 {
     /// <summary>
     /// Everything the 컨트롤 tab lets a key be put on, in the order the rows
-    /// are drawn: the microphone first, then the keyboard.
+    /// are drawn: the microphone, then what the player does, then what the
+    /// player does to a thing.
     /// </summary>
     public enum ControlAction
     {
         MicrophoneTalk,
+        VoiceToggle,
         MoveForward,
         MoveLeft,
         MoveBackward,
         MoveRight,
-        PickUp,
-        Drop,
-        Throw,
+        Sprint,
+        Jump,
+        Crouch,
+        Prone,
+        ToggleView,
+        PrimaryAction,
+        Interact,
         PlacementMode,
-        Shredder,
         RotateLeft,
         RotateRight,
         RaiseObject,
         LowerObject,
-        Place,
-        Jump,
-        Sprint,
-        ToggleView,
-        Crouch,
-        Prone,
-        Attack
+        ToggleKeyGuide
     }
 
     /// <summary>The 컨트롤 tab's sliders, in the order they are drawn.</summary>
@@ -58,9 +57,10 @@ namespace Game.Core.Settings
     /// reversals are codes and lean on <see cref="OptionValues"/>, and the
     /// sensitivities are numbers.
     /// <para>
-    /// Two actions may share a key only when the design says they may — see
-    /// <see cref="ControlCatalog.MayShare"/>. Everything else has its key to
-    /// itself, and <see cref="TryRebind"/> is what keeps that true.
+    /// Every action has its key to itself, and <see cref="TryRebind"/> is what
+    /// keeps that true. The rows that used to be allowed to share are one row
+    /// each now — 물건 상호작용 and 공격/던지기/배치 — because each of those was
+    /// one key doing one job that the game read three ways.
     /// </para>
     /// </remarks>
     public readonly struct ControlSettings : IEquatable<ControlSettings>
@@ -131,8 +131,7 @@ namespace Game.Core.Settings
             foreach (ControlAction other in Enum.GetValues(typeof(ControlAction)))
             {
                 if (other == action
-                    || !string.Equals(Get(other), keyCode, StringComparison.Ordinal)
-                    || ControlCatalog.MayShare(action, other))
+                    || !string.Equals(Get(other), keyCode, StringComparison.Ordinal))
                 {
                     continue;
                 }
@@ -253,6 +252,58 @@ namespace Game.Core.Settings
         /// <summary>Shown for <see cref="Unbound"/>.</summary>
         public const string UnboundLabel = "없음";
 
+        /// <summary>
+        /// Keys the game listens to outside the input asset, which no row may
+        /// take. Each with the name of what holds it, for the refusal.
+        /// </summary>
+        /// <remarks>
+        /// These are read straight off <c>Keyboard.current</c> rather than
+        /// through an action — 숨기기 완료 in the match HUD, the lobby's 1 and 2
+        /// shortcuts and Esc in its pause menu, Enter to open the chat — so
+        /// nothing here can move them
+        /// and the screen must not offer to. A row put on one would fire both,
+        /// the row's action and the shortcut, on a single press.
+        /// <para>
+        /// The number pad is listed beside the digits and beside Enter because
+        /// the lobby and the chat read both for the same thing.
+        /// </para>
+        /// <para>
+        /// Esc never reaches this list from a live capture — <c>UnityKeyCapture</c>
+        /// answers it as "never mind" — but a save written by a build that let
+        /// it through still has to be repaired.
+        /// </para>
+        /// </remarks>
+        private static readonly (string Code, string Holder)[] Reserved =
+        {
+            ("y", "숨기기 완료"),
+            ("1", "캐릭터 단축키"),
+            ("numpad1", "캐릭터 단축키"),
+            ("2", "참가자 목록 단축키"),
+            ("numpad2", "참가자 목록 단축키"),
+            ("escape", "환경설정 메뉴"),
+            ("enter", "채팅"),
+            ("numpadEnter", "채팅")
+        };
+
+        /// <summary>
+        /// Whether a key belongs to something this screen cannot move, and
+        /// what that is.
+        /// </summary>
+        public static bool IsReserved(string code, out string holder)
+        {
+            foreach (var entry in Reserved)
+            {
+                if (string.Equals(entry.Code, code, StringComparison.Ordinal))
+                {
+                    holder = entry.Holder;
+                    return true;
+                }
+            }
+
+            holder = null;
+            return false;
+        }
+
         public const string MouseLeft = "mouseLeft";
         public const string MouseRight = "mouseRight";
         public const string MouseMiddle = "mouseMiddle";
@@ -260,59 +311,13 @@ namespace Game.Core.Settings
         public const string ScrollDown = "scrollDown";
 
         /// <summary>
-        /// The actions that are allowed to hold the same key as each other.
+        /// Nobody shares a key. Two groups used to — 들기·놓기·파괴장치 상호작용 on
+        /// F, and 던지기·배치하기·공격하기 on the left button — because each group
+        /// was one key that the game read several ways depending on what the
+        /// player was holding. They are one row each now, 물건 상호작용 and
+        /// 공격/던지기/배치, so the exception has nothing left to cover and the
+        /// rule is simply that a key belongs to one action.
         /// </summary>
-        /// <remarks>
-        /// Taken from the key table: 들기, 놓기 and 파괴장치 상호작용 all sit on
-        /// F, and 던지기, 배치하기 and 공격하기 all sit on the left button. They
-        /// can, because only one of them can be meant at a time — whether a
-        /// press picks a thing up or puts it down depends on whether anything is
-        /// being carried, and the game decides that, not this screen.
-        /// <para>
-        /// Every other action has its key to itself.
-        /// </para>
-        /// </remarks>
-        private static readonly ControlAction[][] SharingGroups =
-        {
-            new[] { ControlAction.PickUp, ControlAction.Drop, ControlAction.Shredder },
-            new[] { ControlAction.Throw, ControlAction.Place, ControlAction.Attack }
-        };
-
-        /// <summary>
-        /// Whether these two may hold the same key. True of an action and
-        /// itself, and of two in the same group.
-        /// </summary>
-        public static bool MayShare(ControlAction left, ControlAction right)
-        {
-            if (left == right)
-            {
-                return true;
-            }
-
-            foreach (var group in SharingGroups)
-            {
-                if (Contains(group, left) && Contains(group, right))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static bool Contains(ControlAction[] group, ControlAction action)
-        {
-            for (var index = 0; index < group.Length; index++)
-            {
-                if (group[index] == action)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
         /// <summary>Reversing an axis is on or off, like the 인터페이스 toggles.</summary>
         public static OptionChoices Reversals { get; } = new OptionChoices(
             InterfaceCatalog.Off,
@@ -323,41 +328,41 @@ namespace Game.Core.Settings
         /// What each action starts on.
         /// </summary>
         /// <remarks>
-        /// The design's own keys, which agree with
-        /// <c>InputSystem_Actions</c> almost everywhere — the same WASD, Q and
-        /// E to turn a thing, the wheel to raise it, space, shift, V, C, Z and
-        /// the two mouse buttons. The one disagreement is the microphone: the
-        /// design says T and the input asset currently says G. The design wins
-        /// here because this screen is built to it, and the asset is what
-        /// should change.
+        /// The keys <c>InputSystem_Actions</c> binds, which are the design's
+        /// own everywhere it says — the same WASD, Q and E to turn a thing, the
+        /// wheel to raise it, space, shift, V, C, Z and the two mouse buttons.
         /// <para>
-        /// Several actions start on the same key on purpose; see
-        /// <see cref="ControlSettings"/>.
+        /// The microphone is the one the design does not agree with: it says T
+        /// and the asset says G. G wins, because the asset is what the game
+        /// actually listens to. A default that names a key the game does not
+        /// use is worse than a default the design did not pick — it reads as a
+        /// key that has stopped working.
+        /// </para>
+        /// <para>
+        /// No two start on the same key; see <see cref="ControlSettings"/>.
         /// </para>
         /// </remarks>
         private static readonly (ControlAction Action, string Code)[] Bindings =
         {
-            (ControlAction.MicrophoneTalk, "t"),
+            (ControlAction.MicrophoneTalk, "g"),
+            (ControlAction.VoiceToggle, "b"),
             (ControlAction.MoveForward, "w"),
             (ControlAction.MoveLeft, "a"),
             (ControlAction.MoveBackward, "s"),
             (ControlAction.MoveRight, "d"),
-            (ControlAction.PickUp, "f"),
-            (ControlAction.Drop, "f"),
-            (ControlAction.Throw, MouseLeft),
+            (ControlAction.Sprint, "leftShift"),
+            (ControlAction.Jump, "space"),
+            (ControlAction.Crouch, "c"),
+            (ControlAction.Prone, "z"),
+            (ControlAction.ToggleView, "v"),
+            (ControlAction.PrimaryAction, MouseLeft),
+            (ControlAction.Interact, "f"),
             (ControlAction.PlacementMode, MouseRight),
-            (ControlAction.Shredder, "f"),
             (ControlAction.RotateLeft, "q"),
             (ControlAction.RotateRight, "e"),
             (ControlAction.RaiseObject, ScrollUp),
             (ControlAction.LowerObject, ScrollDown),
-            (ControlAction.Place, MouseLeft),
-            (ControlAction.Jump, "space"),
-            (ControlAction.Sprint, "leftShift"),
-            (ControlAction.ToggleView, "v"),
-            (ControlAction.Crouch, "c"),
-            (ControlAction.Prone, "z"),
-            (ControlAction.Attack, MouseLeft)
+            (ControlAction.ToggleKeyGuide, "l")
         };
 
         /// <summary>
@@ -397,8 +402,8 @@ namespace Game.Core.Settings
         /// mean, and only the store knows whether a blank was chosen or never
         /// written — see <c>PlayerPrefsControlSettingsStore</c>.
         /// <para>
-        /// A key held by two actions that may not share is left with the first
-        /// of them, in the order the rows are drawn, and the others are emptied.
+        /// A key held by two actions is left with the first of them, in the
+        /// order the rows are drawn, and the others are emptied.
         /// This screen never makes such a pair — it refuses instead — so this
         /// is repair work for a save written by a build whose rules were
         /// different, or edited by hand, and the game needs the rule to hold
@@ -417,10 +422,15 @@ namespace Game.Core.Settings
                     continue;
                 }
 
+                if (IsReserved(code, out _))
+                {
+                    result = result.With(action, Unbound);
+                    continue;
+                }
+
                 foreach (ControlAction other in Enum.GetValues(typeof(ControlAction)))
                 {
                     if (other <= action
-                        || MayShare(action, other)
                         || !string.Equals(result.Get(other), code, StringComparison.Ordinal))
                     {
                         continue;

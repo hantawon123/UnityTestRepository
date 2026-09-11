@@ -4,147 +4,32 @@ using System.Linq;
 
 namespace Game.Core.Items
 {
-    /// <summary>
-    /// Player-item candidates already placed as carryable props in Playground.
-    /// Add another surface-resting prop here when it becomes an assignment candidate.
-    /// </summary>
+    // Runtime snapshot populated from the authored item catalog.
     public static class ItemCatalog
     {
-        private const string AssignedPrefix = "Assigned_";
-        private static readonly ItemDefinition[] DefinitionValues =
-        {
-            new("Soda_01", "food", "탄산음료"),
-            new("Burger_01", "food", "햄버거"),
-            new("Pineapple_01", "food", "파인애플"),
-            new("Cup1_C3", "tableware", "컵"),
-            new("Plate1_C1", "tableware", "접시"),
-            new("Plant_01", "decoration", "화분"),
-            new("Kettle1_C1", "kitchen", "주전자"),
-            new("Toaster_03", "kitchen", "토스터")
-        };
-        // 더미 카탈로그가 최대 6명 배정을 지원하도록 기존 씬 물건을 반복 사용한다.
-        private static readonly int[] AssignmentSourceIndices =
-        {
-            0, 1, 2, 0, 1, 2,
-            3, 4, 3, 4, 3, 4,
-            5, 5, 5, 5, 5, 5,
-            6, 7, 6, 7, 6, 7
-        };
-        private static readonly ItemDefinition[] AssignmentDefinitionValues =
-            AssignmentSourceIndices
-                .Select((sourceIndex, assignmentIndex) =>
-                {
-                    var source = DefinitionValues[sourceIndex];
-                    return new ItemDefinition(
-                        AssignedObjectId(assignmentIndex),
-                        source.Category,
-                        source.DisplayName);
-                })
-                .ToArray();
+        public static IReadOnlyList<ItemDefinition> Definitions { get; private set; } = Array.Empty<ItemDefinition>();
+        public static IReadOnlyList<ItemDefinition> AssignmentDefinitions => Definitions;
+        public static IReadOnlyList<string> Categories { get; private set; } = Array.Empty<string>();
 
-        public static IReadOnlyList<ItemDefinition> Definitions { get; } =
-            Array.AsReadOnly(DefinitionValues);
-        public static IReadOnlyList<ItemDefinition> AssignmentDefinitions { get; } =
-            Array.AsReadOnly(AssignmentDefinitionValues);
-        public static IReadOnlyList<string> Categories { get; } =
-            Array.AsReadOnly(DefinitionValues
-                .Select(definition => definition.Category)
-                .Distinct(StringComparer.Ordinal)
-                .ToArray());
-
-        public static IReadOnlyList<ItemDefinition> DefinitionsInCategory(string category)
+        public static void Configure(IEnumerable<ItemDefinition> definitions)
         {
-            if (string.IsNullOrWhiteSpace(category))
-            {
-                return Array.Empty<ItemDefinition>();
-            }
-
-            var normalizedCategory = category.Trim();
-            return Array.AsReadOnly(DefinitionValues
-                .Where(definition => string.Equals(
-                    definition.Category,
-                    normalizedCategory,
-                    StringComparison.Ordinal))
-                .ToArray());
+            if (definitions == null) throw new ArgumentNullException(nameof(definitions));
+            var values = definitions.ToArray();
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var item in values)
+                if (string.IsNullOrWhiteSpace(item.ItemId) || string.IsNullOrWhiteSpace(item.Category) || !ids.Add(item.ItemId))
+                    throw new ArgumentException("Every item needs a unique ID and category.", nameof(definitions));
+            Definitions = Array.AsReadOnly(values);
+            Categories = Array.AsReadOnly(values.Select(d => d.Category).Distinct(StringComparer.Ordinal).ToArray());
         }
 
-        public static string DisplayNameOf(string itemId)
-        {
-            if (TryGetAssignedDefinition(itemId, out var assigned))
-            {
-                return assigned.DisplayName;
-            }
-
-            for (var index = 0; index < DefinitionValues.Length; index++)
-            {
-                if (string.Equals(
-                        DefinitionValues[index].ItemId,
-                        itemId,
-                        StringComparison.Ordinal))
-                {
-                    return DefinitionValues[index].DisplayName;
-                }
-            }
-
-            return itemId?.Trim() ?? string.Empty;
-        }
-
-        public static string AssignedObjectId(int assignmentIndex)
-        {
-            if (assignmentIndex < 0 || assignmentIndex >= AssignmentSourceIndices.Length)
-            {
-                throw new ArgumentOutOfRangeException(nameof(assignmentIndex));
-            }
-
-            return $"{AssignedPrefix}{assignmentIndex}";
-        }
-
-        public static ItemDefinition AssignedDefinition(int assignmentIndex)
-        {
-            if (assignmentIndex < 0 || assignmentIndex >= AssignmentDefinitionValues.Length)
-            {
-                throw new ArgumentOutOfRangeException(nameof(assignmentIndex));
-            }
-
-            return AssignmentDefinitionValues[assignmentIndex];
-        }
-
-        public static string VisualSourceIdOf(string itemId)
-        {
-            if (TryGetAssignedDefinition(itemId, out _) &&
-                int.TryParse(itemId.AsSpan(AssignedPrefix.Length), out var index))
-            {
-                return AssignedSourceDefinition(index).ItemId;
-            }
-
-            return string.IsNullOrWhiteSpace(itemId) ? string.Empty : itemId.Trim();
-        }
-
-        public static ItemDefinition AssignedSourceDefinition(int assignmentIndex)
-        {
-            if (assignmentIndex < 0 || assignmentIndex >= AssignmentSourceIndices.Length)
-            {
-                throw new ArgumentOutOfRangeException(nameof(assignmentIndex));
-            }
-
-            return DefinitionValues[AssignmentSourceIndices[assignmentIndex]];
-        }
-
-        private static bool TryGetAssignedDefinition(
-            string itemId,
-            out ItemDefinition definition)
-        {
-            if (!string.IsNullOrWhiteSpace(itemId) &&
-                itemId.StartsWith(AssignedPrefix, StringComparison.Ordinal) &&
-                int.TryParse(itemId.AsSpan(AssignedPrefix.Length), out var index) &&
-                index >= 0 && index < AssignmentDefinitionValues.Length)
-            {
-                definition = AssignmentDefinitionValues[index];
-                return true;
-            }
-
-            definition = default;
-            return false;
-        }
+        public static IReadOnlyList<ItemDefinition> DefinitionsInCategory(string category) =>
+            Array.AsReadOnly(Definitions.Where(d => string.Equals(d.Category, category?.Trim(), StringComparison.Ordinal)).ToArray());
+        public static string DisplayNameOf(string itemId) =>
+            Definitions.FirstOrDefault(d => d.ItemId == itemId).DisplayName ?? itemId?.Trim() ?? string.Empty;
+        public static string VisualSourceIdOf(string itemId) => itemId?.Trim() ?? string.Empty;
+        public static ItemDefinition AssignedDefinition(int index) => Definitions[index];
+        public static ItemDefinition AssignedSourceDefinition(int index) => Definitions[index];
+        public static string AssignedObjectId(int index) => Definitions[index].ItemId;
     }
 }

@@ -80,6 +80,21 @@ namespace Game.Network.Voice
 
             var client = runnerObject.AddComponent<FusionVoiceClient>();
 
+            // Voice is optional. The SDK otherwise logs errors on room join
+            // when neither endpoint is configured, pausing the Editor before
+            // the pending lobby transition can resume with Error Pause on.
+            // Keep the client for avatar recorder/speaker registration.
+            var settings = Fusion.Photon.Realtime.PhotonAppSettings.Global.AppSettings;
+            client.AutoConnectAndJoin =
+                !string.IsNullOrWhiteSpace(settings.AppIdVoice) ||
+                !string.IsNullOrWhiteSpace(settings.Server);
+            if (!client.AutoConnectAndJoin)
+            {
+                Debug.LogWarning(
+                    "[Voice] Photon Voice App ID and server are not configured. " +
+                    "Voice chat is unavailable; room entry will continue without voice.");
+            }
+
             // No primary recorder. Leaving it unset is what makes each avatar bring
             // its own: VoiceNetworkObject looks among its children first and only
             // falls back to the connection's when it finds none.

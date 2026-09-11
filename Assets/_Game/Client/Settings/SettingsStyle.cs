@@ -28,6 +28,30 @@ namespace Game.Client.Settings
         /// </summary>
         public const string ArrowLeftIconResource = "UI/Icon_Left";
         public const string ArrowRightIconResource = "UI/Icon_Right";
+        public const string CloseIconResource = "UI/Icon_Close";
+
+        /// <summary>
+        /// The X on a confirmation. The Settings / Closet scenes assign it in
+        /// the inspector; a view built in code, as the lobby overlays are,
+        /// loads the Resources copy.
+        /// </summary>
+        public static Sprite LoadCloseIcon(Sprite assigned = null)
+        {
+            if (assigned != null)
+            {
+                return assigned;
+            }
+
+            var loaded = Resources.Load<Sprite>(CloseIconResource);
+#if UNITY_EDITOR
+            if (loaded == null)
+            {
+                loaded = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(
+                    "Assets/_Game/Content/UI/Common/Icon_Close.png");
+            }
+#endif
+            return loaded;
+        }
 
         public static class Palette
         {
@@ -198,6 +222,7 @@ namespace Game.Client.Settings
         {
             public static readonly Vector2 Position = new Vector2(64f, -62f);
             public static readonly Vector2 Size = new Vector2(140f, 44f);
+            public static readonly Vector2 LeaveSize = new Vector2(220f, 44f);
             public const float FontSize = 30f;
             public const string Label = "← 이전";
         }
@@ -405,7 +430,23 @@ namespace Game.Client.Settings
         public static class Controls
         {
             public const string MicrophoneHeading = "마이크";
-            public const string KeyboardHeading = "키보드";
+
+            /// <summary>
+            /// The keyboard's two headings. One list of twenty rows read as a
+            /// wall, and 이동 / 행동 is where it divides cleanly: the first is
+            /// everything that changes the player's own position, speed,
+            /// posture or point of view, and the second is everything that does
+            /// something to the world.
+            /// </summary>
+            /// <remarks>
+            /// 물건 rather than 행동 would leave 공격/던지기/배치 and 시점 변경
+            /// homeless: the first is not about a thing the player is holding
+            /// and the second is not about a thing at all.
+            /// </remarks>
+            public const string KeyboardMoveHeading = "키보드(이동)";
+
+            public const string KeyboardActionHeading = "키보드(행동)";
+
             public const string FirstPersonHeading = "1인칭";
             public const string ThirdPersonHeading = "3인칭";
 
@@ -415,24 +456,22 @@ namespace Game.Client.Settings
                 {
                     case Core.Settings.ControlAction.MicrophoneTalk:
                         return "마이크 송출";
+                    case Core.Settings.ControlAction.VoiceToggle:
+                        return "마이크 고정";
                     case Core.Settings.ControlAction.MoveForward:
-                        return "위로 이동";
+                        return "앞으로 이동";
                     case Core.Settings.ControlAction.MoveLeft:
                         return "왼쪽으로 이동";
                     case Core.Settings.ControlAction.MoveBackward:
-                        return "아래로 이동";
+                        return "뒤로 이동";
                     case Core.Settings.ControlAction.MoveRight:
                         return "오른쪽으로 이동";
-                    case Core.Settings.ControlAction.PickUp:
-                        return "물건 들기";
-                    case Core.Settings.ControlAction.Drop:
-                        return "물건 놓기";
-                    case Core.Settings.ControlAction.Throw:
-                        return "물건 던지기";
+                    case Core.Settings.ControlAction.PrimaryAction:
+                        return "공격/던지기/배치";
+                    case Core.Settings.ControlAction.Interact:
+                        return "물건 상호작용";
                     case Core.Settings.ControlAction.PlacementMode:
-                        return "배치모드";
-                    case Core.Settings.ControlAction.Shredder:
-                        return "파괴장치 상호작용";
+                        return "배치모드 활성화";
                     case Core.Settings.ControlAction.RotateLeft:
                         return "가로축 회전(좌방향)";
                     case Core.Settings.ControlAction.RotateRight:
@@ -441,8 +480,6 @@ namespace Game.Client.Settings
                         return "세로축 회전(상향)";
                     case Core.Settings.ControlAction.LowerObject:
                         return "세로축 회전(하향)";
-                    case Core.Settings.ControlAction.Place:
-                        return "배치하기";
                     case Core.Settings.ControlAction.Jump:
                         return "점프";
                     case Core.Settings.ControlAction.Sprint:
@@ -453,8 +490,8 @@ namespace Game.Client.Settings
                         return "앉기";
                     case Core.Settings.ControlAction.Prone:
                         return "엎드리기";
-                    case Core.Settings.ControlAction.Attack:
-                        return "공격하기";
+                    case Core.Settings.ControlAction.ToggleKeyGuide:
+                        return "키 가이드 on/off";
                     default:
                         return action.ToString();
                 }
@@ -754,6 +791,10 @@ namespace Game.Client.Settings
             public const string DiscardSubtitle = "저장하지 않으면 변경사항이 사라집니다.";
             public const string LeaveLabel = "바로 나가기";
             public const string SaveAndLeaveLabel = "저장하고 나가기";
+
+            public const string LeaveGameTitle = "게임을 진짜 나가시겠습니까?";
+            public const string LeaveGameSubtitle = "";
+            public const string LeaveGameAcceptLabel = "나가기";
         }
 
         /// <summary>
@@ -845,9 +886,9 @@ namespace Game.Client.Settings
                 case Core.Settings.InterfaceOption.PingCounter:
                     return "핑 표시";
                 case Core.Settings.InterfaceOption.PlayerNames:
-                    return "플레이어 이름 표시";
-                case Core.Settings.InterfaceOption.OwnNickname:
-                    return "내 닉네임 표시";
+                    return "다른 플레이어 이름 표시";
+                case Core.Settings.InterfaceOption.StreamerMode:
+                    return "스트리머 모드";
                 case Core.Settings.InterfaceOption.BeginnerGuide:
                     return "초심자 가이드 항상 표시";
                 case Core.Settings.InterfaceOption.ChatScope:

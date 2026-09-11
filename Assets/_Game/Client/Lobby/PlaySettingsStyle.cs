@@ -26,7 +26,7 @@ namespace Game.Client.Lobby
         public const float ApplyPaddingHorizontal = 80f;
         public const float ApplyPaddingVertical = 11f;
         public const int ApplyButtonRadius = 32;
-        public const int LayoutVersion = 25;
+        public const int LayoutVersion = 33;
 
         public const string RegularFontResource = "Fonts/Paperlogy-4Regular";
         public const string MediumFontResource = "Fonts/Paperlogy-5Medium";
@@ -44,8 +44,15 @@ namespace Game.Client.Lobby
             public static readonly Color Text = Color.white;
             public static readonly Color MapPreview = FromHex(0x8E8E8E, 0.8f);
             public static readonly Color Underline = FromHex(0xF5F3F1, 0.5f);
-            public static readonly Color ApplyFill = FromHex(0xFF7032);
+            public static readonly Color ApplyFill = Color.white;
+            public static readonly Color ApplyOffFill = FromHex(0xF5F3F1, 0.16f);
+            public static readonly Color ApplyOnLabel = Color.black;
+            public static readonly Color ApplyOffLabel = FromHex(0xA8ADB3);
+            public static readonly Color ApplyWarning = FromHex(0xFF3B30);
+            public static readonly Color RevertLabel = FromHex(0xF5F3F1);
+            public static readonly Color TextHover = FromHex(0xFF9A6A);
             public static readonly Color Divider = FromHex(0xF5F3F1, 0.16f);
+            public static readonly Color DefaultMark = FromHex(0xF5F3F1, 0.85f);
         }
 
         public static class FontSize
@@ -56,7 +63,9 @@ namespace Game.Client.Lobby
             public const int Counter = 24;
             public const int MapName = 18;
             public const int Apply = 32;
-            public const int GameStart = 55;
+            public const int ApplyWarning = 20;
+            public const int Revert = 28;
+            public const int GameStart = 32;
         }
 
         public static class Overlay
@@ -64,7 +73,10 @@ namespace Game.Client.Lobby
             public const int SortingOrder = 90;
             public static readonly Color Scrim = new Color(0f, 0f, 0f, 200f / 255f);
             public static readonly Vector2 GameStartPosition = new Vector2(-120f, 40f);
-            public static readonly Vector2 GameStartSize = new Vector2(400f, 80f);
+            public static readonly Vector2 GameStartSize = new Vector2(275f, 60f);
+            public const int GameStartRadius = 30;
+            public const float GameStartHoverScale = 1.06f;
+            public const float GameStartHoverSeconds = 0.08f;
         }
 
         public static class Layout
@@ -81,6 +93,10 @@ namespace Game.Client.Lobby
             public const float RoomCodeValueWidth = 160f;
             public const float RoomCodeControlSpacing = 8f;
             public const float ControlValueWidth = 132f;
+            public const float DurationValueWidth = 88f;
+            public const float DefaultMarkWidth = 2f;
+            public const float DefaultMarkHeight = 16f;
+            public const int SliderTrackRadius = 4;
             public const float ControlSpacing = 24f;
             public const float PickerSpacing = 16f;
             public const float MapColumnSpacing = 8f;
@@ -89,6 +105,9 @@ namespace Game.Client.Lobby
             public const float MapSectionBottomSpacing = 20f;
             public const float SectionTitleHeight = 36f;
             public const float CategoryValueMinWidth = 200f;
+            public const float RevertRightMargin = 40f;
+            public const float RevertHeight = 44f;
+            public const string RevertLabel = "되돌리기";
 
             public static float SelectionRowHeight =>
                 MapPreviewSize.y + MapNameSpacing + MapNameHeight;

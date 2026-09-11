@@ -62,6 +62,9 @@ namespace Game.Bootstrap
             this.scene = scene;
         }
 
+        private Func<bool> presentationBlocksInput;
+        public void BindPresentationInput(Func<bool> blocksInput) => presentationBlocksInput = blocksInput;
+
         private IReadOnlyCollection<CarryableItem> sceneItems;
         public void BindSceneItems(IReadOnlyCollection<CarryableItem> value) => sceneItems = value;
 
@@ -79,6 +82,13 @@ namespace Game.Bootstrap
             network.ItemAssignmentReceived -= OnItemAssignmentReceived;
             network.ObjectStatesReceived -= OnObjectStatesReceived;
             network.PlayerInteractionStatesReceived -= OnPlayerStatesReceived;
+            foreach (var interactor in interactors.Values)
+            {
+                if (interactor == null) continue;
+                var motor = interactor.GetComponent<NetworkPlayerMotor>();
+                if (motor != null) motor.LocalPresentationInputBlocked = false;
+                interactor.SetHudVisible(true);
+            }
             DestroyCarriedSceneItems();
             SetHighlightedAssignment(null);
         }
@@ -194,7 +204,9 @@ namespace Game.Bootstrap
                     BindLocalCamera(avatar.transform);
                 }
 
-                var acceptsLocalInput = avatar.IsOwner &&
+                var introBlocked = presentationBlocksInput?.Invoke() == true;
+                if (avatar.IsOwner && motor != null) motor.LocalPresentationInputBlocked = introBlocked;
+                var acceptsLocalInput = !introBlocked && avatar.IsOwner &&
                                         motor != null &&
                                         motor.ControlsEnabled;
 
@@ -207,7 +219,7 @@ namespace Game.Bootstrap
                         motor.AnimationGrounded,
                         motor.AttackSequence,
                         new Vector2(motor.AnimationMoveX, motor.AnimationMoveZ),
-                        motor.AnimationCarrying);
+                        motor.AnimationCarrying && !network.IsResultSceneLoaded);
                 }
 
                 var interactor = avatar.GetComponent<PlayerInteractor>();
@@ -216,6 +228,7 @@ namespace Game.Bootstrap
                     // A disabled network avatar must never fall back to standalone item mutation.
                     interactor.BindCommands(this);
                     interactor.enabled = acceptsLocalInput;
+                    interactor.SetHudVisible(!introBlocked);
                     interactors[playerIndex] = interactor;
 
                     var placement = avatar.GetComponent<ItemPlacementController>();
@@ -303,6 +316,9 @@ namespace Game.Bootstrap
 
         private void ApplyObjectStates()
         {
+            // Result presentation detaches held items. Frozen match snapshots must not reattach them.
+            if (network.IsResultSceneLoaded) return;
+
             var checkHeldState = Time.unscaledTimeAsDouble >= nextHeldStateCheckAt;
             if (checkHeldState) nextHeldStateCheckAt = Time.unscaledTimeAsDouble + 0.5d;
             for (var index = 0; index < objectStates.Length; index++)
@@ -421,6 +437,7 @@ namespace Game.Bootstrap
                 if (combatants.TryGetValue(state.PlayerIndex, out var combatant))
                 {
                     combatant.SetNetworkStunned(state.IsStunned(now));
+                    combatant.SetNetworkHitCount(state.HitCount);
                 }
             }
         }

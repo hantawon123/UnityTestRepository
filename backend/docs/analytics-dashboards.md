@@ -394,6 +394,24 @@ ORDER BY `이탈 인원` DESC
 
 ---
 
+## 히트맵으로 보기
+
+3·4번 화면은 표입니다. 표는 "숫자가 큰 칸"만 보여 주고 **어디인지는 못 보여 줍니다.**
+같은 CSV 를 그림으로 바꾸는 도구가 `Tools/analytics/heatmap.py` 입니다. 로컬에서 돌립니다.
+
+```
+pip install matplotlib
+python Tools/analytics/heatmap.py 체류구역.csv --split-by 단계 --log -o dwell.png
+```
+
+CSV 는 Metabase 화면 오른쪽 아래 내려받기로 받고, 한글 헤더를 그대로 읽으므로 손볼 것이
+없습니다. 옵션·읽는 법·막혔을 때는 [`analytics-heatmap.md`](analytics-heatmap.md) 에 있습니다.
+
+**맵 그림 위에 겹치는 것은 아직 못 합니다.** 맵을 위에서 찍은 그림과 그 그림이 덮는 월드
+좌표가 있어야 합니다. 받을 자리(`--map`·`--extent`)는 뚫어 두었습니다.
+
+---
+
 ## 화면 만들기
 
 `deploy/metabase/provision_dashboards.py` 가 **이 문서를 읽어** 질문 여덟 개와 그것을 묶은

@@ -8,62 +8,146 @@ namespace Game.Client
     [DisallowMultipleComponent]
     public sealed class CharacterTestPreviewDriver : MonoBehaviour
     {
-        [SerializeField]
-        private string[] stateNames =
+        private static readonly string[] DefaultMotions =
         {
-            "Idle_Breathing",
-            "Walk_Wide_Clean",
+            // 서기
+            "Idle",
+            "Walk_Forward",
             "Walk_Back",
             "Walk_Left",
             "Walk_Right",
-            "Run_SideArms",
+            "Run_Forward",
             "Run_Back",
             "Run_Left",
             "Run_Right",
-            "Jump_Cute",
-            "Fall_Flutter",
-            "Land_Matched",
-            "Crouch_Idle_KneesUp",
-            "Crouch_Walk_Forward_KneesUp",
-            "Stand_To_Crouch_KneesUp",
-            "Crouch_To_Stand_KneesUp",
-            "Crouch_Walk_Left_KneesUp",
-            "Crouch_Walk_Right_KneesUp",
-            "Crouch_Walk_Back_KneesUp",
-            "Pickup_Low",
-            "Carry_Idle",
-            "Carry_Walk",
-            "Carry_Walk_Back",
-            "Carry_Walk_Left",
-            "Carry_Walk_Right",
-            "Carry_Run",
-            "Carry_Run_Back",
-            "Carry_Run_Left",
-            "Carry_Run_Right",
-            "Carry_Crouch",
-            "Carry_Crouch_Walk_Forward",
-            "Carry_Crouch_Walk_Back",
-            "Carry_Crouch_Walk_Left",
-            "Carry_Crouch_Walk_Right",
-            "Carry_Prone",
-            "Carry_Crawl_Forward",
-            "Carry_Crawl_Back",
-            "Carry_Crawl_Left",
-            "Carry_Crawl_Right",
-            "PutDown_Low",
-            "Throw",
-            "Prone_Start",
+            // 공중
+            "Jump",
+            "Fall",
+            "Land",
+            // 웅크리기
+            "Crouch_Idle",
+            "Crouch_Start",
+            "Crouch_End",
+            "Crouch_Walk_Forward",
+            "Crouch_Walk_Back",
+            "Crouch_Walk_Left",
+            "Crouch_Walk_Right",
+            // 엎드리기
             "Prone_Idle",
+            "Prone_Start",
+            "Prone_End",
             "Crawl_Forward",
             "Crawl_Back",
             "Crawl_Left",
             "Crawl_Right",
-            "Prone_End",
             "Crouch_To_Prone",
             "Prone_To_Crouch",
+            // 들기
+            "Carry_Idle",
+            "Carry_Walk_Forward",
+            "Carry_Walk_Back",
+            "Carry_Walk_Left",
+            "Carry_Walk_Right",
+            "Carry_Run_Forward",
+            "Carry_Run_Back",
+            "Carry_Run_Left",
+            "Carry_Run_Right",
+            "Carry_Crouch_Idle",
+            "Carry_Crouch_Walk_Forward",
+            "Carry_Crouch_Walk_Back",
+            "Carry_Crouch_Walk_Left",
+            "Carry_Crouch_Walk_Right",
+            "Carry_Prone_Idle",
+            "Carry_Crawl_Forward",
+            "Carry_Crawl_Back",
+            "Carry_Crawl_Left",
+            "Carry_Crawl_Right",
+            "Carry_Jump",
+            "Carry_Land",
+            // 양손 들기
+            "PutUp_TwoHands",
+            "Carry_TwoHands",
+            "Carry_TwoHands_Walk_Forward",
+            "Carry_TwoHands_Walk_Back",
+            "Carry_TwoHands_Walk_Left",
+            "Carry_TwoHands_Walk_Right",
+            "Carry_TwoHands_Run_Forward",
+            "Carry_TwoHands_Run_Back",
+            "Carry_TwoHands_Run_Left",
+            "Carry_TwoHands_Run_Right",
+            "Carry_TwoHands_Crouch_Idle",
+            "Carry_TwoHands_Crouch_Walk_Forward",
+            "Carry_TwoHands_Crouch_Walk_Back",
+            "Carry_TwoHands_Crouch_Walk_Left",
+            "Carry_TwoHands_Crouch_Walk_Right",
+            "Carry_TwoHands_Prone_Idle",
+            "Carry_TwoHands_Crawl_Forward",
+            "Carry_TwoHands_Crawl_Back",
+            "Carry_TwoHands_Crawl_Left",
+            "Carry_TwoHands_Crawl_Right",
+            "Carry_TwoHands_Jump",
+            "Carry_TwoHands_Land",
+            "Throw_TwoHands",
+            "Throw_TwoHands_Walk",
+            "Throw_TwoHands_Run",
+            "Throw_TwoHands_Crouch",
+            "Throw_TwoHands_Crouch_Walk",
+            "Throw_TwoHands_Prone",
+            "Throw_TwoHands_Crawl",
+            "Carry_TwoHands_Crouch_Start",
+            "Carry_TwoHands_Crouch_End",
+            "Carry_TwoHands_Prone_Start",
+            "Carry_TwoHands_Prone_End",
+            "Carry_TwoHands_Crouch_To_Prone",
+            "Carry_TwoHands_Prone_To_Crouch",
+            "PutUp_TwoHands_Crouch",
+            "PutDown_TwoHands_Crouch",
+            "PutUp_TwoHands_Prone",
+            "PutDown_TwoHands_Prone",
+            "PutDown_TwoHands",
+            // 집기·놓기
+            "Pickup_Low",
+            "Pickup_Crouch",
+            "Pickup_Prone",
+            "PutDown_Low",
+            "PutDown_Crouch",
+            "PutDown_Prone",
+            "Throw",
+            // 전투
+            "Punch",
+            "Punch_Walk",
+            "Punch_Run",
+            "Punch_Crouch",
+            "Punch_Crouch_Walk",
+            "Hit",
+            "Hit_Walk",
+            "Hit_Run",
+            "Hit_Crouch",
+            "Hit_Crouch_Walk",
+            "Stun_Start",
+            "Stun_Idle",
+            "Stun_End",
         };
 
+        private static readonly string[] GroupOrder =
+        {
+            "서기",
+            "공중",
+            "웅크리기",
+            "엎드리기",
+            "들기",
+            "양손 들기",
+            "집기·놓기",
+            "전투",
+            "기타",
+        };
+
+        [SerializeField]
+        private string[] stateNames = DefaultMotions;
+
         private Vector2 listScroll;
+        private string filterText = string.Empty;
+        private readonly Dictionary<string, bool> groupExpanded = new();
 
         private static readonly string[] FootNames =
         {
@@ -97,8 +181,9 @@ namespace Game.Client
                 throw new System.ArgumentException("At least one preview motion is required.", nameof(names));
             }
 
-            stateNames = (string[])names.Clone();
+            stateNames = SortByCategory(names);
             index = 0;
+            EnsureGroupExpanded(CategoryOf(stateNames[0]));
         }
 
         private void Awake()
@@ -118,62 +203,20 @@ namespace Game.Client
 
             CacheFeet(transform);
             CacheCrouchGroin();
-            if (stateNames == null || stateNames.Length < 50)
+            if (stateNames == null || stateNames.Length < DefaultMotions.Length)
             {
-                stateNames = new[]
-                {
-                    "Idle_Breathing",
-                    "Walk_Wide_Clean",
-                    "Walk_Back",
-                    "Walk_Left",
-                    "Walk_Right",
-                    "Run_SideArms",
-                    "Run_Back",
-                    "Run_Left",
-                    "Run_Right",
-                    "Jump_Cute",
-                    "Fall_Flutter",
-                    "Land_Matched",
-                    "Crouch_Idle_KneesUp",
-                    "Crouch_Walk_Forward_KneesUp",
-                    "Stand_To_Crouch_KneesUp",
-                    "Crouch_To_Stand_KneesUp",
-                    "Crouch_Walk_Left_KneesUp",
-                    "Crouch_Walk_Right_KneesUp",
-                    "Crouch_Walk_Back_KneesUp",
-                    "Pickup_Low",
-                    "Carry_Idle",
-                    "Carry_Walk",
-                    "Carry_Walk_Back",
-                    "Carry_Walk_Left",
-                    "Carry_Walk_Right",
-                    "Carry_Run",
-                    "Carry_Run_Back",
-                    "Carry_Run_Left",
-                    "Carry_Run_Right",
-                    "Carry_Crouch",
-                    "Carry_Crouch_Walk_Forward",
-                    "Carry_Crouch_Walk_Back",
-                    "Carry_Crouch_Walk_Left",
-                    "Carry_Crouch_Walk_Right",
-                    "Carry_Prone",
-                    "Carry_Crawl_Forward",
-                    "Carry_Crawl_Back",
-                    "Carry_Crawl_Left",
-                    "Carry_Crawl_Right",
-                    "PutDown_Low",
-                    "Throw",
-                    "Prone_Start",
-                    "Prone_Idle",
-                    "Crawl_Forward",
-                    "Crawl_Back",
-                    "Crawl_Left",
-                    "Crawl_Right",
-                    "Prone_End",
-                    "Crouch_To_Prone",
-                    "Prone_To_Crouch",
-                };
+                stateNames = (string[])DefaultMotions.Clone();
             }
+            else
+            {
+                stateNames = SortByCategory(stateNames);
+            }
+
+            foreach (var title in GroupOrder)
+            {
+                groupExpanded[title] = title is "서기" or "전투";
+            }
+
             standRotation = transform.rotation;
             standPosition = transform.position;
             CaptureOrbit();
@@ -234,7 +277,7 @@ namespace Game.Client
                         transform.position += Vector3.up * (plantedFootY - footY);
                     }
                 }
-                else if (!IsProne(stateNames[index]))
+                else if (!KeepsFloorContact(stateNames[index]))
                 {
                     transform.position += Vector3.up * (plantedFootY - footY);
                 }
@@ -247,12 +290,19 @@ namespace Game.Client
         private void Play(int next)
         {
             index = Mathf.Clamp(next, 0, stateNames.Length - 1);
+            EnsureGroupExpanded(CategoryOf(stateNames[index]));
             if (animator == null)
             {
                 return;
             }
 
             animator.Play(stateNames[index], 0, 0f);
+            if (KeepsFloorContact(stateNames[index]))
+            {
+                var position = transform.position;
+                position.y = standPosition.y;
+                transform.position = position;
+            }
             ApplyStandingGroin();
         }
 
@@ -299,7 +349,9 @@ namespace Game.Client
                 return;
             }
 
-            if (stateNames[index].IndexOf("Crouch") < 0)
+            if (stateNames[index].IndexOf("Crouch") < 0 &&
+                stateNames[index] != "Stun_Start" &&
+                stateNames[index] != "Stun_Idle")
             {
                 body.SetBlendShapeWeight(crouchGroinIndex, 0f);
             }
@@ -425,13 +477,20 @@ namespace Game.Client
 
         private static bool IsAirborne(string state)
         {
-            return state == "Jump_Cute" || state == "Fall_Flutter";
+            return state == "Fall" ||
+                   state.EndsWith("Jump", System.StringComparison.Ordinal);
         }
 
-        private static bool IsProne(string state)
+        private static bool KeepsFloorContact(string state)
         {
             return state.IndexOf("Prone", System.StringComparison.Ordinal) >= 0
-                || state.IndexOf("Crawl", System.StringComparison.Ordinal) >= 0;
+                || state.IndexOf("Crawl", System.StringComparison.Ordinal) >= 0
+                || state == "Knocked_Out"
+                || state == "Stun_Start"
+                || state == "Stun_Idle"
+                || state == "Stun_End"
+                || state == "Pickup_Prone"
+                || state == "PutDown_Prone";
         }
 
         private static bool TryDigit(Keyboard keyboard, out int digit)
@@ -457,32 +516,244 @@ namespace Game.Client
 
         private void OnGUI()
         {
-            const int pad = 16;
-            const int width = 420;
-            const int header = 62;
-            const int row = 28;
+            const int pad = 12;
+            const int width = 380;
+            const int header = 86;
+            const int row = 24;
+            const int groupRow = 22;
             var maxHeight = Mathf.Max(220, Screen.height - pad * 2);
-            var needed = header + 8 + stateNames.Length * row;
-            var boxHeight = Mathf.Min(needed, maxHeight);
-            GUI.Box(new Rect(pad, pad, width, boxHeight), string.Empty);
-            var ready = animator != null && animator.runtimeAnimatorController != null;
-            GUI.Label(
-                new Rect(pad + 8, pad + 6, width - 16, 50),
-                $"지금: {stateNames[index]}  |  {gameObject.name} {(ready ? "OK" : "없음")}\n" +
-                "우클릭 드래그 / Q E 회전  |  휠 줌  |  R 리셋");
+            GUI.Box(new Rect(pad, pad, width, maxHeight), string.Empty);
 
-            var scrollRect = new Rect(pad + 4, pad + header, width - 8, boxHeight - header - 8);
-            var content = new Rect(0, 0, width - 36, stateNames.Length * row);
-            listScroll = GUI.BeginScrollView(scrollRect, listScroll, content);
-            for (var i = 0; i < stateNames.Length; i++)
+            var ready = animator != null && animator.runtimeAnimatorController != null;
+            var current = stateNames[index];
+            GUI.Label(
+                new Rect(pad + 8, pad + 4, width - 16, 36),
+                $"지금 {current}  ({index + 1}/{stateNames.Length})\n" +
+                $"{gameObject.name} {(ready ? "OK" : "없음")}  |  ← → 이동");
+
+            GUI.Label(new Rect(pad + 8, pad + 42, 40, 20), "검색");
+            filterText = GUI.TextField(new Rect(pad + 48, pad + 40, width - 120, 22), filterText ?? string.Empty);
+            if (GUI.Button(new Rect(pad + width - 64, pad + 40, 52, 22), "지우기"))
             {
-                if (GUI.Button(new Rect(4, i * row, width - 44, 26), $"{i + 1}. {stateNames[i]}"))
+                filterText = string.Empty;
+            }
+
+            GUI.Label(
+                new Rect(pad + 8, pad + 64, width - 16, 18),
+                "우클릭 드래그 / Q E  |  휠 줌  |  R 리셋");
+
+            var filter = filterText.Trim();
+            var filtering = filter.Length > 0;
+            var groups = BuildVisibleGroups(filter);
+            var contentHeight = 0f;
+            for (var g = 0; g < groups.Count; g++)
+            {
+                contentHeight += groupRow + 4;
+                var title = groups[g].Title;
+                var expanded = filtering || IsGroupExpanded(title);
+                if (expanded)
                 {
-                    Play(i);
+                    contentHeight += groups[g].Indices.Count * row;
+                }
+            }
+
+            var scrollRect = new Rect(pad + 4, pad + header, width - 8, maxHeight - header - 8);
+            var content = new Rect(0, 0, width - 28, Mathf.Max(contentHeight, scrollRect.height));
+            listScroll = GUI.BeginScrollView(scrollRect, listScroll, content);
+
+            var y = 0f;
+            for (var g = 0; g < groups.Count; g++)
+            {
+                var group = groups[g];
+                var expanded = filtering || IsGroupExpanded(group.Title);
+                var label = $"{(expanded ? "▼" : "▶")}  {group.Title}  ({group.Indices.Count})";
+                if (GUI.Button(new Rect(2, y, width - 36, groupRow), label))
+                {
+                    if (!filtering)
+                    {
+                        groupExpanded[group.Title] = !expanded;
+                    }
+                }
+
+                y += groupRow + 2;
+                if (!expanded)
+                {
+                    continue;
+                }
+
+                for (var i = 0; i < group.Indices.Count; i++)
+                {
+                    var motionIndex = group.Indices[i];
+                    var selected = motionIndex == index;
+                    var prev = GUI.backgroundColor;
+                    if (selected)
+                    {
+                        GUI.backgroundColor = new Color(0.45f, 0.75f, 1f, 1f);
+                    }
+
+                    if (GUI.Button(
+                            new Rect(10, y, width - 48, row - 2),
+                            $"{motionIndex + 1}. {stateNames[motionIndex]}"))
+                    {
+                        Play(motionIndex);
+                    }
+
+                    GUI.backgroundColor = prev;
+                    y += row;
                 }
             }
 
             GUI.EndScrollView();
+        }
+
+        private List<(string Title, List<int> Indices)> BuildVisibleGroups(string filter)
+        {
+            var buckets = new Dictionary<string, List<int>>();
+            for (var i = 0; i < GroupOrder.Length; i++)
+            {
+                buckets[GroupOrder[i]] = new List<int>();
+            }
+
+            for (var i = 0; i < stateNames.Length; i++)
+            {
+                var name = stateNames[i];
+                if (!string.IsNullOrEmpty(filter) &&
+                    name.IndexOf(filter, System.StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    continue;
+                }
+
+                var category = CategoryOf(name);
+                if (!buckets.TryGetValue(category, out var list))
+                {
+                    list = buckets[category] = new List<int>();
+                }
+
+                list.Add(i);
+            }
+
+            var groups = new List<(string, List<int>)>();
+            for (var i = 0; i < GroupOrder.Length; i++)
+            {
+                var title = GroupOrder[i];
+                if (buckets[title].Count > 0)
+                {
+                    groups.Add((title, buckets[title]));
+                }
+            }
+
+            return groups;
+        }
+
+        private bool IsGroupExpanded(string title)
+        {
+            if (!groupExpanded.TryGetValue(title, out var expanded))
+            {
+                groupExpanded[title] = false;
+                return false;
+            }
+
+            return expanded;
+        }
+
+        private void EnsureGroupExpanded(string title)
+        {
+            groupExpanded[title] = true;
+        }
+
+        internal static string CategoryOf(string state)
+        {
+            if (string.IsNullOrEmpty(state))
+            {
+                return "기타";
+            }
+
+            if (state.StartsWith("Carry_TwoHands", System.StringComparison.Ordinal) ||
+                state.StartsWith("PutUp_TwoHands", System.StringComparison.Ordinal) ||
+                state.StartsWith("PutDown_TwoHands", System.StringComparison.Ordinal) ||
+                state.StartsWith("Throw_TwoHands", System.StringComparison.Ordinal))
+            {
+                return "양손 들기";
+            }
+
+            if (state.StartsWith("Carry", System.StringComparison.Ordinal))
+            {
+                return "들기";
+            }
+
+            if (state.StartsWith("Punch", System.StringComparison.Ordinal) ||
+                state.StartsWith("Hit", System.StringComparison.Ordinal) ||
+                state.StartsWith("Stun", System.StringComparison.Ordinal))
+            {
+                return "전투";
+            }
+
+            if (state.StartsWith("Pickup", System.StringComparison.Ordinal) ||
+                state.StartsWith("PutDown", System.StringComparison.Ordinal) ||
+                state == "Throw")
+            {
+                return "집기·놓기";
+            }
+
+            if (state.StartsWith("Crouch", System.StringComparison.Ordinal))
+            {
+                return "웅크리기";
+            }
+
+            if (state.StartsWith("Prone", System.StringComparison.Ordinal) ||
+                state.StartsWith("Crawl", System.StringComparison.Ordinal))
+            {
+                return "엎드리기";
+            }
+
+            if (state is "Jump" or "Fall" or "Land")
+            {
+                return "공중";
+            }
+
+            if (state == "Idle" ||
+                state.StartsWith("Walk", System.StringComparison.Ordinal) ||
+                state.StartsWith("Run", System.StringComparison.Ordinal))
+            {
+                return "서기";
+            }
+
+            return "기타";
+        }
+
+        private static string[] SortByCategory(string[] names)
+        {
+            var ranked = new Dictionary<string, int>();
+            for (var i = 0; i < GroupOrder.Length; i++)
+            {
+                ranked[GroupOrder[i]] = i;
+            }
+
+            var defaultRank = new Dictionary<string, int>(DefaultMotions.Length);
+            for (var i = 0; i < DefaultMotions.Length; i++)
+            {
+                defaultRank[DefaultMotions[i]] = i;
+            }
+
+            var copy = (string[])names.Clone();
+            System.Array.Sort(copy, (a, b) =>
+            {
+                var ca = ranked.TryGetValue(CategoryOf(a), out var ra) ? ra : 99;
+                var cb = ranked.TryGetValue(CategoryOf(b), out var rb) ? rb : 99;
+                var byCategory = ca.CompareTo(cb);
+                if (byCategory != 0)
+                {
+                    return byCategory;
+                }
+
+                var da = defaultRank.TryGetValue(a, out var ia) ? ia : 10_000;
+                var db = defaultRank.TryGetValue(b, out var ib) ? ib : 10_000;
+                var byDefault = da.CompareTo(db);
+                return byDefault != 0
+                    ? byDefault
+                    : string.CompareOrdinal(a, b);
+            });
+            return copy;
         }
     }
 }

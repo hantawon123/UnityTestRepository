@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using Game.Client.Common;
+using Game.Core.Flow;
 using Game.Client.Home;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -29,16 +31,24 @@ namespace Game.Bootstrap
 
         private static readonly string[] Frontends = { Home, Room, Closet, Settings };
 
+        /// <summary>How long a frontend load may take before it is called stuck.</summary>
+        private const double StallWarningSeconds = 5d;
+
         private string desiredScene;
         private readonly Dictionary<string, AsyncOperation> loads =
             new Dictionary<string, AsyncOperation>(StringComparer.Ordinal);
 
         private double switchStartedAt = -1d;
         private readonly EventSystem sharedEventSystem;
+        private readonly ILoadingOverlay loading;
+        private readonly AppFlowSystem flow;
 
-        public FrontendSceneCoordinator(EventSystem sharedEventSystem)
+        public FrontendSceneCoordinator(
+            EventSystem sharedEventSystem, ILoadingOverlay loading = null, AppFlowSystem flow = null)
         {
             this.sharedEventSystem = sharedEventSystem;
+            this.loading = loading;
+            this.flow = flow;
         }
 
         public void Start()
@@ -66,15 +76,20 @@ namespace Game.Bootstrap
             SceneManager.sceneUnloaded -= OnSceneUnloaded;
         }
 
-        public void OpenHome() => Open(Home);
+        public void OpenHome() => OpenSliced(Home);
 
-        public void OpenRoomBrowser() => Open(Room);
+        public void OpenRoomBrowser() => OpenSliced(Room);
 
-        public void OpenCharacterCloset() => Open(Closet);
+        public void OpenCharacterCloset() => OpenSliced(Closet);
 
-        public void OpenSettings() => Open(Settings);
+        public void OpenSettings() => OpenSliced(Settings);
 
-        private void Open(string sceneName)
+        private void OpenSliced(string sceneName)
+        {
+            OpenAsync(sceneName).Forget(exception => Debug.LogException(exception));
+        }
+
+        private async UniTask OpenAsync(string sceneName)
         {
             desiredScene = sceneName;
             switchStartedAt = Time.realtimeSinceStartupAsDouble;
@@ -82,14 +97,52 @@ namespace Game.Bootstrap
                 $"[SceneTiming] Frontend switch requested: " +
                 $"{SceneManager.GetActiveScene().name} -> {sceneName}.");
 
+            await SceneLoadSlicer.YieldFrame();
+            if (TryShow(sceneName))
+            {
+                return;
+            }
+
+            var pending = GetLoad(sceneName);
+            if (pending != null)
+            {
+                await SceneLoadSlicer.ActivateWhenReady(pending);
+                TryShow(sceneName);
+                return;
+            }
+
+            // A scene load that goes quiet for this long is not slow, it is
+            // stuck behind another load parked with allowSceneActivation off
+            // — Unity runs them one at a time. Say so; the wait itself carries
+            // on, because the parked load may still be let go.
+            var load = SceneLoadSlicer.LoadAdditiveAsync(sceneName);
+            var finishedFirst = await UniTask.WhenAny(
+                load, UniTask.Delay(System.TimeSpan.FromSeconds(StallWarningSeconds), ignoreTimeScale: true));
+            if (finishedFirst != 0)
+            {
+                Debug.LogWarning(
+                    $"[SceneTiming] Frontend switch to {sceneName} has been loading for " +
+                    $"{StallWarningSeconds:F0}s. Another scene load is probably parked " +
+                    "(allowSceneActivation = false) ahead of it.");
+                await load;
+            }
+
             if (!TryShow(sceneName))
             {
-                EnsureLoaded(sceneName);
+                // Said out loud. The screen that asked for this has already
+                // moved the flow to the new state, and a switch that quietly
+                // never happens leaves it there with the old screen still up.
+                Debug.LogError($"[SceneTiming] Frontend switch to {sceneName} loaded nothing to show.");
             }
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
+            if (LoadingScene.IsLoading(scene))
+            {
+                return;
+            }
+
             if (!IsFrontend(scene))
             {
                 foreach (var frontend in Frontends)
@@ -129,6 +182,7 @@ namespace Game.Bootstrap
             ClearLoad(scene.name);
         }
 
+
         private bool TryShow(string sceneName)
         {
             var target = GetLoadedScene(sceneName);
@@ -157,6 +211,21 @@ namespace Game.Bootstrap
                 switchStartedAt = -1d;
             }
 
+            if (string.Equals(sceneName, Home, StringComparison.Ordinal))
+            {
+                loading?.Hide();
+
+                // Home on screen is the one fact this class knows for certain.
+                // If the flow still says a detour, the detour never took the
+                // player anywhere, and Home's buttons would all be refused.
+                var stale = flow?.CurrentState;
+                if (flow != null && flow.TryReconcileToHome())
+                {
+                    Debug.LogWarning(
+                        $"[Home] Flow was still {stale} with Home on screen; put back to Home.");
+                }
+            }
+
             EnsureCounterpartLoaded(sceneName);
             return true;
         }
@@ -171,7 +240,14 @@ namespace Game.Bootstrap
         {
             if (string.Equals(visibleScene, Home, StringComparison.Ordinal))
             {
+                // Every menu screen, not just the browser. Opening the
+                // create-room form parks a lobby preload, and Unity runs scene
+                // loads one at a time, so a screen that still had to load after
+                // that would wait behind the parked load with no end and no
+                // error. A screen already loaded only has its roots switched on.
                 EnsureLoaded(Room);
+                EnsureLoaded(Settings);
+                EnsureLoaded(Closet);
             }
             else if (string.Equals(visibleScene, Room, StringComparison.Ordinal))
             {

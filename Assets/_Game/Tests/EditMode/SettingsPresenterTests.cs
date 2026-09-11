@@ -245,6 +245,35 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void LeaveGame_AsksFirst_AndOnlyAcceptingConfirms()
+        {
+            using var presenter = Started();
+            var confirmed = 0;
+            presenter.LeaveGameConfirmed += () => confirmed++;
+
+            view.LeaveGame();
+
+            Assert.That(view.ConfirmVisible, Is.True);
+            Assert.That(view.ConfirmKind, Is.EqualTo(SettingsConfirmKind.LeaveGame));
+            Assert.That(confirmed, Is.Zero);
+
+            view.Dismiss();
+            Assert.That(view.ConfirmVisible, Is.False);
+            Assert.That(confirmed, Is.Zero);
+
+            view.LeaveGame();
+            view.Decline();
+            Assert.That(view.ConfirmVisible, Is.False);
+            Assert.That(confirmed, Is.Zero);
+
+            view.LeaveGame();
+            view.Accept();
+            Assert.That(view.ConfirmVisible, Is.False);
+            Assert.That(confirmed, Is.EqualTo(1));
+            Assert.That(host.HomeOpenCount, Is.Zero);
+        }
+
+        [Test]
         public void Back_WithoutChanges_LeavesForHome()
         {
             using var presenter = Started();
@@ -425,20 +454,6 @@ namespace Game.Architecture.Tests
                 presenter.GeneralDraft.LanguageCode,
                 Is.EqualTo("en"),
                 "And the language typed on the other tab is still waiting.");
-            Assert.That(view.ActionsEnabled, Is.True);
-        }
-
-        [Test]
-        public void Reset_OnATabWithNoRows_DoesNothing()
-        {
-            using var presenter = Started();
-            view.StepGraphics(GraphicsOption.Hbao, 1);
-            view.SelectTab(SettingsTab.Sound);
-
-            view.Reset();
-            view.Accept();
-
-            Assert.That(presenter.GraphicsDraft.Get(GraphicsOption.Hbao), Is.EqualTo("low"));
             Assert.That(view.ActionsEnabled, Is.True);
         }
 
@@ -702,12 +717,15 @@ namespace Game.Architecture.Tests
         {
             using var presenter = Started();
 
-            Assert.That(view.Bindings.Count, Is.EqualTo(21));
+            Assert.That(view.Bindings.Count, Is.EqualTo(19));
             Assert.That(view.Bindings[ControlAction.MoveForward], Is.EqualTo("W"));
-            Assert.That(view.Bindings[ControlAction.Attack], Is.EqualTo("좌클릭"));
+            Assert.That(view.Bindings[ControlAction.Interact], Is.EqualTo("F"));
+            Assert.That(view.Bindings[ControlAction.PrimaryAction], Is.EqualTo("좌클릭"));
+            Assert.That(view.Bindings[ControlAction.VoiceToggle], Is.EqualTo("B"));
             Assert.That(view.Bindings[ControlAction.Jump], Is.EqualTo("SPACE"));
             Assert.That(view.Bindings[ControlAction.RaiseObject], Is.EqualTo("스크롤 ↑"));
             Assert.That(view.Bindings[ControlAction.LowerObject], Is.EqualTo("스크롤 ↓"));
+            Assert.That(view.Bindings[ControlAction.ToggleKeyGuide], Is.EqualTo("L"));
             Assert.That(view.Sensitivities.Count, Is.EqualTo(3));
             Assert.That(view.Sensitivities[ControlSensitivity.FirstPersonMouse], Is.EqualTo(50));
             Assert.That(view.Reversals.Count, Is.EqualTo(4));
@@ -762,7 +780,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void TheLeftButton_IsRefusedToAnActionOutsideTheGroupThatHoldsIt()
+        public void TheLeftButton_IsRefusedToAnActionThatDoesNotHaveIt()
         {
             using var presenter = Started();
 
@@ -771,8 +789,13 @@ namespace Game.Architecture.Tests
 
             Assert.That(presenter.ControlDraft.Get(ControlAction.Jump), Is.EqualTo("space"));
             Assert.That(
-                presenter.ControlDraft.Get(ControlAction.Attack), Is.EqualTo(ControlCatalog.MouseLeft));
+                presenter.ControlDraft.Get(ControlAction.PrimaryAction),
+                Is.EqualTo(ControlCatalog.MouseLeft));
             Assert.That(view.Notices.Count, Is.EqualTo(1));
+            Assert.That(
+                view.Notices[0],
+                Does.Contain("공격/던지기/배치"),
+                "The refusal names who has it, so the player knows what to move first.");
         }
 
         [Test]
@@ -820,22 +843,81 @@ namespace Game.Architecture.Tests
         }
 
         /// <summary>
-        /// 들기, 놓기 and 파괴장치 상호작용 are meant to share, so one of them
-        /// taking the group's key disturbs nobody.
+        /// Nobody shares a key any more. The two groups that used to are one
+        /// row each now, so the screen's rule has no exception left to make.
         /// </summary>
         [Test]
-        public void AKeyIsKeptByActionsAllowedToShareIt()
+        public void NoTwoActions_ShipOnTheSameKey()
+        {
+            var seen = new Dictionary<string, ControlAction>();
+
+            foreach (ControlAction action in Enum.GetValues(typeof(ControlAction)))
+            {
+                var code = ControlCatalog.Defaults.Get(action);
+                Assert.That(code, Is.Not.Empty, $"{action} ships with no key.");
+                Assert.That(
+                    seen.ContainsKey(code),
+                    Is.False,
+                    $"{action} ships on {code}, which {(seen.TryGetValue(code, out var held) ? held.ToString() : string.Empty)} already has.");
+                seen[code] = action;
+            }
+        }
+
+        /// <summary>
+        /// 물건 상호작용 is 들기·놓기·파괴장치 상호작용 and 공격/던지기/배치 is the
+        /// three the left button did, so the key table's single lines stay
+        /// single lines however the player moves them.
+        /// </summary>
+        [TestCase(ControlAction.Interact, "f", "k")]
+        [TestCase(ControlAction.PrimaryAction, ControlCatalog.MouseLeft, "k")]
+        public void AMergedRow_CarriesItsWholeGroupsKey(
+            ControlAction action, string shipped, string moved)
         {
             using var presenter = Started();
-            Assert.That(presenter.ControlDraft.Get(ControlAction.PickUp), Is.EqualTo("f"));
+            Assert.That(presenter.ControlDraft.Get(action), Is.EqualTo(shipped));
 
-            view.ClickKey(ControlAction.Shredder);
-            keyCapture.Press("f");
+            view.ClickKey(action);
+            keyCapture.Press(moved);
 
-            Assert.That(presenter.ControlDraft.Get(ControlAction.Shredder), Is.EqualTo("f"));
-            Assert.That(presenter.ControlDraft.Get(ControlAction.PickUp), Is.EqualTo("f"));
-            Assert.That(presenter.ControlDraft.Get(ControlAction.Drop), Is.EqualTo("f"));
-            Assert.That(view.Notices, Is.Empty, "Nothing was taken from anybody.");
+            Assert.That(presenter.ControlDraft.Get(action), Is.EqualTo(moved));
+            Assert.That(view.Notices, Is.Empty, "Nobody else was on that key to be disturbed.");
+        }
+
+        /// <summary>
+        /// Y ends the player's hiding turn, read straight off the keyboard by
+        /// the match HUD. No row may take it, and the refusal says who has it.
+        /// </summary>
+        [TestCase("y", "숨기기 완료")]
+        [TestCase("1", "캐릭터 단축키")]
+        [TestCase("numpad1", "캐릭터 단축키")]
+        [TestCase("2", "참가자 목록 단축키")]
+        [TestCase("numpad2", "참가자 목록 단축키")]
+        [TestCase("escape", "환경설정 메뉴")]
+        [TestCase("enter", "채팅")]
+        [TestCase("numpadEnter", "채팅")]
+        public void AReservedKey_IsRefused_AndWhatHoldsItIsNamed(string code, string holder)
+        {
+            using var presenter = Started();
+
+            view.ClickKey(ControlAction.Jump);
+            keyCapture.Press(code);
+
+            Assert.That(presenter.ControlDraft.Get(ControlAction.Jump), Is.EqualTo("space"));
+            Assert.That(view.Notices.Count, Is.EqualTo(1));
+            Assert.That(view.Notices[0], Does.Contain(holder));
+            Assert.That(view.Listening, Is.Null);
+        }
+
+        [Test]
+        public void NoRow_ShipsOnAReservedKey()
+        {
+            foreach (ControlAction action in Enum.GetValues(typeof(ControlAction)))
+            {
+                Assert.That(
+                    ControlCatalog.IsReserved(ControlCatalog.Defaults.Get(action), out var holder),
+                    Is.False,
+                    $"{action} ships on a key that belongs to {holder}.");
+            }
         }
 
         /// <summary>
@@ -862,21 +944,6 @@ namespace Game.Architecture.Tests
             Assert.That(view.Notices[0], Does.Contain("시점 변경"));
             Assert.That(view.ActionsEnabled, Is.False, "Nothing changed, so there is nothing to apply.");
             Assert.That(view.Listening, Is.Null, "And the wait is over either way.");
-        }
-
-        [Test]
-        public void AGroupsKeyIsRefusedToAnOutsider_AndTheGroupKeepsIt()
-        {
-            using var presenter = Started();
-
-            view.ClickKey(ControlAction.Jump);
-            keyCapture.Press("f");
-
-            Assert.That(presenter.ControlDraft.Get(ControlAction.Jump), Is.EqualTo("space"));
-            Assert.That(presenter.ControlDraft.Get(ControlAction.PickUp), Is.EqualTo("f"));
-            Assert.That(presenter.ControlDraft.Get(ControlAction.Drop), Is.EqualTo("f"));
-            Assert.That(presenter.ControlDraft.Get(ControlAction.Shredder), Is.EqualTo("f"));
-            Assert.That(view.Notices[0], Does.Contain("물건 들기"));
         }
 
         /// <summary>

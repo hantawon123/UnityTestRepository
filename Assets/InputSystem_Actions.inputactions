@@ -165,6 +165,16 @@
                     "interactions": "",
                     "initialStateCheck": false,
                     "priority": 0
+                },
+                {
+                    "name": "ToggleKeyGuide",
+                    "type": "Button",
+                    "id": "4c8e2a71-9d3b-4f16-a8e2-7b1c5d0e9f24",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false,
+                    "priority": 0
                 }
             ],
             "bindings": [
@@ -609,15 +619,37 @@
                     "isPartOfComposite": true
                 },
                 {
-                    "name": "",
-                    "id": "c6aed00c-2e4a-4322-856d-5df3e9366727",
-                    "path": "<Mouse>/scroll/y",
+                    "name": "1DAxis",
+                    "id": "0f8c4a91-5b2e-4d6a-9c31-7a4e2b8d5c60",
+                    "path": "1DAxis",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "AdjustHeight",
+                    "isComposite": true,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "negative",
+                    "id": "3b7d2e14-8a6f-4c09-b52d-1e9f6c30a874",
+                    "path": "<Mouse>/scroll/down",
                     "interactions": "",
                     "processors": "",
                     "groups": "Keyboard&Mouse",
                     "action": "AdjustHeight",
                     "isComposite": false,
-                    "isPartOfComposite": false
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "positive",
+                    "id": "6d51c8a3-2f70-4b8e-a147-9c05e3b2d716",
+                    "path": "<Mouse>/scroll/up",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Keyboard&Mouse",
+                    "action": "AdjustHeight",
+                    "isComposite": false,
+                    "isPartOfComposite": true
                 },
                 {
                     "name": "",
@@ -638,6 +670,17 @@
                     "processors": "",
                     "groups": "Keyboard&Mouse",
                     "action": "VoiceToggle",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "a19d6e42-8c70-4b3f-91e5-2d4f7a8c0b63",
+                    "path": "<Keyboard>/l",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Keyboard&Mouse",
+                    "action": "ToggleKeyGuide",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

@@ -159,28 +159,42 @@ namespace Game.Architecture.Tests
             string categoryId,
             bool expected)
         {
-            Assert.That(
-                MatchRuleSettings.TryCreate(
-                    60,
-                    5,
-                    1.5f,
-                    4,
-                    categoryId,
-                    out var rules,
-                    out _),
-                Is.True);
+            // Production loads the authored catalog at startup; EditMode tests must
+            // provide their own data and restore the shared catalog afterwards.
+            var previousDefinitions = Game.Core.Items.ItemCatalog.Definitions;
+            try
+            {
+                Game.Core.Items.ItemCatalog.Configure(new[]
+                {
+                    new Game.Core.Items.ItemDefinition("test_food", "food", "Test food")
+                });
+                Assert.That(
+                    MatchRuleSettings.TryCreate(
+                        60,
+                        5,
+                        1.5f,
+                        4,
+                        categoryId,
+                        out var rules,
+                        out _),
+                    Is.True);
 
-            Assert.That(
-                NetworkRunnerService.TryValidateLobbySettingsRequest(
-                    hasAuthority,
-                    hasValidSession,
-                    currentPlayerCount,
-                    maxPlayers,
-                    destructionLimit,
-                    mapId,
-                    rules,
-                    out _),
-                Is.EqualTo(expected));
+                Assert.That(
+                    NetworkRunnerService.TryValidateLobbySettingsRequest(
+                        hasAuthority,
+                        hasValidSession,
+                        currentPlayerCount,
+                        maxPlayers,
+                        destructionLimit,
+                        mapId,
+                        rules,
+                        out _),
+                    Is.EqualTo(expected));
+            }
+            finally
+            {
+                Game.Core.Items.ItemCatalog.Configure(previousDefinitions);
+            }
         }
 
         [TestCase(Game.Core.Flow.AppFlowState.Lobby)]
@@ -209,6 +223,27 @@ namespace Game.Architecture.Tests
             Assert.That(flow.CurrentState, Is.EqualTo(Game.Core.Flow.AppFlowState.Home));
             Assert.That(room.LastExit.CurrentValue, Is.EqualTo(Game.Core.Rooms.RoomExitReason.HostClosed),
                 "The next browser view must still receive the reason.");
+        }
+
+        [Test]
+        public void RoomDisconnect_ShowsLoadingWhenReturningHome()
+        {
+            using var room = new Game.Core.Lobby.RoomBrowserSystem();
+            var flow = new Game.Core.Flow.AppFlowSystem();
+            flow.TryTransitionTo(Game.Core.Flow.AppFlowState.Lobby);
+            var application = new DisconnectApplicationSpy();
+            var loading = new DisconnectLoadingSpy();
+            using var controller = new Game.Bootstrap.NetworkRoomDisconnectController(
+                new NetworkRunnerService(null, null, null, null, null, null),
+                room,
+                flow,
+                application,
+                loading);
+            controller.Start();
+            room.RoomClosed(Game.Core.Rooms.RoomExitReason.Left);
+            controller.Tick();
+            Assert.That(loading.ShowCalls, Is.EqualTo(1));
+            Assert.That(application.HomeCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -302,6 +337,9 @@ namespace Game.Architecture.Tests
             var session = NetworkRunnerService.ConfigureSession(source);
             Assert.That(session.HostMigration.EnableAutoUpdate, Is.False);
             Assert.That(session.Heap.PageShift, Is.EqualTo(pageShift));
+#if UNITY_WEBGL
+            Assert.That(session.AllowClientServerModesInWebGL, Is.True);
+#endif
         }
 
         private sealed class DisconnectApplicationSpy : Game.Client.Home.IHomeApplicationHost
@@ -322,6 +360,16 @@ namespace Game.Architecture.Tests
             }
 
             public void OpenLobby() { }
+        }
+
+        private sealed class DisconnectLoadingSpy : Game.Client.Common.ILoadingOverlay
+        {
+            public int ShowCalls { get; private set; }
+            public bool IsPresented => ShowCalls > 0;
+            public void Show() => ShowCalls++;
+            public void Hide() { }
+            public void HideImmediate() { }
+            public void Attach(Game.Client.Common.ILoadingView view) { }
         }
 
         [Test]
@@ -353,6 +401,34 @@ namespace Game.Architecture.Tests
             Assert.That(view.Opacity, Is.EqualTo(1f), "Re-entry starts a fresh placement wait.");
             nextVisit.Dispose();
             Assert.That(view.Opacity, Is.Zero, "Leaving before placement must not leave a black screen.");
+        }
+
+        [Test]
+        public void LobbyEntry_LoadingCoverStaysUnobscuredUntilCameraIsReady()
+        {
+            var view = new EntryTransitionSpy();
+            var loading = new Game.Client.Common.LoadingOverlay();
+            loading.Show();
+            var binder = new Game.Bootstrap.LobbyPlayerCameraBinder(
+                new NetworkRunnerService(null, null, null, null, null, null), view, loading);
+
+            binder.UpdateEntryTransition(false, 100);
+            Assert.That(view.Opacity, Is.Zero);
+            binder.UpdateEntryTransition(true, 101);
+            Assert.That(view.Opacity, Is.Zero, "Camera settling must not cover the loading artwork.");
+            binder.UpdateEntryTransition(true, 102);
+            Assert.That(view.Opacity, Is.Zero);
+            binder.UpdateEntryTransition(false, 103);
+            Assert.That(loading.IsPresented, Is.True, "Lost readiness must retain the same cover.");
+            binder.UpdateEntryTransition(true, 104);
+            Assert.That(view.Opacity, Is.Zero);
+            binder.UpdateEntryTransition(true, 106,
+                Game.Client.Lobby.LobbySceneFade.DurationSeconds * 0.5f);
+            Assert.That(view.Opacity, Is.Zero, "The fade must not draw over the loading canvas.");
+            Assert.That(loading.IsPresented, Is.True);
+            binder.UpdateEntryTransition(true, 107, Game.Client.Lobby.LobbySceneFade.DurationSeconds);
+            Assert.That(view.Opacity, Is.Zero);
+            Assert.That(loading.IsPresented, Is.False, "Only completed entry releases the cover.");
         }
 
         private sealed class EntryTransitionSpy : Game.Client.Match.IHighlightTransitionView
@@ -847,6 +923,19 @@ namespace Game.Architecture.Tests
             Assert.That(
                 NetworkPlayerMotor.MoveSpeedForPosture(settings, posture, true),
                 Is.EqualTo(2f));
+        }
+
+        [TestCase(PlayerPosture.Crouching)]
+        [TestCase(PlayerPosture.Prone)]
+        public void NetworkPlayer_JumpStandsUpWithoutLeavingGround(PlayerPosture posture)
+        {
+            var input = NetworkPlayerInput.FromIntent(new PlayerInputIntent(
+                0f, 0f, 0f, PlayerInputButtons.Jump));
+            var after = NetworkPlayerMotor.ResolvePosture(posture, true, input, default);
+            Assert.That(after, Is.EqualTo(PlayerPosture.Standing));
+            Assert.That(NetworkPlayerMotor.CanJump(true, posture, after), Is.False);
+            Assert.That(NetworkPlayerMotor.CanJump(true, after, after), Is.True);
+            Assert.That(NetworkPlayerMotor.CanJump(false, after, after), Is.False);
         }
 
         [Test]

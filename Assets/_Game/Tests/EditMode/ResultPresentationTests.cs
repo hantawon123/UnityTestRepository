@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Bootstrap;
+using Game.Client.Common;
 using Game.Client.Match;
 using Game.Core.Items;
 using Game.Core.Lobby;
@@ -14,6 +15,27 @@ namespace Game.Architecture.Tests
 {
     public sealed class ResultPresentationTests
     {
+        [Test]
+        public void MatchSettingsLayout_PreservesBackgroundBeforeMenu()
+        {
+            var root = new UnityEngine.GameObject("Settings test", typeof(UnityEngine.Canvas),
+                typeof(UnityEngine.UI.CanvasScaler));
+            try
+            {
+                foreach (var name in new[] { "Background", "Panel", "Confirm" })
+                    new UnityEngine.GameObject(name, typeof(UnityEngine.RectTransform)).transform.SetParent(root.transform, false);
+                MatchSettingsOverlay.ConfigureCanvas(root.GetComponent<UnityEngine.Canvas>());
+                var content = root.transform.GetChild(0);
+                Assert.That(root.transform.childCount, Is.EqualTo(1));
+                Assert.That(content.GetChild(0).name, Is.EqualTo("Background"));
+                Assert.That(content.GetChild(1).name, Is.EqualTo("Panel"));
+                Assert.That(content.GetChild(2).name, Is.EqualTo("Confirm"));
+                Assert.That(root.GetComponent<UnityEngine.UI.CanvasScaler>().referenceResolution,
+                    Is.EqualTo(new UnityEngine.Vector2(1920f, 1080f)));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+        }
+
         [Test]
         public void HighlightPhase_ShowsResultBeforePreparingLobby()
         {
@@ -43,6 +65,78 @@ namespace Game.Architecture.Tests
 
             Assert.That(network.PrepareLobbyCalls, Is.EqualTo(1));
             Assert.That(network.ReturnCalls, Is.Zero);
+        }
+
+        [Test]
+        public void HighlightPhase_DoesNotKeepLoadingOverHighlights()
+        {
+            using var room = CreateRoom();
+            var network = new FakeNetwork();
+            var loading = new FakeLoading();
+            using var controller = new NetworkResultLobbyReturnController(network, network, room, loading);
+            controller.Start();
+
+            loading.Show();
+            network.Publish(new MatchResult(MatchEndReason.TimeExpired, 0d, new[] { 1 }));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 100d));
+            controller.Tick(HighlightPresentationTiming.FadeSeconds);
+            network.IsResultSceneLoaded = true;
+            // Observe scene readiness before advancing its display-duration clock.
+            controller.Tick(HighlightPresentationTiming.FadeSeconds);
+            controller.Tick(
+                HighlightPresentationTiming.FadeSeconds +
+                NetworkResultLobbyReturnController.ResultDisplaySeconds);
+
+            Assert.That(NetworkResultLobbyReturnController.ShouldShowForLobbyReturn(
+                MatchPhase.Highlight, true, true), Is.False);
+            Assert.That(loading.IsPresented, Is.False);
+            Assert.That(loading.HideImmediateCalls, Is.GreaterThan(0));
+            Assert.That(network.PrepareLobbyCalls, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void HighlightThenResult_DoesNotShowLoadingForEveryone()
+        {
+            using var room = CreateRoom();
+            var network = new FakeNetwork();
+            var loading = new FakeLoading();
+            using var controller = new NetworkResultLobbyReturnController(network, network, room, loading);
+            controller.Start();
+
+            network.Publish(new MatchResult(MatchEndReason.TimeExpired, 0d, new[] { 1 }));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Highlight, 100d));
+            controller.Tick(HighlightPresentationTiming.FadeSeconds);
+            network.IsResultSceneLoaded = true;
+            controller.Tick(
+                HighlightPresentationTiming.FadeSeconds +
+                NetworkResultLobbyReturnController.ResultDisplaySeconds);
+            var showsBeforeResult = loading.ShowCalls;
+            network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0d));
+            controller.Tick(200d);
+
+            Assert.That(NetworkResultLobbyReturnController.ShouldShowForLobbyReturn(
+                MatchPhase.Result, true, true), Is.False);
+            Assert.That(loading.ShowCalls, Is.EqualTo(showsBeforeResult));
+            Assert.That(loading.IsPresented, Is.False);
+        }
+
+        [Test]
+        public void ResultPhaseWithoutHighlights_ShowsLoadingBeforeReturningToLobby()
+        {
+            using var room = CreateRoom();
+            var network = new FakeNetwork();
+            var loading = new FakeLoading();
+            using var controller = new NetworkResultLobbyReturnController(network, network, room, loading);
+            controller.Start();
+
+            network.Publish(new MatchResult(MatchEndReason.TimeExpired, 100, new[] { 1 }));
+            network.Publish(new MatchStateSnapshot(MatchPhase.Result, 0));
+            controller.Tick(0);
+
+            Assert.That(NetworkResultLobbyReturnController.ShouldShowForLobbyReturn(
+                MatchPhase.Result, true, false), Is.True);
+            Assert.That(loading.ShowCalls, Is.GreaterThan(0));
+            Assert.That(loading.IsPresented, Is.True);
         }
 
         [Test]
@@ -255,6 +349,31 @@ namespace Game.Architecture.Tests
             public event Action<IReadOnlyList<HighlightReplayData>> HighlightReplayReceived;
             public void Publish(MatchStateSnapshot value) => MatchStateReceived?.Invoke(value);
             public void Publish(MatchResult value) => MatchResultReceived?.Invoke(value);
+        }
+
+        private sealed class FakeLoading : ILoadingOverlay
+        {
+            public bool IsPresented { get; private set; }
+            public int ShowCalls { get; private set; }
+            public int HideImmediateCalls { get; private set; }
+
+            public void Show()
+            {
+                ShowCalls++;
+                IsPresented = true;
+            }
+
+            public void Hide() => IsPresented = false;
+
+            public void HideImmediate()
+            {
+                HideImmediateCalls++;
+                IsPresented = false;
+            }
+
+            public void Attach(ILoadingView view)
+            {
+            }
         }
     }
 }

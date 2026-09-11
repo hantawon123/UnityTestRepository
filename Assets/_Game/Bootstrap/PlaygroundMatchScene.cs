@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Game.Client.Interactions;
 using Game.Core.Items;
@@ -41,32 +42,18 @@ namespace Game.Bootstrap
             }
 
             var items = CaptureUniqueItems(scene);
-            foreach (var definition in ItemCatalog.Definitions)
+            var catalog = ItemCatalogSO.Load();
+            var assignmentDefinitions = ItemCatalog.AssignmentDefinitions.ToArray();
+            var assignments = new HashSet<string>(assignmentDefinitions.Select(d => d.ItemId), StringComparer.Ordinal);
+            var sources = catalog.categories.Where(c => c.enabled).SelectMany(c => c.items.Where(i => i.enabled));
+            foreach (var source in sources)
             {
-                if (!items.ContainsKey(definition.ItemId))
-                {
-                    throw new InvalidOperationException(
-                        $"Match scene '{scene.name}' is missing item '{definition.ItemId}' from the ItemCatalog. " +
-                        "Every catalog item must exist as a CarryableItem in the map " +
-                        "(do not delete the CatalogItems holder).");
-                }
-            }
-
-            var assignmentDefinitions = new ItemDefinition[ItemCatalog.AssignmentDefinitions.Count];
-            var assignments = new HashSet<string>(StringComparer.Ordinal);
-            for (var index = 0; index < assignmentDefinitions.Length; index++)
-            {
-                var assignedDefinition = ItemCatalog.AssignedDefinition(index);
-                assignmentDefinitions[index] = assignedDefinition;
-                assignments.Add(assignedDefinition.ItemId);
-
-                if (!items.ContainsKey(assignedDefinition.ItemId))
-                {
-                    var copy = CreateAssignedCopy(
-                        items[ItemCatalog.AssignedSourceDefinition(index).ItemId],
-                        assignedDefinition.ItemId);
-                    items.Add(assignedDefinition.ItemId, copy);
-                }
+                if (items.ContainsKey(source.id)) continue;
+                var sourceItem = source.prefab.GetComponent<CarryableItem>();
+                if (sourceItem == null) throw new InvalidOperationException($"{source.id}: prefab requires CarryableItem.");
+                var copy = CreateAssignedCopy(sourceItem, source.id);
+                SceneManager.MoveGameObjectToScene(copy.gameObject, scene);
+                items.Add(source.id, copy);
             }
 
             var worldObjects = new List<WorldObjectState>();
@@ -91,18 +78,14 @@ namespace Game.Bootstrap
             {
                 var definition = assignmentDefinitions[index];
                 var copy = items[definition.ItemId];
-                var source = items[ItemCatalog.AssignedSourceDefinition(index).ItemId];
-                volumes.Add(CaptureVolume(source, definition.ItemId));
+                volumes.Add(CaptureVolume(copy, definition.ItemId));
                 replayItems.Add(copy);
             }
 
             foreach (var item in worldItems)
             {
                 volumes.Add(CaptureVolume(item));
-                if (replayItems.Count < MaxReplayObjectCount)
-                {
-                    replayItems.Add(item);
-                }
+                replayItems.Add(item);
             }
 
             // 파쇄기가 여러 대면 'ShredderSpot' 이름의 튕김 지점도 여러 개다. 전부 모아 서버가 가장 가까운 것을 고르게 한다.
@@ -211,7 +194,9 @@ namespace Game.Bootstrap
             Scene scene,
             IReadOnlyList<Pose> fallbackPoints)
         {
-            var poses = new Pose[MatchRulesSO.MaxPlayerCount];
+            // 런타임 구성은 대기 지점이 스폰 지점 수 이상이길 요구한다. 스폰 지점이 최대 인원보다 많은 맵(마트 10개)은
+            // 그만큼 채우고, 없는 번호는 같은 번호의 스폰 지점으로 대신한다.
+            var poses = new Pose[Math.Max(MatchRulesSO.MaxPlayerCount, fallbackPoints.Count)];
             for (var index = 0; index < poses.Length; index++)
             {
                 poses[index] = TryFindTransform(
@@ -314,6 +299,7 @@ namespace Game.Bootstrap
                             replayObjects.Add(new WorldObjectState(
                                 item.ObjectId,
                                 new Pose(item.transform.position, item.transform.rotation)));
+                            if (replayObjects.Count == MaxReplayObjectCount) break;
                         }
                     }
 

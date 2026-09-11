@@ -18,6 +18,10 @@ namespace Game.Bootstrap
         private readonly NetworkRunnerService network;
         private bool opened, chatWasEnabled;
 
+        // A local skip exposes the lobby before the shared highlight phase ends.
+        private bool CanUseSettings => !network.HasRoomSession || network.IsWaitingForMatch ||
+            (network.IsHighlightInProgress && network.IsLocalHighlightComplete);
+
         public LobbySettingsOverlay(ILobbyPauseMenuView menu, LobbyPauseMenuPresenter pause,
             SettingsView view, SettingsPresenter presenter, MatchChatView chat, NetworkRunnerService network)
         {
@@ -29,7 +33,7 @@ namespace Game.Bootstrap
         {
             menu.SettingsClicked += OpenFromMenu;
             pause.SettingsOpenRequested += OpenFromWorld;
-            view.LeaveGameRequested += OnLeaveGame;
+            presenter.LeaveGameConfirmed += OnLeaveGame;
             view.Closed += OnClosed;
         }
 
@@ -39,12 +43,20 @@ namespace Game.Bootstrap
 
         private void Open(bool fromWorld)
         {
-            if (opened || (network.HasRoomSession && !network.IsWaitingForMatch)) return;
+            if (opened || !CanUseSettings) return;
             opened = true;
             chatWasEnabled = chat.enabled;
             chat.enabled = false;
             view.gameObject.SetActive(true);
-            pause.OpenSettingsScreen(view.RequestBack, fromWorld);
+            pause.OpenSettingsScreen(Hide, fromWorld);
+        }
+
+        private void Hide()
+        {
+            if (view != null)
+            {
+                view.gameObject.SetActive(false);
+            }
         }
 
         private void OnLeaveGame()
@@ -61,7 +73,7 @@ namespace Game.Bootstrap
                 chat.enabled = chatWasEnabled;
             }
 
-            view.gameObject.SetActive(false);
+            Hide();
             pause.LeaveRoom();
         }
 
@@ -77,7 +89,7 @@ namespace Game.Bootstrap
         public void Tick()
         {
             // Another participant can start the match while this local panel is open.
-            if (opened && network.HasRoomSession && !network.IsWaitingForMatch)
+            if (opened && !CanUseSettings)
                 view.gameObject.SetActive(false);
         }
 
@@ -85,7 +97,7 @@ namespace Game.Bootstrap
         {
             menu.SettingsClicked -= OpenFromMenu;
             pause.SettingsOpenRequested -= OpenFromWorld;
-            view.LeaveGameRequested -= OnLeaveGame;
+            presenter.LeaveGameConfirmed -= OnLeaveGame;
             view.Closed -= OnClosed;
             if (opened && chat != null) chat.enabled = chatWasEnabled;
         }

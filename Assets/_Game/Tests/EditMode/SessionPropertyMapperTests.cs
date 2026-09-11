@@ -111,6 +111,23 @@ namespace Game.Architecture.Tests
             }
         }
 
+        [Test]
+        public void PackedRules_Version1ReadsMinutes_Version2ReadsSeconds()
+        {
+            var v1 = SessionPropertyMapper.ReadPackedMatchRules(
+                "{\"version\":1,\"hiding\":30,\"searching\":5,\"sprint\":1,\"stun\":3}",
+                default);
+            Assert.That(v1.HidingDurationSeconds, Is.EqualTo(30));
+            Assert.That(v1.SearchingDurationSeconds, Is.EqualTo(300));
+
+            Assert.That(MatchRuleSettings.TryCreateSeconds(45, 90, 1f, 3, "food", out var created, out _), Is.True);
+            var properties = SessionPropertyMapper.BuildLobbySettings(6, 5, "Playground", created);
+            var read = SessionPropertyMapper.ReadPackedMatchRules(
+                (string)properties[SessionPropertyKeys.MatchRules], default);
+            Assert.That(read, Is.EqualTo(created));
+            Assert.That(read.SearchingDurationSeconds, Is.EqualTo(90));
+        }
+
         [TestCase(null)]
         [TestCase("")]
         [TestCase("broken")]
