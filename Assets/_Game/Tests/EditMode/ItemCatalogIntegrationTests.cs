@@ -36,6 +36,22 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void LabelOf_ReturnsCatalogLabelAndFallsBackToId()
+        {
+            var catalog = ItemCatalogSO.Load();
+            var category = catalog.categories.First(c => c.enabled);
+            Assert.That(
+                Game.Client.Lobby.PlaySettingsCategoryCatalog.LabelOf(category.id),
+                Is.EqualTo(category.label));
+            Assert.That(
+                Game.Client.Lobby.PlaySettingsCategoryCatalog.LabelOf(string.Empty),
+                Is.EqualTo("랜덤"));
+            Assert.That(
+                Game.Client.Lobby.PlaySettingsCategoryCatalog.LabelOf("missing_category"),
+                Is.EqualTo("missing_category"));
+        }
+
+        [Test]
         public void Random_ChoosesOneCategory_AndCanReachEveryEnabledCategory()
         {
             ItemCatalogSO.Load();
