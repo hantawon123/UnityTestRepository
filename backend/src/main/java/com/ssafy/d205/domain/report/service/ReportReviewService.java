@@ -55,7 +55,8 @@ public class ReportReviewService {
                                 row.getReporterCount(),
                                 row.getFromDeletedAccounts(),
                                 reasons.getOrDefault(row.getUserId(), Map.of()),
-                                row.getLastReportedAt()))
+                                row.getLastReportedAt(),
+                                row.getSuspendedAt() != null))
                         .toList());
     }
 
