@@ -26,15 +26,31 @@ public record AccountResponse(
         boolean searchable,
         boolean appearanceSet,
         AppearanceResponse appearance,
-        String createdAt
+        String createdAt,
+
+        /**
+         * Photon 커스텀 인증에 실어 보낼 토큰입니다(S15P21D205-925).
+         *
+         * <p>서버 비밀이 설정되지 않았으면 null 입니다. 그때는 인증도 꺼진 상태라
+         * 클라이언트가 들고 갈 것이 없습니다.
+         *
+         * <p>userId 와 짝입니다. 이것 없이 userId 만 보내면 정지된 사람이 남의 값을 넣어
+         * Photon 접속을 통과합니다.
+         */
+        String photonToken
 ) {
     /** 외형을 아직 고르지 않은 계정. 새로 만든 계정은 늘 여기입니다. */
     public static AccountResponse from(User user) {
-        return from(user, null);
+        return from(user, null, null);
     }
 
     /** @param appearance 저장된 외형. 없으면 null. */
     public static AccountResponse from(User user, UserAppearance appearance) {
+        return from(user, appearance, null);
+    }
+
+    /** @param photonToken Photon 인증 토큰. 비밀이 없으면 null. */
+    public static AccountResponse from(User user, UserAppearance appearance, String photonToken) {
         return new AccountResponse(
                 user.getPublicId(),
                 user.getNickname(),
@@ -42,6 +58,7 @@ public record AccountResponse(
                 user.isSearchable(),
                 appearance != null,
                 appearance == null ? null : AppearanceResponse.from(appearance),
-                user.getCreatedAt());
+                user.getCreatedAt(),
+                photonToken);
     }
 }

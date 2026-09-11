@@ -19,7 +19,8 @@ namespace Game.Core.Backend
             bool nicknameSet,
             bool searchable,
             bool appearanceSet = false,
-            AvatarAppearance appearance = default)
+            AvatarAppearance appearance = default,
+            string photonToken = null)
         {
             if (string.IsNullOrWhiteSpace(userId))
             {
@@ -37,6 +38,7 @@ namespace Game.Core.Backend
             Searchable = searchable;
             AppearanceSet = appearanceSet;
             Appearance = appearance;
+            PhotonToken = photonToken;
         }
 
         /// <summary>
@@ -93,5 +95,16 @@ namespace Game.Core.Backend
         /// other.
         /// </remarks>
         public bool Searchable { get; }
+
+        /// <summary>
+        /// Proves to Photon that this client is <see cref="UserId"/>. Null when
+        /// the server is not running Photon authentication.
+        /// </summary>
+        /// <remarks>
+        /// Not stored on this machine. Every launch reads the account again, so
+        /// a token that stopped working (the server rotated its secret) is
+        /// replaced without the player doing anything.
+        /// </remarks>
+        public string PhotonToken { get; }
     }
 }

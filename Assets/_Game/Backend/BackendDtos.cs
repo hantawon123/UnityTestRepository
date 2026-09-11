@@ -43,6 +43,17 @@ namespace Game.Backend
         public bool appearanceSet;
 
         public AppearanceDto appearance;
+
+        /// <summary>
+        /// Proves to Photon that this client really is <see cref="userId"/>.
+        /// </summary>
+        /// <remarks>
+        /// Empty when the server has no signing secret configured, which also
+        /// means Photon custom authentication is off and there is nothing to
+        /// carry. Sent alongside the id on every Photon connection; the id on
+        /// its own would let a suspended player type someone else's and get in.
+        /// </remarks>
+        public string photonToken;
     }
 
     /// <summary>

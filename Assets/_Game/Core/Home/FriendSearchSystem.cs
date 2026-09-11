@@ -6,7 +6,8 @@ namespace Game.Core.Home
     public enum FriendRequestState
     {
         None,
-        Pending
+        Pending,
+        Incoming
     }
 
     public readonly struct FriendSearchHit
@@ -40,6 +41,7 @@ namespace Game.Core.Home
         public string Nickname { get; }
         public FriendRequestState RequestState { get; }
         public bool IsPending => RequestState == FriendRequestState.Pending;
+        public bool IsIncoming => RequestState == FriendRequestState.Incoming;
     }
 
     public sealed class FriendSearchSystem
@@ -109,26 +111,8 @@ namespace Game.Core.Home
             RebuildResults();
         }
 
-        /// <summary>
-        /// Hides the people who have already asked to be friends with this
-        /// player, and stops requests being sent back to them.
-        /// </summary>
-        /// <remarks>
-        /// A separate set from the friends one, not the same one, because the
-        /// two are refreshed at different moments: reading the friend list would
-        /// otherwise wipe the requesters, and reading the requests would wipe
-        /// the friends.
-        /// <para>
-        /// Hidden rather than shown with a different button. The panel lists
-        /// received requests directly above these results with an accept button
-        /// on each, so the person is already on screen with the right action
-        /// beside them. Leaving them here too offered a second, worse way to
-        /// reach the same outcome — the server settles a mutual request on the
-        /// spot, so pressing it worked, but the screen was showing one person as
-        /// two things at once.
-        /// </para>
-        /// </remarks>
-        public void ExcludeIncomingRequests(IEnumerable<string> requesterIds)
+        /// <summary>Tracks received requests while keeping their search results visible.</summary>
+        public void ReplaceIncomingRequests(IEnumerable<string> requesterIds)
         {
             if (requesterIds == null)
             {
@@ -161,8 +145,7 @@ namespace Game.Core.Home
 
         private bool IsHidden(string playerId)
         {
-            return excludedFriendIds.Contains(playerId)
-                || incomingRequestIds.Contains(playerId);
+            return excludedFriendIds.Contains(playerId);
         }
 
         public void ClearResults()
@@ -185,7 +168,7 @@ namespace Game.Core.Home
             }
 
             var id = playerId.Trim();
-            if (IsHidden(id) || pendingRequests.Contains(id))
+            if (IsHidden(id) || pendingRequests.Contains(id) || incomingRequestIds.Contains(id))
             {
                 return false;
             }
@@ -240,6 +223,15 @@ namespace Game.Core.Home
             }
         }
 
+        public void ReplaceOutgoingRequests(IEnumerable<string> playerIds)
+        {
+            if (playerIds == null) throw new ArgumentNullException(nameof(playerIds));
+            pendingRequests.Clear();
+            foreach (var id in playerIds)
+                if (!string.IsNullOrWhiteSpace(id)) pendingRequests.Add(id.Trim());
+            RebuildResults();
+        }
+
         private void RebuildResults()
         {
             var next = new List<FriendSearchHit>();
@@ -253,7 +245,9 @@ namespace Game.Core.Home
                         continue;
                     }
 
-                    var state = pendingRequests.Contains(user.PlayerId)
+                    var state = incomingRequestIds.Contains(user.PlayerId)
+                        ? FriendRequestState.Incoming
+                        : pendingRequests.Contains(user.PlayerId)
                         ? FriendRequestState.Pending
                         : FriendRequestState.None;
                     next.Add(new FriendSearchHit(user.PlayerId, user.Nickname, state));

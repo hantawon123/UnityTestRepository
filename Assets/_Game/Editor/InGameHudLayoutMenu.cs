@@ -44,17 +44,39 @@ namespace Game.Editor
         [MenuItem(MenuPath)]
         public static void BuildHudLayout()
         {
+            BuildHudLayout(ScenePath, createWaitingSpawnPoints: true);
+        }
+
+        /// <summary>
+        /// 열려 있는 맵 씬(마트 등)에 같은 HUD를 만든다. 대기 스폰 지점은 만들지 않는다
+        /// (맵마다 위치가 달라 직접 놓는다). 씬에 <see cref="PlaygroundLifetimeScope"/>가 있어야 한다.
+        /// </summary>
+        [MenuItem("Game/InGame/Build HUD Layout (Active Scene)")]
+        public static void BuildHudLayoutInActiveScene()
+        {
+            var active = SceneManager.GetActiveScene();
+            if (!active.IsValid() || string.IsNullOrEmpty(active.path))
+            {
+                Debug.LogWarning("[InGame HUD] 저장된 씬을 연 뒤 실행하세요.");
+                return;
+            }
+
+            BuildHudLayout(active.path, createWaitingSpawnPoints: false);
+        }
+
+        public static void BuildHudLayout(string scenePath, bool createWaitingSpawnPoints)
+        {
             if (EditorApplication.isPlayingOrWillChangePlaymode)
             {
                 Debug.LogWarning("Play 모드를 종료한 뒤 인게임 HUD를 생성하세요.");
                 return;
             }
 
-            var scene = SceneManager.GetSceneByPath(ScenePath);
+            var scene = SceneManager.GetSceneByPath(scenePath);
             var wasLoaded = scene.IsValid() && scene.isLoaded;
             if (!wasLoaded)
             {
-                scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Additive);
+                scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
             }
 
             try
@@ -76,7 +98,10 @@ namespace Game.Editor
                 EnsureDestroyedItemsHud(hud);
                 EnsureUrgencyBorder(hud);
                 EnsureVoiceButton(hud);
-                EnsureWaitingSpawnPoints(scene);
+                if (createWaitingSpawnPoints)
+                {
+                    EnsureWaitingSpawnPoints(scene);
+                }
 
                 ConnectLifetimeScope(scene, hud);
                 EditorSceneManager.MarkSceneDirty(scene);
@@ -290,7 +315,7 @@ namespace Game.Editor
             if (scope == null)
             {
                 throw new System.InvalidOperationException(
-                    "Playground 씬에 PlaygroundLifetimeScope가 없습니다.");
+                    $"'{scene.name}' 씬에 PlaygroundLifetimeScope(매치 씬 조립)가 없습니다. 먼저 추가하세요.");
             }
 
             Assign(scope, "matchHudView", hud);

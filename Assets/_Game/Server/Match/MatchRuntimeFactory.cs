@@ -127,7 +127,8 @@ namespace Game.Server.Match
             IReadOnlyList<WorldObjectState> initialWorldObjects = null,
             int? destructionUsesPerPlayer = null,
             IReadOnlyList<PlayerItemAssignment> specifiedAssignments = null,
-            MatchRuleSettings? matchRules = null)
+            MatchRuleSettings? matchRules = null,
+            IReadOnlyList<Pose> waitingSpawnPoints = null)
         {
             if (participantIds == null)
             {
@@ -156,7 +157,8 @@ namespace Game.Server.Match
                     random,
                     initialWorldObjects,
                     specifiedAssignments,
-                    matchRules);
+                    matchRules,
+                    waitingSpawnPoints);
                 return new MatchSessionComposition(state, session);
             }
             catch
@@ -175,7 +177,8 @@ namespace Game.Server.Match
             IReadOnlyList<WorldObjectState> initialWorldObjects = null,
             int? destructionUsesPerPlayer = null,
             IReadOnlyList<PlayerItemAssignment> specifiedAssignments = null,
-            MatchRuleSettings? matchRules = null)
+            MatchRuleSettings? matchRules = null,
+            IReadOnlyList<Pose> waitingSpawnPoints = null)
         {
             return CreateSession(
                 CaptureParticipantIds(participants),
@@ -186,14 +189,15 @@ namespace Game.Server.Match
                 initialWorldObjects,
                 destructionUsesPerPlayer,
                 specifiedAssignments,
-                matchRules);
+                matchRules,
+                waitingSpawnPoints);
         }
 
         public MatchSessionComposition RestoreSession(
             MatchMigrationState snapshot, double now, IPlacementValidator validator,
             IReadOnlyList<Pose> spawnPoints, IReadOnlyList<ItemDefinition> itemDefinitions,
             IReadOnlyList<WorldObjectState> initialObjects, int destructionUses,
-            MatchRuleSettings? matchRules = null)
+            MatchRuleSettings? matchRules = null, IReadOnlyList<Pose> waitingSpawnPoints = null)
         {
             if (snapshot?.Players == null) throw new ArgumentNullException(nameof(snapshot));
             var ids = new string[snapshot.Players.Length];
@@ -212,7 +216,8 @@ namespace Game.Server.Match
                 if (!found) throw new ArgumentException("Unknown migrated assignment.", nameof(snapshot));
             }
             var created = CreateSession(ids, validator, spawnPoints, itemDefinitions,
-                new System.Random(0), initialObjects, destructionUses, assignments, matchRules);
+                new System.Random(0), initialObjects, destructionUses, assignments, matchRules,
+                waitingSpawnPoints);
             try
             {
                 created.Session.RestoreMigration(snapshot, now);

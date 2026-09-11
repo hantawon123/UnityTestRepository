@@ -403,6 +403,12 @@ namespace Game.Network.Session
                 {
                     GameMode = hostMigrationToken.GameMode,
                     PlayerUniqueId = _playerUniqueId,
+
+                    // Host migration builds its own connection, so it authenticates
+                    // on its own too (S15P21D205-925). Leaving this out would let a
+                    // suspended player rejoin whenever the host changed - and the
+                    // host leaving is exactly when that happens.
+                    AuthValues = BuildAuthValues(),
                     HostMigrationToken = hostMigrationToken,
                     HostMigrationResume = resumedRunner =>
                     {

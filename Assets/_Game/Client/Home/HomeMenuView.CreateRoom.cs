@@ -1,7 +1,9 @@
 using System;
+using Game.Client.Common;
 using Game.Core.Home;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Game.Client.Home
@@ -257,10 +259,17 @@ namespace Game.Client.Home
             input.customCaretColor = true;
             input.caretColor = HomeStyle.Palette.TextPrimary;
 
+            // Focus must not select everything: the box is given focus back by
+            // code after a refused syllable, and the next key would otherwise
+            // replace the whole title. A click puts the caret where it landed.
+            input.onFocusSelectAll = false;
+
             // A room title takes anything typeable, so the only rule is length
             // and the field can enforce it itself.
             input.characterLimit = HomeStyle.CreateRoom.MaxTitleLength;
             input.onValueChanged.AddListener(OnRoomNameEdited);
+            input.onSelect.AddListener(_ => WatchRoomNameComposition(true));
+            input.onDeselect.AddListener(_ => WatchRoomNameComposition(false));
             control.gameObject.SetActive(true);
             roomNameInput = input;
 
@@ -399,7 +408,8 @@ namespace Game.Client.Home
                 roomNameInput.text = string.Empty;
             }
 
-            UpdateRoomNameCounter(string.Empty);
+            roomNameComposing = string.Empty;
+            UpdateRoomNameCounter();
             UpdatePlayerCount();
             UpdateCreateEnabled();
         }
@@ -428,17 +438,162 @@ namespace Game.Client.Home
 
         private void OnRoomNameEdited(string value)
         {
-            UpdateRoomNameCounter(value);
+            // Whatever was being composed is now part of the text, or was
+            // refused by the limit; either way it is no longer pending.
+            roomNameComposing = string.Empty;
+            UpdateRoomNameCounter();
             UpdateCreateEnabled();
         }
 
-        private void UpdateRoomNameCounter(string value)
+        /// <summary>
+        /// How much is in the box, counting the syllable still being composed.
+        /// </summary>
+        /// <remarks>
+        /// A Korean keyboard hands a syllable over only once the next keystroke
+        /// settles it. Until then the field draws the part-built glyph but
+        /// keeps it out of <c>text</c>, so a counter fed from <c>text</c> alone
+        /// runs one glyph behind what the player can see. The composition is
+        /// read off the keyboard here and off the browser's own field on
+        /// WebGL, and counted as if it were already in.
+        /// </remarks>
+        private int TypedRoomNameLength =>
+            (roomNameInput != null ? roomNameInput.text.Length : 0) + roomNameComposing.Length;
+
+        private void UpdateRoomNameCounter()
         {
-            if (roomNameCounter != null)
+            if (roomNameCounter == null)
             {
-                roomNameCounter.text =
-                    $"{value.Length}/{HomeStyle.CreateRoom.MaxTitleLength}";
+                return;
             }
+
+            // The field never keeps more than the limit, so the counter never
+            // claims more either, even while a refused glyph is still drawn.
+            var shown = Mathf.Min(TypedRoomNameLength, HomeStyle.CreateRoom.MaxTitleLength);
+            roomNameCounter.text = $"{shown}/{HomeStyle.CreateRoom.MaxTitleLength}";
+        }
+
+        /// <summary>
+        /// Reads the syllable being built off the same place the field draws
+        /// it from, once a frame while the box has focus.
+        /// </summary>
+        /// <remarks>
+        /// Not the Input System's <c>onIMECompositionChange</c>: that only
+        /// fires once IME has been switched on through the Input System, and
+        /// TextMeshPro switches it on through <c>Input.imeCompositionMode</c>
+        /// instead, so the event stayed silent while the glyph was plainly on
+        /// screen. <c>Input.compositionString</c> is what the field itself
+        /// reads, so the two cannot disagree.
+        /// </remarks>
+        private void PollRoomNameComposition()
+        {
+            if (roomNameInput == null)
+            {
+                return;
+            }
+
+            if (roomNameRefocusPending)
+            {
+                roomNameRefocusPending = false;
+                if (roomNameInput.isActiveAndEnabled)
+                {
+                    roomNameInput.Select();
+                    roomNameInput.ActivateInputField();
+                    roomNameInput.caretPosition = roomNameInput.text.Length;
+                }
+
+                return;
+            }
+
+            if (!roomNameInput.isFocused)
+            {
+                return;
+            }
+
+            SetRoomNameComposing(Input.compositionString ?? string.Empty);
+        }
+
+        private void OnBrowserComposing(TMP_InputField field, string composing)
+        {
+            if (field == roomNameInput)
+            {
+                SetRoomNameComposing(composing);
+            }
+        }
+
+        private void SetRoomNameComposing(string composing)
+        {
+            if (roomNameInput == null || !roomNameInput.isFocused)
+            {
+                return;
+            }
+
+            // Seeing the IME idle, even when nothing else changed, is what
+            // lets the same syllable be dropped again the next time it starts.
+            if (composing.Length == 0)
+            {
+                roomNameDroppedComposing = string.Empty;
+            }
+
+            if (string.Equals(composing, roomNameComposing, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            roomNameComposing = composing;
+            UpdateRoomNameCounter();
+
+            // A syllable started in a box that is already full is the one the
+            // limit is about to refuse, so it is ended now rather than left
+            // drawn on the end until focus moves. Once only per syllable: if
+            // it is still there after the drop, leaving it is better than
+            // taking focus away every other frame.
+            if (composing.Length > 0
+                && roomNameInput.text.Length >= HomeStyle.CreateRoom.MaxTitleLength
+                && !string.Equals(composing, roomNameDroppedComposing, StringComparison.Ordinal))
+            {
+                roomNameDroppedComposing = composing;
+                DropRoomNameComposition();
+            }
+        }
+
+        /// <summary>
+        /// Ends the syllable being built the way a click outside the box does,
+        /// then puts focus back a frame later.
+        /// </summary>
+        /// <remarks>
+        /// Deselecting is the one path known to leave the IME clean here: the
+        /// field commits what was being built, the limit refuses it, and the
+        /// IME is stood down along with the field. Switching the IME off
+        /// directly instead left the half-built syllable cached, and the
+        /// field drew it in every box that opened afterwards, undeletable
+        /// because it was never text.
+        /// </remarks>
+        private void DropRoomNameComposition()
+        {
+            var eventSystem = EventSystem.current;
+            if (eventSystem == null || roomNameRefocusPending)
+            {
+                return;
+            }
+
+            roomNameRefocusPending = true;
+            eventSystem.SetSelectedGameObject(null);
+        }
+
+        /// <summary>
+        /// Listens to the browser's field only while the box has focus. The
+        /// keyboard side needs no listener: it is polled while focused.
+        /// </summary>
+        private void WatchRoomNameComposition(bool watching)
+        {
+            roomNameComposing = string.Empty;
+            WebTextInput.ComposingChanged -= OnBrowserComposing;
+            if (watching)
+            {
+                WebTextInput.ComposingChanged += OnBrowserComposing;
+            }
+
+            UpdateRoomNameCounter();
         }
 
         private void StepPlayerCount(int step)

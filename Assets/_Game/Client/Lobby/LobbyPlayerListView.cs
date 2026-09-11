@@ -187,9 +187,18 @@ namespace Game.Client.Lobby
                     showAdd: false);
                 var playerId = participant.Id;
                 var displayName = participant.DisplayName;
-                if (!isSelf)
+
+                // Reporting names the backend account, kicking names the Photon
+                // player. They are different identifiers with different readers,
+                // and passing the Photon one to the report API is what made every
+                // report 404 with nobody noticing (S15P21D205-926).
+                //
+                // No account, no report: a participant who joined without one has
+                // nothing the server can be told about, and sending a blank id
+                // would only turn the 404 into a 400.
+                if (!isSelf && !string.IsNullOrWhiteSpace(participant.UserId))
                 {
-                    BindReport(row, playerId, displayName);
+                    BindReport(row, participant.UserId, displayName);
                 }
 
                 var kick = row.Find("Kick")?.GetComponent<Button>();
@@ -604,7 +613,11 @@ namespace Game.Client.Lobby
                 && readyAt > inviteClock();
         }
 
-        private void BindReport(RectTransform row, string playerId, string displayName)
+        /// <param name="userId">
+        /// The backend account of the player this row shows, never the Photon
+        /// player id. The report API looks the value up in users.public_id.
+        /// </param>
+        private void BindReport(RectTransform row, string userId, string displayName)
         {
             var fill = row.GetComponent<Image>();
             if (fill == null)
@@ -626,7 +639,7 @@ namespace Game.Client.Lobby
             button.onClick.AddListener(() =>
             {
                 hover.HideTooltip();
-                ReportClicked?.Invoke(playerId, displayName);
+                ReportClicked?.Invoke(userId, displayName);
             });
         }
 

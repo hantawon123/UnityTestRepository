@@ -69,6 +69,21 @@ public class User {
     @Column(name = "searchable", nullable = false)
     private boolean searchable = true;
 
+    /**
+     * 운영자가 계정을 정지한 시각. 정상이면 NULL 입니다.
+     *
+     * <p>NULL 이 "정상"인 이유는 V16 에 있습니다. 요약하면 불리언으로 두었을 때 언제
+     * 정지했는지가 남지 않아서입니다.
+     *
+     * <p><b>기한이 없습니다.</b> 정지와 해제 두 상태뿐이고 해제는 사람이 누릅니다.
+     */
+    @Column(name = "suspended_at", length = 14)
+    private String suspendedAt;
+
+    /** 정지 사유. 정지 상태일 때만 값이 있습니다. */
+    @Column(name = "suspended_reason", length = 200)
+    private String suspendedReason;
+
     @Column(name = "created_at", nullable = false, length = 14, updatable = false)
     private String createdAt;
 
@@ -99,6 +114,33 @@ public class User {
     public void setSearchable(boolean searchable, String now) {
         this.searchable = searchable;
         this.updatedAt = now;
+    }
+
+    /** 지금 정지 상태인가. */
+    public boolean isSuspended() {
+        return suspendedAt != null;
+    }
+
+    /**
+     * 계정을 정지합니다. <b>멱등합니다.</b> 이미 정지된 계정을 다시 정지하면 사유와
+     * 시각이 새 값으로 바뀝니다.
+     *
+     * <p>덮어쓰는 쪽을 고른 이유는 운영자가 사유를 고쳐 적는 일이 실제로 있기 때문입니다.
+     * 두 번째 요청을 거절하면 고치려면 해제했다가 다시 정지해야 하는데, 그 사이에 그
+     * 사람이 들어올 수 있습니다.
+     *
+     * <p>updated_at 은 건드리지 않습니다. 그것은 사용자가 자기 계정에 한 변경의 시각이고,
+     * 정지는 남이 건 것입니다. 섞으면 "내가 마지막으로 바꾼 때"를 묻는 화면이 거짓말을 합니다.
+     */
+    public void suspend(String reason, String now) {
+        this.suspendedAt = now;
+        this.suspendedReason = reason;
+    }
+
+    /** 정지를 해제합니다. <b>멱등합니다.</b> 정지 상태가 아니어도 부를 수 있습니다. */
+    public void lift() {
+        this.suspendedAt = null;
+        this.suspendedReason = null;
     }
 
     public void rename(String nickname, String now) {

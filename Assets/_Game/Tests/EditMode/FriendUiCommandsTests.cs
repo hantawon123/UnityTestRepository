@@ -17,6 +17,33 @@ namespace Game.Architecture.Tests
     public sealed class FriendUiCommandsTests
     {
         [Test]
+        public async Task OutgoingRequests_RestorePendingStateAfterSearchingAgain()
+        {
+            var gateway = new FakeFriendGateway();
+            gateway.Found = new[] { Friend("b", "나그네", FriendPresence.Offline) };
+            gateway.Sent = new[] { Request("b", "나그네") };
+            var commands = Build(gateway, out _, out var search);
+            await commands.ListOutgoingRequestsAsync(CancellationToken.None);
+            await commands.SearchAsync("나그네", Array.Empty<string>(), CancellationToken.None);
+            Assert.That(search.Results[0].IsPending, Is.True);
+
+            gateway.Sent = Array.Empty<FriendRequestSummary>();
+            await commands.ListOutgoingRequestsAsync(CancellationToken.None);
+            Assert.That(search.Results[0].IsPending, Is.False);
+        }
+
+        [Test]
+        public async Task AlreadySentResponse_KeepsTheCancelActionAvailable()
+        {
+            var gateway = new FakeFriendGateway();
+            gateway.Found = new[] { Friend("b", "나그네", FriendPresence.Offline) };
+            var commands = Build(gateway, out _, out var search);
+            await commands.SearchAsync("나그네", Array.Empty<string>(), CancellationToken.None);
+            gateway.Failure = BackendFailure.RequestAlreadySent;
+            Assert.That(await commands.SendRequestAsync("b", CancellationToken.None), Is.EqualTo(BackendFailure.None));
+            Assert.That(search.Results[0].IsPending, Is.True);
+        }
+        [Test]
         public async Task Refresh_SplitsFriendsByPresence()
         {
             var gateway = new FakeFriendGateway();
@@ -169,7 +196,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public async Task SomeoneWhoAlreadyAsked_IsNotOfferedInTheSearch()
+        public async Task SomeoneWhoAlreadyAsked_IsShownAsIncoming()
         {
             var gateway = new FakeFriendGateway();
             gateway.Requests = new[] { Request("b", "나그네") };
@@ -179,14 +206,12 @@ namespace Game.Architecture.Tests
             await commands.ListIncomingRequestsAsync(CancellationToken.None);
             await commands.SearchAsync("나그네", Array.Empty<string>(), CancellationToken.None);
 
-            // They are already on screen just above, with an accept button.
-            // Offering to send them a request as well showed one person as two
-            // things at once.
-            Assert.That(search.Results, Is.Empty);
+            Assert.That(search.Results.Count, Is.EqualTo(1));
+            Assert.That(search.Results[0].IsIncoming, Is.True);
         }
 
         [Test]
-        public async Task SomeoneWhoAlreadyAsked_IsHiddenEvenWhenTheSearchCameFirst()
+        public async Task SomeoneWhoAlreadyAsked_UpdatesAnExistingSearchResult()
         {
             var gateway = new FakeFriendGateway();
             gateway.Found = new[] { Friend("b", "나그네", FriendPresence.Offline) };
@@ -197,11 +222,12 @@ namespace Game.Architecture.Tests
             gateway.Requests = new[] { Request("b", "나그네") };
             await commands.ListIncomingRequestsAsync(CancellationToken.None);
 
-            Assert.That(search.Results, Is.Empty);
+            Assert.That(search.Results.Count, Is.EqualTo(1));
+            Assert.That(search.Results[0].IsIncoming, Is.True);
         }
 
         [Test]
-        public async Task DecliningARequest_PutsThatPersonBackInTheSearch()
+        public async Task DecliningARequest_AllowsANewRequestFromSearch()
         {
             var gateway = new FakeFriendGateway();
             gateway.Requests = new[] { Request("b", "나그네") };
@@ -209,17 +235,16 @@ namespace Game.Architecture.Tests
             var commands = Build(gateway, out _, out var search);
             await commands.ListIncomingRequestsAsync(CancellationToken.None);
             await commands.SearchAsync("나그네", Array.Empty<string>(), CancellationToken.None);
-            Assert.That(search.Results, Is.Empty, "hidden while they are waiting");
+            Assert.That(search.Results[0].IsIncoming, Is.True);
 
             await commands.DeclineRequestAsync("b", CancellationToken.None);
 
-            // The screen re-reads the requests after answering one, and this
-            // time the list does not name them.
             gateway.Requests = Array.Empty<FriendRequestSummary>();
             await commands.ListIncomingRequestsAsync(CancellationToken.None);
 
             Assert.That(search.Results.Count, Is.EqualTo(1));
             Assert.That(search.Results[0].PlayerId, Is.EqualTo("b"));
+            Assert.That(search.Results[0].RequestState, Is.EqualTo(FriendRequestState.None));
         }
 
         [Test]
@@ -234,11 +259,9 @@ namespace Game.Architecture.Tests
 
             await commands.SendRequestAsync("b", CancellationToken.None);
 
-            // Not merely invisible: nothing was sent. The server would answer
-            // this by making them friends on the spot, which is a second and
-            // worse way to reach what the accept button above does.
             Assert.That(gateway.SentTo, Is.Null);
-            Assert.That(search.Results, Is.Empty);
+            Assert.That(search.Results.Count, Is.EqualTo(1));
+            Assert.That(search.Results[0].IsIncoming, Is.True);
         }
 
         [Test]

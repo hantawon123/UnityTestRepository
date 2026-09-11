@@ -1929,6 +1929,73 @@ namespace Game.Tests.EditMode
             return new HighlightCandidate(type, 0d, 10d, targetId);
         }
 
+        [Test]
+        public void SearchingSpawnPoses_AvoidEachPlayersHidingAndWaitingSpot()
+        {
+            // 마트처럼 스폰 지점 10개, 대기 위치는 앞 6개(fallback 규칙)일 때:
+            // 탐색 시작 위치는 자기 숨기기 자리·대기 자리와 겹치지 않고 서로 다른 지점이어야 한다.
+            var points = new Pose[10];
+            for (var index = 0; index < points.Length; index++)
+            {
+                points[index] = new Pose(new Vector3(index * 3f, 0f, 0f), Quaternion.identity);
+            }
+
+            var waiting = new Pose[6];
+            System.Array.Copy(points, waiting, waiting.Length);
+
+            for (var seed = 0; seed < 200; seed++)
+            {
+                var random = new System.Random(seed);
+                var hiding = new Pose[6];
+                var order = new List<int> { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+                for (var player = 0; player < hiding.Length; player++)
+                {
+                    var pick = order[random.Next(order.Count)];
+                    order.Remove(pick);
+                    hiding[player] = points[pick];
+                }
+
+                var searching = MatchSessionCoordinator.SelectSearchingSpawnPoses(
+                    (Pose[])points.Clone(), 6, random, hiding, waiting);
+
+                Assert.That(searching.Length, Is.EqualTo(6));
+                for (var player = 0; player < searching.Length; player++)
+                {
+                    Assert.That(searching[player].position, Is.Not.EqualTo(hiding[player].position),
+                        $"seed {seed}: player {player} starts searching where they hid");
+                    Assert.That(searching[player].position, Is.Not.EqualTo(waiting[player].position),
+                        $"seed {seed}: player {player} starts searching where they waited");
+                    for (var other = player + 1; other < searching.Length; other++)
+                    {
+                        Assert.That(searching[player].position, Is.Not.EqualTo(searching[other].position),
+                            $"seed {seed}: players {player} and {other} share a searching spot");
+                    }
+                }
+            }
+        }
+
+        [Test]
+        public void SearchingSpawnPoses_WithOnlyAsManyPointsAsPlayers_StillUsesDistinctPoints()
+        {
+            // 지점이 인원수만큼밖에 없으면 피할 수 없는 겹침은 허용하되, 두 플레이어가 한 지점을 받는 일은 없어야 한다.
+            var points = new Pose[6];
+            for (var index = 0; index < points.Length; index++)
+            {
+                points[index] = new Pose(new Vector3(index * 3f, 0f, 0f), Quaternion.identity);
+            }
+
+            for (var seed = 0; seed < 50; seed++)
+            {
+                var searching = MatchSessionCoordinator.SelectSearchingSpawnPoses(
+                    (Pose[])points.Clone(), 6, new System.Random(seed), points, points);
+                var distinct = new HashSet<Vector3>();
+                foreach (var pose in searching)
+                {
+                    Assert.That(distinct.Add(pose.position), Is.True, $"seed {seed}: duplicate searching spot");
+                }
+            }
+        }
+
         private static Pose[] CreateSpawnPoints()
         {
             var spawnPoints = new Pose[8];
