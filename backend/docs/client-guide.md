@@ -187,6 +187,29 @@ DELETE /api/v1/accounts/me/appearance
 
 ---
 
+### Photon 접속에 쓰는 토큰
+
+계정 응답에 `photonToken` 이 함께 옵니다. **Photon 에 접속할 때 `userId` 와 짝으로 보내야
+합니다.** 이것이 없으면 정지된 사람이 남의 `userId` 를 넣어 게임에 들어옵니다.
+
+```csharp
+var auth = new AuthenticationValues { AuthType = CustomAuthenticationType.Custom };
+auth.AddAuthParameter("userId", account.UserId);
+auth.AddAuthParameter("token", account.PhotonToken);
+auth.UserId = account.UserId;
+```
+
+**로비 접속과 방 접속 두 곳 모두에 실어야 합니다.** 한 곳만 하면 다른 쪽이 그대로 열립니다.
+
+`photonToken` 은 계정을 돌려주는 모든 응답에 들어갑니다(발급·조회). 앱을 껐다 켜면 계정을
+다시 읽으므로 따로 보관하지 않아도 됩니다. 서버에 비밀이 설정되지 않았으면 이 필드가
+없고, 그때는 Photon 인증도 꺼진 상태라 보낼 것이 없습니다.
+
+만료가 없습니다. 서버가 서명 비밀을 바꾸면 모두의 토큰이 한 번에 무효가 되고, 그때는
+계정을 다시 읽어 새 토큰을 받습니다.
+
+---
+
 ## 4. 시각 형식
 
 시각은 모두 **`yyyyMMddHHmmss` 형식의 14자 문자열이고 UTC** 입니다. `20260903142530` 처럼
