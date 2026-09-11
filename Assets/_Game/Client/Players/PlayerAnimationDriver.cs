@@ -46,6 +46,8 @@ namespace Game.Client.Players
         private Animator animator;
         private string currentState;
         private float punchUntilTime;
+        private float punchStartedTime;
+        private bool leftPunch;
         private float hitUntilTime;
         private float oneShotUntilTime;
         private string oneShotState;
@@ -113,6 +115,11 @@ namespace Game.Client.Players
 
         private void PlayPunch()
         {
+            // Network peers choose the same hand, even if an attack update was skipped.
+            leftPunch = usesNetworkState
+                ? (networkAttackSequence & 1) == 0
+                : Time.time <= punchUntilTime + 0.35f && punchUntilTime > 0f && !leftPunch;
+            punchStartedTime = Time.time;
             punchUntilTime = Time.time + PunchDuration;
             hitUntilTime = 0f;
             oneShotUntilTime = 0f;
@@ -142,7 +149,7 @@ namespace Game.Client.Players
             var speed = usesNetworkState ? networkSpeed : movement.PlanarSpeed;
             return isHit
                 ? ResolveHitClip(movement.Posture, speed, settings.WalkSpeed, settings.SprintSpeed)
-                : ResolvePunchClip(movement.Posture, speed, settings.WalkSpeed, settings.SprintSpeed);
+                : ResolvePunchClip(movement.Posture, speed, settings.WalkSpeed, settings.SprintSpeed, leftPunch);
         }
 
         public void PlayPickup()
@@ -242,8 +249,13 @@ namespace Game.Client.Players
             var desiredState = ResolveDesiredState();
             if (desiredState != currentState)
             {
+                // Changing posture/speed during the same punch must not restart its wind-up.
+                var punchOffset = desiredState.StartsWith("Punch", System.StringComparison.Ordinal) &&
+                                  currentState != null && currentState.StartsWith("Punch", System.StringComparison.Ordinal)
+                    ? Mathf.Clamp(Time.time - punchStartedTime, 0f, 24f / 30f)
+                    : 0f;
                 currentState = desiredState;
-                animator.CrossFadeInFixedTime(desiredState, CrossFadeSeconds);
+                animator.CrossFadeInFixedTime(desiredState, CrossFadeSeconds, 0, punchOffset);
             }
 
             var planarSpeed = usesNetworkState ? networkSpeed : movement.PlanarSpeed;
@@ -395,8 +407,9 @@ namespace Game.Client.Players
             PlayerPosture posture,
             float planarSpeed,
             float walkSpeed,
-            float sprintSpeed) =>
-            ResolveCombatLocomotionClip("Punch", posture, planarSpeed, walkSpeed, sprintSpeed);
+            float sprintSpeed,
+            bool leftHand = false) =>
+            ResolveCombatLocomotionClip(leftHand ? "Punch_Left" : "Punch", posture, planarSpeed, walkSpeed, sprintSpeed);
 
         internal static string ResolveHitClip(
             PlayerPosture posture,

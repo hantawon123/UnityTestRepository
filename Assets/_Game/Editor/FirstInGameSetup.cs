@@ -80,6 +80,16 @@ namespace Game.Editor
             new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Punch_Run.fbx", "Punch_Run", 24, false),
             new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Punch_Crouch.fbx", "Punch_Crouch", 24, false),
             new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Punch_Crouch_Walk.fbx", "Punch_Crouch_Walk", 24, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Punch_Left.fbx", "Punch_Left", 24, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Punch_Left_Walk.fbx", "Punch_Left_Walk", 24, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Punch_Left_Run.fbx", "Punch_Left_Run", 24, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Punch_Left_Crouch.fbx", "Punch_Left_Crouch", 24, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Punch_Left_Crouch_Walk.fbx", "Punch_Left_Crouch_Walk", 24, false),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Punch_Combo.fbx", "Punch_Combo", 24, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Punch_Combo_Walk.fbx", "Punch_Combo_Walk", 24, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Punch_Combo_Run.fbx", "Punch_Combo_Run", 120, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Punch_Combo_Crouch.fbx", "Punch_Combo_Crouch", 24, true),
+            new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Punch_Combo_Crouch_Walk.fbx", "Punch_Combo_Crouch_Walk", 72, true),
             new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Hit.fbx", "Hit", 30, false),
             new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Hit_Walk.fbx", "Hit_Walk", 30, false),
             new("Assets/Scenes/CharacterTest/First/FirstPlayerCapsule_Hit_Run.fbx", "Hit_Run", 30, false),
@@ -257,6 +267,8 @@ namespace Game.Editor
             var states = machine.states.Select(entry => entry.state).ToArray();
             return states.Any(state => state.name == IdleState && state.motion == idle) &&
                    states.Any(state => state.name == "Punch") &&
+                   states.Any(state => state.name == "Punch_Left") &&
+                   states.Any(state => state.name == "Punch_Combo_Crouch_Walk") &&
                    states.Any(state => state.name == "Punch_Crouch") &&
                    states.Any(state => state.name == "Hit_Walk") &&
                    states.Any(state => state.name == "Stunned") &&
