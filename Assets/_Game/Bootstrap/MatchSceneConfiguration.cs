@@ -99,8 +99,17 @@ namespace Game.Bootstrap
         private Transform[] spawnPoints = Array.Empty<Transform>();
 
         [SerializeField]
+        [Tooltip("켜면 씬이 로드될 때마다 스폰 지점 순서를 한 번 섞어 자리(seat)에 배정한다. " +
+                 "지점이 플레이어보다 많을 때 매번 다른 자리가 쓰이고, 같은 씬 인스턴스 안에서는 " +
+                 "스포너·매치 런타임이 같은 순서를 본다. 끄면 SpawnPoint_1부터 순서대로.")]
+        private bool shuffleSpawnPoints;
+
+        [SerializeField]
         [Tooltip("숨기기 차례가 아닌 플레이어가 대기하는 지점. 비우면 일반 스폰 지점을 대신 사용한다.")]
         private Transform[] waitingSpawnPoints = Array.Empty<Transform>();
+
+        [NonSerialized]
+        private int[] spawnOrder;
 
         [SerializeField]
         private SceneWorldObjectReference[] worldObjects =
@@ -127,9 +136,61 @@ namespace Game.Bootstrap
         public IReadOnlyList<SceneHighlightOcclusionReference> HighlightOcclusionGroups =>
             highlightOcclusionGroups ?? Array.Empty<SceneHighlightOcclusionReference>();
 
+        /// <summary>
+        /// 스폰 지점 포즈. <see cref="shuffleSpawnPoints"/>가 켜져 있으면 이 컴포넌트 인스턴스가 살아 있는 동안
+        /// 한 번 정한 무작위 순서로 돌려준다(첫 호출에서 섞고 이후 호출은 같은 순서). 권위(호스트)만 배치를
+        /// 결정하므로 피어마다 순서가 달라도 문제없다.
+        /// </summary>
         public Pose[] CaptureSpawnPoses()
         {
-            return CaptureSpawnPoses(spawnPoints);
+            var poses = CaptureSpawnPoses(spawnPoints);
+            if (!shuffleSpawnPoints || poses.Length < 2)
+            {
+                return poses;
+            }
+
+            if (spawnOrder == null || spawnOrder.Length != poses.Length)
+            {
+                spawnOrder = CreateShuffledOrder(poses.Length, new System.Random());
+            }
+
+            return ApplyOrder(poses, spawnOrder);
+        }
+
+        public bool ShufflesSpawnPoints => shuffleSpawnPoints;
+
+        /// <summary>0..count-1의 순열(피셔-예이츠).</summary>
+        public static int[] CreateShuffledOrder(int count, System.Random random)
+        {
+            if (count < 0) throw new ArgumentOutOfRangeException(nameof(count));
+            if (random == null) throw new ArgumentNullException(nameof(random));
+
+            var order = new int[count];
+            for (var index = 0; index < count; index++) order[index] = index;
+            for (var index = count - 1; index > 0; index--)
+            {
+                var swap = random.Next(index + 1);
+                (order[index], order[swap]) = (order[swap], order[index]);
+            }
+
+            return order;
+        }
+
+        public static Pose[] ApplyOrder(Pose[] poses, int[] order)
+        {
+            if (poses == null) throw new ArgumentNullException(nameof(poses));
+            if (order == null || order.Length != poses.Length)
+            {
+                throw new ArgumentException("Order must be a permutation of the pose indices.", nameof(order));
+            }
+
+            var result = new Pose[poses.Length];
+            for (var index = 0; index < poses.Length; index++)
+            {
+                result[index] = poses[order[index]];
+            }
+
+            return result;
         }
 
         /// <summary>숨기기 대기 지점. 설정하지 않으면 null을 돌려주고 일반 스폰 지점이 대신 쓰인다.</summary>

@@ -183,7 +183,8 @@ namespace Game.Server.Match
             System.Random random,
             IReadOnlyList<WorldObjectState> initialWorldObjects = null,
             IReadOnlyList<PlayerItemAssignment> specifiedAssignments = null,
-            MatchRuleSettings? matchRules = null)
+            MatchRuleSettings? matchRules = null,
+            IReadOnlyList<Pose> waitingSpawnPoints = null)
         {
             this.rules = rules ?? throw new ArgumentNullException(nameof(rules));
             this.state = state ?? throw new ArgumentNullException(nameof(state));
@@ -214,7 +215,10 @@ namespace Game.Server.Match
             Assignments = assignments;
             var validatedSpawnPoints = ValidateSpawnPoints(spawnPoints, playerCount);
             hidingSpawnPoses = SelectSpawnPoses(validatedSpawnPoints, playerCount, random);
-            searchingSpawnPoses = SelectSpawnPoses(validatedSpawnPoints, playerCount, random);
+            // 탐색 시작 위치는 다시 섞되, 각 플레이어가 숨기던 자리·대기하던 자리와는 겹치지 않게 한다.
+            // 그렇지 않으면 "시작했는데 그 자리 그대로"로 보인다.
+            searchingSpawnPoses = SelectSearchingSpawnPoses(
+                validatedSpawnPoints, playerCount, random, hidingSpawnPoses, waitingSpawnPoints);
             placements = new ItemPlacementSystem(assignments);
             var worldObjectStates = initialWorldObjects ?? Array.Empty<WorldObjectState>();
             worldObjects = new WorldObjectStateSystem(worldObjectStates);
@@ -1213,6 +1217,95 @@ namespace Game.Server.Match
             var selectedSpawnPoses = new Pose[playerCount];
             Array.Copy(candidates, selectedSpawnPoses, playerCount);
             return selectedSpawnPoses;
+        }
+
+        /// <summary>
+        /// 탐색 시작 위치: 스폰 지점을 무작위로 섞은 뒤 플레이어마다 "피할 자리"(숨기기 스폰, 대기 스폰)와
+        /// 다른 지점을 고른다. 마지막 플레이어에게 피할 자리만 남으면 앞 플레이어와 자리를 바꿔 해결하고,
+        /// 지점이 모자라 어쩔 수 없을 때만 겹침을 허용한다.
+        /// </summary>
+        internal static Pose[] SelectSearchingSpawnPoses(
+            Pose[] spawnPoints,
+            int playerCount,
+            System.Random random,
+            IReadOnlyList<Pose> hidingPoses,
+            IReadOnlyList<Pose> waitingPoses)
+        {
+            var order = new int[spawnPoints.Length];
+            for (var index = 0; index < order.Length; index++)
+            {
+                order[index] = index;
+            }
+
+            for (var index = 0; index < order.Length; index++)
+            {
+                var swap = random.Next(index, order.Length);
+                (order[index], order[swap]) = (order[swap], order[index]);
+            }
+
+            var used = new bool[spawnPoints.Length];
+            var selected = new Pose[playerCount];
+            for (var player = 0; player < playerCount; player++)
+            {
+                var chosen = -1;
+                var fallback = -1;
+                foreach (var candidate in order)
+                {
+                    if (used[candidate])
+                    {
+                        continue;
+                    }
+
+                    if (fallback < 0)
+                    {
+                        fallback = candidate;
+                    }
+
+                    if (!MustAvoid(spawnPoints[candidate], player, hidingPoses, waitingPoses))
+                    {
+                        chosen = candidate;
+                        break;
+                    }
+                }
+
+                if (chosen >= 0)
+                {
+                    used[chosen] = true;
+                    selected[player] = spawnPoints[chosen];
+                    continue;
+                }
+
+                // 남은 지점이 전부 피할 자리: 앞 플레이어와 맞바꿔 둘 다 조건을 지키는 조합을 찾는다.
+                // 그런 조합이 없으면(지점이 모자람) 겹침을 허용한다.
+                var pose = spawnPoints[fallback];
+                for (var other = 0; other < player; other++)
+                {
+                    if (!MustAvoid(selected[other], player, hidingPoses, waitingPoses) &&
+                        !MustAvoid(pose, other, hidingPoses, waitingPoses))
+                    {
+                        (selected[other], pose) = (pose, selected[other]);
+                        break;
+                    }
+                }
+
+                used[fallback] = true;
+                selected[player] = pose;
+            }
+
+            return selected;
+        }
+
+        private static bool MustAvoid(
+            Pose candidate,
+            int player,
+            IReadOnlyList<Pose> hidingPoses,
+            IReadOnlyList<Pose> waitingPoses)
+        {
+            const float sameSpotDistanceSquared = 0.01f * 0.01f;
+            return (hidingPoses != null && player < hidingPoses.Count &&
+                    (hidingPoses[player].position - candidate.position).sqrMagnitude < sameSpotDistanceSquared) ||
+                   (waitingPoses != null && player < waitingPoses.Count &&
+                    (waitingPoses[player].position - candidate.position).sqrMagnitude < sameSpotDistanceSquared);
         }
 
         private bool TryGetExpiredSearchingEnd(double now, out double searchingEndedAt)

@@ -88,7 +88,20 @@ namespace Game.Bootstrap
                 replayItems.Add(item);
             }
 
-            var ejectionPoint = FindTransform(scene, "ShredderSpot");
+            // 파쇄기가 여러 대면 'ShredderSpot' 이름의 튕김 지점도 여러 개다. 전부 모아 서버가 가장 가까운 것을 고르게 한다.
+            var ejectionPoints = FindAllTransforms(scene, "ShredderSpot");
+            if (ejectionPoints.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Match scene '{scene.name}' is missing required object 'ShredderSpot'.");
+            }
+
+            var ejectionPoses = new Pose[ejectionPoints.Count];
+            for (var index = 0; index < ejectionPoints.Count; index++)
+            {
+                ejectionPoses[index] = new Pose(ejectionPoints[index].position, ejectionPoints[index].rotation);
+            }
+
             var spawnPoints = CaptureSpawnPoints(scene);
             var configuration = new NetworkMatchRuntimeConfiguration(
                 new PhysicsPlacementValidator(
@@ -98,7 +111,7 @@ namespace Game.Bootstrap
                 spawnPoints,
                 assignmentDefinitions,
                 worldObjects,
-                new Pose(ejectionPoint.position, ejectionPoint.rotation),
+                ejectionPoses,
                 CaptureWaitingSpawnPoints(scene, spawnPoints));
 
             return new PlaygroundMatchScene(
@@ -150,23 +163,40 @@ namespace Game.Bootstrap
             return items;
         }
 
+        /// <summary>
+        /// <c>SpawnPoint_1</c>부터 번호가 끊기기 전까지 전부 읽는다. 최소 6개(최대 인원)는 있어야 하고,
+        /// 마트처럼 10개를 둔 맵은 10개 모두 숨기기·탐색 시작 위치 후보가 된다.
+        /// </summary>
         private static Pose[] CaptureSpawnPoints(Scene scene)
         {
-            var poses = new Pose[6];
-            for (var index = 0; index < poses.Length; index++)
+            var poses = new List<Pose>();
+            for (var index = 1; ; index++)
             {
-                var point = FindTransform(scene, $"SpawnPoint_{index + 1}");
-                poses[index] = new Pose(point.position, point.rotation);
+                if (index <= MatchRulesSO.MaxPlayerCount)
+                {
+                    var required = FindTransform(scene, $"SpawnPoint_{index}");
+                    poses.Add(new Pose(required.position, required.rotation));
+                    continue;
+                }
+
+                if (!TryFindTransform(scene, $"SpawnPoint_{index}", out var optional))
+                {
+                    break;
+                }
+
+                poses.Add(new Pose(optional.position, optional.rotation));
             }
 
-            return poses;
+            return poses.ToArray();
         }
 
         private static Pose[] CaptureWaitingSpawnPoints(
             Scene scene,
             IReadOnlyList<Pose> fallbackPoints)
         {
-            var poses = new Pose[MatchRulesSO.MaxPlayerCount];
+            // 런타임 구성은 대기 지점이 스폰 지점 수 이상이길 요구한다. 스폰 지점이 최대 인원보다 많은 맵(마트 10개)은
+            // 그만큼 채우고, 없는 번호는 같은 번호의 스폰 지점으로 대신한다.
+            var poses = new Pose[Math.Max(MatchRulesSO.MaxPlayerCount, fallbackPoints.Count)];
             for (var index = 0; index < poses.Length; index++)
             {
                 poses[index] = TryFindTransform(
@@ -188,7 +218,25 @@ namespace Game.Bootstrap
             }
 
             throw new InvalidOperationException(
-                $"Playground is missing required object '{objectName}'.");
+                $"Match scene '{scene.name}' is missing required object '{objectName}'.");
+        }
+
+        private static List<Transform> FindAllTransforms(Scene scene, string objectName)
+        {
+            var found = new List<Transform>();
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                foreach (var transform in root.GetComponentsInChildren<Transform>(
+                             includeInactive: true))
+                {
+                    if (string.Equals(transform.name, objectName, StringComparison.Ordinal))
+                    {
+                        found.Add(transform);
+                    }
+                }
+            }
+
+            return found;
         }
 
         private static bool TryFindTransform(

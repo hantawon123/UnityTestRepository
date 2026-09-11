@@ -288,6 +288,12 @@ namespace Game.Network.Session
         private readonly long _playerUniqueId = BitConverter.ToInt64(Guid.NewGuid().ToByteArray(), 0) | 1L;
         private int _configuredMaxPlayers;
         private string _configuredMapId = MapCatalog.DefaultMapId;
+
+        /// <summary>
+        /// 이번 매치가 실제로 열린 맵. 방 설정이 "랜덤"이면 매치 시작 때 정해지고,
+        /// 설정 값(<see cref="_configuredMapId"/>)은 랜덤 그대로 남는다.
+        /// </summary>
+        private string _activeMapId;
         private string _configuredTitle;
         private int _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
         private MatchRuleSettings _matchRules = MatchRuleSettings.Default;
@@ -719,7 +725,8 @@ namespace Game.Network.Session
         public (int HitsReceived, int Stuns) GetCombatTotals(int playerIndex) =>
             _matchStarter?.GetCombatTotals(playerIndex) ?? default;
 
-        public string AnalyticsMapId => _configuredMapId;
+        public string AnalyticsMapId =>
+            string.IsNullOrEmpty(_activeMapId) ? _configuredMapId : _activeMapId;
 
         /// <summary>
         /// Connects to the matchmaking lobby so the room list starts arriving
@@ -1373,14 +1380,14 @@ namespace Game.Network.Session
 
         public bool BindMatchSession(
             MatchSessionCoordinator session,
-            Pose shredderEjectionPose)
+            IReadOnlyList<Pose> shredderEjectionPoses)
         {
             if (!IsServer || _matchStarter == null || session == null)
             {
                 return false;
             }
 
-            _matchStarter.BindSession(session, shredderEjectionPose);
+            _matchStarter.BindSession(session, shredderEjectionPoses);
             MatchMigration = null;
             return true;
         }
@@ -1926,7 +1933,12 @@ namespace Game.Network.Session
                 return;
             }
 
-            var scene = _scenes.MatchScene;
+            // 방 설정이 "랜덤"이면 여기서, 즉 매치가 확정된 순간에 맵을 고른다.
+            // 설정 값은 랜덤 그대로 두어 다음 매치도 다시 뽑힌다.
+            var mapId = MapCatalog.IsRandom(_configuredMapId)
+                ? MapCatalog.PickRandom()
+                : _configuredMapId;
+            var scene = _scenes.MatchSceneFor(mapId);
 
             if (!scene.IsValid)
             {
@@ -1934,12 +1946,14 @@ namespace Game.Network.Session
                 return;
             }
 
+            _activeMapId = mapId;
+
             // Single, not Additive: the lobby scene would otherwise stay loaded
             // behind the map, leaving two cameras rendering and the lobby's
             // geometry inside it.
-            Debug.Log($"[SceneTiming] Network load requested: Lobby -> {scene}.");
+            Debug.Log($"[SceneTiming] Network load requested: Lobby -> {scene} (map '{mapId}').");
             runner.LoadScene(scene, LoadSceneMode.Single);
-            Debug.Log("[Session] Loading the match scene for everyone.");
+            Debug.Log($"[Session] Loading the match scene for everyone (map '{mapId}').");
         }
 
         public bool IsResultSceneLoaded { get; private set; }
@@ -1964,7 +1978,7 @@ namespace Game.Network.Session
         {
             if (!IsServer || !IsRuntimeReady || !IsHighlightInProgress ||
                 _scenes == null || !_scenes.LobbyScene.IsValid ||
-                !_scenes.MatchScene.IsValid)
+                !_scenes.MatchSceneFor(AnalyticsMapId).IsValid)
             {
                 return false;
             }
@@ -2012,15 +2026,14 @@ namespace Game.Network.Session
 
             if (ContainsScene(runner.SceneInfo, scene))
             {
-                var matchScene = _scenes.MatchScene;
-                if (ContainsScene(runner.SceneInfo, matchScene))
+                if (TryFindLoadedMatchScene(runner.SceneInfo, out var matchScene))
                 {
                     // A completion request can race the shared Highlight -> Result
                     // boundary. Place every remaining avatar before its old floor
                     // disappears; players who already entered Lobby stay on the
                     // same seat pose.
                     _spawner?.RepositionSeated(runner);
-                    Debug.Log("[SceneTiming] Highlight lobby ready; unloading Playground.");
+                    Debug.Log($"[SceneTiming] Highlight lobby ready; unloading match scene {matchScene}.");
                     runner.UnloadScene(matchScene);
                 }
                 return true;
@@ -2073,6 +2086,22 @@ namespace Game.Network.Session
             if (!scene.IsValid) return false;
             for (var index = 0; index < info.SceneCount; index++)
                 if (info.Scenes[index] == scene) return true;
+            return false;
+        }
+
+        /// <summary>지금 올라와 있는 씬 중 매치 씬(어느 맵이든)을 찾는다. 맵이 여러 개라 이름 하나로 비교할 수 없다.</summary>
+        private bool TryFindLoadedMatchScene(NetworkSceneInfo info, out SceneRef matchScene)
+        {
+            for (var index = 0; index < info.SceneCount; index++)
+            {
+                if (_scenes.IsMatchScene(info.Scenes[index]))
+                {
+                    matchScene = info.Scenes[index];
+                    return true;
+                }
+            }
+
+            matchScene = default;
             return false;
         }
 
@@ -2181,6 +2210,7 @@ namespace Game.Network.Session
                 _configuredTitle = null;
                 _configuredMaxPlayers = 0;
                 _configuredMapId = MapCatalog.DefaultMapId;
+                _activeMapId = null;
                 _destructionLimit = PlaySettingsDraft.DefaultDestructionLimit;
                 _matchRules = MatchRuleSettings.Default;
             }
