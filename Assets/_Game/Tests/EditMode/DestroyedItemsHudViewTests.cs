@@ -78,6 +78,58 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void Show_KeepsLocalSlotLeftmostAfterMoreItemsAreDestroyed()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = DestroyedItemsHudView.Create(canvas.transform);
+                view.Show(
+                    4,
+                    new[]
+                    {
+                        new PlayerItemStatusSnapshot("Soda_01", false),
+                        new PlayerItemStatusSnapshot("Burger_01", false),
+                    },
+                    "Soda_01",
+                    System.Array.Empty<string>());
+
+                view.Show(
+                    4,
+                    new[]
+                    {
+                        new PlayerItemStatusSnapshot("Soda_01", false),
+                        new PlayerItemStatusSnapshot("Burger_01", true),
+                        new PlayerItemStatusSnapshot("Pineapple_01", true),
+                    },
+                    "Soda_01",
+                    new[] { "Burger_01", "Pineapple_01" });
+
+                var panel = view.transform.Find("Panel");
+                var slot0 = panel.Find("Slot0");
+                var slot1 = panel.Find("Slot1");
+                var slot2 = panel.Find("Slot2");
+                Assert.That(slot0.GetSiblingIndex(), Is.EqualTo(0));
+                Assert.That(slot1.GetSiblingIndex(), Is.EqualTo(1));
+                Assert.That(slot2.GetSiblingIndex(), Is.EqualTo(2));
+                Assert.That(
+                    slot0.Find(DestroyedItemsHudView.OwnBorderName).gameObject.activeSelf,
+                    Is.True);
+                Assert.That(
+                    slot1.Find(DestroyedItemsHudView.OwnBorderName).gameObject.activeSelf,
+                    Is.False);
+                Assert.That(
+                    slot2.Find(DestroyedItemsHudView.OwnBorderName).gameObject.activeSelf,
+                    Is.False);
+                Assert.That(view.transform.GetSiblingIndex(), Is.EqualTo(canvas.transform.childCount - 1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
         public void Show_MarksLocalSlotWithOrangeBorder()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));

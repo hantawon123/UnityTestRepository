@@ -3,6 +3,7 @@ using Game.Client.Interactions;
 using Game.Core.Items;
 using Game.SOAP.Config;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.UI;
 
 namespace Game.Client.Match
@@ -231,16 +232,25 @@ namespace Game.Client.Match
             camera.allowHDR = false;
             camera.allowMSAA = false;
 
-            var lightObject = new GameObject("Preview Light");
-            lightObject.transform.SetParent(stage.transform, false);
-            ApplyPreviewLayer(lightObject);
-            lightObject.transform.localPosition = new Vector3(-1.2f, 2f, -1.5f);
-            light = lightObject.AddComponent<Light>();
-            light.type = LightType.Point;
-            light.range = 12f;
-            light.intensity = 2.4f;
-            light.color = Color.white;
-            light.cullingMask = PreviewLayerMask;
+            // Studio lights live on the offscreen stage. Item prefabs stay unlit
+            // so in-world props are not changed by the HUD/intro preview.
+            // Point lights only: extra directionals can steal URP's main light.
+            light = AddStageLight(
+                "Preview Key Light",
+                LightType.Point,
+                5.5f,
+                new Color(1f, 0.98f, 0.94f),
+                new Vector3(-1.1f, 2.1f, -1.6f),
+                Quaternion.identity);
+            light.range = 20f;
+            var fill = AddStageLight(
+                "Preview Fill Light",
+                LightType.Point,
+                2.6f,
+                new Color(0.82f, 0.88f, 1f),
+                new Vector3(1.8f, 1.1f, 1.5f),
+                Quaternion.identity);
+            fill.range = 20f;
 
             if (rotates)
             {
@@ -345,6 +355,10 @@ namespace Game.Client.Match
                 var copy = dest.gameObject.AddComponent<MeshRenderer>();
                 copy.sharedMaterials = renderer.sharedMaterials;
                 copy.enabled = renderer.enabled;
+                copy.shadowCastingMode = ShadowCastingMode.Off;
+                copy.receiveShadows = false;
+                copy.lightProbeUsage = LightProbeUsage.Off;
+                copy.reflectionProbeUsage = ReflectionProbeUsage.Off;
             }
 
             foreach (Transform child in source)
@@ -372,10 +386,33 @@ namespace Game.Client.Match
                    target.name.Contains("Outline");
         }
 
+        private Light AddStageLight(
+            string name,
+            LightType type,
+            float intensity,
+            Color color,
+            Vector3 localPosition,
+            Quaternion localRotation)
+        {
+            var lightObject = new GameObject(name);
+            lightObject.transform.SetParent(stage.transform, false);
+            ApplyPreviewLayer(lightObject);
+            lightObject.transform.localPosition = localPosition;
+            lightObject.transform.localRotation = localRotation;
+            var stageLight = lightObject.AddComponent<Light>();
+            stageLight.type = type;
+            stageLight.intensity = intensity;
+            stageLight.color = color;
+            stageLight.shadows = LightShadows.None;
+            stageLight.cullingMask = PreviewLayerMask;
+            return stageLight;
+        }
+
         private void FitCamera(Transform preview)
         {
+            var stageOrigin = stage != null ? stage.transform.position : StagePosition;
             var bounds = Encapsulate(preview);
-            preview.position -= bounds.center - StagePosition;
+            preview.position -= bounds.center - stageOrigin;
             bounds = Encapsulate(preview);
 
             var radius = Mathf.Max(0.12f, bounds.extents.magnitude);

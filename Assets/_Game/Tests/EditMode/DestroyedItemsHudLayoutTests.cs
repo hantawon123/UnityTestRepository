@@ -76,6 +76,28 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void Build_KeepsLocalItemLeftmostWhenItIsDestroyedLast()
+        {
+            var slots = DestroyedItemsHudLayout.Build(
+                3,
+                new[]
+                {
+                    new PlayerItemStatusSnapshot("Burger_01", true),
+                    new PlayerItemStatusSnapshot("Pineapple_01", true),
+                    new PlayerItemStatusSnapshot("Soda_01", true),
+                },
+                "Soda_01",
+                new[] { "Burger_01", "Pineapple_01", "Soda_01" });
+
+            Assert.That(slots.Length, Is.EqualTo(3));
+            Assert.That(slots[0].ItemId, Is.EqualTo("Soda_01"));
+            Assert.That(slots[0].IsOwn, Is.True);
+            Assert.That(slots[0].Grayscale, Is.True);
+            Assert.That(slots[1].ItemId, Is.EqualTo("Burger_01"));
+            Assert.That(slots[2].ItemId, Is.EqualTo("Pineapple_01"));
+        }
+
+        [Test]
         public void Build_ShowsOnlyLocalItemBeforeAnyDestruction()
         {
             var slots = DestroyedItemsHudLayout.Build(

@@ -1,3 +1,4 @@
+using System;
 using Game.Client.Home;
 using Game.Core.Lobby;
 using Game.Core.Match;
@@ -135,6 +136,8 @@ namespace Game.Client.Match
             {
                 panel.SetActive(true);
             }
+
+            transform.SetAsLastSibling();
         }
 
         public void Hide()
@@ -160,6 +163,7 @@ namespace Game.Client.Match
                 layout.childControlHeight = true;
                 layout.childForceExpandWidth = false;
                 layout.childForceExpandHeight = false;
+                layout.reverseArrangement = false;
                 panel = panelRect.gameObject;
                 slotRoot = panelRect;
             }
@@ -172,16 +176,60 @@ namespace Game.Client.Match
 
         private void EnsureSlots(int count)
         {
-            if (slots.Length == count && SlotsMatchSize())
+            if (count < 0)
             {
+                count = 0;
+            }
+
+            if (!SlotsMatchSize())
+            {
+                DisposeSlots();
+            }
+
+            if (slots.Length == count)
+            {
+                ApplySlotOrder();
                 return;
             }
 
-            DisposeSlots();
-            slots = new Slot[count];
-            for (var index = 0; index < count; index++)
+            if (slots.Length > count)
             {
-                slots[index] = Slot.Create(slotRoot, index);
+                for (var index = count; index < slots.Length; index++)
+                {
+                    slots[index]?.Dispose();
+                }
+
+                var kept = new Slot[count];
+                for (var index = 0; index < count; index++)
+                {
+                    kept[index] = slots[index];
+                }
+
+                slots = kept;
+                ApplySlotOrder();
+                return;
+            }
+
+            var grown = new Slot[count];
+            for (var index = 0; index < slots.Length; index++)
+            {
+                grown[index] = slots[index];
+            }
+
+            for (var index = slots.Length; index < count; index++)
+            {
+                grown[index] = Slot.Create(slotRoot, index);
+            }
+
+            slots = grown;
+            ApplySlotOrder();
+        }
+
+        private void ApplySlotOrder()
+        {
+            for (var index = 0; index < slots.Length; index++)
+            {
+                slots[index]?.SetSiblingIndex(index);
             }
         }
 
@@ -192,7 +240,20 @@ namespace Game.Client.Match
                 slots[index]?.Dispose();
             }
 
-            slots = System.Array.Empty<Slot>();
+            slots = Array.Empty<Slot>();
+            if (slotRoot == null)
+            {
+                return;
+            }
+
+            for (var index = slotRoot.childCount - 1; index >= 0; index--)
+            {
+                var child = slotRoot.GetChild(index);
+                if (child != null && child.name.StartsWith("Slot", StringComparison.Ordinal))
+                {
+                    UnityEngine.Object.DestroyImmediate(child.gameObject);
+                }
+            }
         }
 
         private bool SlotsMatchSize()
@@ -378,6 +439,14 @@ namespace Game.Client.Match
 
             private string shownItemId;
 
+            public void SetSiblingIndex(int index)
+            {
+                if (root != null)
+                {
+                    root.transform.SetSiblingIndex(index);
+                }
+            }
+
             public bool Set(DestroyedItemHudSlot slot)
             {
                 SetOwnBorder(slot.IsOwn);
@@ -410,7 +479,7 @@ namespace Game.Client.Match
                 preview.Dispose();
                 if (root != null)
                 {
-                    Object.Destroy(root);
+                    UnityEngine.Object.DestroyImmediate(root);
                 }
             }
 
