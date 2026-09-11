@@ -11,7 +11,7 @@ namespace Game.Core.Maps
     {
         public const string PlaygroundId = "playground";
 
-        /// <summary>마트 맵(Synty Shops 팩, 씬 <c>MartBuild</c>). 맵 id → 씬은 <c>NetworkScenes</c>가 잇는다.</summary>
+        /// <summary>마트 맵(Synty Shops 팩, 씬 <c>Supermarket</c>). 맵 id → 씬은 <c>NetworkScenes</c>가 잇는다.</summary>
         public const string SupermarketId = "supermarket";
 
         private static readonly string[] MapIdValues =

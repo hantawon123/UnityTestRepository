@@ -48,7 +48,7 @@
 
 ### 3. 조립 씬과 에디터 도구 (2026-09-10, 904)
 
-- 조립 씬 `Assets/_Game/Content/Scenes/MartBuild.unity`. 데모 씬(쇼핑몰·플라자)에서 필요한 매장을 복사해 와 조립(루트 오브젝트 약 1만 개, 팩 프리팹 인스턴스). 씬 안에서 필요한 구역만 골라 온 것이라 원본 데모 씬은 그대로.
+- 조립 씬 `Assets/_Game/Content/Scenes/Supermarket.unity`. 데모 씬(쇼핑몰·플라자)에서 필요한 매장을 복사해 와 조립(루트 오브젝트 약 1만 개, 팩 프리팹 인스턴스). 씬 안에서 필요한 구역만 골라 온 것이라 원본 데모 씬은 그대로.
 - **합쳐진 소품 분해** `Game/Match Map/Explode Merged Props…` (`MergedPropExplodeMenu.cs`): Synty의 Preset/Insert/Stacked 프리팹은 진열대+상품, 상자 더미가 한 메시라 플레이어가 개별 상품과 상호작용할 수 없다. 메시를 정점 위치 용접→연결 조각으로 나눠 팩의 개별 프리팹과 형태 매칭해 프리팹 인스턴스로 세운다.
   - 매칭: 회전 불변 지표(정점 수·중심 거리 분포)로 후보를 고르고 Y회전 탐색 → 실패 시 임의 3D 회전(PCA 초기값 + ICP). 여러 조각 프리팹(꽃다발=화분+꽃, 파인애플=과육+잎, 팔레트)은 가장 큰 조각으로 위치·회전을 잡고 나머지 조각이 예측 위치에 있는지 검증해 통째로 잡는다.
   - 팩에 없는 모양(인서트 전용 병·캔·상자)은 조각 지오메트리로 생성 프리팹을 만들어 `Assets/_Game/Content/MatchMap/GeneratedProps/`에 저장·재사용(BoxCollider 포함).
@@ -102,9 +102,9 @@
 ### 7. 맵 등록 `supermarket` (2026-09-11, 910)
 
 - **맵 id**: `MapCatalog.SupermarketId = "supermarket"`. 기본 맵은 playground 그대로. 방 설정 UI(`PlaySettingsMapCatalog`)와 로비 맵 카드는 카탈로그에서 자동으로 옵션이 늘어난다(라벨은 id).
-- **맵 → 씬**: `NetworkScenes` 에셋에 `_mapScenes` 목록(mapId + SceneAsset)을 추가하고 playground→`Playground.unity`, supermarket→`MartBuild.unity`를 연결. `MatchSceneFor(mapId)`가 씬을 고르고, 목록에 없는 id는 기존 `MatchScene`(playground)으로 떨어지며 경고. `IsMatchScene(SceneRef)`로 어느 맵 씬이 올라와 있는지 판별(로비 복귀 때 내릴 씬 찾기).
+- **맵 → 씬**: `NetworkScenes` 에셋에 `_mapScenes` 목록(mapId + SceneAsset)을 추가하고 playground→`Playground.unity`, supermarket→`Supermarket.unity`(구 MartBuild)를 연결. `MatchSceneFor(mapId)`가 씬을 고르고, 목록에 없는 id는 기존 `MatchScene`(playground)으로 떨어지며 경고. `IsMatchScene(SceneRef)`로 어느 맵 씬이 올라와 있는지 판별(로비 복귀 때 내릴 씬 찾기).
 - **매치 진입**: `NetworkRunnerService.EnterMatchScene`이 방 설정 mapId로 씬을 고른다. 설정이 랜덤("")이면 이 순간 `MapCatalog.PickRandom()`으로 결정하고 설정은 랜덤 그대로 둔다(다음 매치도 다시 뽑힘). 결정된 맵은 `_activeMapId`에 보관되어 `AnalyticsMapId`로 나간다. 호스트가 씬을 바꾸는 구조라 서버 파트 코드 변경은 없었다.
-- **빌드 목록**: `MartBuild.unity`를 Playground 뒤(index 4)에 추가.
+- **빌드 목록**: `Supermarket.unity`(구 MartBuild)를 Playground 뒤(index 4)에 추가.
 - **마트 씬에 넣은 매치 구성**(Playground와 같은 이름 규약): `MatchLifetimeScope`(`PlaygroundLifetimeScope` 컴포넌트, MatchRules·InputSystem_Actions 연결), `InGameHud`(메뉴 `Game > InGame > Build HUD Layout (Active Scene)`로 생성 — 이 메뉴를 새로 추가, 대기 스폰은 만들지 않음), `PlayerCameraRig` 프리팹 인스턴스, `Main Camera`에 AudioListener·CinemachineBrain(데모 `Main Camera (1)` 삭제), 계산대 위 임시 카탈로그 물건 8개(`CatalogItems_Temp`: Soda·Burger·Pineapple·Cup·Plate·Plant·Kettle·Toaster — `PlaygroundMatchScene.Capture`가 `ItemCatalog` 전 항목을 요구해서 넣은 것, 907에서 마트 상품으로 교체).
 - **검증**: EditMode 133개 통과(`MapCatalogTests`, `NetworkContractTests`의 맵별 씬 테스트 포함). 실제 2인 플레이로 supermarket 선택→로드 확인은 아직.
 - **남은 것**: 맵 카드 썸네일, 라벨 한글화 여부, WebGL 빌드 크기, 대기 스폰 정책(현재 SpawnPoint_1~6 fallback), `Global Volume`(데모 포스트프로세스) 유지 여부는 911에서.

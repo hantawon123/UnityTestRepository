@@ -44,7 +44,7 @@
 ### T3 (904). [CL] 조립 씬·환경 프리팹 제작
 - **설명**: 도면대로 모듈을 조립하고 소품을 배치해 `MartEnvironment.prefab`으로 묶는다. 로비와 같은 방식(조립 씬 → 프리팹 → 매치 씬 배치).
 - **작업**
-  - [ ] 조립 씬 `Assets/_Game/Content/Scenes/MartBuild.unity`
+  - [ ] 조립 씬 `Assets/_Game/Content/Scenes/Supermarket.unity`
   - [ ] 루트 `MartEnvironment/{Modules, StaticProps, Carryables, Items, Decals, Lights, Boundary, Probes}` 구조(로비와 동일)
   - [ ] 벽·바닥·천장·문·셔터 모듈 조립, 스케일은 1 유지(비균등 스케일 금지)
   - [ ] 진열대·냉장고·카운터·카트 등 가구 배치, 진열 상품 소품 배치
@@ -122,7 +122,7 @@
   - [x] `PlaySettingsMapCatalog`는 카탈로그에서 자동으로 옵션이 늘어남(라벨 = id "supermarket"). 맵 카드 썸네일은 미연결
   - [x] 맵 id → 씬 매핑: `NetworkScenes._mapScenes`(mapId + SceneAsset) 추가, `MatchSceneFor(mapId)`·`IsMatchScene`, `NetworkRunnerService.EnterMatchScene`이 방 설정 mapId로 씬 선택(호스트 권위 = 클라이언트 코드라 별도 서버 협의 불필요했음)
   - [x] 랜덤: 설정은 "" 그대로 두고 `EnterMatchScene`에서 `MapCatalog.PickRandom()`으로 결정, `_activeMapId`에 보관(AnalyticsMapId)
-  - [x] 빌드 목록에 `MartBuild.unity` 추가(index 4). WebGL 빌드 크기 확인은 미완
+  - [x] 빌드 목록에 `Supermarket.unity`(구 MartBuild) 추가(index 4). WebGL 빌드 크기 확인은 미완
   - [x] 테스트: `MapCatalogTests` 갱신, `NetworkContractTests.NetworkScenes_MapsEveryCatalogMapToItsOwnBuildListedScene` 추가(133/133 통과)
   - [ ] 실제 플레이 확인: 로비에서 supermarket 선택 → 시작 → 마트 로드 (2인 이상 필요)
   - [ ] 마트 씬 임시 요소 정리: 계산대 위 카탈로그 물건 8개(`CatalogItems_Temp`)는 907에서 마트 상품 카탈로그로 교체, 대기 스폰 지점 없음(SpawnPoint_1~6 fallback)
