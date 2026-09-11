@@ -63,11 +63,8 @@ namespace Game.Architecture.Tests
                 Assert.That(hint, Is.Not.Null);
                 Assert.That(hint.text, Is.EqualTo(SearchingIntroView.FormatRichHint("햄버거")));
                 Assert.That(hint.fontSize, Is.EqualTo(SearchingIntroView.FontSize));
-
-                var preview = view.transform.Find("Content/ItemPreview")?.GetComponent<UnityEngine.UI.RawImage>();
-                Assert.That(preview, Is.Not.Null);
-                Assert.That(preview.rectTransform.sizeDelta, Is.EqualTo(new Vector2(360f, 360f)));
-                Assert.That(preview.color, Is.EqualTo(Color.white));
+                Assert.That(view.transform.Find("Content/ItemPreview"), Is.Null);
+                Assert.That(view.transform.Find("ItemPreview"), Is.Null);
             }
             finally
             {

@@ -31,7 +31,7 @@ namespace Game.Client.Match
         void SetShredderMarker(Vector2 screenPosition, bool visible);
         void ShowHidingIntro(string itemDisplayName, string itemId);
         void HideHidingIntro();
-        void ShowSearchingIntro(string itemDisplayName, string itemId);
+        void ShowSearchingIntro(string itemDisplayName);
         void HideSearchingIntro();
         bool IsPhaseIntroPresented(MatchPhase phase);
         void ShowHidingTurnStart(double remainingSeconds, string bannerText = null);
@@ -388,11 +388,11 @@ namespace Game.Client.Match
             hidingIntroView?.Hide();
         }
 
-        public void ShowSearchingIntro(string itemDisplayName, string itemId)
+        public void ShowSearchingIntro(string itemDisplayName)
         {
             EnsureSearchingIntro();
             searchingPresentation = true;
-            searchingIntroView?.Show(itemDisplayName, itemId);
+            searchingIntroView?.Show(itemDisplayName);
         }
 
         public void HideSearchingIntro()

@@ -361,7 +361,7 @@ namespace Game.Bootstrap
 
             if (searchingIntroVisible)
             {
-                view.ShowSearchingIntro(assignedItemDisplayName, assignedItemId);
+                view.ShowSearchingIntro(assignedItemDisplayName);
                 return;
             }
 
@@ -453,7 +453,7 @@ namespace Game.Bootstrap
             searchingIntroEndsAt = endsAt;
             searchingIntroOpenedThisPhase = true;
             searchingIntroVisible = true;
-            view.ShowSearchingIntro(assignedItemDisplayName, assignedItemId);
+            view.ShowSearchingIntro(assignedItemDisplayName);
         }
 
         private void HideSearchingIntro()

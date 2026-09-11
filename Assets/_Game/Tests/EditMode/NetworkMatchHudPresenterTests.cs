@@ -1231,7 +1231,7 @@ namespace Game.Architecture.Tests
             public string SearchingIntroItem { get; private set; }
             public bool SearchingIntroVisible { get; private set; }
 
-            public void ShowSearchingIntro(string itemDisplayName, string itemId)
+            public void ShowSearchingIntro(string itemDisplayName)
             {
                 SearchingIntroItem = itemDisplayName;
                 SearchingIntroVisible = true;
