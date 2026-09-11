@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 6074269470061883269}
   - component: {fileID: 4480413899515546462}
   - component: {fileID: 4196943910313213765}
-  - component: {fileID: 6309005962728781035}
+  - component: {fileID: 4385161089930405446}
   m_Layer: 0
   m_Name: Gen_SM_Prop_Hunting_Fishing_Rod_Rack_Wood_Preset_02_40v
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &6309005962728781035
-BoxCollider:
+--- !u!64 &4385161089930405446
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.08591674, y: 0.08495349, z: 0.10311066}
-  m_Center: {x: -0.000009439886, y: 0.0046699345, z: 0.00001341477}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: a91a1bd93e8289848908f4c83053c379, type: 2}

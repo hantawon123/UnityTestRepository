@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 3776867138061281810}
   - component: {fileID: 8231410894589401980}
   - component: {fileID: 2432643377938395091}
-  - component: {fileID: 6623254313411929422}
+  - component: {fileID: 3855053258021201775}
   m_Layer: 0
   m_Name: Gen_SM_Prop_Warehouse_Cage_Trolley_01_Insert_01_63v 1
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &6623254313411929422
-BoxCollider:
+--- !u!64 &3855053258021201775
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.8452178, y: 0.80455244, z: 0.95836174}
-  m_Center: {x: -0.03596945, y: -0.097982585, z: 0.024221823}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: 8a4667480c2a814438f91dc2827aecc9, type: 2}

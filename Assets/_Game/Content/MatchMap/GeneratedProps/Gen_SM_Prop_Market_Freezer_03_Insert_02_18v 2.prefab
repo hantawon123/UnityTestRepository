@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 2495576133433823098}
   - component: {fileID: 2097990554455365254}
   - component: {fileID: 2230903010304012556}
-  - component: {fileID: 2347390946349069010}
+  - component: {fileID: 6626043490097593124}
   m_Layer: 0
   m_Name: Gen_SM_Prop_Market_Freezer_03_Insert_02_18v 2
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &2347390946349069010
-BoxCollider:
+--- !u!64 &6626043490097593124
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.9243057, y: 0.38282347, z: 0.08369996}
-  m_Center: {x: 0.006605476, y: 0.000000059604645, z: 0.0046810433}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: 9c30ac37d75065b40989cb0624346e88, type: 2}

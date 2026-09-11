@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 7825247152824735468}
   - component: {fileID: 1423255321000416049}
   - component: {fileID: 5926216746667441190}
-  - component: {fileID: 2277976865048560826}
+  - component: {fileID: 12306469645830134}
   m_Layer: 0
   m_Name: Gen_SM_Prop_Hunting_Cabinet_01_Insert_01_94v 1
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &2277976865048560826
-BoxCollider:
+--- !u!64 &12306469645830134
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.071384676, y: 0.08299664, z: 0.14615661}
-  m_Center: {x: 0.0045456877, y: 0.01607655, z: -0.033294342}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: e1257df39b7eb35448df52f035df4671, type: 2}

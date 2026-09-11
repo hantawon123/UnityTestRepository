@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 1972137243431949645}
   - component: {fileID: 5705269373585907093}
   - component: {fileID: 1203734691210532660}
-  - component: {fileID: 6296795671541359937}
+  - component: {fileID: 5150813599990200907}
   m_Layer: 0
   m_Name: Gen_SM_Gen_Prop_Crate_Preset_01_57v
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &6296795671541359937
-BoxCollider:
+--- !u!64 &5150813599990200907
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.024862975, y: 0.7179968, z: 0.71799564}
-  m_Center: {x: -0.00793992, y: 0.023000509, z: -0.01875627}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: 607c18d82b479c64096cd686c373c0ef, type: 2}

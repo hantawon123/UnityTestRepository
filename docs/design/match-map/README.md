@@ -123,3 +123,14 @@
 - **결과**: Supermarket 씬 Carryable **7,099개**(경계 안 6,144 + 프리팹을 직접 고친 탓에 따라온 경계 밖 955; 전부 kinematic, 콜라이더 있음), 고정 소품 2,723개(355종), 분류 불가 76개(48종, 고정 유지 — 컴퓨터·의류·마네킹 등, 목록은 `carryable-props.md`), 경계 밖 9,028개는 손대지 않음. 정적 배칭 플래그 12,907개(렌더러 20,021 중 Carryable·파쇄기 제외). 런타임 캡처 = 월드 오브젝트 7,099·배정 284·스폰 10·파쇄기 2.
 - **주의**: 네트워크 상태는 한 매치에서 건드린(들거나 옮긴) 물건 최대 256개까지만 복제한다(`MatchSessionState.MaxReplicatedObjects`). 6인 플레이에서 부족하면 상한 조정 필요. 정적 배칭은 메모리(결합 메시)를 늘리니 WebGL 측정(914) 후 유지 여부 결정.
 - 목록 문서: [carryable-props.md](carryable-props.md) (메뉴 1로 재생성).
+
+#### 9-1. 가구 콜라이더 수정 (2026-09-11) — "상품 한 종류만 잡힘" 원인
+- **증상**: Carryable 7,099개 중 조준 광선이 닿는 것은 272개. 나머지는 가구 콜라이더가 상품을 통째로 감싸서 광선이 가구에 먼저 맞았다.
+  - Synty 가구의 MeshCollider는 시각 메시가 아니라 **별도 충돌 메시 `Models/Collision/Convex/*_Convex.asset`(닫힌 껍질)** 을 쓴다. convex를 꺼도 앞면이 막힌 채다.
+  - 분해로 생성한 구조물 조각(`Gen_*` 계산대 선반·벽 냉장고 본체 등)은 바운드 크기 BoxCollider였다.
+- **수정** `Game > Match Map > Carryable > 4. Fix Furniture Colliders (Non-Convex)` ([MartFurnitureColliderMenu.cs](../../../Assets/_Game/Editor/MartFurnitureColliderMenu.cs)):
+  - 생성 구조물 프리팹 307종: BoxCollider → 자기 메시의 non-convex MeshCollider(프리팹 에셋 수정).
+  - 경계 안 가구 인스턴스 1,301개: MeshCollider의 메시를 **시각 메시(MeshFilter)** 로 바꾸고 convex 해제(인스턴스 오버라이드, 팩 에셋은 그대로). 움직이지 않는 가구라 non-convex 허용.
+  - `5. Reachability Report`: 상품마다 여러 방향·눈높이에서 광선을 쏘아 닿는 수와 막는 콜라이더를 집계.
+- **결과**: 현실적 검사(8방향 × 서서/앉아서, 0.9 m) 기준 닿는 상품 272 → **4,301개**(경계 안 6,144의 70%). 남은 막힘은 선반 판·벽·냉동고 몸체 뒤쪽 등 실제 기하에 의한 것이 대부분(더 가까이·다른 각도에서는 닿음). 냉동고 안 상품은 정면에서 바로 닿고, 음료 냉장고 문은 콜라이더가 없어 유리를 통해 잡힌다.
+- **조준 하이라이트가 안 보이는 문제**: 현재 하이라이트는 `InteractableFocusOutline`의 주황 2 px 뒤집힌 껍질(inverted hull) 윤곽선인데(2026-09-06 chrin105가 `_BaseColor` 밝게 하기 방식에서 교체), 진열대처럼 물건이 빽빽이 붙어 있으면 껍질이 옆 물건·선반 판 안으로 들어가 깊이 판정에 가려져 보이지 않는다. 고립된 Playground 물건에서만 잘 보인다. 해결 후보: 스텐실 2패스(물건 실루엣 밖에만, 깊이 무시)로 바꾸기 — 담당자와 협의.

@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 5369025679920803711}
   - component: {fileID: 8301283722962165882}
   - component: {fileID: 61878396200803233}
-  - component: {fileID: 259745047057046279}
+  - component: {fileID: 8198790997587117122}
   m_Layer: 0
   m_Name: Gen_SM_Prop_Flower_Stand_Preset_02_28v
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &259745047057046279
-BoxCollider:
+--- !u!64 &8198790997587117122
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.033754528, y: 0.09860633, z: 0.9383967}
-  m_Center: {x: 0.000074118376, y: 0.0012001283, z: -0.020909652}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: 7b45e2e834858f443a17237ce3248d47, type: 2}

@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 1116745064361919608}
   - component: {fileID: 1801697882382453102}
   - component: {fileID: 7727281479188504011}
-  - component: {fileID: 6933156571791720954}
+  - component: {fileID: 2125325435625613621}
   m_Layer: 0
   m_Name: Gen_SM_Prop_Kitchen_Counter_Food_Insert_Large_04_79v
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &6933156571791720954
-BoxCollider:
+--- !u!64 &2125325435625613621
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.28843963, y: 0.01971625, z: 0.70476925}
-  m_Center: {x: 0.0046654493, y: 0.0017193211, z: 0.008358255}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: eb936ca50b9c62e42aff4c393a264b77, type: 2}
