@@ -7,9 +7,22 @@ mergeInto(LibraryManager.library, {
       if (!s) return;
       s.input.remove();
     },
-    send: function (s, action) {
+    send: function (s, action, composing) {
       if (GameText.state !== s) return;
-      SendMessage(s.target, 'OnBrowserEdit', JSON.stringify({id: s.id, value: s.input.value, action: action}));
+      SendMessage(s.target, 'OnBrowserEdit', JSON.stringify({
+        id: s.id, value: s.input.value, action: action, composing: composing || ''}));
+    },
+    // maxLength does not stop an IME: a syllable composed past the limit stays on the end
+    // until the field is left. Cut the overflow where it was inserted (just before the caret)
+    // as soon as it appears; assigning value also ends the composition that produced it.
+    clamp: function (s, limit) {
+      var input = s.input, value = input.value;
+      if (limit <= 0 || value.length <= limit) return false;
+      var excess = value.length - limit, cut = input.selectionStart;
+      var caret = cut >= excess ? cut - excess : limit;
+      input.value = cut >= excess ? value.slice(0, cut - excess) + value.slice(cut) : value.slice(0, limit);
+      input.setSelectionRange(caret, caret);
+      return true;
     }
   },
   GameTextOpen__deps: ['$GameText'],
@@ -31,11 +44,22 @@ mergeInto(LibraryManager.library, {
       margin: '0', padding: '0', border: '0', outline: 'none', background: 'transparent',
       color: o.color, fontFamily: 'sans-serif', resize: 'none'});
     input.addEventListener('compositionstart', function () { s.composing = true; });
+    input.addEventListener('compositionupdate', function (event) {
+      // The counter beside the field follows the syllable as it is built.
+      if (s.composing) GameText.send(s, 'compose', event.data);
+    });
     input.addEventListener('compositionend', function () {
       s.composing = false;
+      GameText.clamp(s, o.limit);
       GameText.send(s, 'input');
     });
     input.addEventListener('input', function (event) {
+      if (GameText.clamp(s, o.limit)) {
+        // Not every browser reports the composition it just lost; do not wait for it.
+        s.composing = false;
+        GameText.send(s, 'input');
+        return;
+      }
       if (!s.composing && !event.isComposing) GameText.send(s, 'input');
     });
     input.addEventListener('keydown', function (event) {

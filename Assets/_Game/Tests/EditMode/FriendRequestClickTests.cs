@@ -250,6 +250,7 @@ namespace Game.Architecture.Tests
             public string SentTo { get; private set; }
 
             public int SendCount { get; private set; }
+            private string pendingPlayer;
 
             public BackendFailure Failure { get; set; } = BackendFailure.None;
 
@@ -258,6 +259,7 @@ namespace Game.Architecture.Tests
             {
                 SentTo = playerId;
                 SendCount++;
+                if (Failure == BackendFailure.None) pendingPlayer = playerId;
                 return UniTask.FromResult(
                     Failure == BackendFailure.None
                         ? BackendResult<FriendRequestOutcome>.Success(FriendRequestOutcome.Sent)
@@ -278,7 +280,10 @@ namespace Game.Architecture.Tests
                 ListIncomingRequestsAsync(CancellationToken cancellation) => NoRequests();
 
             public UniTask<BackendResult<IReadOnlyList<FriendRequestSummary>>>
-                ListOutgoingRequestsAsync(CancellationToken cancellation) => NoRequests();
+                ListOutgoingRequestsAsync(CancellationToken cancellation) =>
+                UniTask.FromResult(BackendResult<IReadOnlyList<FriendRequestSummary>>.Success(
+                    pendingPlayer == null ? Array.Empty<FriendRequestSummary>()
+                    : new[] { new FriendRequestSummary(pendingPlayer, "나그네", DateTime.UtcNow) }));
 
             public UniTask<BackendResult> AcceptRequestAsync(
                 string playerId, CancellationToken cancellation) => Ok();
@@ -385,7 +390,8 @@ namespace Game.Architecture.Tests
 
             public void SetProfileSettingsVisible(bool visible) { }
 
-            public void SetFriendListVisible(bool visible) { }
+            public bool FriendListVisible { get; private set; }
+            public void SetFriendListVisible(bool visible) { FriendListVisible = visible; }
 
             public void SetFriends(
                 IReadOnlyList<FriendSummary> onlineFriends,
