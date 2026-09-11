@@ -21,7 +21,7 @@ namespace Game.Bootstrap
                 log.Append($"\n playgroundScope={scope.GetInstanceID()} scene={scope.gameObject.scene.name} cachedRoots={scope.SceneRoots.Count}");
                 foreach (var root in scope.SceneRoots)
                 {
-                    if (root == null) { log.Append("\n  root=destroyed"); continue; }
+                    if (root == null || !root.activeInHierarchy) continue;
                     var renderers = root.GetComponentsInChildren<Renderer>(true);
                     var visible = 0;
                     foreach (var r in renderers)
@@ -35,7 +35,8 @@ namespace Game.Bootstrap
                 log.Append($"\n rig={rig.GetInstanceID()} scene={rig.gameObject.scene.name} enabled={rig.enabled} active={rig.gameObject.activeInHierarchy} target={(rig.FollowTarget == null ? "none" : rig.FollowTarget.name)} pos={rig.transform.position}");
             foreach (var avatar in Object.FindObjectsByType<PlayerAvatar>(FindObjectsInactive.Include, FindObjectsSortMode.None))
                 log.Append($"\n avatar={avatar.GetInstanceID()} owner={avatar.IsOwner} scene={avatar.gameObject.scene.name} pos={avatar.transform.position}");
-            Debug.Log(log.ToString());
+            foreach (var line in log.ToString().Split('\n'))
+                Debug.Log("[QA-Detail] " + line);
         }
     }
 }
