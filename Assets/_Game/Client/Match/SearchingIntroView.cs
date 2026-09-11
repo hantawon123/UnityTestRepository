@@ -140,11 +140,6 @@ namespace Game.Client.Match
             SetVisualsVisible(false);
         }
 
-        private void LateUpdate()
-        {
-            preview?.Tick(Time.deltaTime);
-        }
-
         private void OnDestroy()
         {
             preview?.Dispose();
@@ -191,7 +186,7 @@ namespace Game.Client.Match
 
             if (preview == null && itemPreview != null)
             {
-                preview = new HidingIntroItemPreview(itemPreview);
+                preview = new HidingIntroItemPreview(itemPreview, rotates: true);
             }
         }
 
@@ -208,7 +203,7 @@ namespace Game.Client.Match
 
             itemPreview = CreateRawImage(content, "ItemPreview");
             Place(itemPreview.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, 190f), new Vector2(360f, 360f));
-            preview = new HidingIntroItemPreview(itemPreview);
+            preview = new HidingIntroItemPreview(itemPreview, rotates: true);
 
             titleText = CreateText(content, "Title", TitleText, FontSize, TextAlignmentOptions.Center);
             Place(

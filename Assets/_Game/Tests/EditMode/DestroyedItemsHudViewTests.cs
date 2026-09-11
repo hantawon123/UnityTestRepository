@@ -127,7 +127,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void Show_AppliesGrayscaleMaterialWhenLocalItemIsDestroyed()
+        public void Show_KeepsDefaultPreviewMaterialWhenLocalItemIsDestroyed()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
             try
@@ -151,14 +151,8 @@ namespace Game.Architecture.Tests
                     ?.GetComponent<RawImage>();
                 Assert.That(ownPreview, Is.Not.Null);
                 Assert.That(otherPreview, Is.Not.Null);
-                if (Shader.Find(DestroyedItemsHudView.GrayscaleShaderName) != null)
-                {
-                    Assert.That(ownPreview.material, Is.Not.Null);
-                    Assert.That(
-                        ownPreview.material.shader.name,
-                        Is.EqualTo(DestroyedItemsHudView.GrayscaleShaderName));
-                    Assert.That(otherPreview.material, Is.Null);
-                }
+                Assert.That(ownPreview.material, Is.Null);
+                Assert.That(otherPreview.material, Is.Null);
             }
             finally
             {

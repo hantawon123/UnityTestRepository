@@ -35,7 +35,6 @@ namespace Game.Client.Match
         public const string QuestionMark = "?";
         public const string OwnBorderName = "OwnBorder";
         public const string FillName = "Fill";
-        public const string GrayscaleShaderName = "UI/DestroyedItemGrayscale";
 
         public static readonly Color SlotColor = new Color(0f, 0f, 0f, 0.6f);
         public static readonly Color QuestionColor = new Color(200f / 255f, 200f / 255f, 200f / 255f, 1f);
@@ -50,7 +49,6 @@ namespace Game.Client.Match
         private Slot[] slots = System.Array.Empty<Slot>();
         private DestroyedItemHudSlot[] laidOutSlots = System.Array.Empty<DestroyedItemHudSlot>();
         private bool retryPreviews;
-        private static Material grayscaleMaterial;
         private static Sprite ownBorderSprite;
 
         public static DestroyedItemsHudView Create(Transform parent)
@@ -273,30 +271,6 @@ namespace Game.Client.Match
             }
         }
 
-        private static Material GrayscaleMaterial
-        {
-            get
-            {
-                if (grayscaleMaterial != null)
-                {
-                    return grayscaleMaterial;
-                }
-
-                var shader = Shader.Find(GrayscaleShaderName);
-                if (shader == null)
-                {
-                    return null;
-                }
-
-                grayscaleMaterial = new Material(shader)
-                {
-                    name = "DestroyedItemGrayscale",
-                    hideFlags = HideFlags.HideAndDontSave
-                };
-                return grayscaleMaterial;
-            }
-        }
-
         private sealed class Slot
         {
             private readonly GameObject root;
@@ -392,7 +366,8 @@ namespace Game.Client.Match
                     previewImage,
                     PreviewTextureSize,
                     new Color(0f, 0f, 0f, 0f),
-                    Vector3.right * (20f * (index + 1)));
+                    Vector3.right * (20f * (index + 1)),
+                    rotates: false);
                 return new Slot(
                     root,
                     ownBorder,
@@ -409,16 +384,16 @@ namespace Game.Client.Match
                 SetOwnBorder(slot.IsOwn);
                 if (slot.ShowPreview && !string.IsNullOrWhiteSpace(slot.ItemId))
                 {
-                    if (!preview.HasPreview ||
-                        !string.Equals(shownItemId, slot.ItemId, System.StringComparison.Ordinal))
+                    if (!string.Equals(shownItemId, slot.ItemId, System.StringComparison.Ordinal))
                     {
                         preview.Show(slot.ItemId);
-                        shownItemId = slot.ItemId;
+                        shownItemId = preview.HasPreview ? slot.ItemId : null;
                     }
 
                     var shown = preview.HasPreview;
                     previewImage.enabled = shown;
-                    ApplyGrayscale(slot.Grayscale);
+                    previewImage.material = null;
+                    preview.SetGrayscale(slot.Grayscale);
                     question.gameObject.SetActive(!shown);
                     return shown;
                 }
@@ -426,7 +401,7 @@ namespace Game.Client.Match
                 shownItemId = null;
                 preview.Clear();
                 previewImage.enabled = false;
-                ApplyGrayscale(false);
+                previewImage.material = null;
                 question.gameObject.SetActive(true);
                 return true;
             }
@@ -448,10 +423,6 @@ namespace Game.Client.Match
                 fillRect.offsetMax = Vector2.zero;
             }
 
-            private void ApplyGrayscale(bool grayscale)
-            {
-                previewImage.material = grayscale ? GrayscaleMaterial : null;
-            }
         }
     }
 }

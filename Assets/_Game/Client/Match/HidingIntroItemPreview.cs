@@ -19,22 +19,27 @@ namespace Game.Client.Match
         private readonly int textureSize;
         private readonly Color backgroundColor;
         private readonly Vector3 stageOffset;
+        private readonly bool rotates;
         private GameObject stage;
         private Transform model;
         private Camera camera;
         private Light light;
         private RenderTexture texture;
+        private Texture2D grayscaleTexture;
+        private PreviewSpin spin;
 
         public HidingIntroItemPreview(
             RawImage target,
             int textureSize = 512,
             Color? backgroundColor = null,
-            Vector3? stageOffset = null)
+            Vector3? stageOffset = null,
+            bool rotates = true)
         {
             this.target = target;
             this.textureSize = Mathf.Clamp(textureSize, 64, 512);
             this.backgroundColor = backgroundColor ?? Color.black;
             this.stageOffset = stageOffset ?? Vector3.zero;
+            this.rotates = rotates;
         }
 
         public bool HasPreview => target != null && target.enabled && target.texture != null;
@@ -66,16 +71,43 @@ namespace Game.Client.Match
             target.texture = texture;
             target.enabled = true;
             stage.SetActive(true);
+            BindSpin();
+            camera.Render();
+        }
+
+        public void SetGrayscale(bool enabled)
+        {
+            if (target == null || texture == null)
+            {
+                return;
+            }
+
+            if (!enabled)
+            {
+                target.texture = texture;
+                return;
+            }
+
+            if (grayscaleTexture == null)
+            {
+                grayscaleTexture = CreateGrayscaleCopy();
+            }
+
+            if (grayscaleTexture != null)
+            {
+                target.texture = grayscaleTexture;
+            }
         }
 
         public void Tick(float deltaTime)
         {
-            if (model == null)
+            if (!rotates || model == null || camera == null)
             {
                 return;
             }
 
             model.Rotate(Vector3.up, RotationDegreesPerSecond * deltaTime, Space.World);
+            camera.Render();
         }
 
         public void Dispose()
@@ -96,6 +128,17 @@ namespace Game.Client.Match
             {
                 target.texture = null;
                 target.enabled = false;
+            }
+
+            if (grayscaleTexture != null)
+            {
+                UnityEngine.Object.Destroy(grayscaleTexture);
+                grayscaleTexture = null;
+            }
+
+            if (spin != null)
+            {
+                spin.Bind(null, null);
             }
 
             if (model != null)
@@ -161,6 +204,45 @@ namespace Game.Client.Match
             light.range = 12f;
             light.intensity = 2.4f;
             light.color = Color.white;
+
+            if (rotates)
+            {
+                spin = stage.GetComponent<PreviewSpin>() ?? stage.AddComponent<PreviewSpin>();
+            }
+        }
+
+        private void BindSpin()
+        {
+            if (spin == null)
+            {
+                return;
+            }
+
+            spin.Bind(model, camera);
+        }
+
+        private sealed class PreviewSpin : MonoBehaviour
+        {
+            private Transform model;
+            private Camera previewCamera;
+
+            public void Bind(Transform model, Camera previewCamera)
+            {
+                this.model = model;
+                this.previewCamera = previewCamera;
+                enabled = model != null && previewCamera != null;
+            }
+
+            private void LateUpdate()
+            {
+                if (model == null || previewCamera == null)
+                {
+                    return;
+                }
+
+                model.Rotate(Vector3.up, RotationDegreesPerSecond * Time.unscaledDeltaTime, Space.World);
+                previewCamera.Render();
+            }
         }
 
         private static Transform CopyVisuals(Transform source, Transform parent)
@@ -185,7 +267,10 @@ namespace Game.Client.Match
 
             var filter = source.GetComponent<MeshFilter>();
             var renderer = source.GetComponent<MeshRenderer>();
-            if (filter != null && renderer != null && filter.sharedMesh != null)
+            if (filter != null &&
+                renderer != null &&
+                filter.sharedMesh != null &&
+                !ItemOutlineRenderers.IsGenerated(renderer))
             {
                 dest.gameObject.AddComponent<MeshFilter>().sharedMesh = filter.sharedMesh;
                 var copy = dest.gameObject.AddComponent<MeshRenderer>();
@@ -194,10 +279,27 @@ namespace Game.Client.Match
 
             foreach (Transform child in source)
             {
+                if (IsGeneratedOutline(child))
+                {
+                    continue;
+                }
+
                 var childCopy = new GameObject(child.name);
                 childCopy.transform.SetParent(dest, false);
                 CopyVisualRecursive(child, childCopy.transform);
             }
+        }
+
+        private static bool IsGeneratedOutline(Transform target)
+        {
+            var renderer = target.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                return ItemOutlineRenderers.IsGenerated(renderer);
+            }
+
+            return target.name.StartsWith("[", StringComparison.Ordinal) &&
+                   target.name.Contains("Outline");
         }
 
         private void FitCamera(Transform preview)
@@ -227,6 +329,42 @@ namespace Game.Client.Match
             }
 
             return bounds;
+        }
+
+        private Texture2D CreateGrayscaleCopy()
+        {
+            if (camera != null)
+            {
+                camera.Render();
+            }
+
+            var copy = new Texture2D(texture.width, texture.height, TextureFormat.RGBA32, false)
+            {
+                hideFlags = HideFlags.HideAndDontSave,
+                filterMode = FilterMode.Bilinear
+            };
+            var previous = RenderTexture.active;
+            try
+            {
+                RenderTexture.active = texture;
+                copy.ReadPixels(new Rect(0, 0, texture.width, texture.height), 0, 0);
+                var pixels = copy.GetPixels32();
+                for (var index = 0; index < pixels.Length; index++)
+                {
+                    var pixel = pixels[index];
+                    var gray = (byte)(((pixel.r * 77) + (pixel.g * 150) + (pixel.b * 29)) >> 8);
+                    pixels[index] = new Color32(gray, gray, gray, pixel.a);
+                }
+
+                copy.SetPixels32(pixels);
+                copy.Apply(false, false);
+            }
+            finally
+            {
+                RenderTexture.active = previous;
+            }
+
+            return copy;
         }
 
         private static CarryableItem FindSource(string itemId)
