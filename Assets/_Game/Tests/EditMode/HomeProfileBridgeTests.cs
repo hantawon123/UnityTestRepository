@@ -386,6 +386,11 @@ namespace Game.Architecture.Tests
 
             public void SetProfileSettingsVisible(bool visible) { }
 
+            public void SetSuspendedNoticeVisible(bool visible) =>
+                SuspendedNoticeVisible = visible;
+
+            public bool SuspendedNoticeVisible { get; private set; }
+
             public bool FriendListVisible { get; private set; }
             public void SetFriendListVisible(bool visible) { FriendListVisible = visible; }
 

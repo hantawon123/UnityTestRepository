@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Game.Core.Backend;
 using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Ports;
 using R3;
+using UnityEngine;
 using VContainer.Unity;
 
 namespace Game.Client.Lobby
@@ -200,16 +202,24 @@ namespace Game.Client.Lobby
             confirmView.Show(KickConfirmView.FormatTitle(displayName), KickConfirmView.ConfirmLabel);
         }
 
-        private void OnReportClicked(string playerId, string displayName)
+        /// <param name="userId">
+        /// The backend account of the reported player, not the Photon player id
+        /// the kick path uses. The two were confused once and every report was
+        /// answered 404 (S15P21D205-926).
+        /// </param>
+        private void OnReportClicked(string userId, string displayName)
         {
-            if (string.IsNullOrWhiteSpace(playerId)
-                || string.Equals(playerId, hostSession.LocalPlayerId, StringComparison.Ordinal))
+            // No comparison against LocalPlayerId here. That is a Photon player
+            // id and this is an account id, so the check could never match — and
+            // a guard that cannot fire reads like protection that is not there.
+            // The view already leaves the report off the local player's own row.
+            if (string.IsNullOrWhiteSpace(userId))
             {
                 return;
             }
 
             pending = PendingConfirm.Report;
-            pendingPlayerId = playerId;
+            pendingPlayerId = userId;
             confirmView.Show(
                 LobbyPlayerListView.FormatReportTitle(displayName),
                 LobbyPlayerListView.ReportConfirmLabel,
@@ -230,14 +240,41 @@ namespace Game.Client.Lobby
             }
             else if (pending == PendingConfirm.Report)
             {
-                reports.ReportAsync(
+                ReportAsync(
                     pendingPlayerId,
                     confirmView.SelectedReason,
-                    null,
                     lifetime.Token).Forget();
             }
 
             CancelPending();
+        }
+
+        /// <summary>
+        /// Sends the report and says so when it does not land.
+        /// </summary>
+        /// <remarks>
+        /// The result used to be dropped with <c>Forget</c> on the call itself.
+        /// That is how every report could be answered 404 for as long as it was
+        /// without anyone noticing: the id was wrong and the failure had nowhere
+        /// to go (S15P21D205-926).
+        /// <para>
+        /// A log line, not a message on screen. Telling the player is a separate
+        /// piece of work (S15P21D205-924); this is the part that would have made
+        /// the bug visible to whoever was testing.
+        /// </para>
+        /// </remarks>
+        private async UniTaskVoid ReportAsync(
+            string userId, ReportReason reason, CancellationToken cancellation)
+        {
+            var result = await reports.ReportAsync(userId, reason, null, cancellation);
+
+            if (result.Ok || result.Failure == BackendFailure.Cancelled)
+            {
+                return;
+            }
+
+            Debug.LogWarning(
+                $"[Report] Reporting {userId} did not land: {result.Failure}.");
         }
 
         private void CancelPending()

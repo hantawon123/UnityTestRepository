@@ -73,6 +73,12 @@ namespace Game.Client.Home
             // Last, so it draws over the panels. It never takes a click, so
             // being on top costs the controls underneath nothing.
             connectionToast = ConnectionToast.AttachTo(canvas);
+
+            // After everything, including the toast. Its scrim has to swallow the
+            // clicks meant for the controls behind it, and Unity hit-tests later
+            // siblings first - built earlier, the menu would still be pressable
+            // underneath the notice (S15P21D205-924).
+            BuildSuspendedNotice(canvas);
         }
 
         /// <summary>

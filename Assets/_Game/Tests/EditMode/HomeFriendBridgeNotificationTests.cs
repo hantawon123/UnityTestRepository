@@ -550,6 +550,11 @@ namespace Game.Architecture.Tests
 
             public void SetNickname(string nickname) { }
             public void SetProfileSettingsVisible(bool visible) { }
+
+            public void SetSuspendedNoticeVisible(bool visible) =>
+                SuspendedNoticeVisible = visible;
+
+            public bool SuspendedNoticeVisible { get; private set; }
             public void SetNicknameAppliedFeedbackVisible(bool visible) { }
             public void SetNicknameError(string message) { }
             public void SetNicknameSearchAllowed(bool allowed) { }

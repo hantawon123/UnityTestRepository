@@ -13,6 +13,123 @@ namespace Game.Architecture.Tests
     public sealed class LobbyPlayerListViewTests
     {
         [Test]
+        public void ReportClicked_CarriesTheBackendAccount_NotThePhotonPlayerId()
+        {
+            // Every report was answered 404 because this row handed the report
+            // API a Photon player id (S15P21D205-926). The presenter tests could
+            // not see it - they drive a fake view and raise the event by hand,
+            // so the value this row picks was never exercised.
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.EnsureLayout();
+
+                string reported = null;
+                view.ReportClicked += (id, _) => reported = id;
+
+                view.SetParticipants(
+                    new[]
+                    {
+                        new LobbyParticipant("P1", "방장", true, "11111111-1111-1111-1111-111111111111"),
+                        new LobbyParticipant("P2", "게스트", false, "22222222-2222-2222-2222-222222222222"),
+                    },
+                    localIsHost: true,
+                    localPlayerId: "P1");
+
+                ClickReportOn(canvas, "Row_P2");
+
+                Assert.That(reported, Is.EqualTo("22222222-2222-2222-2222-222222222222"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void AParticipantWithoutAnAccount_HasNoReportButton()
+        {
+            // Nothing the server could be told about, and a blank id would only
+            // turn the 404 into a 400.
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.EnsureLayout();
+
+                view.SetParticipants(
+                    new[]
+                    {
+                        new LobbyParticipant("P1", "방장", true, "11111111-1111-1111-1111-111111111111"),
+                        new LobbyParticipant("P2", "계정없음", false),
+                    },
+                    localIsHost: true,
+                    localPlayerId: "P1");
+
+                Assert.That(FindReport(canvas, "Row_P2"), Is.Null);
+
+                // The row itself is still there; only the report is missing.
+                Assert.That(FindRow(canvas, "Row_P2"), Is.Not.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void YourOwnRow_HasNoReportButton()
+        {
+            var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var view = canvas.AddComponent<LobbyPlayerListView>();
+                view.EnsureLayout();
+
+                view.SetParticipants(
+                    new[]
+                    {
+                        new LobbyParticipant("P1", "나", true, "11111111-1111-1111-1111-111111111111"),
+                    },
+                    localIsHost: true,
+                    localPlayerId: "P1");
+
+                Assert.That(FindReport(canvas, "Row_P1"), Is.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
+        }
+
+        private static Transform FindRow(GameObject canvas, string rowName)
+        {
+            foreach (var rect in canvas.GetComponentsInChildren<RectTransform>(true))
+            {
+                if (rect.name == rowName)
+                {
+                    return rect;
+                }
+            }
+
+            return null;
+        }
+
+        private static Button FindReport(GameObject canvas, string rowName)
+        {
+            var row = FindRow(canvas, rowName);
+            return row == null ? null : row.Find("Report")?.GetComponent<Button>();
+        }
+
+        private static void ClickReportOn(GameObject canvas, string rowName)
+        {
+            var report = FindReport(canvas, rowName);
+            Assert.That(report, Is.Not.Null, $"{rowName} 에 신고 버튼이 없습니다.");
+            report.onClick.Invoke();
+        }
+
+        [Test]
         public void EnsureLayout_BuildsBothColumnsWithBoldTitles()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
@@ -159,8 +276,10 @@ namespace Game.Architecture.Tests
                 view.SetParticipants(
                     new[]
                     {
-                        new LobbyParticipant("host-1", "방장닉", true),
-                        new LobbyParticipant("player-2", "게스트닉", false),
+                        // 계정 식별자를 함께 줍니다. 실제 참가자는 연결 토큰으로 이 값을
+                        // 들고 오고, 없으면 신고 버튼이 붙지 않습니다(S15P21D205-926).
+                        new LobbyParticipant("host-1", "방장닉", true, "account-host-1"),
+                        new LobbyParticipant("player-2", "게스트닉", false, "account-player-2"),
                     },
                     localIsHost: false,
                     localPlayerId: "player-2");
@@ -200,7 +319,10 @@ namespace Game.Architecture.Tests
                 var reported = new List<(string Id, string Name)>();
                 view.ReportClicked += (id, name) => reported.Add((id, name));
                 tooltip.GetComponent<Button>().onClick.Invoke();
-                Assert.That(reported, Is.EqualTo(new[] { ("host-1", "방장닉") }));
+                // 계정 식별자입니다. 여기가 Photon 번호("host-1")를 기대하고 있었고,
+                // 그래서 모든 신고가 404 로 버려지는 동안에도 이 테스트는 초록불이었습니다
+                // (S15P21D205-926).
+                Assert.That(reported, Is.EqualTo(new[] { ("account-host-1", "방장닉") }));
                 Assert.That(tooltip.gameObject.activeSelf, Is.False);
             }
             finally
