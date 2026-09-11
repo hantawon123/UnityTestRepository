@@ -21,10 +21,9 @@ namespace Game.Backend
                 case "MISSING_HEADER": return BackendFailure.MissingHeader;
                 case "INVALID_REQUEST": return BackendFailure.InvalidRequest;
 
-                // Two codes, one meaning for presentation: the player aimed at
-                // themselves and the UI should have prevented it.
+                // The player aimed at themselves and the UI should have
+                // prevented it.
                 case "SELF_FRIEND_REQUEST": return BackendFailure.SelfRequest;
-                case "SELF_BLOCK": return BackendFailure.SelfRequest;
 
                 case "ACCOUNT_NOT_FOUND": return BackendFailure.AccountNotFound;
 
@@ -46,6 +45,10 @@ namespace Game.Backend
                 // other server faults rather than getting a case of its own.
                 case "NICKNAME_GENERATION_FAILED": return BackendFailure.ServerError;
 
+                // RATE_LIMITED is missing on purpose. The server sends it only
+                // for the play-log upload, and that path does not come through
+                // here - MatchAnalyticsUpload reads the status code itself and
+                // retries, which is the right answer to being rate limited.
                 default: return BackendFailure.Unknown;
             }
         }
