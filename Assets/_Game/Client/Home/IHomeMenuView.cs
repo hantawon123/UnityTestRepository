@@ -114,6 +114,8 @@ namespace Game.Client.Home
         /// </remarks>
         void ShowConnectionError(string message);
 
+        bool FriendListVisible { get; }
+
         void SetFriendListVisible(bool visible);
 
         void SetFriends(

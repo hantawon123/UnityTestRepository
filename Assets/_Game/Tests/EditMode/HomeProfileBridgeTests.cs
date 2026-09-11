@@ -391,7 +391,8 @@ namespace Game.Architecture.Tests
 
             public bool SuspendedNoticeVisible { get; private set; }
 
-            public void SetFriendListVisible(bool visible) { }
+            public bool FriendListVisible { get; private set; }
+            public void SetFriendListVisible(bool visible) { FriendListVisible = visible; }
 
             public void SetFriends(
                 IReadOnlyList<FriendSummary> onlineFriends,

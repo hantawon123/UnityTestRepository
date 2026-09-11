@@ -11,6 +11,16 @@ namespace Game.Client.Common
     /// <summary>Web IME uses a native browser input; TMP remains the validated UI model.</summary>
     public sealed class WebTextInput : MonoBehaviour
     {
+        /// <summary>
+        /// The syllable the browser IME is still building in a field, before it
+        /// reaches that field's text. Empty once it lands or is dropped.
+        /// </summary>
+        /// <remarks>
+        /// Off WebGL the same thing comes from <c>Keyboard.onIMECompositionChange</c>;
+        /// here the browser owns the composition, so it is relayed from there.
+        /// </remarks>
+        public static event Action<TMP_InputField, string> ComposingChanged;
+
         // TMP refreshes placeholder.enabled while its text is still empty during IME
         // composition. Hide the object so only the browser owns the editing placeholder.
         internal static bool HidePlaceholder(TMP_InputField input)
@@ -43,7 +53,7 @@ namespace Game.Client.Common
         [Serializable] private sealed class Edit
         {
             public int id;
-            public string value, action;
+            public string value, action, composing;
         }
 
         private TMP_InputField field;
@@ -108,6 +118,14 @@ namespace Game.Client.Common
             var edit = JsonUtility.FromJson<Edit>(json);
             if (field == null || edit.id != session) return;
             var input = field;
+            if (edit.action == "compose")
+            {
+                ComposingChanged?.Invoke(input, edit.composing ?? string.Empty);
+                return;
+            }
+            // Anything else means the composition has landed in the value or been dropped.
+            ComposingChanged?.Invoke(input, string.Empty);
+            if (field != input || input == null) return;
             input.text = edit.value;
             if (field != input || input == null) return;
             if (edit.action == "input")

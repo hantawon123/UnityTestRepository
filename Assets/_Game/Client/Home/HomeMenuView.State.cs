@@ -41,6 +41,9 @@ namespace Game.Client.Home
         private Sprite rejectIcon;
 
         [SerializeField]
+        private Sprite friendPlusIcon;
+
+        [SerializeField]
         private Sprite closeIcon;
 
         [SerializeField]
@@ -91,6 +94,8 @@ namespace Game.Client.Home
         private Image requestRule;
         private GameObject requestBadge;
         private TMP_Text requestBadgeText;
+        private GameObject friendButtonBadge;
+        private TMP_Text friendButtonBadgeText;
         private bool isRequestTabOpen;
 
         /// <summary>
@@ -123,6 +128,24 @@ namespace Game.Client.Home
         private GameObject createRoomRoot;
         private TMP_InputField roomNameInput;
         private TMP_Text roomNameCounter;
+
+        /// <summary>
+        /// The syllable the IME is still building in the room-name box, which
+        /// never reaches the field's own text. See <c>composingText</c>.
+        /// </summary>
+        private string roomNameComposing = string.Empty;
+
+        /// <summary>
+        /// Set when the room-name box was deselected to end a refused
+        /// syllable, so the next frame gives it focus back.
+        /// </summary>
+        private bool roomNameRefocusPending;
+
+        /// <summary>
+        /// The syllable that was last dropped that way, so the same one is not
+        /// dropped again if the IME kept it.
+        /// </summary>
+        private string roomNameDroppedComposing = string.Empty;
         private TMP_Text privateSegment;
         private TMP_Text publicSegment;
         private RectTransform scopeIndicator;
@@ -192,6 +215,16 @@ namespace Game.Client.Home
             SetProfileSettingsVisible(false);
         }
 
+        /// <summary>
+        /// The IME reports its half-built syllable by polling only, so the
+        /// boxes that care read it here each frame they have focus.
+        /// </summary>
+        private void LateUpdate()
+        {
+            PollRoomNameComposition();
+            PollFriendSearchComposition();
+        }
+
         private void OnDestroy()
         {
             ClearButtons(menuButtons);
@@ -222,6 +255,7 @@ namespace Game.Client.Home
             }
 
             WatchComposition(false);
+            WatchRoomNameComposition(false);
         }
 
         public void SetNickname(string nickname)
@@ -299,6 +333,8 @@ namespace Game.Client.Home
             }
         }
 
+        public bool FriendListVisible => friendListRoot != null && friendListRoot.activeInHierarchy;
+
         public void SetFriendListVisible(bool visible)
         {
             SetActionSelected(HomeMenuAction.Friends, visible);
@@ -331,10 +367,20 @@ namespace Game.Client.Home
 
             BindFriendRows(onlineItemsRoot, onlineFriends, online: true);
             BindFriendRows(offlineItemsRoot, offlineFriends, online: false);
+            if (friendContextPlayerId != null)
+            {
+                var stillVisible = false;
+                foreach (var friend in onlineFriends)
+                    stillVisible |= friend.PlayerId == friendContextPlayerId;
+                foreach (var friend in offlineFriends)
+                    stillVisible |= friend.PlayerId == friendContextPlayerId;
+                if (!stillVisible) CloseFriendContextMenu();
+            }
         }
 
         public void SetFriendSearchVisible(bool visible)
         {
+            CloseFriendContextMenu();
             isRequestTabOpen = visible;
             if (friendListBody == null || friendSearchBody == null)
             {

@@ -241,7 +241,7 @@ namespace Game.Client.Home
         /// One of the two square icon buttons: friends at the bottom right,
         /// the server picker at the top right.
         /// </summary>
-        private void CreateIconButton(
+        private RectTransform CreateIconButton(
             RectTransform canvas,
             string name,
             Sprite icon,
@@ -278,6 +278,7 @@ namespace Game.Client.Home
             glyphImage.enabled = icon != null;
 
             AddButton(rect, fill, stroke, HomeStyle.Palette.ButtonFill, action);
+            return rect;
         }
 
         /// <summary>
@@ -467,7 +468,7 @@ namespace Game.Client.Home
 
         private void CreateFriendButton(RectTransform canvas)
         {
-            CreateIconButton(
+            var button = CreateIconButton(
                 canvas,
                 "FriendButton",
                 friendIcon,
@@ -475,6 +476,24 @@ namespace Game.Client.Home
                 new Vector2(1f, 0f),
                 new Vector2(-HomeStyle.Layout.BottomRightMargin, HomeStyle.Layout.BottomMargin),
                 HomeMenuAction.Friends);
+
+            var badge = CreateRect("RequestBadge", button);
+            SetAnchor(badge, Vector2.one, Vector2.one, new Vector2(0.5f, 0.5f));
+            badge.anchoredPosition = new Vector2(-2f, -2f);
+            badge.sizeDelta = Vector2.one * HomeStyle.Friends.BadgeDiameter;
+            AddImage(badge, HomeStyle.Palette.BadgeFill, HomeUiFonts.CircleSprite);
+
+            var label = CreateRect("Count", badge);
+            SetAnchor(label, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            label.offsetMin = Vector2.zero;
+            label.offsetMax = Vector2.zero;
+            friendButtonBadgeText = AddText(
+                label, string.Empty, HomeStyle.FontSize.Badge,
+                FontStyles.Normal, TextAlignmentOptions.Center);
+            ApplyMenuFont(friendButtonBadgeText);
+            friendButtonBadgeText.color = HomeStyle.Palette.BadgeLabel;
+            friendButtonBadge = badge.gameObject;
+            friendButtonBadge.SetActive(false);
         }
 
         private void CreateServerButton(RectTransform canvas)
