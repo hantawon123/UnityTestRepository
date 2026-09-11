@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 7528153176895377437}
   - component: {fileID: 2033590550619204866}
   - component: {fileID: 8547553778258229033}
-  - component: {fileID: 134380020463539054}
+  - component: {fileID: 9136255225387828877}
   m_Layer: 0
   m_Name: Gen_SM_Prop_Gym_Bar_Bell_Preset_01_26v
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &134380020463539054
-BoxCollider:
+--- !u!64 &9136255225387828877
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.04502809, y: 0.40909857, z: 0.4090984}
-  m_Center: {x: 0.000000059604645, y: 0.000000007450581, z: 0.000000014901161}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: adfd3428a9f9ffb4fbfa211510d80672, type: 2}

@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 8846887559878051852}
   - component: {fileID: 6703172756138162519}
   - component: {fileID: 2023534777411169102}
-  - component: {fileID: 4644887140291692326}
+  - component: {fileID: 53015372932732820}
   m_Layer: 0
   m_Name: Gen_SM_Prop_Arcade_Claw_01_24v 2
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &4644887140291692326
-BoxCollider:
+--- !u!64 &53015372932732820
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.102176815, y: 0.15584075, z: 0.024000466}
-  m_Center: {x: 0.006030008, y: -0.00000011920929, z: -0.0016666949}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: 8d3c9befa7024fd49a0dd9a6f1b1537a, type: 2}

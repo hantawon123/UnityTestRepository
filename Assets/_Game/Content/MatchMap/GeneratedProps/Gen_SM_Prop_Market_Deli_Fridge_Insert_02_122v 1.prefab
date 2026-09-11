@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 5815012417377267193}
   - component: {fileID: 6539595778950308736}
   - component: {fileID: 4185748331928608624}
-  - component: {fileID: 1992162513245979543}
+  - component: {fileID: 8218610802646288547}
   m_Layer: 0
   m_Name: Gen_SM_Prop_Market_Deli_Fridge_Insert_02_122v 1
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &1992162513245979543
-BoxCollider:
+--- !u!64 &8218610802646288547
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.933952, y: 0.14804542, z: 0.28899705}
-  m_Center: {x: -0.041461468, y: -0.0011373758, z: -0.006621413}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: db9f95ddc6140014598a66f5d0660c39, type: 2}

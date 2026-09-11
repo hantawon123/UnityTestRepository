@@ -12,6 +12,8 @@ GameObject:
   - component: {fileID: 5440113450646630528}
   - component: {fileID: 5081184417084025947}
   - component: {fileID: 7535859856035620094}
+  - component: {fileID: 68892490009020274}
+  - component: {fileID: 1481854092089774364}
   m_Layer: 0
   m_Name: Gen_SM_Prop_Market_Checkout_Shelf_Large_03_8v 1
   m_TagString: Untagged
@@ -112,3 +114,46 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.1163543, y: 0.16101599, z: 0.11212645}
   m_Center: {x: -0.0000001359731, y: -0.00000011920929, z: -0.0000000037252903}
+--- !u!54 &68892490009020274
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4879109032987752730}
+  serializedVersion: 5
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 1
+  m_IsKinematic: 1
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
+--- !u!114 &1481854092089774364
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4879109032987752730}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35eb5ffe1d38b2743a322e143ad7820d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Interactions.CarryableItem
+  displayName: "\uC0C1\uD488"
+  objectId: 
+  isPlayerItem: 0
+  ownerPlayerIndex: -1

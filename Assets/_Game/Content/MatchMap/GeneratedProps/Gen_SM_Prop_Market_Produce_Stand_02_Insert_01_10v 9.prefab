@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 5453623079170051512}
   - component: {fileID: 691287309048055064}
   - component: {fileID: 3412623042479979149}
-  - component: {fileID: 3595058430890923769}
+  - component: {fileID: 1560451139786345666}
   m_Layer: 0
   m_Name: Gen_SM_Prop_Market_Produce_Stand_02_Insert_01_10v 9
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &3595058430890923769
-BoxCollider:
+--- !u!64 &1560451139786345666
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.048020244, y: 0.055577874, z: 0.16371381}
-  m_Center: {x: 0.0020400882, y: 0.0023973584, z: 0.0015820265}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: f5472f7e257e5574a9169f022c694553, type: 2}

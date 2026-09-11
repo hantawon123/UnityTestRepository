@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 1778825348938717775}
   - component: {fileID: 201571335951449174}
   - component: {fileID: 90906098534282584}
-  - component: {fileID: 910550584374233824}
+  - component: {fileID: 3973368678913844047}
   m_Layer: 0
   m_Name: Gen_SM_Prop_Clothes_Folded_Shirt_Pile_02_36v 2
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &910550584374233824
-BoxCollider:
+--- !u!64 &3973368678913844047
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.81622255, y: 0.19846085, z: 0.5712442}
-  m_Center: {x: 0.00091941655, y: -0.014981005, z: 0.03665092}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: 645b9539785674e46b0118e54c2ecacb, type: 2}

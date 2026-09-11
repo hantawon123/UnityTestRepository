@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 6567112276359640060}
   - component: {fileID: 7089424289468615582}
   - component: {fileID: 3504831529338975823}
-  - component: {fileID: 2904065779773452188}
+  - component: {fileID: 6690047038662808352}
   m_Layer: 0
   m_Name: Gen_SM_Prop_Market_Aisle_Preset_03_8v 9
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &2904065779773452188
-BoxCollider:
+--- !u!64 &6690047038662808352
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.31674072, y: 0.42285496, z: 0.3095984}
-  m_Center: {x: 0.000000044703484, y: 0.000000029802322, z: -0.0000006183982}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: 5bacbd14f945d01458cd06fe438d6bcb, type: 2}

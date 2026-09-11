@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 9077936302843535072}
   - component: {fileID: 2920795006371446679}
   - component: {fileID: 8586737151584357482}
-  - component: {fileID: 1066424655048890459}
+  - component: {fileID: 2102730758341818606}
   m_Layer: 0
   m_Name: Gen_SM_Prop_Dumptser_02_Insert_01_20v
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &1066424655048890459
-BoxCollider:
+--- !u!64 &2102730758341818606
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1.6358862, y: 0.19656903, z: 1.1922925}
-  m_Center: {x: 0.031715155, y: -0.00853315, z: -0.0054857135}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: ec819564ff7d06d43a5634b84027dba5, type: 2}

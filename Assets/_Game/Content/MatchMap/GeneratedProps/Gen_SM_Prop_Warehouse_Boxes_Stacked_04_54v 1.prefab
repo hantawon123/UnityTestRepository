@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 3017499221726007986}
   - component: {fileID: 6046815325566470563}
   - component: {fileID: 7345551080646137668}
-  - component: {fileID: 2224761117255890971}
+  - component: {fileID: 1234715146362090543}
   m_Layer: 0
   m_Name: Gen_SM_Prop_Warehouse_Boxes_Stacked_04_54v 1
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &2224761117255890971
-BoxCollider:
+--- !u!64 &1234715146362090543
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.26105994, y: 0.5786901, z: 0.9859711}
-  m_Center: {x: -0.010519557, y: -0.09695807, z: 0.028336465}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: ef7169c70c866ef43879b77823a15ad1, type: 2}

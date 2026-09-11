@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 269305921016360875}
   - component: {fileID: 5492243408051115650}
   - component: {fileID: 2964817590609243355}
-  - component: {fileID: 9102723692198444470}
+  - component: {fileID: 4380615229201693216}
   m_Layer: 0
   m_Name: Gen_SM_Prop_ShoppingBasket_Stand_01_Preset_112v
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &9102723692198444470
-BoxCollider:
+--- !u!64 &4380615229201693216
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.67803097, y: 0.028456986, z: 0.50236267}
-  m_Center: {x: 0, y: 0.00000032782555, z: 0}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: a0f09b2663a9157478926e0a8b1b1790, type: 2}

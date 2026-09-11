@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 5252856479432743281}
   - component: {fileID: 7917432008171531775}
   - component: {fileID: 7778857481768892596}
-  - component: {fileID: 3514372090075577849}
+  - component: {fileID: 4965033098442466028}
   m_Layer: 0
   m_Name: Gen_SM_Prop_Hunting_Shelf_01_Preset_8v
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &3514372090075577849
-BoxCollider:
+--- !u!64 &4965033098442466028
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.02208507, y: 0.052399635, z: 0.011627197}
-  m_Center: {x: -0.000000059604645, y: 0, z: 0.000000014901161}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: 384f4d26baf1c7d4a8fe17d00c0a81bf, type: 2}

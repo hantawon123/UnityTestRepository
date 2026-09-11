@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 5784906228660195170}
   - component: {fileID: 6820360719523360469}
   - component: {fileID: 6270030197132926435}
-  - component: {fileID: 8004354183529392009}
+  - component: {fileID: 4974875299040885042}
   m_Layer: 0
   m_Name: Gen_SM_Prop_Bag_Paper_01_Preset_32v
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &8004354183529392009
-BoxCollider:
+--- !u!64 &4974875299040885042
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.24050643, y: 0.65078866, z: 0.2774096}
-  m_Center: {x: -0.000012010336, y: -0.0015307218, z: 0.0075107142}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: d421a25900aacf84fb46f4343465a715, type: 2}

@@ -12,6 +12,8 @@ GameObject:
   - component: {fileID: 27346794459477301}
   - component: {fileID: 5417902801850929375}
   - component: {fileID: 1350344720107193633}
+  - component: {fileID: 660436575075546292}
+  - component: {fileID: 6501663312817222446}
   m_Layer: 0
   m_Name: Gen_SM_Prop_Kitchen_Counter_Food_Insert_Small_01_12v
   m_TagString: Untagged
@@ -112,3 +114,46 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.07183378, y: 0.022653103, z: 0.09818868}
   m_Center: {x: 0.0030972324, y: 0.00027934462, z: -0.0018099267}
+--- !u!54 &660436575075546292
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2796171153082872392}
+  serializedVersion: 5
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 1
+  m_IsKinematic: 1
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
+--- !u!114 &6501663312817222446
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2796171153082872392}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35eb5ffe1d38b2743a322e143ad7820d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Client::Game.Client.Interactions.CarryableItem
+  displayName: "\uC2DD\uD488"
+  objectId: 
+  isPlayerItem: 0
+  ownerPlayerIndex: -1

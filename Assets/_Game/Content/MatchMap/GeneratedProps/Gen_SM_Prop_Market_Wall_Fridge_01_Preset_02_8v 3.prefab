@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 3409507569909106236}
   - component: {fileID: 821805510040715316}
   - component: {fileID: 8903989450893949842}
-  - component: {fileID: 5049722600731336997}
+  - component: {fileID: 2852168541149649701}
   m_Layer: 0
   m_Name: Gen_SM_Prop_Market_Wall_Fridge_01_Preset_02_8v 3
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &5049722600731336997
-BoxCollider:
+--- !u!64 &2852168541149649701
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.08286743, y: 0.12754893, z: 0.05801849}
-  m_Center: {x: 0, y: 0.00000011920929, z: 0.000000019557774}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: a25702ca656cd054195a2f485bd3ff29, type: 2}

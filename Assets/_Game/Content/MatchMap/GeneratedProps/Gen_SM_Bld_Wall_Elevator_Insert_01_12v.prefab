@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 8183946028443002522}
   - component: {fileID: 5209104568245805185}
   - component: {fileID: 1468349228482383735}
-  - component: {fileID: 7066375648887969821}
+  - component: {fileID: 8273281178103527984}
   m_Layer: 0
   m_Name: Gen_SM_Bld_Wall_Elevator_Insert_01_12v
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &7066375648887969821
-BoxCollider:
+--- !u!64 &8273281178103527984
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.12407613, y: 0.11797482, z: 0.0374707}
-  m_Center: {x: -0.015701413, y: 0.012586027, z: -0.000000059604645}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4300000, guid: 017e4b9cd9f97e145aa065f2baf23be1, type: 2}
