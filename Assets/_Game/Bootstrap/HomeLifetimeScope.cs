@@ -50,6 +50,11 @@ namespace Game.Bootstrap
             // Sends a rename on to the account and puts the old name back when
             // the server refuses it.
             builder.RegisterEntryPoint<HomeProfileBridge>();
+
+            // 정지된 계정에 안내를 띄웁니다(S15P21D205-924). 프레젠터가 아니라 여기인
+            // 이유는 HomeProfileBridge 와 같습니다 - Game.Client 는 Game.Bootstrap 을
+            // 참조하지 못합니다.
+            builder.RegisterEntryPoint<HomeSuspensionBridge>();
             builder.RegisterBuildCallback(container =>
                 container.Resolve<ILoadingOverlay>().Hide());
         }

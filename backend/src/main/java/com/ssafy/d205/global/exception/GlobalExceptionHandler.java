@@ -98,6 +98,20 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 정지된 계정입니다. 계정 발급과 X-User-Id 가 붙은 모든 요청에서 나옵니다.
+     *
+     * <p>ACCOUNT_NOT_FOUND 와 코드를 구분합니다. 그쪽은 클라이언트가 계정 발급을 다시
+     * 불러야 하는 상황이고, 이쪽은 다시 불러도 같은 자리입니다 - 발급도 막혀 있습니다.
+     *
+     * <p>사유를 담지 않는 이유는 {@link SuspendedAccountException} 에 있습니다.
+     */
+    @ExceptionHandler(SuspendedAccountException.class)
+    public ResponseEntity<ErrorResponse> handleSuspended(SuspendedAccountException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse("SUSPENDED", "정지된 계정입니다."));
+    }
+
+    /**
      * 상대를 찾을 수 없습니다. 부르는 사람이 없는 경우(ACCOUNT_NOT_FOUND)와 코드를
      * 구분합니다. 전자는 클라이언트가 계정 발급을 다시 불러야 하고, 후자는 "그
      * 사용자가 없습니다"를 보여주면 됩니다.

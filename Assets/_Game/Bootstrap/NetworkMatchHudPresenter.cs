@@ -34,7 +34,8 @@ namespace Game.Bootstrap
         private bool introReadySent;
         private double noticeEndsAt;
         private double gameEndNoticeEndsAt = -1d;
-        private Transform shredder;
+        // 맵에 파쇄기가 여러 대일 수 있으므로 전부 모아 두고, 카메라(=로컬 플레이어)에 가장 가까운 것을 표시한다.
+        private readonly List<Transform> shredders = new();
         private Camera worldCamera;
 
         /// <summary>
@@ -803,10 +804,43 @@ namespace Game.Bootstrap
 
         private void FindSceneReferences()
         {
-            var interactable = UnityEngine.Object.FindFirstObjectByType<ShredderInteractable>(
-                FindObjectsInactive.Exclude);
-            shredder = interactable == null ? null : interactable.transform;
+            shredders.Clear();
+            var interactables = UnityEngine.Object.FindObjectsByType<ShredderInteractable>(
+                FindObjectsInactive.Exclude,
+                FindObjectsSortMode.None);
+            foreach (var interactable in interactables)
+            {
+                if (interactable != null)
+                {
+                    shredders.Add(interactable.transform);
+                }
+            }
+
             worldCamera = Camera.main;
+        }
+
+        private bool TryGetNearestShredder(Vector3 from, out Transform nearest)
+        {
+            nearest = null;
+            var bestDistance = float.MaxValue;
+            for (var index = shredders.Count - 1; index >= 0; index--)
+            {
+                var candidate = shredders[index];
+                if (candidate == null)
+                {
+                    shredders.RemoveAt(index);
+                    continue;
+                }
+
+                var distance = (candidate.position - from).sqrMagnitude;
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    nearest = candidate;
+                }
+            }
+
+            return nearest != null;
         }
 
         private void UpdateShredderMarker()
@@ -819,12 +853,13 @@ namespace Game.Bootstrap
                 return;
             }
 
-            if (shredder == null || worldCamera == null)
+            if (shredders.Count == 0 || worldCamera == null)
             {
                 FindSceneReferences();
             }
 
-            if (shredder == null || worldCamera == null)
+            if (worldCamera == null ||
+                !TryGetNearestShredder(worldCamera.transform.position, out var shredder))
             {
                 view.SetShredderMarker(default, false);
                 return;

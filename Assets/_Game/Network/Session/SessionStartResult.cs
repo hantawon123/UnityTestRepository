@@ -34,6 +34,17 @@ namespace Game.Network.Session
         /// </summary>
         Canceled,
 
+        /// <summary>
+        /// Our authentication service turned this player away, which today
+        /// means the account is suspended (S15P21D205-925).
+        /// </summary>
+        /// <remarks>
+        /// Told apart from <see cref="Rejected"/>, which is the host refusing a
+        /// connection and usually a wrong password. That one is worth trying
+        /// again with different input; this one is not.
+        /// </remarks>
+        Suspended,
+
         /// <summary>Anything Fusion reported that does not map to the above.</summary>
         Unknown,
     }
@@ -74,6 +85,8 @@ namespace Game.Network.Session
                     return SessionFailure.CodeTaken;
                 case ShutdownReason.ConnectionRefused:
                     return SessionFailure.Rejected;
+                case ShutdownReason.CustomAuthenticationFailed:
+                    return SessionFailure.Suspended;
                 case ShutdownReason.ConnectionTimeout:
                     return SessionFailure.ConnectionFailed;
                 case ShutdownReason.AlreadyRunning:

@@ -429,13 +429,25 @@ namespace Game.Client.Interactions
         }
 
         /// <summary>조준 하이라이트: 집을 수 있는 물건에 주황 2px 테두리를 켠다.</summary>
+        /// <remarks>
+        /// 진열대처럼 옆 물건·선반 판에 딱 붙어 있어도 보이도록, 새로 붙이는 실루엣은 가려진 부분까지 그리는
+        /// <see cref="InteractableFocusOutline.SeeThrough"/> 모드로 만든다. 프리팹에 미리 넣어 둔 실루엣 설정은 그대로 둔다.
+        /// </remarks>
         public void SetAimed(bool aimed, float intensity)
         {
             _ = intensity;
             if (aimed)
             {
-                focusOutline ??= GetComponent<InteractableFocusOutline>() ??
-                                 gameObject.AddComponent<InteractableFocusOutline>();
+                if (focusOutline == null)
+                {
+                    focusOutline = GetComponent<InteractableFocusOutline>();
+                    if (focusOutline == null)
+                    {
+                        focusOutline = gameObject.AddComponent<InteractableFocusOutline>();
+                        focusOutline.SeeThrough = true;
+                    }
+                }
+
                 focusOutline.SetVisible(true);
                 assignedOutline?.SetVisible(false);
                 return;

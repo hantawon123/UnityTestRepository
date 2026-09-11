@@ -145,5 +145,21 @@ ask metabase \
     WHERE d.archived = 0 GROUP BY d.id, d.name, d.updated_at;'
 
 echo
+echo "=== Photon 커스텀 인증 (S15P21D205-925) ==="
+# .env 에만 넣고 compose.prod.yml 의 environment 에 빠뜨리면 앱이 값을 못 봅니다.
+# 그 상태는 조용합니다 - 인증이 꺼진 채로 뜨고 모든 접속을 통과시킵니다. 그래서
+# 파일이 아니라 컨테이너 안에서 확인합니다.
+printf '컨테이너 환경변수: '
+if docker exec d205-app printenv PHOTON_AUTH_SECRET >/dev/null 2>&1; then
+    echo '있음'
+else
+    echo '없음 (인증이 꺼져 있습니다. .env 와 compose.prod.yml 둘 다 확인하세요)'
+fi
+# 켜져 있으면 키가 틀린 요청에 ResultCode 3 이, 꺼져 있으면 1 이 나옵니다.
+printf '인증 응답(3 이면 켜짐, 1 이면 꺼짐): '
+curl -sS --max-time 5 'http://localhost:8080/api/v1/photon/auth?userId=verify&token=x&key=y'   || echo '응답 없음'
+echo
+
+echo
 echo "=== 인증서 만료 ==="
 sudo certbot certificates 2>/dev/null | grep -E 'Certificate Name|Expiry' || echo '확인 실패'

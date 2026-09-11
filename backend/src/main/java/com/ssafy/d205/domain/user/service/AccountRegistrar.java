@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ssafy.d205.domain.photon.PhotonAuthTokens;
 import com.ssafy.d205.domain.user.dto.AccountResponse;
 import com.ssafy.d205.domain.user.entity.AuthProvider;
 import com.ssafy.d205.domain.user.entity.NicknameGenerator;
@@ -30,6 +31,7 @@ public class AccountRegistrar {
     private final UserIdentityRepository userIdentityRepository;
     private final NicknameGenerator nicknameGenerator;
     private final TimeProvider timeProvider;
+    private final PhotonAuthTokens photonAuthTokens;
 
     /**
      * users와 user_identities에 각각 한 행을 넣습니다. 둘 중 하나만 남으면
@@ -43,6 +45,9 @@ public class AccountRegistrar {
 
         User user = userRepository.save(User.create(nicknameGenerator.generate(), now));
         userIdentityRepository.save(UserIdentity.link(user, AuthProvider.DEVICE, deviceId, now));
-        return AccountResponse.from(user);
+        // 토큰을 여기서도 담습니다. AccountService.respond 를 거치지 않는 유일한 경로라
+        // 빠뜨리면 처음 발급받은 클라이언트만 토큰이 없어, 앱을 껐다 켜기 전까지 Photon
+        // 접속이 막힙니다. 첫 실행에서만 나는 증상이라 찾기 어렵습니다.
+        return AccountResponse.from(user, null, photonAuthTokens.issue(user.getPublicId()));
     }
 }

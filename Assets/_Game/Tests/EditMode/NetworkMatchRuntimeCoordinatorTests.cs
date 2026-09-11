@@ -394,6 +394,27 @@ namespace Game.Architecture.Tests
             network.PublishSimulationTick();
         }
 
+        [Test]
+        public void Configuration_ExposesEveryShredderEjectionPose_AndFirstOneForCompatibility()
+        {
+            var west = new Pose(new Vector3(-16f, 0.6f, -11f), Quaternion.Euler(0f, 90f, 0f));
+            var east = new Pose(new Vector3(10f, 0.6f, -6f), Quaternion.Euler(0f, 270f, 0f));
+
+            var multi = new NetworkMatchRuntimeConfiguration(new AcceptAllPlacements(), CreateSpawnPoints(),
+                CreateItems(), Array.Empty<WorldObjectState>(), new[] { west, east }, CreateWaitingPoints());
+            var single = new NetworkMatchRuntimeConfiguration(new AcceptAllPlacements(), CreateSpawnPoints(),
+                CreateItems(), Array.Empty<WorldObjectState>(), east, CreateWaitingPoints());
+
+            Assert.That(multi.ShredderEjectionPoses.Count, Is.EqualTo(2));
+            Assert.That(multi.ShredderEjectionPoses[1].position, Is.EqualTo(east.position));
+            Assert.That(multi.ShredderEjectionPose.position, Is.EqualTo(west.position),
+                "The single-pose property keeps pointing at the first shredder.");
+            Assert.That(single.ShredderEjectionPoses.Count, Is.EqualTo(1));
+            Assert.That(single.ShredderEjectionPoses[0].position, Is.EqualTo(east.position));
+            Assert.Throws<ArgumentException>(() => new NetworkMatchRuntimeConfiguration(new AcceptAllPlacements(),
+                CreateSpawnPoints(), CreateItems(), Array.Empty<WorldObjectState>(), Array.Empty<Pose>()));
+        }
+
         private static Pose[] CreateSpawnPoints()
         {
             var poses = new Pose[MatchRulesSO.MaxPlayerCount];
@@ -506,7 +527,7 @@ namespace Game.Architecture.Tests
 
             public bool BindMatchSession(
                 MatchSessionCoordinator session,
-                Pose shredderEjectionPose)
+                IReadOnlyList<Pose> shredderEjectionPoses)
             {
                 BoundSession = session;
                 return true;

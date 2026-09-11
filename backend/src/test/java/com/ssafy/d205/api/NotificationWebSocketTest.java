@@ -272,6 +272,26 @@ class NotificationWebSocketTest extends IntegrationTest {
     }
 
     @Test
+    @DisplayName("정지된 계정으로 HELLO 하면 끊는다")
+    void aSuspendedUserIsClosed() throws Exception {
+        // SuspensionInterceptor 가 못 잡는 유일한 경로입니다. 그쪽은 X-User-Id 헤더를
+        // 보는데 이 채널은 헤더를 못 쓰고 HELLO 프레임에 userId 를 담습니다. 막지 않으면
+        // 정지된 사람이 API 는 전부 403 을 받으면서 알림만 실시간으로 계속 받습니다.
+        String userId = createUser();
+        // SQL 로 직접 바꿉니다. 엔티티를 트랜잭션 밖에서 고치면 저장되지 않고, 정지
+        // API 를 부르려면 운영자 로그인이 필요한데 이 테스트의 관심사가 아닙니다.
+        jdbcTemplate.update(
+                "UPDATE users SET suspended_at = ?, suspended_reason = ? WHERE public_id = ?",
+                "20260911000000", "정지", userId);
+
+        Client client = connect();
+        client.hello(userId);
+
+        assertThat(client.closed.await(WAIT.toMillis(), TimeUnit.MILLISECONDS)).isTrue();
+        assertThat(client.closeStatus.getCode()).isEqualTo(CloseStatus.POLICY_VIOLATION.getCode());
+    }
+
+    @Test
     @DisplayName("연결을 닫으면 레지스트리에서 빠진다")
     void closingRemovesTheBinding() throws Exception {
         String me = createUser();

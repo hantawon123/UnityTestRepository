@@ -149,6 +149,8 @@ namespace Game.Core.Home
             var answer = await gateway.SendRequestAsync(playerId, cancellation);
             if (!answer.Ok)
             {
+                if (answer.Failure == BackendFailure.RequestAlreadySent)
+                    return BackendFailure.None;
                 search.CancelPendingRequest(playerId);
                 return answer.Failure;
             }
@@ -168,10 +170,9 @@ namespace Game.Core.Home
         /// <c>Game.Core</c> holds this list yet. The screen that shows it owns
         /// it until there is a reason for two screens to share one.
         /// <para>
-        /// The search is told who they are on the way past, so the same person
-        /// cannot appear both as a request to accept and as a stranger to send
-        /// one to. Declining puts them back: the next read of this list no
-        /// longer names them, and the search stops hiding them.
+        /// Search results retain these people and show a received-request state
+        /// with an accept action. After declining, the next read restores the
+        /// ordinary send-request action.
         /// </para>
         /// </remarks>
         public async UniTask<BackendResult<IReadOnlyList<FriendRequestSummary>>>
@@ -183,7 +184,7 @@ namespace Game.Core.Home
                 return answer;
             }
 
-            search.ExcludeIncomingRequests(RequesterIds(answer.Value));
+            search.ReplaceIncomingRequests(RequesterIds(answer.Value));
             return BackendResult<IReadOnlyList<FriendRequestSummary>>.Success(
                 FriendRequestOrder.Arrange(answer.Value));
         }
@@ -229,6 +230,8 @@ namespace Game.Core.Home
             ListOutgoingRequestsAsync(CancellationToken cancellation)
         {
             var answer = await gateway.ListOutgoingRequestsAsync(cancellation);
+            if (answer.Ok && !cancellation.IsCancellationRequested)
+                search.ReplaceOutgoingRequests(RequesterIds(answer.Value));
             return answer.Ok
                 ? BackendResult<IReadOnlyList<FriendRequestSummary>>.Success(
                     FriendRequestOrder.Arrange(answer.Value))
