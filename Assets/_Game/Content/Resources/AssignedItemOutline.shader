@@ -22,7 +22,9 @@ Shader "Game/AssignedItemOutline"
     {
         Tags
         {
-            "Queue" = "Geometry+1"
+            // AlphaTest+49 = 2499. Synty(Polygon) 재질은 알파 클립 때문에 큐 2450에 그려지므로, 그보다 뒤에 그려야
+            // 앞에 있는 소품·선반이 윤곽선을 덮어쓰지 않는다(Geometry+1=2001이면 2450 소품이 나중에 그려져 가림).
+            "Queue" = "AlphaTest+49"
             "RenderType" = "Opaque"
             "RenderPipeline" = "UniversalPipeline"
         }
