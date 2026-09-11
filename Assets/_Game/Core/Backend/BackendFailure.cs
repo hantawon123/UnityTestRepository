@@ -55,6 +55,12 @@ namespace Game.Core.Backend
         /// </summary>
         AccountNotFound,
 
+        /// <summary>
+        /// The account is suspended. Not retryable: asking for the account
+        /// again answers the same, so the only response is to say so and stop.
+        /// </summary>
+        Suspended,
+
         /// <summary>The other user could not be found.</summary>
         TargetNotFound,
 

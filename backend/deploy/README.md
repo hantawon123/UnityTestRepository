@@ -96,6 +96,12 @@ GRANT 만 하는 스크립트라 두 번 실행해도 해가 없습니다.
 | `DB_PASSWORD` | mysql(`MYSQL_PASSWORD`), app |
 | `METABASE_DB_PASSWORD` | metabase(`MB_DB_PASS`), 아래 2번 계정 스크립트 |
 
+`PHOTON_AUTH_SECRET` 과 `PHOTON_AUTH_KEY` 도 선택입니다(S15P21D205-925). 없으면 Photon 커스텀
+인증이 꺼진 채로 뜨고 게임은 그대로 돌아갑니다. **`.env` 에 넣는 것만으로는 앱에 닿지 않습니다** -
+compose 는 `.env` 를 치환에만 쓰고 컨테이너에 전달하는 것은 `environment:` 에 적힌 것뿐이라,
+`compose.prod.yml` 의 목록에도 있어야 합니다. 둘 중 하나만 하면 앱이 값을 못 보고 인증이 조용히
+꺼진 채로 뜹니다.
+
 선택인 키는 `ADMIN_USERNAME`, `ADMIN_PASSWORD` 입니다. 없으면 관리 API 만 막히고 게임은 돌아가므로
 `:?` 를 붙이지 않았습니다. 그 밖에 compose 는 읽지 않지만 2번 계정 스크립트가 쓰는
 `ANALYTICS_READER_PASSWORD` 가 있습니다.

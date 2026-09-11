@@ -751,6 +751,11 @@ namespace Game.Network.Session
             var photonSettings = GetPhotonSettings();
             var client = MatchmakingArgumentsExtensions.BuildRealtimeClient(
                 photonSettings);
+
+            // The lobby is its own Photon connection and authenticates on its
+            // own. Setting this only on the room connection would leave the
+            // lobby open to a suspended player (S15P21D205-925).
+            client.AuthValues = BuildAuthValues();
             client.AddCallbackTarget(this);
             _matchmakingClient = client;
             _browsingLobby = true;
@@ -875,6 +880,7 @@ namespace Game.Network.Session
                     request.Password,
                     _profile?.Nickname,
                     _profile?.UserId),
+                AuthValues = BuildAuthValues(),
                 EnableClientSessionCreation = request.AllowCreate,
                 SceneManager = sceneManager,
                 Scene = CaptureCurrentScene(),
@@ -1656,6 +1662,43 @@ namespace Game.Network.Session
             _matchStarter.SimulationTick += OnSimulationTick;
 
             return sceneManager;
+        }
+
+        /// <summary>
+        /// What Photon passes on to our authentication service
+        /// (S15P21D205-925).
+        /// </summary>
+        /// <remarks>
+        /// Both the id and the token go. Photon forwards these values to us
+        /// untouched rather than vouching for them, so the id on its own would
+        /// let a suspended player type someone else's and connect.
+        /// <para>
+        /// Null when there is no token, which is what a server running without
+        /// Photon authentication answers with. Sending half the pair would be
+        /// refused by a server that does have it configured.
+        /// </para>
+        /// <para>
+        /// Fully qualified because <c>Fusion.Photon.Realtime</c> is also in
+        /// scope here and <c>Photon.Realtime</c> would resolve to it.
+        /// </para>
+        /// </remarks>
+        private global::Photon.Realtime.AuthenticationValues BuildAuthValues()
+        {
+            var userId = _profile?.UserId;
+            var token = _profile?.PhotonToken;
+            if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(token))
+            {
+                return null;
+            }
+
+            var values = new global::Photon.Realtime.AuthenticationValues
+            {
+                AuthType = global::Photon.Realtime.CustomAuthenticationType.Custom,
+                UserId = userId,
+            };
+            values.AddAuthParameter("userId", userId);
+            values.AddAuthParameter("token", token);
+            return values;
         }
 
         private Fusion.Photon.Realtime.FusionAppSettings GetPhotonSettings()

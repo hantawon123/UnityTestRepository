@@ -18,10 +18,12 @@ import com.ssafy.d205.domain.user.entity.UserAppearance;
 import com.ssafy.d205.domain.user.event.AccountDeletedEvent;
 import com.ssafy.d205.domain.user.repository.UserAppearanceRepository;
 import com.ssafy.d205.domain.user.repository.UserIdentityRepository;
+import com.ssafy.d205.domain.photon.PhotonAuthTokens;
 import com.ssafy.d205.domain.user.repository.UserRepository;
 import com.ssafy.d205.global.common.TimeProvider;
 import com.ssafy.d205.global.exception.NicknameGenerationFailedException;
 import com.ssafy.d205.global.exception.NicknameTakenException;
+import com.ssafy.d205.global.exception.SuspendedAccountException;
 import com.ssafy.d205.global.exception.UnknownCallerException;
 
 @Service
@@ -41,6 +43,7 @@ public class AccountService {
     private final UserAppearanceRepository userAppearanceRepository;
     private final TimeProvider timeProvider;
     private final ApplicationEventPublisher events;
+    private final PhotonAuthTokens photonAuthTokens;
 
     /**
      * 기기 식별자로 계정을 발급합니다. <b>멱등합니다.</b>
@@ -57,6 +60,16 @@ public class AccountService {
     public IssuedAccount issue(String deviceId) {
         Optional<User> existing = findByDevice(deviceId);
         if (existing.isPresent()) {
+            // 정지된 계정은 여기서 막습니다. 클라이언트가 앱을 켤 때 처음 부르는 자리라
+            // 그 한 판을 통째로 막는 유일한 지점입니다.
+            //
+            // 이것만으로는 반쪽입니다. 발급은 앱 시작 때 한 번만 불리므로, 이미 켜져 있는
+            // 클라이언트는 X-User-Id 를 이미 들고 있어 계속 요청할 수 있습니다. 나머지
+            // 절반은 SuspensionInterceptor 가 막습니다.
+            //
+            // 새 계정 발급은 막지 않습니다. 정지는 계정에 걸린 것이고, 기기 식별자를
+            // 바꾸면 새 계정이 나오는 것은 이 구조에서 어차피 막을 수 없습니다.
+            requireNotSuspended(existing.get());
             return new IssuedAccount(respond(existing.get()), false);
         }
 
@@ -246,6 +259,12 @@ public class AccountService {
                 .orElseThrow(() -> new UnknownCallerException(userId));
     }
 
+    private static void requireNotSuspended(User user) {
+        if (user.isSuspended()) {
+            throw new SuspendedAccountException();
+        }
+    }
+
     /**
      * 계정 응답을 만듭니다. 외형이 있으면 함께 싣습니다.
      *
@@ -255,6 +274,8 @@ public class AccountService {
      */
     private AccountResponse respond(User user) {
         UserAppearance appearance = userAppearanceRepository.findById(user.getSeq()).orElse(null);
-        return AccountResponse.from(user, appearance);
+        // 계정을 돌려주는 모든 자리에 토큰이 함께 갑니다. 발급에서만 주면 앱을 껐다 켠
+        // 클라이언트가 /me 로 계정을 읽은 뒤 토큰 없이 Photon 에 붙습니다.
+        return AccountResponse.from(user, appearance, photonAuthTokens.issue(user.getPublicId()));
     }
 }

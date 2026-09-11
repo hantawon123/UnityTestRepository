@@ -475,6 +475,78 @@ namespace Game.Tests.EditMode
             Assert.That(accepted, Is.EqualTo(new[] { "b", "c" }));
         }
 
+        [Test]
+        public void SuspendedNotice_StartsHiddenAndCoversTheScreenWhenShown()
+        {
+            using var home = new BuiltHome();
+
+            var notice = home.Rect("SuspendedNotice");
+            Assert.That(notice, Is.Not.Null, "정지 안내가 만들어지지 않았습니다.");
+            Assert.That(notice.gameObject.activeSelf, Is.False,
+                "정지되지 않은 사람에게 안내가 잠깐이라도 보이면 안 됩니다.");
+
+            home.View.SetSuspendedNoticeVisible(true);
+            Assert.That(notice.gameObject.activeSelf, Is.True);
+            Assert.That(home.View.IsSuspendedNoticeVisible, Is.True);
+
+            // 화면 전체를 덮어야 뒤의 버튼을 가립니다.
+            Assert.That(notice.anchorMin, Is.EqualTo(Vector2.zero));
+            Assert.That(notice.anchorMax, Is.EqualTo(Vector2.one));
+            Assert.That(notice.offsetMin, Is.EqualTo(Vector2.zero));
+            Assert.That(notice.offsetMax, Is.EqualTo(Vector2.zero));
+        }
+
+        [Test]
+        public void SuspendedNotice_SwallowsClicksMeantForTheMenu()
+        {
+            // 이게 없으면 안내는 살아 있는 버튼 위에 얹힌 그림일 뿐입니다.
+            using var home = new BuiltHome();
+
+            var scrim = home.Rect("SuspendedNotice").GetComponent<Image>();
+            Assert.That(scrim, Is.Not.Null);
+            Assert.That(scrim.raycastTarget, Is.True);
+        }
+
+        [Test]
+        public void SuspendedNotice_IsBuiltLastSoItDrawsOverEverything()
+        {
+            // 유니티는 나중 형제를 먼저 히트테스트하고 나중에 그립니다. 먼저 만들면
+            // 안내 아래의 메뉴가 그대로 눌립니다.
+            using var home = new BuiltHome();
+
+            var notice = home.Rect("SuspendedNotice");
+            var canvas = notice.parent;
+            Assert.That(
+                notice.GetSiblingIndex(),
+                Is.EqualTo(canvas.childCount - 1),
+                "정지 안내는 캔버스의 마지막 자식이어야 합니다.");
+        }
+
+        [Test]
+        public void SuspendedNotice_SaysWhatHappenedAndOffersNothingToPress()
+        {
+            using var home = new BuiltHome();
+            home.View.SetSuspendedNoticeVisible(true);
+
+            var notice = home.Rect("SuspendedNotice");
+            var texts = notice.GetComponentsInChildren<TMPro.TMP_Text>(true);
+            var lines = new List<string>();
+            foreach (var text in texts)
+            {
+                lines.Add(text.text);
+            }
+
+            Assert.That(lines, Contains.Item(HomeMenuView.SuspendedTitle));
+            Assert.That(lines, Contains.Item(HomeMenuView.SuspendedBody));
+
+            // 닫기도 재시도도 두지 않습니다. 정지는 눌러서 풀리지 않고, 계정 발급을
+            // 다시 불러도 같은 403 입니다. 누를 수 있는 것이 있으면 눌러보게 됩니다.
+            Assert.That(
+                notice.GetComponentsInChildren<Button>(true),
+                Is.Empty,
+                "정지 안내에는 누를 수 있는 것이 없어야 합니다.");
+        }
+
         private static readonly Dictionary<string, Action<HomeMenuView, bool>> PanelButtons =
             new Dictionary<string, Action<HomeMenuView, bool>>
             {

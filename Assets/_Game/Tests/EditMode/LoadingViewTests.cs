@@ -9,6 +9,16 @@ namespace Game.Architecture.Tests
     public sealed class LoadingViewTests
     {
         [Test]
+        public void Background_IsAvailableThroughPlayerResources_AndKeepsSceneReference()
+        {
+            // Do not use LoadingView's editor AssetDatabase fallback here.
+            var sprite = Resources.Load<Sprite>(LoadingView.GraphicResource);
+            Assert.That(sprite, Is.Not.Null, "Player builds must load the background through Resources.");
+            Assert.That(UnityEditor.AssetDatabase.AssetPathToGUID(UnityEditor.AssetDatabase.GetAssetPath(sprite)),
+                Is.EqualTo("f2ed2093130608b44bbe934da01023bb"), "Keep the existing Home scene reference.");
+        }
+
+        [Test]
         public void FitGraphicSize_KeepsWidthWhenTheLabelFits()
         {
             var size = LoadingView.FitGraphicSize(1920f, 1080f, 1920f / 861f);

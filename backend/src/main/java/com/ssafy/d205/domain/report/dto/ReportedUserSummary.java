@@ -19,6 +19,15 @@ public record ReportedUserSummary(
         int reporterCount,
         int fromDeletedAccounts,
         java.util.Map<String, Integer> reasons,
-        String lastReportedAt
+        String lastReportedAt,
+
+        /**
+         * 지금 정지되어 있는가(S15P21D205-927).
+         *
+         * <p>시각이 아니라 참/거짓입니다. 화면이 쓰는 것은 버튼을 어느 쪽으로 그릴지뿐이고,
+         * 정지한 시각과 사유는 여기서 보여줄 값이 아닙니다 - 사유는 신고 내용에서 나오므로
+         * 목록에 늘어놓으면 누가 무엇을 신고했는지가 한눈에 드러납니다.
+         */
+        boolean suspended
 ) {
 }
