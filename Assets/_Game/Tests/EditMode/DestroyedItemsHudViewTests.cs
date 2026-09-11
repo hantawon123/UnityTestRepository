@@ -106,9 +106,15 @@ namespace Game.Architecture.Tests
                 Assert.That(ownBorder, Is.Not.Null);
                 Assert.That(ownBorder.gameObject.activeSelf, Is.True);
                 Assert.That(ownBorder.color, Is.EqualTo(DestroyedItemsHudView.OwnBorderColor));
-                var fill = (RectTransform)view.transform.Find(
-                    $"Panel/Slot0/{DestroyedItemsHudView.FillName}");
-                Assert.That(fill.offsetMin.x, Is.EqualTo(DestroyedItemsHudView.OwnBorderThickness));
+                var ownFill = view.transform.Find(
+                    $"Panel/Slot0/{DestroyedItemsHudView.FillName}")
+                    ?.GetComponent<Image>();
+                var otherFill = view.transform.Find(
+                    $"Panel/Slot1/{DestroyedItemsHudView.FillName}")
+                    ?.GetComponent<Image>();
+                Assert.That(ownFill.color, Is.EqualTo(DestroyedItemsHudView.SlotColor));
+                Assert.That(otherFill.color, Is.EqualTo(DestroyedItemsHudView.SlotColor));
+                Assert.That(((RectTransform)ownFill.transform).offsetMin, Is.EqualTo(Vector2.zero));
                 Assert.That(
                     view.transform.Find($"Panel/Slot1/{DestroyedItemsHudView.OwnBorderName}")
                         .gameObject.activeSelf,

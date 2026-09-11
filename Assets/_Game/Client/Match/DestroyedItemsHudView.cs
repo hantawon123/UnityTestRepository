@@ -51,6 +51,7 @@ namespace Game.Client.Match
         private DestroyedItemHudSlot[] laidOutSlots = System.Array.Empty<DestroyedItemHudSlot>();
         private bool retryPreviews;
         private static Material grayscaleMaterial;
+        private static Sprite ownBorderSprite;
 
         public static DestroyedItemsHudView Create(Transform parent)
         {
@@ -228,6 +229,50 @@ namespace Game.Client.Match
             rect.offsetMax = Vector2.zero;
         }
 
+        private static Sprite OwnBorderSprite
+        {
+            get
+            {
+                if (ownBorderSprite != null)
+                {
+                    return ownBorderSprite;
+                }
+
+                const int size = 128;
+                var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+                {
+                    hideFlags = HideFlags.HideAndDontSave,
+                    filterMode = FilterMode.Bilinear
+                };
+                var center = (size - 1) * 0.5f;
+                var outer = center - 1f;
+                var inner = outer - (OwnBorderThickness / SlotSize * size);
+                var outerSq = outer * outer;
+                var innerSq = inner * inner;
+                for (var y = 0; y < size; y++)
+                {
+                    for (var x = 0; x < size; x++)
+                    {
+                        var dx = x - center;
+                        var dy = y - center;
+                        var distanceSq = (dx * dx) + (dy * dy);
+                        texture.SetPixel(x, y, distanceSq <= outerSq && distanceSq >= innerSq
+                            ? Color.white
+                            : Color.clear);
+                    }
+                }
+
+                texture.Apply(false, false);
+                ownBorderSprite = Sprite.Create(
+                    texture,
+                    new Rect(0f, 0f, size, size),
+                    new Vector2(0.5f, 0.5f),
+                    100f);
+                ownBorderSprite.hideFlags = HideFlags.HideAndDontSave;
+                return ownBorderSprite;
+            }
+        }
+
         private static Material GrayscaleMaterial
         {
             get
@@ -287,20 +332,6 @@ namespace Game.Client.Match
                 layout.minWidth = SlotSize;
                 layout.minHeight = SlotSize;
 
-                var borderObject = new GameObject(
-                    OwnBorderName,
-                    typeof(RectTransform),
-                    typeof(CanvasRenderer),
-                    typeof(Image));
-                borderObject.transform.SetParent(root.transform, false);
-                Stretch((RectTransform)borderObject.transform);
-                var ownBorder = borderObject.GetComponent<Image>();
-                ownBorder.sprite = HomeUiFonts.CircleSprite;
-                ownBorder.color = OwnBorderColor;
-                ownBorder.raycastTarget = false;
-                ownBorder.enabled = false;
-                borderObject.SetActive(false);
-
                 var fill = new GameObject(
                     FillName,
                     typeof(RectTransform),
@@ -314,6 +345,20 @@ namespace Game.Client.Match
                 fillImage.color = SlotColor;
                 fillImage.raycastTarget = false;
                 fill.GetComponent<Mask>().showMaskGraphic = true;
+
+                var borderObject = new GameObject(
+                    OwnBorderName,
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image));
+                borderObject.transform.SetParent(root.transform, false);
+                Stretch((RectTransform)borderObject.transform);
+                var ownBorder = borderObject.GetComponent<Image>();
+                ownBorder.sprite = OwnBorderSprite;
+                ownBorder.color = OwnBorderColor;
+                ownBorder.raycastTarget = false;
+                ownBorder.enabled = false;
+                borderObject.SetActive(false);
 
                 var questionObject = new GameObject(
                     "Question",
@@ -399,9 +444,8 @@ namespace Game.Client.Match
             {
                 ownBorder.enabled = isOwn;
                 ownBorder.gameObject.SetActive(isOwn);
-                var thickness = isOwn ? OwnBorderThickness : 0f;
-                fillRect.offsetMin = new Vector2(thickness, thickness);
-                fillRect.offsetMax = new Vector2(-thickness, -thickness);
+                fillRect.offsetMin = Vector2.zero;
+                fillRect.offsetMax = Vector2.zero;
             }
 
             private void ApplyGrayscale(bool grayscale)
