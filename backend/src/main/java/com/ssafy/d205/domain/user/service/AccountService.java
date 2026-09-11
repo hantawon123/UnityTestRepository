@@ -22,6 +22,7 @@ import com.ssafy.d205.domain.user.repository.UserRepository;
 import com.ssafy.d205.global.common.TimeProvider;
 import com.ssafy.d205.global.exception.NicknameGenerationFailedException;
 import com.ssafy.d205.global.exception.NicknameTakenException;
+import com.ssafy.d205.global.exception.SuspendedAccountException;
 import com.ssafy.d205.global.exception.UnknownCallerException;
 
 @Service
@@ -57,6 +58,16 @@ public class AccountService {
     public IssuedAccount issue(String deviceId) {
         Optional<User> existing = findByDevice(deviceId);
         if (existing.isPresent()) {
+            // 정지된 계정은 여기서 막습니다. 클라이언트가 앱을 켤 때 처음 부르는 자리라
+            // 그 한 판을 통째로 막는 유일한 지점입니다.
+            //
+            // 이것만으로는 반쪽입니다. 발급은 앱 시작 때 한 번만 불리므로, 이미 켜져 있는
+            // 클라이언트는 X-User-Id 를 이미 들고 있어 계속 요청할 수 있습니다. 나머지
+            // 절반은 SuspensionInterceptor 가 막습니다.
+            //
+            // 새 계정 발급은 막지 않습니다. 정지는 계정에 걸린 것이고, 기기 식별자를
+            // 바꾸면 새 계정이 나오는 것은 이 구조에서 어차피 막을 수 없습니다.
+            requireNotSuspended(existing.get());
             return new IssuedAccount(respond(existing.get()), false);
         }
 
@@ -244,6 +255,12 @@ public class AccountService {
     private User caller(String userId) {
         return userRepository.findByPublicId(userId)
                 .orElseThrow(() -> new UnknownCallerException(userId));
+    }
+
+    private static void requireNotSuspended(User user) {
+        if (user.isSuspended()) {
+            throw new SuspendedAccountException();
+        }
     }
 
     /**
