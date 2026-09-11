@@ -106,5 +106,7 @@
 - **매치 진입**: `NetworkRunnerService.EnterMatchScene`이 방 설정 mapId로 씬을 고른다. 설정이 랜덤("")이면 이 순간 `MapCatalog.PickRandom()`으로 결정하고 설정은 랜덤 그대로 둔다(다음 매치도 다시 뽑힘). 결정된 맵은 `_activeMapId`에 보관되어 `AnalyticsMapId`로 나간다. 호스트가 씬을 바꾸는 구조라 서버 파트 코드 변경은 없었다.
 - **빌드 목록**: `Supermarket.unity`(구 MartBuild)를 Playground 뒤(index 4)에 추가.
 - **마트 씬에 넣은 매치 구성**(Playground와 같은 이름 규약): `MatchLifetimeScope`(`PlaygroundLifetimeScope` 컴포넌트, MatchRules·InputSystem_Actions 연결), `InGameHud`(메뉴 `Game > InGame > Build HUD Layout (Active Scene)`로 생성 — 이 메뉴를 새로 추가, 대기 스폰은 만들지 않음), `PlayerCameraRig` 프리팹 인스턴스, `Main Camera`에 AudioListener·CinemachineBrain(데모 `Main Camera (1)` 삭제), 계산대 위 임시 카탈로그 물건 8개(`CatalogItems_Temp`: Soda·Burger·Pineapple·Cup·Plate·Plant·Kettle·Toaster — `PlaygroundMatchScene.Capture`가 `ItemCatalog` 전 항목을 요구해서 넣은 것, 907에서 마트 상품으로 교체).
-- **검증**: EditMode 133개 통과(`MapCatalogTests`, `NetworkContractTests`의 맵별 씬 테스트 포함). 실제 2인 플레이로 supermarket 선택→로드 확인은 아직.
+- **검증**: EditMode 133개 통과(`MapCatalogTests`, `NetworkContractTests`의 맵별 씬 테스트 포함). 이후 사용자가 실제로 supermarket을 골라 입장 확인.
+- **develop 머지 (2026-09-11)**: 동료(hantawon123)의 카테고리별 아이템 카탈로그(`ItemCatalogSO`, `Resources/Items/ItemCatalog.asset`, 활성 카테고리 5개·물건 284개)가 들어와 **배정 물건은 카탈로그 프리팹에서 생성**되므로 맵 씬에 물건을 미리 놓을 필요가 없어졌다. Supermarket의 임시 `CatalogItems_Temp`는 제거. 머지 충돌은 `PlaygroundMatchScene.cs` 1건(develop 방식 채택). 스폰 지점이 6개를 넘는 맵에서 대기 지점 수 검사에 걸리던 것은 스폰 수만큼 채우도록 고쳤다. 머지 후 EditMode 1,335개 통과, Supermarket 캡처 = 스폰 10·대기 10·배정 284·파쇄기 2.
+- **알려진 경고**: 매치 씬이 내려갈 때 `NetworkMatchHudPresenter.Dispose`가 이미 파괴된 `NetworkMatchHudView`를 만져 `MissingReferenceException`(develop 코드, 게임 진행에는 영향 없음). 별도 수정 필요.
 - **남은 것**: 맵 카드 썸네일, 라벨 한글화 여부, WebGL 빌드 크기, 대기 스폰 정책(현재 SpawnPoint_1~6 fallback), `Global Volume`(데모 포스트프로세스) 유지 여부는 911에서.

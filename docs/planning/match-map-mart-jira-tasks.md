@@ -124,8 +124,8 @@
   - [x] 랜덤: 설정은 "" 그대로 두고 `EnterMatchScene`에서 `MapCatalog.PickRandom()`으로 결정, `_activeMapId`에 보관(AnalyticsMapId)
   - [x] 빌드 목록에 `Supermarket.unity`(구 MartBuild) 추가(index 4). WebGL 빌드 크기 확인은 미완
   - [x] 테스트: `MapCatalogTests` 갱신, `NetworkContractTests.NetworkScenes_MapsEveryCatalogMapToItsOwnBuildListedScene` 추가(133/133 통과)
-  - [ ] 실제 플레이 확인: 로비에서 supermarket 선택 → 시작 → 마트 로드 (2인 이상 필요)
-  - [ ] 마트 씬 임시 요소 정리: 계산대 위 카탈로그 물건 8개(`CatalogItems_Temp`)는 907에서 마트 상품 카탈로그로 교체, 대기 스폰 지점 없음(SpawnPoint_1~6 fallback)
+  - [x] 실제 플레이 확인: 사용자가 supermarket 선택 → 입장 확인(2026-09-11)
+  - [x] 임시 카탈로그 물건 제거 — develop의 `ItemCatalogSO`가 배정 물건을 프리팹에서 생성. 대기 스폰 지점은 없음(SpawnPoint_1~6 fallback, 규칙 확인 후 결정)
 - **완료 조건**: 로비에서 마트 선택 → 게임 시작 → 마트 씬 로드, playground도 그대로 동작
 - **선행**: T3, T9 · **규모**: M
 
