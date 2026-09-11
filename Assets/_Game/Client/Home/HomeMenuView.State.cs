@@ -331,10 +331,20 @@ namespace Game.Client.Home
 
             BindFriendRows(onlineItemsRoot, onlineFriends, online: true);
             BindFriendRows(offlineItemsRoot, offlineFriends, online: false);
+            if (friendContextPlayerId != null)
+            {
+                var stillVisible = false;
+                foreach (var friend in onlineFriends)
+                    stillVisible |= friend.PlayerId == friendContextPlayerId;
+                foreach (var friend in offlineFriends)
+                    stillVisible |= friend.PlayerId == friendContextPlayerId;
+                if (!stillVisible) CloseFriendContextMenu();
+            }
         }
 
         public void SetFriendSearchVisible(bool visible)
         {
+            CloseFriendContextMenu();
             isRequestTabOpen = visible;
             if (friendListBody == null || friendSearchBody == null)
             {

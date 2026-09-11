@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Core.Home;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.UI;
@@ -33,7 +34,7 @@ namespace Game.Client.Home
         public event Action<string> FriendRequestCancelled;
 
         /// <summary>
-        /// A friendship ended. No control for it in the design yet.
+        /// A friendship ended through the friend's context menu.
         /// </summary>
         public event Action<string> FriendRemoved;
 
@@ -41,6 +42,62 @@ namespace Game.Client.Home
 
         private readonly List<FriendRow> friendRows = new List<FriendRow>();
         private readonly List<FriendRow> requestRows = new List<FriendRow>();
+        private RectTransform friendContextRoot;
+        private RectTransform friendContextButton;
+        private string friendContextPlayerId;
+
+        private void CloseFriendContextMenu()
+        {
+            friendContextPlayerId = null;
+            if (friendContextRoot != null) friendContextRoot.gameObject.SetActive(false);
+        }
+
+        private void OpenFriendContextMenu(string playerId, PointerEventData pointer)
+        {
+            if (friendContextRoot == null)
+            {
+                friendContextRoot = CreateRect("FriendContextMenu", friendListRoot.transform);
+                SetAnchor(friendContextRoot, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+                friendContextRoot.offsetMin = Vector2.zero;
+                friendContextRoot.offsetMax = Vector2.zero;
+                var dismiss = friendContextRoot.gameObject.AddComponent<Button>();
+                dismiss.targetGraphic = AddImage(friendContextRoot, Color.clear, raycastTarget: true);
+                dismiss.transition = Selectable.Transition.None;
+                dismiss.onClick.AddListener(CloseFriendContextMenu);
+                menuButtons.Add(dismiss);
+
+                friendContextButton = CreateRect("RemoveFriend", friendContextRoot);
+                SetAnchor(friendContextButton, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 1f));
+                friendContextButton.sizeDelta = new Vector2(130f, 42f);
+                var fill = AddImage(friendContextButton, Color.white, HomeUiFonts.Rounded(8), raycastTarget: true);
+                fill.type = Image.Type.Sliced;
+                var label = CreateRect("Label", friendContextButton);
+                SetAnchor(label, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+                label.offsetMin = Vector2.zero;
+                label.offsetMax = Vector2.zero;
+                var text = AddText(label, "친구 끊기", 18f, FontStyles.Normal, TextAlignmentOptions.Center);
+                text.color = new Color(1f, 0.3f, 0.3f);
+                var remove = friendContextButton.gameObject.AddComponent<Button>();
+                remove.targetGraphic = fill;
+                remove.onClick.AddListener(() =>
+                {
+                    var target = friendContextPlayerId;
+                    CloseFriendContextMenu();
+                    if (target != null) FriendRemoved?.Invoke(target);
+                });
+                menuButtons.Add(remove);
+            }
+
+            friendContextPlayerId = playerId;
+            friendContextRoot.gameObject.SetActive(true);
+            friendContextRoot.SetAsLastSibling();
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                friendContextRoot, pointer.position, pointer.pressEventCamera, out var point);
+            var bounds = friendContextRoot.rect;
+            point.x = Mathf.Clamp(point.x, bounds.xMin, bounds.xMax - friendContextButton.sizeDelta.x);
+            point.y = Mathf.Clamp(point.y, bounds.yMin + friendContextButton.sizeDelta.y, bounds.yMax);
+            friendContextButton.anchoredPosition = point;
+        }
 
         /// <summary>
         /// One line of the list: an avatar, a name, and whatever belongs on the
@@ -763,6 +820,10 @@ namespace Game.Client.Home
                     ? HomeStyle.Palette.FriendOnline
                     : HomeStyle.Palette.FriendOffline;
                 row.Row.onClick.RemoveAllListeners();
+                var contextClick = row.Rect.GetComponent<HomeFriendContextClick>()
+                    ?? row.Rect.gameObject.AddComponent<HomeFriendContextClick>();
+                var playerId = friends[index].PlayerId;
+                contextClick.RightClicked = pointer => OpenFriendContextMenu(playerId, pointer);
 
                 // The mark says this friend is signed in to Steam but not in
                 // the game, which is the middle of the three states.

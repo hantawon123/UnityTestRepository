@@ -474,7 +474,13 @@ namespace Game.Bootstrap
                 return;
             }
 
-            Report("unfriend", await friends.RemoveFriendAsync(playerId, lifetime.Token));
+            var failure = await friends.RemoveFriendAsync(playerId, lifetime.Token);
+            if (lifetime.IsCancellationRequested) return;
+            Report("unfriend", failure);
+            if (failure != BackendFailure.None && failure != BackendFailure.Cancelled)
+            {
+                view.ShowConnectionError(Explain(failure));
+            }
         }
 
         /// <summary>
