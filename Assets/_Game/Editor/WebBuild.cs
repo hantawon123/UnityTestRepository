@@ -8,6 +8,43 @@ using UnityEngine;
 
 namespace Game.Editor
 {
+    // Applies to both the editor Build button and Jenkins, without changing desktop quality.
+    public sealed class WebGlShadowBuildGuard : IPreprocessBuildWithReport
+    {
+        public int callbackOrder => -1000;
+
+        public void OnPreprocessBuild(BuildReport report)
+        {
+            if (report.summary.platform != BuildTarget.WebGL) return;
+
+            var expected = AssetDatabase.LoadAssetAtPath<UnityEngine.Rendering.RenderPipelineAsset>(
+                "Assets/Settings/WebGL_RPAsset.asset");
+            QualitySettings.GetRenderPipelineAssetsForPlatform<UnityEngine.Rendering.RenderPipelineAsset>(
+                "WebGL", out var pipelines, out var allOverridden);
+            if (expected == null || !allOverridden || pipelines.Count != 1 || !pipelines.Contains(expected) ||
+                QualitySettings.GetActiveQualityLevelsForPlatformCount("WebGL") != 1)
+                throw new BuildFailedException("WebGL must include only its dedicated WebGL quality and pipeline.");
+
+            var settings = new SerializedObject(expected);
+            foreach (var field in new[] { "m_MainLightShadowsSupported", "m_AdditionalLightShadowsSupported",
+                "m_AnyShadowsSupported", "m_SoftShadowsSupported" })
+                if (settings.FindProperty(field).boolValue)
+                    throw new BuildFailedException("WebGL realtime shadows must remain disabled: " + field);
+
+            var renderers = settings.FindProperty("m_RendererDataList");
+            for (var i = 0; i < renderers.arraySize; i++)
+            {
+                var renderer = new SerializedObject(renderers.GetArrayElementAtIndex(i).objectReferenceValue);
+                var features = renderer.FindProperty("m_RendererFeatures");
+                for (var j = 0; j < features.arraySize; j++)
+                {
+                    var feature = features.GetArrayElementAtIndex(j).objectReferenceValue;
+                    if (feature != null && feature.GetType().Name == "ScreenSpaceShadows")
+                        throw new BuildFailedException("Remove Screen Space Shadows from the WebGL renderer, including inactive features.");
+                }
+            }
+        }
+    }
     public static class WebBuild
     {
         // Run with -batchmode -quit -buildTarget WebGL -executeMethod Game.Editor.WebBuild.Build.

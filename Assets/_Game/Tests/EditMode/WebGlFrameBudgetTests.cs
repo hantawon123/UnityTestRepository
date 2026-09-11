@@ -10,6 +10,27 @@ namespace Game.Tests.EditMode
     public class WebGlFrameBudgetTests
     {
         [Test]
+        public void WebGlBuild_ContainsOnlyItsDedicatedPipeline()
+        {
+            var web = AssetDatabase.LoadAssetAtPath<RenderPipelineAsset>("Assets/Settings/WebGL_RPAsset.asset");
+            QualitySettings.GetRenderPipelineAssetsForPlatform<RenderPipelineAsset>(
+                "WebGL", out var pipelines, out var allOverridden);
+            Assert.That(allOverridden, Is.True, "Desktop fallback must not enter WebGL builds.");
+            Assert.That(pipelines, Is.EquivalentTo(new[] { web }));
+            Assert.That(QualitySettings.GetActiveQualityLevelsForPlatformCount("WebGL"), Is.EqualTo(1));
+            QualitySettings.GetRenderPipelineAssetsForPlatform<RenderPipelineAsset>(
+                "Standalone", out var desktop, out _);
+            var pc = AssetDatabase.LoadAssetAtPath<RenderPipelineAsset>("Assets/Settings/PC_RPAsset.asset");
+            Assert.That(desktop, Is.EquivalentTo(new[] { pc }));
+            var renderer = new SerializedObject(AssetDatabase.LoadMainAssetAtPath("Assets/Settings/WebGL_Renderer.asset"));
+            var features = renderer.FindProperty("m_RendererFeatures");
+            for (var i = 0; i < features.arraySize; i++)
+            {
+                var feature = features.GetArrayElementAtIndex(i).objectReferenceValue;
+                if (feature != null) Assert.That(feature.GetType().Name, Is.Not.EqualTo("ScreenSpaceShadows"));
+            }
+        }
+        [Test]
         public void WebGlProfile_PreservesLightingAndDesktopQuality()
         {
             var pc = new SerializedObject(AssetDatabase.LoadMainAssetAtPath("Assets/Settings/PC_RPAsset.asset"));

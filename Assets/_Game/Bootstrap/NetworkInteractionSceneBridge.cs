@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Game.Client.Combat;
 using Game.Client.Cameras;
@@ -49,6 +49,7 @@ namespace Game.Bootstrap
         private bool standaloneActorsDisabled;
         private bool readinessReported;
         private double startedAt;
+        private double cameraDiagnosticAt = double.PositiveInfinity;
 
         public NetworkInteractionSceneBridge(
             NetworkRunnerService network,
@@ -95,6 +96,11 @@ namespace Game.Bootstrap
 
         public void Tick()
         {
+            if (Time.realtimeSinceStartupAsDouble >= cameraDiagnosticAt)
+            {
+                cameraDiagnosticAt = double.PositiveInfinity;
+                MatchTransitionDiagnostics.Dump("playground-camera-settled");
+            }
             if (!network.IsRuntimeReady || network.IsBrowsingLobby)
             {
                 return;
@@ -268,6 +274,8 @@ namespace Game.Bootstrap
             if (!readinessReported)
             {
                 readinessReported = true;
+                cameraDiagnosticAt = Time.realtimeSinceStartupAsDouble + 2d;
+                MatchTransitionDiagnostics.Dump("playground-camera-bound");
                 Debug.Log(
                     $"[SceneTiming] Playground local player ready, " +
                     $"elapsedSinceBridgeStart={Time.realtimeSinceStartupAsDouble - startedAt:F3}s.");

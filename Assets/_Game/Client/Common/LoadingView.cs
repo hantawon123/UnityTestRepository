@@ -27,7 +27,7 @@ namespace Game.Client.Common
         public const float LabelFontSize = 26f;
         public const float LabelGap = 16f;
         public const int SortingOrder = 3000;
-        public const string GraphicAssetPath = "Assets/_Game/Content/UI/Loading/BG_Loading.png";
+        public const string GraphicAssetPath = "Assets/_Game/Content/Resources/UI/Loading/BG_Loading.png";
         public const string GraphicResource = "UI/Loading/BG_Loading";
         public const float FallbackAspectRatio = 1920f / 861f;
 
