@@ -301,6 +301,8 @@ namespace Game.Client.Home
             }
         }
 
+        public bool FriendListVisible => friendListRoot != null && friendListRoot.activeInHierarchy;
+
         public void SetFriendListVisible(bool visible)
         {
             SetActionSelected(HomeMenuAction.Friends, visible);

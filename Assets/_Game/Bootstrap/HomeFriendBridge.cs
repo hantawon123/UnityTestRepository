@@ -49,6 +49,9 @@ namespace Game.Bootstrap
         /// </summary>
         private readonly RoomInviteInbox inbox = new RoomInviteInbox();
         private bool refreshing;
+        private const float PresenceRefreshInterval = 3f;
+        private float presenceElapsed;
+        private bool refreshingPresence;
         private bool refreshingRequests;
         private bool requestsChanged;
         private IDisposable pushed;
@@ -198,7 +201,43 @@ namespace Game.Bootstrap
         /// Unscaled, because a card is about something happening on a friend's
         /// screen rather than in this one's simulation.
         /// </remarks>
-        public void Tick() => inbox.Advance(Time.unscaledDeltaTime);
+        public void Tick() => Advance(Time.unscaledDeltaTime);
+
+        public void Advance(float unscaledDeltaTime)
+        {
+            if (lifetime.IsCancellationRequested) return;
+
+            inbox.Advance(unscaledDeltaTime);
+            if (!view.FriendListVisible)
+            {
+                presenceElapsed = 0f;
+                return;
+            }
+
+            // Presence changes are not pushed by the backend. Poll only while
+            // the panel is visible, without overlapping slow requests.
+            if (refreshingPresence || refreshing) return;
+            presenceElapsed += unscaledDeltaTime;
+            if (presenceElapsed < PresenceRefreshInterval) return;
+
+            presenceElapsed = 0f;
+            RefreshPresenceAsync().Forget();
+        }
+
+        private async UniTaskVoid RefreshPresenceAsync()
+        {
+            refreshingPresence = true;
+            try
+            {
+                if (!await Ready()) return;
+                var failure = await friends.RefreshFriendsAsync(lifetime.Token);
+                if (failure != BackendFailure.None && failure != BackendFailure.Cancelled)
+                {
+                    Debug.LogWarning($"[Friends] Presence refresh failed: {failure}.");
+                }
+            }
+            finally { refreshingPresence = false; }
+        }
 
         private void OnInvitesChanged()
         {
@@ -280,9 +319,7 @@ namespace Game.Bootstrap
         {
             if (action == HomeMenuAction.Friends)
             {
-                // Opening the panel is the closest thing this screen has to a
-                // refresh button, and presence is only ever as fresh as the last
-                // read.
+                presenceElapsed = 0f;
                 RefreshAsync().Forget();
             }
         }

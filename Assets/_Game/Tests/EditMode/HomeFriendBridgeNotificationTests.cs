@@ -26,6 +26,47 @@ namespace Game.Architecture.Tests
     public sealed class HomeFriendBridgeNotificationTests
     {
         [Test]
+        public async Task VisiblePanel_RefreshesPresenceInBothDirectionsWithoutReadingRequests()
+        {
+            using var wiring = await Wiring.StartAsync();
+            wiring.View.SetFriendListVisible(true);
+            wiring.Gateway.FriendPresence = FriendPresence.Online;
+
+            wiring.Advance(2.9f);
+            Assert.That(wiring.Gateway.FriendReads, Is.Zero);
+            wiring.Advance(0.1f);
+            await wiring.Settle();
+            Assert.That(wiring.Friends.OnlineFriends.Count, Is.EqualTo(1));
+
+            wiring.Gateway.FriendPresence = FriendPresence.Offline;
+            wiring.Advance(3f);
+            await wiring.Settle();
+            Assert.That(wiring.Friends.OnlineFriends.Count, Is.Zero);
+            Assert.That(wiring.Friends.OfflineFriends.Count, Is.EqualTo(1));
+            Assert.That(wiring.Gateway.FriendReads, Is.EqualTo(2));
+            Assert.That(wiring.Gateway.IncomingReads, Is.Zero);
+            Assert.That(wiring.Gateway.OutgoingReads, Is.Zero);
+        }
+
+        [Test]
+        public async Task HiddenPanel_StopsPollingAndResetsTheInterval()
+        {
+            using var wiring = await Wiring.StartAsync();
+            wiring.Advance(30f);
+            Assert.That(wiring.Gateway.FriendReads, Is.Zero);
+            wiring.View.SetFriendListVisible(true);
+            wiring.Advance(2f);
+            wiring.View.SetFriendListVisible(false);
+            wiring.Advance(30f);
+            wiring.View.SetFriendListVisible(true);
+            wiring.Advance(1f);
+            Assert.That(wiring.Gateway.FriendReads, Is.Zero);
+            wiring.Advance(2f);
+            await wiring.Settle();
+            Assert.That(wiring.Gateway.FriendReads, Is.EqualTo(1));
+        }
+
+        [Test]
         public async Task AReceivedRequest_ReReadsBothRequestListsAndNotFriends()
         {
             using var wiring = await Wiring.StartAsync();
@@ -240,13 +281,17 @@ namespace Game.Architecture.Tests
 
             private Wiring(BackendSignIn signIn)
             {
-                var commands = new FriendUiCommands(Gateway, new FriendListSystem(), new FriendSearchSystem());
+                var commands = new FriendUiCommands(Gateway, Friends, new FriendSearchSystem());
                 bridge = new HomeFriendBridge(
                     View, commands, signIn, Link, Host, Invites, NotificationSettings);
                 bridge.Start();
             }
 
             public CountingGateway Gateway { get; } = new CountingGateway();
+
+            public FriendListSystem Friends { get; } = new FriendListSystem();
+
+            public void Advance(float seconds) => bridge.Advance(seconds);
 
             public SilentView View { get; } = new SilentView();
 
@@ -319,6 +364,8 @@ namespace Game.Architecture.Tests
 
             public int FriendReads { get; private set; }
 
+            public FriendPresence FriendPresence { get; set; } = FriendPresence.Offline;
+
             public int IncomingReads { get; private set; }
 
             public int OutgoingReads { get; private set; }
@@ -345,7 +392,8 @@ namespace Game.Architecture.Tests
             {
                 FriendReads++;
                 return UniTask.FromResult(
-                    BackendResult<IReadOnlyList<FriendSummary>>.Success(Array.Empty<FriendSummary>()));
+                    BackendResult<IReadOnlyList<FriendSummary>>.Success(
+                        new[] { new FriendSummary("other", "상대", FriendPresence) }));
             }
 
             public UniTask<BackendResult<IReadOnlyList<FriendRequestSummary>>> ListIncomingRequestsAsync(
@@ -507,7 +555,8 @@ namespace Game.Architecture.Tests
             public void SetNicknameSearchAllowed(bool allowed) { }
             public void SetNicknameSearchAllowedError(string message) { }
             public void ShowConnectionError(string message) { }
-            public void SetFriendListVisible(bool visible) { }
+            public bool FriendListVisible { get; private set; }
+            public void SetFriendListVisible(bool visible) { FriendListVisible = visible; }
             public void SetFriends(IReadOnlyList<FriendSummary> onlineFriends, IReadOnlyList<FriendSummary> offlineFriends) { }
             public void SetFriendSearchVisible(bool visible) { }
             public void SetFriendSearchResults(IReadOnlyList<FriendSearchHit> results) { }
