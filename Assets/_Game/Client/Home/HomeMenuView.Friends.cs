@@ -1129,16 +1129,11 @@ namespace Game.Client.Home
         /// </summary>
         public void SetIncomingRequestCount(int count)
         {
-            if (requestBadge == null)
-            {
-                return;
-            }
-
-            requestBadge.SetActive(count > 0);
-            if (count > 0 && requestBadgeText != null)
-            {
-                requestBadgeText.text = count > 9 ? "9+" : count.ToString();
-            }
+            var label = count > 9 ? "9+" : count.ToString();
+            requestBadge?.SetActive(count > 0);
+            friendButtonBadge?.SetActive(count > 0);
+            if (requestBadgeText != null) requestBadgeText.text = label;
+            if (friendButtonBadgeText != null) friendButtonBadgeText.text = label;
         }
     }
 }

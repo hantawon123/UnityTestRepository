@@ -91,6 +91,8 @@ namespace Game.Client.Home
         private Image requestRule;
         private GameObject requestBadge;
         private TMP_Text requestBadgeText;
+        private GameObject friendButtonBadge;
+        private TMP_Text friendButtonBadgeText;
         private bool isRequestTabOpen;
 
         /// <summary>
