@@ -110,3 +110,16 @@
 - **develop 머지 (2026-09-11)**: 동료(hantawon123)의 카테고리별 아이템 카탈로그(`ItemCatalogSO`, `Resources/Items/ItemCatalog.asset`, 활성 카테고리 5개·물건 284개)가 들어와 **배정 물건은 카탈로그 프리팹에서 생성**되므로 맵 씬에 물건을 미리 놓을 필요가 없어졌다. Supermarket의 임시 `CatalogItems_Temp`는 제거. 머지 충돌은 `PlaygroundMatchScene.cs` 1건(develop 방식 채택). 스폰 지점이 6개를 넘는 맵에서 대기 지점 수 검사에 걸리던 것은 스폰 수만큼 채우도록 고쳤다. 머지 후 EditMode 1,335개 통과, Supermarket 캡처 = 스폰 10·대기 10·배정 284·파쇄기 2.
 - **알려진 경고**: 매치 씬이 내려갈 때 `NetworkMatchHudPresenter.Dispose`가 이미 파괴된 `NetworkMatchHudView`를 만져 `MissingReferenceException`(develop 코드, 게임 진행에는 영향 없음). 별도 수정 필요.
 - **남은 것**: 맵 카드 썸네일, 라벨 한글화 여부, WebGL 빌드 크기, 대기 스폰 정책(현재 SpawnPoint_1~6 fallback), `Global Volume`(데모 포스트프로세스) 유지 여부는 911에서.
+
+### 9. 들 수 있는 소품 전환과 정적 배칭 (2026-09-11, 907)
+
+- **정책(사용자 결정)**: 진열 상품·봉지·꽃다발·상자류는 들 수 있게(Carryable), 선반·냉장고·가구·쇼핑카트·설비는 고정.
+- **도구** `Game > Match Map > Carryable > 1. Report Targets / 2. Convert Targets (Now, Blocking) / 3. Apply Static Batching To Fixed Props` ([MartCarryableSetupMenu.cs](../../../Assets/_Game/Editor/MartCarryableSetupMenu.cs)).
+  - 대상 = 경계 안 + (분해 상품 `Products`·채움 상품 `Refill` 자식 | 원본 프리팹 이름 포함 키워드(Product·Food·Bag·Flower·Box·Lettuce·Shoe…) | 분류 불가라도 최대 변 0.5 m 이하) − 제외 키워드(Shelf·Aisle·Fridge·Counter·Cart·Bld_·Env_·Planter·Mannequin류 등). 가격표(`PriceTag`)는 진열 그룹 안에 있어도 항상 고정.
+  - 우리 프리팹(생성 상품 `Gen_*` 206종, `Prefabs/Mart/Mart_Lettuce_*` 11종)은 프리팹 자체에 Rigidbody(kinematic, 질량 1)·CarryableItem을 넣었다(인스턴스 자동 반영). Synty 팩 프리팹 162종은 `Prefabs/Carryable/Mart/<이름> Carryable.prefab` 변형을 만들어 씬 인스턴스 2,355개를 교체(`ReplacePrefabAssetOfPrefabInstance`, 오버라이드 유지).
+  - 표시명: Gen_/Product→상품, Food→식품, Box/Cardboard→상자, Bag→봉지, Flower→꽃, Bouquet→꽃다발, Lettuce→양배추, Shoe→신발, 기타→물건.
+  - 물건 id는 `CarryableItem`의 씬 계층 해시(8자리)로, 모든 피어가 같은 씬을 로드하므로 일치한다. 중복 0 확인.
+  - 배경 처리 큐는 Play 진입·재컴파일(도메인 리로드)에 사라지므로 기본 메뉴는 동기(블로킹)로 바꿨다(2,355개 교체 13초).
+- **결과**: Supermarket 씬 Carryable **7,099개**(경계 안 6,144 + 프리팹을 직접 고친 탓에 따라온 경계 밖 955; 전부 kinematic, 콜라이더 있음), 고정 소품 2,723개(355종), 분류 불가 76개(48종, 고정 유지 — 컴퓨터·의류·마네킹 등, 목록은 `carryable-props.md`), 경계 밖 9,028개는 손대지 않음. 정적 배칭 플래그 12,907개(렌더러 20,021 중 Carryable·파쇄기 제외). 런타임 캡처 = 월드 오브젝트 7,099·배정 284·스폰 10·파쇄기 2.
+- **주의**: 네트워크 상태는 한 매치에서 건드린(들거나 옮긴) 물건 최대 256개까지만 복제한다(`MatchSessionState.MaxReplicatedObjects`). 6인 플레이에서 부족하면 상한 조정 필요. 정적 배칭은 메모리(결합 메시)를 늘리니 WebGL 측정(914) 후 유지 여부 결정.
+- 목록 문서: [carryable-props.md](carryable-props.md) (메뉴 1로 재생성).
