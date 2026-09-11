@@ -18,3 +18,10 @@ MonoBehaviour:
   _matchScenePath: Assets/_Game/Content/Scenes/Playground.unity
   _lobbyScenePath: Assets/_Game/Content/Scenes/Lobby.unity
   _resultScenePath: Assets/_Game/Content/Scenes/Result.unity
+  _mapScenes:
+  - mapId: playground
+    scene: {fileID: 102900000, guid: 38063f202021431d87d19016376c9b66, type: 3}
+    scenePath: Assets/_Game/Content/Scenes/Playground.unity
+  - mapId: supermarket
+    scene: {fileID: 102900000, guid: cad9a7fd93ff6a9428b283457c72aacb, type: 3}
+    scenePath: Assets/_Game/Content/Scenes/MartBuild.unity

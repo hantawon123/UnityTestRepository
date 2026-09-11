@@ -1035,6 +1035,30 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
+        public void NetworkScenes_MapsEveryCatalogMapToItsOwnBuildListedScene()
+        {
+            // 방장이 고를 수 있는 맵마다 씬이 하나씩 있어야 하고, 서로 다른 씬이어야 한다.
+            var scenes = AssetDatabase.LoadAssetAtPath<NetworkScenes>(
+                "Assets/_Game/Content/Settings/NetworkScenes.asset");
+            var resolved = new List<Fusion.SceneRef>();
+
+            foreach (var mapId in Game.Core.Maps.MapCatalog.MapIds)
+            {
+                Assert.That(scenes.HasMappedScene(mapId), Is.True, $"map '{mapId}' has no scene on NetworkScenes");
+                var scene = scenes.MatchSceneFor(mapId);
+                Assert.That(scene.IsValid, Is.True, $"map '{mapId}' scene is not in the build list");
+                Assert.That(scenes.IsMatchScene(scene), Is.True);
+                Assert.That(resolved, Has.No.Member(scene), $"map '{mapId}' shares a scene with another map");
+                resolved.Add(scene);
+            }
+
+            Assert.That(scenes.MatchSceneFor(Game.Core.Maps.MapCatalog.PlaygroundId), Is.EqualTo(scenes.MatchScene),
+                "The default match scene stays the playground for older callers.");
+            Assert.That(scenes.IsMatchScene(scenes.LobbyScene), Is.False);
+            Assert.That(scenes.IsMatchScene(default), Is.False);
+        }
+
+        [Test]
         public void MatchEventRpcs_BroadcastOnlyAuthorityConfirmedData()
         {
             var names = new[]

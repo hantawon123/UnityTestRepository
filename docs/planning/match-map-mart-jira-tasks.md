@@ -118,12 +118,14 @@
 ### T10 (910). [CL] 맵 등록: 카탈로그·맵 카드·씬 매핑
 - **설명**: 방 설정에서 "마트"를 선택하면 실제로 마트 씬이 로드되게 한다. 현재 구조는 맵 id는 여러 개를 가정하지만 씬은 `NetworkScenes.MatchScene` 하나만 있다.
 - **작업**
-  - [ ] `MapCatalog`에 `mart` id 추가(기본 맵 결정: playground 유지 vs mart)
-  - [ ] `PlaySettingsMapCatalog`에 라벨 "마트" 옵션 추가, 맵 카드 이미지가 있으면 썸네일 연결
-  - [ ] 맵 id → 씬 매핑 설계: `NetworkScenes`에 맵별 SceneAsset 목록 추가 후 `EnterMatchScene`이 방 설정의 mapId로 선택(서버·네트워크 파트와 협의)
-  - [ ] 랜덤 선택 규칙(저장 시 유지, 매치 시작 때 결정, 367ee495) 이 두 맵에서 동작
-  - [ ] 빌드 목록에 새 씬 추가, WebGL 빌드 크기 확인
-  - [ ] 테스트: `MapCatalogTests`·`PlaySettingsPresenterTests` 갱신, 맵별 씬 해석 단위 테스트
+  - [x] `MapCatalog`에 `supermarket` id 추가(기본 맵은 playground 유지) — 2026-09-11
+  - [x] `PlaySettingsMapCatalog`는 카탈로그에서 자동으로 옵션이 늘어남(라벨 = id "supermarket"). 맵 카드 썸네일은 미연결
+  - [x] 맵 id → 씬 매핑: `NetworkScenes._mapScenes`(mapId + SceneAsset) 추가, `MatchSceneFor(mapId)`·`IsMatchScene`, `NetworkRunnerService.EnterMatchScene`이 방 설정 mapId로 씬 선택(호스트 권위 = 클라이언트 코드라 별도 서버 협의 불필요했음)
+  - [x] 랜덤: 설정은 "" 그대로 두고 `EnterMatchScene`에서 `MapCatalog.PickRandom()`으로 결정, `_activeMapId`에 보관(AnalyticsMapId)
+  - [x] 빌드 목록에 `MartBuild.unity` 추가(index 4). WebGL 빌드 크기 확인은 미완
+  - [x] 테스트: `MapCatalogTests` 갱신, `NetworkContractTests.NetworkScenes_MapsEveryCatalogMapToItsOwnBuildListedScene` 추가(133/133 통과)
+  - [ ] 실제 플레이 확인: 로비에서 supermarket 선택 → 시작 → 마트 로드 (2인 이상 필요)
+  - [ ] 마트 씬 임시 요소 정리: 계산대 위 카탈로그 물건 8개(`CatalogItems_Temp`)는 907에서 마트 상품 카탈로그로 교체, 대기 스폰 지점 없음(SpawnPoint_1~6 fallback)
 - **완료 조건**: 로비에서 마트 선택 → 게임 시작 → 마트 씬 로드, playground도 그대로 동작
 - **선행**: T3, T9 · **규모**: M
 

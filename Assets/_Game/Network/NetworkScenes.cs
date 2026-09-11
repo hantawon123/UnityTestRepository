@@ -1,3 +1,4 @@
+using System;
 using Fusion;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -51,7 +52,98 @@ namespace Game.Network
         [SerializeField, HideInInspector]
         private string _resultScenePath = string.Empty;
 
+        /// <summary>
+        /// 맵 id 하나에 매치 씬 하나. 방장이 방 설정에서 고른 <c>MapCatalog</c>의 id가
+        /// 매치 시작 때 이 목록으로 씬이 된다.
+        /// </summary>
+        [Serializable]
+        private sealed class MapSceneEntry
+        {
+            [Tooltip("MapCatalog의 맵 id (예: playground, supermarket).")]
+            public string mapId = string.Empty;
+
+#if UNITY_EDITOR
+            [Tooltip("이 맵이 플레이되는 씬. 빌드 씬 목록에도 있어야 한다.")]
+            public UnityEditor.SceneAsset scene;
+#endif
+
+            [HideInInspector]
+            public string scenePath = string.Empty;
+        }
+
+        [SerializeField]
+        [Tooltip("맵 id별 매치 씬. 여기 없는 맵 id는 위의 Match Scene(기본 맵)으로 간다.")]
+        private MapSceneEntry[] _mapScenes = Array.Empty<MapSceneEntry>();
+
         public string ResultScenePath => _resultScenePath;
+
+        /// <summary>
+        /// 방 설정의 맵 id에 해당하는 매치 씬. 목록에 없는 id는 기본 매치 씬으로
+        /// 떨어지며, 그 사실을 경고로 남긴다(조용히 다른 맵을 여는 일이 없도록).
+        /// </summary>
+        public SceneRef MatchSceneFor(string mapId)
+        {
+            var entry = FindEntry(mapId);
+            if (entry != null)
+            {
+                return Resolve(entry.scenePath, $"match scene for map '{entry.mapId}'");
+            }
+
+            if (_mapScenes.Length > 0)
+            {
+                Debug.LogWarning(
+                    $"[Network] No match scene is mapped to map '{mapId}' on the " +
+                    "NetworkScenes asset; using the default match scene.");
+            }
+
+            return MatchScene;
+        }
+
+        /// <summary>이 씬이 어떤 맵의 매치 씬인지(기본 매치 씬 포함). 로비 복귀 때 내릴 씬을 찾는 데 쓴다.</summary>
+        public bool IsMatchScene(SceneRef scene)
+        {
+            if (!scene.IsValid)
+            {
+                return false;
+            }
+
+            if (TryResolve(_matchScenePath, out var defaultScene) && defaultScene == scene)
+            {
+                return true;
+            }
+
+            foreach (var entry in _mapScenes)
+            {
+                if (TryResolve(entry.scenePath, out var mapped) && mapped == scene)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>맵 id가 이 에셋에 씬으로 연결되어 있는지(기본 매치 씬 fallback은 세지 않는다).</summary>
+        public bool HasMappedScene(string mapId) => FindEntry(mapId) != null;
+
+        private MapSceneEntry FindEntry(string mapId)
+        {
+            if (string.IsNullOrWhiteSpace(mapId))
+            {
+                return null;
+            }
+
+            var candidate = mapId.Trim();
+            foreach (var entry in _mapScenes)
+            {
+                if (entry != null && string.Equals(entry.mapId?.Trim(), candidate, StringComparison.Ordinal))
+                {
+                    return entry;
+                }
+            }
+
+            return null;
+        }
         public SceneRef ResultScene => Resolve(_resultScenePath, "result scene");
 
         /// <summary>
@@ -97,6 +189,25 @@ namespace Game.Network
             return SceneRef.FromIndex(buildIndex);
         }
 
+        /// <summary>같은 해석을 로그 없이. 여러 씬을 훑어 비교할 때 쓴다.</summary>
+        private static bool TryResolve(string scenePath, out SceneRef scene)
+        {
+            scene = default;
+            if (string.IsNullOrEmpty(scenePath))
+            {
+                return false;
+            }
+
+            var buildIndex = SceneUtility.GetBuildIndexByScenePath(scenePath);
+            if (buildIndex < 0)
+            {
+                return false;
+            }
+
+            scene = SceneRef.FromIndex(buildIndex);
+            return true;
+        }
+
 #if UNITY_EDITOR
         /// <summary>
         /// Keeps the serialized path in step with the scene picked above, and
@@ -126,6 +237,25 @@ namespace Game.Network
             WarnIfMissingFromBuild(matchPath, _matchScene);
             WarnIfMissingFromBuild(lobbyPath, _lobbyScene);
             WarnIfMissingFromBuild(resultPath, _resultScene);
+
+            foreach (var entry in _mapScenes)
+            {
+                if (entry == null)
+                {
+                    continue;
+                }
+
+                var path = entry.scene == null
+                    ? string.Empty
+                    : UnityEditor.AssetDatabase.GetAssetPath(entry.scene);
+                if (entry.scenePath != path)
+                {
+                    entry.scenePath = path;
+                    UnityEditor.EditorUtility.SetDirty(this);
+                }
+
+                WarnIfMissingFromBuild(path, entry.scene);
+            }
         }
 
         private void WarnIfMissingFromBuild(

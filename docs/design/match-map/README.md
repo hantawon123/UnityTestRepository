@@ -98,3 +98,13 @@
   5. `Revert Fridge Refill (Selected)`로 원상복구. 이미 채운 냉장고는 다시 채우지 않음(먼저 되돌리기).
 - **적용 결과(경계 안 전부)**: 냉동고 14대(판 10장씩 → 2줄 84~91개, 한 줄 42~43개), 벽 냉장고 3대(납작 상자 10~12개 → 89~191개), 평대 냉동고 2대(수평 그림 판 4장씩 → 눕힌 상자·통 65·70개). 총 **19대, 배치 1,682개, 숨김 182개**, 활성 렌더러 약 20k. 기본은 2줄·밀도 1·3D 잔존 물건 유지이고, 변화를 주기 위해 냉동고 3대(동쪽 벽 (21,−4), 블록 (12,−13)·(16,1))와 남쪽 벽 냉장고 1대((3,−20))는 **한 줄**(시드 7). 냉동 팔레트에서 도시락 트레이는 빈 쟁반처럼 보여 제외. 냉장 팔레트의 치즈 슬라이스 더미(`Food_Cheese_Stack_01/02`)는 사용자 요청으로 큰 병 `Product_45/46`·샌드위치 `Food_Sandwich_01`로 교체(씬의 기존 33개는 제자리에서 교체, 자리가 좁은 10개는 작은 병·통 `Product_47/48/19/41`).
 - **유리**: 냉동고 `Freezer_03`·평대 냉동고 `Freezer_01/02`의 유리는 사용자가 제거(문틀만 남음). 남아 있던 `Freezer_03_Door_02_Glass_02` 한 장도 제거. 상품 프리팹은 convex 메시 콜라이더를 갖고 있어 907에서 상호작용 대상 정리와 함께 콜라이더 정책을 정한다.
+
+### 7. 맵 등록 `supermarket` (2026-09-11, 910)
+
+- **맵 id**: `MapCatalog.SupermarketId = "supermarket"`. 기본 맵은 playground 그대로. 방 설정 UI(`PlaySettingsMapCatalog`)와 로비 맵 카드는 카탈로그에서 자동으로 옵션이 늘어난다(라벨은 id).
+- **맵 → 씬**: `NetworkScenes` 에셋에 `_mapScenes` 목록(mapId + SceneAsset)을 추가하고 playground→`Playground.unity`, supermarket→`MartBuild.unity`를 연결. `MatchSceneFor(mapId)`가 씬을 고르고, 목록에 없는 id는 기존 `MatchScene`(playground)으로 떨어지며 경고. `IsMatchScene(SceneRef)`로 어느 맵 씬이 올라와 있는지 판별(로비 복귀 때 내릴 씬 찾기).
+- **매치 진입**: `NetworkRunnerService.EnterMatchScene`이 방 설정 mapId로 씬을 고른다. 설정이 랜덤("")이면 이 순간 `MapCatalog.PickRandom()`으로 결정하고 설정은 랜덤 그대로 둔다(다음 매치도 다시 뽑힘). 결정된 맵은 `_activeMapId`에 보관되어 `AnalyticsMapId`로 나간다. 호스트가 씬을 바꾸는 구조라 서버 파트 코드 변경은 없었다.
+- **빌드 목록**: `MartBuild.unity`를 Playground 뒤(index 4)에 추가.
+- **마트 씬에 넣은 매치 구성**(Playground와 같은 이름 규약): `MatchLifetimeScope`(`PlaygroundLifetimeScope` 컴포넌트, MatchRules·InputSystem_Actions 연결), `InGameHud`(메뉴 `Game > InGame > Build HUD Layout (Active Scene)`로 생성 — 이 메뉴를 새로 추가, 대기 스폰은 만들지 않음), `PlayerCameraRig` 프리팹 인스턴스, `Main Camera`에 AudioListener·CinemachineBrain(데모 `Main Camera (1)` 삭제), 계산대 위 임시 카탈로그 물건 8개(`CatalogItems_Temp`: Soda·Burger·Pineapple·Cup·Plate·Plant·Kettle·Toaster — `PlaygroundMatchScene.Capture`가 `ItemCatalog` 전 항목을 요구해서 넣은 것, 907에서 마트 상품으로 교체).
+- **검증**: EditMode 133개 통과(`MapCatalogTests`, `NetworkContractTests`의 맵별 씬 테스트 포함). 실제 2인 플레이로 supermarket 선택→로드 확인은 아직.
+- **남은 것**: 맵 카드 썸네일, 라벨 한글화 여부, WebGL 빌드 크기, 대기 스폰 정책(현재 SpawnPoint_1~6 fallback), `Global Volume`(데모 포스트프로세스) 유지 여부는 911에서.
