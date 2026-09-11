@@ -249,7 +249,7 @@ namespace Game.Bootstrap
                 ? factory.RestoreSession(migration, network.ServerTime, configuration.PlacementValidator,
                     configuration.SpawnPoints, configuration.ItemDefinitions,
                     configuration.InitialWorldObjects, network.DestructionLimit,
-                    network.MatchRules)
+                    network.MatchRules, configuration.HidingWaitingSpawnPoints)
                 : factory.CreateSessionFromParticipants(
                     participants,
                     configuration.PlacementValidator,
@@ -258,7 +258,8 @@ namespace Game.Bootstrap
                     new System.Random(),
                     configuration.InitialWorldObjects,
                     network.DestructionLimit,
-                    matchRules: network.MatchRules);
+                    matchRules: network.MatchRules,
+                    waitingSpawnPoints: configuration.HidingWaitingSpawnPoints);
 
             try
             {

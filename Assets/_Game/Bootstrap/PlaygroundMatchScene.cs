@@ -46,9 +46,9 @@ namespace Game.Bootstrap
                 if (!items.ContainsKey(definition.ItemId))
                 {
                     throw new InvalidOperationException(
-                        $"Match scene '{scene.name}' is missing catalog item '{definition.ItemId}'. " +
-                        "Every ItemCatalog item must exist as a CarryableItem in the map " +
-                        "(the CatalogItems holder must not be deleted).");
+                        $"Match scene '{scene.name}' is missing item '{definition.ItemId}' from the ItemCatalog. " +
+                        "Every catalog item must exist as a CarryableItem in the map " +
+                        "(do not delete the CatalogItems holder).");
                 }
             }
 
@@ -180,16 +180,31 @@ namespace Game.Bootstrap
             return items;
         }
 
+        /// <summary>
+        /// <c>SpawnPoint_1</c>부터 번호가 끊기기 전까지 전부 읽는다. 최소 6개(최대 인원)는 있어야 하고,
+        /// 마트처럼 10개를 둔 맵은 10개 모두 숨기기·탐색 시작 위치 후보가 된다.
+        /// </summary>
         private static Pose[] CaptureSpawnPoints(Scene scene)
         {
-            var poses = new Pose[6];
-            for (var index = 0; index < poses.Length; index++)
+            var poses = new List<Pose>();
+            for (var index = 1; ; index++)
             {
-                var point = FindTransform(scene, $"SpawnPoint_{index + 1}");
-                poses[index] = new Pose(point.position, point.rotation);
+                if (index <= MatchRulesSO.MaxPlayerCount)
+                {
+                    var required = FindTransform(scene, $"SpawnPoint_{index}");
+                    poses.Add(new Pose(required.position, required.rotation));
+                    continue;
+                }
+
+                if (!TryFindTransform(scene, $"SpawnPoint_{index}", out var optional))
+                {
+                    break;
+                }
+
+                poses.Add(new Pose(optional.position, optional.rotation));
             }
 
-            return poses;
+            return poses.ToArray();
         }
 
         private static Pose[] CaptureWaitingSpawnPoints(
