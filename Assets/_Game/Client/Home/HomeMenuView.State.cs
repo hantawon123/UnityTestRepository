@@ -217,11 +217,12 @@ namespace Game.Client.Home
 
         /// <summary>
         /// The IME reports its half-built syllable by polling only, so the
-        /// room-name box reads it here each frame it has focus.
+        /// boxes that care read it here each frame they have focus.
         /// </summary>
         private void LateUpdate()
         {
             PollRoomNameComposition();
+            PollFriendSearchComposition();
         }
 
         private void OnDestroy()

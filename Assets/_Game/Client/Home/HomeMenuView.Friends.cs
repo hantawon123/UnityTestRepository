@@ -1,11 +1,10 @@
 using System;
 using System.Collections.Generic;
+using Game.Client.Common;
 using Game.Core.Home;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.UI;
 
 namespace Game.Client.Home
@@ -728,7 +727,15 @@ namespace Game.Client.Home
         /// settles it. Until then TextMeshPro draws the part-built glyph but
         /// keeps it out of <c>text</c>, so filtering on <c>text</c> alone runs a
         /// keystroke behind what the player can see. The composition is read
-        /// straight off the keyboard and put back on the front.
+        /// off <c>Input.compositionString</c>, the value the field itself
+        /// draws, once a frame while the box has focus, and off the browser's
+        /// own field on WebGL, and put back on the front.
+        /// <para>
+        /// Not the Input System's <c>onIMECompositionChange</c>: that fires
+        /// only once IME has been switched on through the Input System, and
+        /// TextMeshPro switches it on another way, so it stayed silent while
+        /// the glyph was plainly on screen.
+        /// </para>
         /// </remarks>
         private string TypedFriendSearch =>
             (friendSearchInput != null ? friendSearchInput.text : string.Empty) + composingText;
@@ -740,9 +747,31 @@ namespace Game.Client.Home
             FriendSearchRequested?.Invoke(TypedFriendSearch);
         }
 
-        private void OnComposingTextChanged(IMECompositionString composition)
+        private void PollFriendSearchComposition()
         {
-            var next = composition.ToString();
+            if (friendSearchInput == null)
+            {
+                return;
+            }
+
+            // Once the box is left, what was being built is either in the
+            // text or gone, so nothing is pending.
+            SetFriendComposing(
+                friendSearchInput.isFocused
+                    ? Input.compositionString ?? string.Empty
+                    : string.Empty);
+        }
+
+        private void OnBrowserFriendComposing(TMP_InputField field, string composing)
+        {
+            if (field == friendSearchInput)
+            {
+                SetFriendComposing(composing);
+            }
+        }
+
+        private void SetFriendComposing(string next)
+        {
             if (string.Equals(next, composingText, StringComparison.Ordinal))
             {
                 return;
@@ -752,18 +781,16 @@ namespace Game.Client.Home
             FriendSearchRequested?.Invoke(TypedFriendSearch);
         }
 
+        /// <summary>
+        /// Listens to the browser's field only while the panel is open. The
+        /// keyboard side needs no listener: it is polled while focused.
+        /// </summary>
         private void WatchComposition(bool watching)
         {
-            var keyboard = Keyboard.current;
-            if (keyboard == null)
-            {
-                return;
-            }
-
-            keyboard.onIMECompositionChange -= OnComposingTextChanged;
+            WebTextInput.ComposingChanged -= OnBrowserFriendComposing;
             if (watching)
             {
-                keyboard.onIMECompositionChange += OnComposingTextChanged;
+                WebTextInput.ComposingChanged += OnBrowserFriendComposing;
             }
         }
 
