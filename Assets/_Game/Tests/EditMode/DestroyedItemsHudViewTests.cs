@@ -9,7 +9,7 @@ namespace Game.Architecture.Tests
     public sealed class DestroyedItemsHudViewTests
     {
         [Test]
-        public void Show_ShowsOnlyLocalSlotBeforeAnyDestruction()
+        public void Show_KeepsEmptyCirclesBesideLocalSlotBeforeAnyDestruction()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
             try
@@ -42,7 +42,17 @@ namespace Game.Architecture.Tests
                 Assert.That(
                     slot.Find(DestroyedItemsHudView.OwnBorderName).gameObject.activeSelf,
                     Is.True);
-                Assert.That(panel.Find("Slot1"), Is.Null);
+                var empty = panel.Find("Slot1");
+                Assert.That(empty, Is.Not.Null);
+                Assert.That(
+                    empty.Find(DestroyedItemsHudView.OwnBorderName).gameObject.activeSelf,
+                    Is.False);
+                Assert.That(
+                    empty.Find($"{DestroyedItemsHudView.FillName}/Question")
+                        .gameObject.activeSelf,
+                    Is.True);
+                Assert.That(panel.Find("Slot5"), Is.Not.Null);
+                Assert.That(panel.Find("Slot6"), Is.Null);
             }
             finally
             {
@@ -51,7 +61,7 @@ namespace Game.Architecture.Tests
         }
 
         [Test]
-        public void Show_DoesNotCreateUnknownSlotsWhenSomeItemsAreDestroyed()
+        public void Show_KeepsPlayerCountCirclesWhenSomeItemsAreDestroyed()
         {
             var canvas = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
             try
@@ -68,8 +78,9 @@ namespace Game.Architecture.Tests
 
                 var panel = view.transform.Find("Panel");
                 Assert.That(panel.Find("Slot0"), Is.Not.Null);
-                Assert.That(panel.Find("Slot1"), Is.Null);
-                Assert.That(panel.Find("Slot2"), Is.Null);
+                Assert.That(panel.Find("Slot1"), Is.Not.Null);
+                Assert.That(panel.Find("Slot2"), Is.Not.Null);
+                Assert.That(panel.Find("Slot3"), Is.Null);
             }
             finally
             {
@@ -166,7 +177,12 @@ namespace Game.Architecture.Tests
                     view.transform.Find($"Panel/Slot1/{DestroyedItemsHudView.OwnBorderName}")
                         .gameObject.activeSelf,
                     Is.False);
-                Assert.That(view.transform.Find("Panel/Slot2"), Is.Null);
+                Assert.That(view.transform.Find("Panel/Slot2"), Is.Not.Null);
+                Assert.That(
+                    view.transform.Find($"Panel/Slot2/{DestroyedItemsHudView.FillName}/Question")
+                        .gameObject.activeSelf,
+                    Is.True);
+                Assert.That(view.transform.Find("Panel/Slot3"), Is.Null);
             }
             finally
             {
@@ -199,8 +215,8 @@ namespace Game.Architecture.Tests
                     ?.GetComponent<RawImage>();
                 Assert.That(ownPreview, Is.Not.Null);
                 Assert.That(otherPreview, Is.Not.Null);
-                Assert.That(ownPreview.material, Is.Null);
-                Assert.That(otherPreview.material, Is.Null);
+                Assert.That(ownPreview.material, Is.EqualTo(ownPreview.defaultMaterial));
+                Assert.That(otherPreview.material, Is.EqualTo(otherPreview.defaultMaterial));
             }
             finally
             {
@@ -234,7 +250,11 @@ namespace Game.Architecture.Tests
                     panel.Find($"Slot0/{DestroyedItemsHudView.OwnBorderName}")
                         .gameObject.activeSelf,
                     Is.True);
-                Assert.That(panel.Find("Slot1"), Is.Null);
+                Assert.That(panel.Find("Slot1"), Is.Not.Null);
+                Assert.That(
+                    panel.Find($"Slot1/{DestroyedItemsHudView.FillName}/Question")
+                        .gameObject.activeSelf,
+                    Is.True);
             }
             finally
             {

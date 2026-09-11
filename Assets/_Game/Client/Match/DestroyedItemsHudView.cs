@@ -19,9 +19,9 @@ namespace Game.Client.Match
     }
 
     /// <summary>
-    /// Top-left circles for assignment items. The local item is shown from
-    /// search start with an orange ring; other items appear only after they
-    /// are destroyed, in destruction order.
+    /// Top-left circles for assignment items. The local item stays leftmost
+    /// with an orange ring. Remaining player circles show "?" until they
+    /// fill in destruction order.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class DestroyedItemsHudView : MonoBehaviour, IDestroyedItemsHudView

@@ -17,13 +17,17 @@ namespace Game.Architecture.Tests
             {
                 var view = MatchUrgencyBorderView.Create(canvas.transform);
 
-                Assert.That(view.transform.Find("Top"), Is.Not.Null);
-                Assert.That(view.transform.Find("Bottom"), Is.Not.Null);
-                Assert.That(view.transform.Find("Left"), Is.Not.Null);
-                Assert.That(view.transform.Find("Right"), Is.Not.Null);
+                var topTransform = Child(view.transform, "Top");
+                var bottomTransform = Child(view.transform, "Bottom");
+                var leftTransform = Child(view.transform, "Left");
+                var rightTransform = Child(view.transform, "Right");
+                Assert.That(topTransform, Is.Not.Null);
+                Assert.That(bottomTransform, Is.Not.Null);
+                Assert.That(leftTransform, Is.Not.Null);
+                Assert.That(rightTransform, Is.Not.Null);
                 Assert.That(view.gameObject.activeSelf, Is.False);
 
-                var top = view.transform.Find("Top").GetComponent<Image>();
+                var top = topTransform.GetComponent<Image>();
                 Assert.That(top.raycastTarget, Is.False);
                 Assert.That(top.sprite, Is.Not.Null);
                 Assert.That(top.color.r, Is.GreaterThan(0.5f));
@@ -99,6 +103,20 @@ namespace Game.Architecture.Tests
             {
                 Object.DestroyImmediate(canvas);
             }
+        }
+
+        private static Transform Child(Transform root, string name)
+        {
+            for (var index = 0; index < root.childCount; index++)
+            {
+                var child = root.GetChild(index);
+                if (child.name == name)
+                {
+                    return child;
+                }
+            }
+
+            return null;
         }
 
         private static void InvokeLateUpdate(MatchUrgencyBorderView view)

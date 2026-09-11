@@ -53,7 +53,14 @@ namespace Game.Client.Match
             var rootObject = new GameObject(RootName, typeof(RectTransform));
             rootObject.transform.SetParent(parent, false);
             Stretch((RectTransform)rootObject.transform);
-            return rootObject.AddComponent<MatchUrgencyBorderView>();
+            var view = rootObject.AddComponent<MatchUrgencyBorderView>();
+            view.EnsureLayout();
+            if (!view.shown)
+            {
+                view.Hide();
+            }
+
+            return view;
         }
 
         public static float PulseAmount(float time)

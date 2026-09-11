@@ -26,8 +26,8 @@ namespace Game.Client.Match
     }
 
     /// <summary>
-    /// The local assignment is shown from search start. Other items appear
-    /// only after they are destroyed, in destruction order.
+    /// One circle per player. The local assignment stays leftmost. Other
+    /// circles start empty and fill in destruction order.
     /// </summary>
     public static class DestroyedItemsHudLayout
     {
@@ -79,6 +79,15 @@ namespace Game.Client.Match
                 slots.Add(new DestroyedItemHudSlot(
                     order[index],
                     showPreview: true,
+                    isOwn: false,
+                    grayscale: false));
+            }
+
+            while (slots.Count < count)
+            {
+                slots.Add(new DestroyedItemHudSlot(
+                    null,
+                    showPreview: false,
                     isOwn: false,
                     grayscale: false));
             }
