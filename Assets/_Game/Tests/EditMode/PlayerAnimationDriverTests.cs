@@ -11,6 +11,16 @@ namespace Game.Tests.EditMode
 {
     public sealed class PlayerAnimationDriverTests
     {
+        [TestCase(PlayerPosture.Standing, 0f, "Punch_Left")]
+        [TestCase(PlayerPosture.Standing, 4f, "Punch_Left_Walk")]
+        [TestCase(PlayerPosture.Standing, 7f, "Punch_Left_Run")]
+        [TestCase(PlayerPosture.Crouching, 0f, "Punch_Left_Crouch")]
+        [TestCase(PlayerPosture.Crouching, 2f, "Punch_Left_Crouch_Walk")]
+        public void LeftPunch_SelectsTheCurrentPostureAndSpeed(PlayerPosture posture, float speed, string expected)
+        {
+            Assert.That(PlayerAnimationDriver.ResolvePunchClip(posture, speed, 4f, 7f, true), Is.EqualTo(expected));
+        }
+
         [Test]
         public void Direction_UsesPlusXAsLeft()
         {
