@@ -46,7 +46,9 @@ namespace Game.Bootstrap
                 if (!items.ContainsKey(definition.ItemId))
                 {
                     throw new InvalidOperationException(
-                        $"Playground is missing item '{definition.ItemId}'.");
+                        $"Match scene '{scene.name}' is missing catalog item '{definition.ItemId}'. " +
+                        "Every ItemCatalog item must exist as a CarryableItem in the map " +
+                        "(the CatalogItems holder must not be deleted).");
                 }
             }
 
@@ -108,7 +110,7 @@ namespace Game.Bootstrap
             if (ejectionPoints.Count == 0)
             {
                 throw new InvalidOperationException(
-                    "Playground is missing required object 'ShredderSpot'.");
+                    $"Match scene '{scene.name}' is missing required object 'ShredderSpot'.");
             }
 
             var ejectionPoses = new Pose[ejectionPoints.Count];
@@ -216,7 +218,7 @@ namespace Game.Bootstrap
             }
 
             throw new InvalidOperationException(
-                $"Playground is missing required object '{objectName}'.");
+                $"Match scene '{scene.name}' is missing required object '{objectName}'.");
         }
 
         private static List<Transform> FindAllTransforms(Scene scene, string objectName)
