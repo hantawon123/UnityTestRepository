@@ -133,3 +133,7 @@ InitTestScene*.unity*
 # Unity 크래시 복구 씬 (로컬 자동 생성)
 /[Aa]ssets/_Recovery/
 /[Aa]ssets/_Recovery.meta
+
+# 로컬 테스트용 맵 에셋 (용량이 크므로 Git에 올리지 않음)
+/[Aa]ssets/LocalMapAssets/
+/[Aa]ssets/LocalMapAssets.meta

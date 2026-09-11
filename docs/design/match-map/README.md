@@ -124,6 +124,8 @@
 - **주의**: 네트워크 상태는 한 매치에서 건드린(들거나 옮긴) 물건 최대 256개까지만 복제한다(`MatchSessionState.MaxReplicatedObjects`). 6인 플레이에서 부족하면 상한 조정 필요. 정적 배칭은 메모리(결합 메시)를 늘리니 WebGL 측정(914) 후 유지 여부 결정.
 - 목록 문서: [carryable-props.md](carryable-props.md) (메뉴 1로 재생성).
 
+- **추가 대상(2026-09-11, 사용자 요청)**: 창고 발판 `SM_Prop_Warehouse_Safety_Step_01`(0.8 m) — ExcludeKeywords에서 빼고 IncludeKeywords에 넣어 변환(표시명 "발판", 2개). Carryable 합계 7,101개.
+
 #### 9-1. 가구 콜라이더 수정 (2026-09-11) — "상품 한 종류만 잡힘" 원인
 - **증상**: Carryable 7,099개 중 조준 광선이 닿는 것은 272개. 나머지는 가구 콜라이더가 상품을 통째로 감싸서 광선이 가구에 먼저 맞았다.
   - Synty 가구의 MeshCollider는 시각 메시가 아니라 **별도 충돌 메시 `Models/Collision/Convex/*_Convex.asset`(닫힌 껍질)** 을 쓴다. convex를 꺼도 앞면이 막힌 채다.
