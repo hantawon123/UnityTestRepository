@@ -262,6 +262,30 @@ class SuspensionApiTest extends IntegrationTest {
     }
 
     @Test
+    @DisplayName("신고 목록이 정지 여부를 함께 돌려준다")
+    void theReportListCarriesTheSuspensionState() throws Exception {
+        // 운영 화면이 버튼을 어느 쪽으로 그릴지 정하는 값입니다(S15P21D205-927).
+        // 목록을 그린 뒤 사람 수만큼 다시 묻지 않으려고 여기 싣습니다.
+        String reporter = createUser();
+        String target = createUser();
+        Admin admin = login();
+
+        mvc.perform(post("/api/v1/reports")
+                        .header(USER_ID_HEADER, reporter)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"userId\":\"" + target + "\",\"reason\":\"ABUSE\"}"))
+                .andExpect(status().isCreated());
+
+        assertThat(suspendedInList(admin, target)).isFalse();
+
+        suspend(admin, target, "신고 누적");
+        assertThat(suspendedInList(admin, target)).isTrue();
+
+        lift(admin, target);
+        assertThat(suspendedInList(admin, target)).isFalse();
+    }
+
+    @Test
     @DisplayName("기기 식별자를 바꾸면 새 계정이 발급된다")
     void aNewDeviceIdGetsAFreshAccount() throws Exception {
         // 우회가 가능하다는 사실을 박아 둡니다. 정지는 계정에 걸린 것이고, 계정은 기기
@@ -310,6 +334,21 @@ class SuspensionApiTest extends IntegrationTest {
                 .session(admin.session())
                 .cookie(admin.csrf())
                 .header("X-XSRF-TOKEN", admin.csrf().getValue()));
+    }
+
+    /** 신고당한 사람 목록에서 그 사람의 정지 여부. 목록에 없으면 실패시킵니다. */
+    private boolean suspendedInList(Admin admin, String userId) throws Exception {
+        String body = mvc.perform(get("/api/v1/admin/reports").session(admin.session()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        for (var node : objectMapper.readTree(body).get("users")) {
+            if (userId.equals(node.get("userId").asText())) {
+                return node.get("suspended").asBoolean();
+            }
+        }
+
+        throw new AssertionError("신고 목록에 " + userId + " 가 없습니다: " + body);
     }
 
     private Admin login() throws Exception {

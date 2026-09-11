@@ -30,8 +30,10 @@ namespace Game.Client.Interactions
         public const string MaskChildName = "[Interactable Focus Outline Mask]";
 
         private const string ShaderResourceName = "AssignedItemOutline";
-        private const int MaskRenderQueue = (int)RenderQueue.Geometry + 1;
-        private const int SeeThroughOutlineRenderQueue = (int)RenderQueue.Geometry + 2;
+        // 셰이더 기본 큐(AlphaTest+49 = 2499)와 같은 구간. 알파 클립을 쓰는 Synty 재질(큐 2450)보다 뒤에 그려야
+        // 앞의 소품·선반이 실루엣을 덮어쓰지 않는다. 마스크가 껍질보다 먼저여야 스텐실이 준비된다.
+        private const int MaskRenderQueue = (int)RenderQueue.AlphaTest + 48;
+        private const int SeeThroughOutlineRenderQueue = (int)RenderQueue.AlphaTest + 49;
 
         private static readonly int OutlineColorId = Shader.PropertyToID("_OutlineColor");
         private static readonly int OutlineWidthId = Shader.PropertyToID("_OutlineWidth");

@@ -71,6 +71,14 @@
   .counts .people { color: var(--muted); }
   .reasons { color: var(--muted); font-size: 13px; }
   .deleted { color: var(--warn); font-size: 12px; }
+  /* 정지된 줄. 눈에 띄되 읽기는 방해하지 않을 만큼만 - 훑을 때 이미 조치한 사람을
+     건너뛰게 하는 것이 목적이고, 그 줄의 신고 내용도 여전히 봐야 합니다. */
+  .row.suspended { background: #fdf2f2; }
+  .badge-suspended {
+    display: inline-block; margin-right: 6px; padding: 1px 6px;
+    border: 1px solid var(--warn); border-radius: 3px;
+    color: var(--warn); font-size: 11px; font-weight: 600;
+  }
   .when { color: var(--muted); font-size: 12px; white-space: nowrap; }
   .actions { display: flex; gap: 6px; }
   .detail {
@@ -343,6 +351,16 @@
     // 되살리려면 새 줄에서 같은 사람을 찾아야 하므로 표시를 남겨 둡니다.
     row.dataset.userId = user.userId;
 
+    // 이미 조치한 사람을 목록에서 바로 알아보게 합니다. 이것이 없으면 운영자가
+    // 정지해 둔 사람을 다시 열어 보게 됩니다.
+    if (user.suspended) {
+      row.classList.add('suspended');
+      const badge = document.createElement('span');
+      badge.className = 'badge-suspended';
+      badge.textContent = '정지됨';
+      who.insertBefore(badge, reasons);
+    }
+
     const open = document.createElement('button');
     open.textContent = '내용';
     open.className = 'detail-toggle';
@@ -366,6 +384,10 @@
     const scope = '?status=' + encodeURIComponent(el('status').value);
     actions.appendChild(cleanup('숨김', target + '/hidden' + scope, 'PATCH', load, false));
     actions.appendChild(cleanup('삭제', target + scope, 'DELETE', load, true));
+
+    // 정지는 신고 기록이 아니라 계정을 건드리므로 경로가 다릅니다. 신고를 지워도
+    // 정지는 남습니다(S15P21D205-927).
+    actions.appendChild(suspension(user));
 
     row.append(who, counts, time, actions);
     return row;
@@ -410,6 +432,64 @@
    * 숨긴 것을 되살리려면 DB 를 열어야 하므로, 잘못 누르면 화면에서 할 수 있는 일이
    * 없습니다. 그렇게 하기로 정한 것입니다(S15P21D205-900).
    */
+  /**
+   * 정지 버튼. 이미 정지된 사람에게는 해제 버튼이 됩니다.
+   *
+   * 둘을 나란히 두지 않는 이유는, 그러면 지금 어느 쪽 상태인지를 버튼이 아니라
+   * 다른 곳에서 읽어야 하기 때문입니다. 한 자리에 지금 할 수 있는 일만 둡니다.
+   */
+  function suspension(user) {
+    const button = document.createElement('button');
+    const suspended = !!user.suspended;
+    button.textContent = suspended ? '정지 해제' : '정지';
+    if (!suspended) button.className = 'danger';
+
+    button.addEventListener('click', async (event) => {
+      event.stopPropagation();
+
+      let reason = null;
+      if (!suspended) {
+        // 사유는 서버가 필수로 받습니다. 비워 보내면 400 이므로 여기서 먼저 막습니다.
+        // 나중에 이 정지를 본 사람이 해제해도 되는지 판단할 유일한 근거이기도 합니다.
+        reason = window.prompt(user.nickname + ' 계정을 정지합니다. 사유를 적으세요.');
+        if (reason === null) return;
+        if (!reason.trim()) {
+          say('사유를 적어야 정지할 수 있습니다.', 'bad');
+          return;
+        }
+        if (reason.length > 200) {
+          say('사유는 200자를 넘을 수 없습니다.', 'bad');
+          return;
+        }
+      }
+
+      button.disabled = true;
+      const path = '/users/' + encodeURIComponent(user.userId) + '/suspension';
+
+      try {
+        const result = suspended
+          ? await call(path, { method: 'DELETE' })
+          : await call(path, { method: 'PUT', body: JSON.stringify({ reason: reason }) });
+
+        // 목록을 먼저 다시 그립니다. 그리는 쪽이 알림을 지우므로 순서가 반대면
+        // 방금 띄운 문구가 그 자리에서 사라집니다.
+        await load();
+
+        // changed 가 false 면 그 사이에 다른 사람이 이미 바꿔 둔 것입니다. 오류가
+        // 아니라 원하던 상태가 이미 되어 있는 것입니다.
+        if (suspended) {
+          say(result.changed ? user.nickname + ' 정지를 해제했습니다.' : '이미 정상 계정이었습니다.', 'good');
+        } else {
+          say(result.changed ? user.nickname + ' 계정을 정지했습니다.' : '이미 정지돼 있었습니다.', 'good');
+        }
+      } catch (ignored) {
+        button.disabled = false;
+      }
+    });
+
+    return button;
+  }
+
   function cleanup(label, path, method, done, danger) {
     const button = document.createElement('button');
     button.textContent = label;

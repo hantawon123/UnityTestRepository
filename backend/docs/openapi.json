@@ -467,6 +467,9 @@
             "format" : "int32",
             "type" : "integer"
           },
+          "suspended" : {
+            "type" : "boolean"
+          },
           "userId" : {
             "type" : "string"
           }

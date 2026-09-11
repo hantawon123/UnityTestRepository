@@ -41,4 +41,12 @@ public interface ReportedUserRow {
 
     /** 가장 최근 신고 시각. yyyyMMddHHmmss, UTC. 목록 정렬의 기준입니다. */
     String getLastReportedAt();
+
+    /**
+     * 정지된 시각. 정상이면 null 입니다(S15P21D205-927).
+     *
+     * <p>목록에 함께 싣는 이유는, 운영자가 이미 조치한 사람을 다시 들여다보지 않게
+     * 하려는 것입니다. 행마다 따로 물으면 스무 명일 때 쿼리가 스물한 번 나갑니다.
+     */
+    String getSuspendedAt();
 }

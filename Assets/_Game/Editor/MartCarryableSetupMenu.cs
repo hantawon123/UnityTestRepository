@@ -46,7 +46,7 @@ namespace Game.Editor
             "Scanner", "Screen", "Monitor", "Terminal", "Machine", "Gate", "Barrier", "Bollard", "Bench", "Chair", "Stool",
             "Bin_", "Dumptser", "Dumpster", "Vehicle", "Shredder", "Planter", "Papers", "Trash_Bags", "Alarm", "Dispenser",
             "Mirror", "Sink", "Toilet", "Map_", "Mat_", "Trim", "Rocks", "Stall", "Entrance", "FX_", "Hanger", "Sweater_Set",
-            "Airconditioner", "Safety_Step", "Wheel_Stop", "Mall_", "Stove", "Oven", "Rotisserie", "Mower", "Mart_basket",
+            "Airconditioner", "Wheel_Stop", "Mall_", "Stove", "Oven", "Rotisserie", "Mower", "Mart_basket",
         };
 
         /// <summary>진열 그룹 안에 있어도 항상 고정인 것(선반에 붙은 가격표·라벨).</summary>
@@ -58,12 +58,13 @@ namespace Game.Editor
             "Product", "Food_", "Bag", "Flower", "Bouquet", "Cardboard", "Box", "Bottle", "Can_", "Jar", "Carton", "Crate",
             "Sack", "Balloon", "Toy", "Book", "Magazine", "Newspaper", "Cup", "Bowl", "Plate", "Mug", "Fruit", "Vegetable",
             "Lettuce", "Shoe", "Napkin", "Sugar", "Sauce", "Bucket", "Keyboard", "Computer_Tower", "Radio", "Briefcase",
+            "Safety_Step", // 창고 발판(0.8 m): 사용자 요청(2026-09-11)으로 들 수 있게
         };
 
         private static readonly (string keyword, string name)[] DisplayNames =
         {
             ("Lettuce", "양배추"), ("Flower", "꽃"), ("Bouquet", "꽃다발"), ("Cardboard", "상자"), ("Box", "상자"), ("Bag", "봉지"),
-            ("Food_", "식품"), ("Shoe", "신발"), ("Product", "상품"), ("Gen_", "상품"),
+            ("Food_", "식품"), ("Shoe", "신발"), ("Safety_Step", "발판"), ("Product", "상품"), ("Gen_", "상품"),
         };
 
         private sealed class Target

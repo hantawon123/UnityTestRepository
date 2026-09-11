@@ -49,12 +49,13 @@ public interface UserReportRepository extends JpaRepository<UserReport, Integer>
                    COUNT(*)                        AS reportCount,
                    COUNT(DISTINCT r.reporter_seq)  AS reporterCount,
                    SUM(r.reporter_seq IS NULL)     AS fromDeletedAccounts,
-                   MAX(r.created_at)               AS lastReportedAt
+                   MAX(r.created_at)               AS lastReportedAt,
+                   u.suspended_at                  AS suspendedAt
               FROM user_reports r
               JOIN users u ON u.users_seq = r.reported_seq
              WHERE r.status = :status
                AND r.deleted_at IS NULL
-             GROUP BY r.reported_seq, u.public_id, u.nickname
+             GROUP BY r.reported_seq, u.public_id, u.nickname, u.suspended_at
              ORDER BY MAX(r.created_at) DESC
             """, nativeQuery = true)
     List<ReportedUserRow> summarizeByStatus(@Param("status") String status);
