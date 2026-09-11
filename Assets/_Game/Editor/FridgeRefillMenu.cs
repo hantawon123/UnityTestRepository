@@ -76,9 +76,9 @@ namespace Game.Editor
             "Products/SM_Prop_Product_06", "Products/SM_Prop_Product_17", "Products/SM_Prop_Product_18", "Products/SM_Prop_Product_19",
             "Products/SM_Prop_Product_28", "Products/SM_Prop_Product_39", "Products/SM_Prop_Product_40", "Products/SM_Prop_Product_41",
             "Products/SM_Prop_Product_47", "Products/SM_Prop_Product_48",
-            // 치즈·버터 상자
+            // 버터 상자·큰 병·샌드위치(치즈 슬라이스 더미는 사용자 요청으로 제외)
             "Products/SM_Prop_Product_09", "Products/SM_Prop_Product_12", "Products/SM_Prop_Product_13", "Products/SM_Prop_Product_33",
-            "Food/SM_Prop_Food_Cheese_Stack_01", "Food/SM_Prop_Food_Cheese_Stack_02",
+            "Products/SM_Prop_Product_45", "Products/SM_Prop_Product_46", "Food/SM_Prop_Food_Sandwich_01",
             // 캔
             "Products/SM_Prop_Product_21", "Products/SM_Prop_Product_22", "Products/SM_Prop_Product_43", "Products/SM_Prop_Product_44",
         };
