@@ -18,6 +18,9 @@
           "nicknameSet" : {
             "type" : "boolean"
           },
+          "photonToken" : {
+            "type" : "string"
+          },
           "searchable" : {
             "type" : "boolean"
           },
@@ -386,6 +389,21 @@
               "$ref" : "#/components/schemas/ReportDetail"
             },
             "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "PhotonAuthResponse" : {
+        "properties" : {
+          "Message" : {
+            "type" : "string"
+          },
+          "ResultCode" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "UserId" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -1731,6 +1749,52 @@
         },
         "tags" : [
           "invite-controller"
+        ]
+      }
+    },
+    "/api/v1/photon/auth" : {
+      "get" : {
+        "operationId" : "authenticate",
+        "parameters" : [
+          {
+            "in" : "query",
+            "name" : "userId",
+            "required" : false,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "query",
+            "name" : "token",
+            "required" : false,
+            "schema" : {
+              "type" : "string"
+            }
+          },
+          {
+            "in" : "query",
+            "name" : "key",
+            "required" : false,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PhotonAuthResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "photon-auth-controller"
         ]
       }
     },

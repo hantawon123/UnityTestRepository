@@ -30,6 +30,13 @@ public class SuspensionConfig implements WebMvcConfigurer {
 
                 // 헬스 체크는 헤더가 없어 어차피 통과하지만, 조회 한 번을 아끼려고 뺍니다.
                 // 자동화가 짧은 주기로 부르는 자리입니다.
-                .excludePathPatterns("/actuator/**");
+                .excludePathPatterns("/actuator/**")
+
+                // Photon 이 부르는 인증 경로입니다. userId 를 헤더가 아니라 쿼리로 받으므로
+                // 지금 구현으로는 어차피 통과하지만, 검사 기준이 바뀌면 이 엔드포인트가
+                // 자기 자신을 막는 모양이 됩니다 - 정지 여부를 묻는 곳이 정지 때문에
+                // 막히면 막으려던 사람이 오히려 들어옵니다(Photon 은 오류를 고장으로 읽고
+                // 통과시킵니다).
+                .excludePathPatterns("/api/v1/photon/**");
     }
 }
