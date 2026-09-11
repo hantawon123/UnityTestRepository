@@ -16,7 +16,7 @@ namespace Game.Client.Match
     {
         public const string IntroSlotName = "ItemPreview";
         public const float IntroImageSize = 360f;
-        public const float IntroTopPadding = 72f;
+        public const float IntroCenterOffsetY = 118f;
         private const string PreviewLayerName = "Item Preview";
         private const float RotationDegreesPerSecond = 28f;
         private static readonly Vector3 StagePosition = new(0f, -2500f, 0f);
@@ -83,10 +83,10 @@ namespace Game.Client.Match
                 return;
             }
 
-            rect.anchorMin = new Vector2(0.5f, 1f);
-            rect.anchorMax = new Vector2(0.5f, 1f);
-            rect.pivot = new Vector2(0.5f, 1f);
-            rect.anchoredPosition = new Vector2(0f, -IntroTopPadding);
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(0f, IntroCenterOffsetY);
             rect.sizeDelta = new Vector2(IntroImageSize, IntroImageSize);
         }
 

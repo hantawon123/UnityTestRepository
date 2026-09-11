@@ -21,6 +21,9 @@ namespace Game.Client.Match
         public const float VisibleSeconds = Game.Core.Match.MatchIntroTiming.VisibleSeconds;
         public const float MessageFontSize = 55f;
         public const float HintFontSize = 55f;
+        public const float ContentAnchoredY = -174f;
+        public const float MessageAnchoredY = 36f;
+        public const float HintAnchoredY = -60f;
         public const string HintText =
             "다른 도둑들에게 빼앗기지 않도록 비밀 장소에 잘 챙겨두세요.";
 
@@ -177,6 +180,39 @@ namespace Game.Client.Match
             {
                 preview = new HidingIntroItemPreview(itemPreview, rotates: true);
             }
+
+            ApplyCenteredPlacement();
+        }
+
+        private void ApplyCenteredPlacement()
+        {
+            var content = transform.Find("Content") as RectTransform;
+            if (content != null)
+            {
+                Place(
+                    content,
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(0f, ContentAnchoredY),
+                    new Vector2(1200f, 640f));
+            }
+
+            if (messageText != null)
+            {
+                Place(
+                    messageText.rectTransform,
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(0f, MessageAnchoredY),
+                    new Vector2(1400f, 80f));
+            }
+
+            if (hintText != null)
+            {
+                Place(
+                    hintText.rectTransform,
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(0f, HintAnchoredY),
+                    new Vector2(1400f, 80f));
+            }
         }
 
         private void DestroyLegacyModal()
@@ -211,7 +247,11 @@ namespace Game.Client.Match
 
             var content = new GameObject("Content", typeof(RectTransform)).GetComponent<RectTransform>();
             content.SetParent(transform, false);
-            Place(content, new Vector2(0.5f, 0.5f), new Vector2(0f, 20f), new Vector2(1200f, 640f));
+            Place(
+                content,
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0f, ContentAnchoredY),
+                new Vector2(1200f, 640f));
 
             messageText = CreateText(
                 content,
@@ -222,7 +262,7 @@ namespace Game.Client.Match
             Place(
                 messageText.rectTransform,
                 new Vector2(0.5f, 0.5f),
-                new Vector2(0f, 40f),
+                new Vector2(0f, MessageAnchoredY),
                 new Vector2(1400f, 80f));
 
             hintText = CreateText(
@@ -235,7 +275,7 @@ namespace Game.Client.Match
             Place(
                 hintText.rectTransform,
                 new Vector2(0.5f, 0.5f),
-                new Vector2(0f, -50f),
+                new Vector2(0f, HintAnchoredY),
                 new Vector2(1400f, 80f));
         }
 
