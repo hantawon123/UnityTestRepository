@@ -90,6 +90,12 @@ namespace Game.Bootstrap
                 new ControlSettingsSystem(controlSettingsStore),
                 new NotificationSettingsSystem(notificationSettingsStore));
             builder.RegisterInstance<IServerRegionStore>(regionStore);
+
+            // Lets BackendSignIn fall back to the pair saved by an earlier launch
+            // when the backend cannot be reached, so a server restart does not
+            // stop people from connecting to Photon (S15P21D205-925).
+            builder.RegisterInstance<IPhotonCredentialStore>(
+                new PlayerPrefsPhotonCredentialStore());
             builder.RegisterInstance<IGeneralSettingsStore>(generalSettingsStore);
             builder.RegisterInstance<IGraphicsSettingsStore>(graphicsSettingsStore);
             builder.RegisterInstance<IGraphicsSettingsApplier>(graphicsSettingsApplier);

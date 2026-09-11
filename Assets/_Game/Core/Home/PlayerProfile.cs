@@ -56,16 +56,30 @@ namespace Game.Core.Home
         /// </remarks>
         public string UserId { get; private set; } = string.Empty;
 
+        /// <summary>
+        /// Proves to Photon that this client is <see cref="UserId"/>. Empty when
+        /// the server is not running Photon authentication.
+        /// </summary>
+        /// <remarks>
+        /// Lives beside the id because the two are only useful together and
+        /// always arrive together. The id on its own would let a suspended
+        /// player type someone else's and connect.
+        /// </remarks>
+        public string PhotonToken { get; private set; } = string.Empty;
+
         /// <summary>Mirrors the account the server issued. Empty forgets it.</summary>
-        public void AdoptUserId(string userId)
+        public void AdoptUserId(string userId, string photonToken = null)
         {
             var next = string.IsNullOrWhiteSpace(userId) ? string.Empty : userId.Trim();
-            if (string.Equals(UserId, next, StringComparison.Ordinal))
+            var nextToken = string.IsNullOrWhiteSpace(photonToken) ? string.Empty : photonToken.Trim();
+            if (string.Equals(UserId, next, StringComparison.Ordinal)
+                && string.Equals(PhotonToken, nextToken, StringComparison.Ordinal))
             {
                 return;
             }
 
             UserId = next;
+            PhotonToken = nextToken;
             Changed?.Invoke(this);
         }
 
