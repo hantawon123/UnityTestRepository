@@ -56,7 +56,101 @@ namespace Game.Editor
         private const float WarehouseMaxX = -40f;
         private const float WarehouseIntensityScale = 0.5f;
 
+        /// <summary>천장 스팟(형광등 역할) 베이크 세기. 팩 기본 2~3은 52×75 m 매장을 굽기엔 어두워서 올린다.</summary>
+        private const float BakedSpotIntensity = 5f;
+
+        /// <summary>
+        /// 베이크용 환경광. 실내라 스카이박스 빛이 거의 못 들어와 1차 베이크가 전체적으로 어두웠다 →
+        /// 형광등 매장처럼 균일한 밑바탕 밝기를 평면 환경광으로 준다.
+        /// </summary>
+        private static readonly Color BakedAmbient = new(0.55f, 0.57f, 0.60f, 1f);
+
         private const int CarryableLayer = 7;
+
+        // ------------------------------------------------------------------ 0. 라이트맵 UV
+
+        /// <summary>
+        /// 베이크 대상 메시에 라이트맵 UV(UV2)를 만든다. Synty FBX는 기본으로 UV2가 없어서(3,712/3,757개) 1차 베이크가
+        /// 아틀라스 UV0로 구워져 라이트맵이 거의 비어 있었다. FBX는 임포터의 Generate Lightmap UVs를 켜서 재임포트,
+        /// 분해 도구가 만든 메시 에셋(Gen_*)은 <see cref="Unwrapping.GenerateSecondaryUVSet(Mesh)"/>로 직접 만든다.
+        /// </summary>
+        [MenuItem(MenuRoot + "0. Generate Lightmap UVs For Baked Meshes")]
+        public static void GenerateLightmapUVs()
+        {
+            var scene = EnsureSceneOpen();
+            if (!scene.IsValid())
+            {
+                return;
+            }
+
+            var importerPaths = new HashSet<string>();
+            var meshAssets = new HashSet<Mesh>();
+            foreach (var renderer in Object.FindObjectsByType<MeshRenderer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                if (renderer.gameObject.scene != scene ||
+                    !GameObjectUtility.AreStaticEditorFlagsSet(renderer.gameObject, StaticEditorFlags.ContributeGI))
+                {
+                    continue;
+                }
+
+                var filter = renderer.GetComponent<MeshFilter>();
+                var mesh = filter != null ? filter.sharedMesh : null;
+                if (mesh == null || mesh.HasVertexAttribute(VertexAttribute.TexCoord1))
+                {
+                    continue;
+                }
+
+                var path = AssetDatabase.GetAssetPath(mesh);
+                if (string.IsNullOrEmpty(path))
+                {
+                    continue;
+                }
+
+                if (AssetImporter.GetAtPath(path) is ModelImporter)
+                {
+                    importerPaths.Add(path);
+                }
+                else if (path.EndsWith(".asset"))
+                {
+                    meshAssets.Add(mesh);
+                }
+            }
+
+            var generated = 0;
+            foreach (var mesh in meshAssets)
+            {
+                Unwrapping.GenerateSecondaryUVSet(mesh);
+                EditorUtility.SetDirty(mesh);
+                generated++;
+            }
+
+            AssetDatabase.SaveAssets();
+
+            var reimported = 0;
+            try
+            {
+                AssetDatabase.StartAssetEditing();
+                foreach (var path in importerPaths)
+                {
+                    var importer = (ModelImporter)AssetImporter.GetAtPath(path);
+                    if (importer.generateSecondaryUV)
+                    {
+                        continue;
+                    }
+
+                    importer.generateSecondaryUV = true;
+                    importer.SaveAndReimport();
+                    reimported++;
+                }
+            }
+            finally
+            {
+                AssetDatabase.StopAssetEditing();
+            }
+
+            Debug.Log($"[Mart Lighting] 라이트맵 UV 생성: FBX 임포터 {reimported}개(총 {importerPaths.Count}) 재임포트, 메시 에셋 {generated}개 직접 생성. " +
+                      "재임포트가 끝나면 5번(Bake)을 다시 실행하세요.");
+        }
 
         // ------------------------------------------------------------------ 1. 정적 플래그
 
@@ -143,6 +237,11 @@ namespace Game.Editor
 
                 light.lightmapBakeType = LightmapBakeType.Baked;
                 light.shadows = LightShadows.Soft; // Baked 라이트도 shadows가 None이면 베이크 그림자가 안 생긴다
+                if (light.type == LightType.Spot)
+                {
+                    light.intensity = BakedSpotIntensity;
+                }
+
                 baked++;
 
                 if (light.type == LightType.Point && light.transform.position.x < WarehouseMaxX && !light.name.EndsWith(" (Dim)"))
@@ -156,6 +255,91 @@ namespace Game.Editor
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
             Debug.Log($"[Mart Lighting] Mixed {mixed}, Baked {baked}, 창고 어둡게 {dimmed}. 씬 저장됨.");
+        }
+
+        // ------------------------------------------------------------------ 2b. 전등 소품마다 베이크 라이트
+
+        private const string FixtureLightsRootName = "Lights";
+        private const string FixtureLightPrefix = "FixtureLight_";
+        private static readonly string[] FixturePrefixes =
+        {
+            "SM_Prop_Lighting_Ceiling", "SM_Prop_Lighting_Spotlight", "SM_Prop_Wall_Light", "SM_Prop_Lighting_Wall",
+        };
+        private const float FixtureLightRange = 9f;
+        private const float FixtureLightIntensity = 3.5f;
+        private const float FixtureLightDrop = 0.35f; // 전등 중심에서 이만큼 아래에 광원을 둔다(갓 안에 갇히지 않게)
+        private static readonly Color FixtureLightColor = new(1f, 0.965f, 0.91f, 1f);
+
+        /// <summary>
+        /// 경계 안 전등 소품(천장 바·스팟·벽등)마다 Baked 포인트 라이트를 하나씩 만든다.
+        /// 마트는 지붕이 닫힌 건물이라 환경광(스카이박스)이 실내로 들어오지 않아, 팩에 든 조명 14개만으로 구우면
+        /// 3,900 m² 매장이 어둡다(2차 베이크 라이트맵 평균 0.08). 전등 소품 위치(약 50개)를 실제 광원으로 쓴다.
+        /// 다시 실행하면 기존 FixtureLight_*를 지우고 새로 만든다.
+        /// </summary>
+        [MenuItem(MenuRoot + "2b. Add Baked Lights At Light Fixtures")]
+        public static void AddFixtureLights()
+        {
+            var scene = EnsureSceneOpen();
+            if (!scene.IsValid())
+            {
+                return;
+            }
+
+            if (!TryGetBoundary(out var boundary))
+            {
+                Debug.LogError("[Mart Lighting] 경계가 없어 전등 라이트를 만들 수 없습니다.");
+                return;
+            }
+
+            var root = GameObject.Find(EnvironmentRootName);
+            var lightsRoot = root.transform.Find(FixtureLightsRootName);
+            if (lightsRoot == null)
+            {
+                var go = new GameObject(FixtureLightsRootName);
+                Undo.RegisterCreatedObjectUndo(go, "Create Lights Root");
+                go.transform.SetParent(root.transform, false);
+                lightsRoot = go.transform;
+            }
+
+            foreach (var old in lightsRoot.GetComponentsInChildren<Light>(true).ToArray())
+            {
+                if (old.name.StartsWith(FixtureLightPrefix))
+                {
+                    Undo.DestroyObjectImmediate(old.gameObject);
+                }
+            }
+
+            var created = 0;
+            foreach (var renderer in Object.FindObjectsByType<MeshRenderer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                if (renderer.gameObject.scene != scene || !FixturePrefixes.Any(p => renderer.name.StartsWith(p)))
+                {
+                    continue;
+                }
+
+                var center = renderer.bounds.center;
+                if (!boundary.Contains(center) || IsMovable(renderer.transform))
+                {
+                    continue;
+                }
+
+                var go = new GameObject($"{FixtureLightPrefix}{created:D3}");
+                Undo.RegisterCreatedObjectUndo(go, "Create Fixture Light");
+                go.transform.SetParent(lightsRoot, false);
+                go.transform.position = center + Vector3.down * Mathf.Min(FixtureLightDrop, renderer.bounds.extents.y + 0.1f);
+                var light = go.AddComponent<Light>();
+                light.type = LightType.Point;
+                light.lightmapBakeType = LightmapBakeType.Baked;
+                light.range = FixtureLightRange;
+                light.intensity = FixtureLightIntensity;
+                light.color = FixtureLightColor;
+                light.shadows = LightShadows.Soft;
+                created++;
+            }
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Debug.Log($"[Mart Lighting] 전등 소품 기준 Baked 포인트 라이트 {created}개 생성({FixtureLightsRootName} 아래). 씬 저장됨. 다음: 5번(Bake).");
         }
 
         // ------------------------------------------------------------------ 3. 설정·프로브
@@ -178,6 +362,9 @@ namespace Game.Editor
 
             var settings = GetOrCreateLightingSettings();
             Lightmapping.lightingSettings = settings;
+
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = BakedAmbient;
 
             var probeCount = BuildLightProbes(boundary);
             var reflectionCount = BuildReflectionProbes(boundary);

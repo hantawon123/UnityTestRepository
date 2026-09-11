@@ -140,3 +140,18 @@
   - 테스트: `AssignedItemOutlineTests`(SeeThrough 마스크·껍질 재질 상태, 기본 모드 무변경).
   - **렌더 큐 문제(2026-09-11)**: 위 수정 뒤에도 사용자 화면에서 윤곽선이 안 보였다. 원인은 그리는 순서. Synty(Polygon) 재질은 알파 클립 때문에 **큐 2450(AlphaTest)** 에 그려지는데 윤곽선 셰이더는 `Geometry+1`(2001)이라 먼저 그려지고, 그 뒤에 그려지는 앞쪽 소품·선반·옆 물건이 윤곽선을 덮어썼다(URP Lit 상자로 만든 테스트 장면은 큐 2000이라 재현이 안 됐음). 셰이더 큐를 `AlphaTest+49`(2499), SeeThrough 마스크·껍질 재질 큐를 2498·2499로 옮겨 해결. 검증: 냉장고 안 상품 8방향 중 앞에 소품이 있는 5방향이 0 px → 수정 후 전 방향 표시. 이 문제는 chrin105의 원래 윤곽선(로비 계획판·지정 물건 빨간 윤곽선)에도 같은 조건이면 생기므로 공유 필요.
   - 검증 시 주의: 에디터에서 갓 임포트/수정한 셰이더는 비동기 컴파일 중이라 첫 `Camera.Render()`에 아무것도 그려지지 않는다(에디트 모드 검증이 전부 0으로 나온 원인). 두 번 렌더하거나 플레이 모드에서 확인할 것.
+
+### 10. 조명 베이크 1차 (2026-09-11, 911)
+
+- 메뉴 `Game/Match Map/Lighting/`([MartLightingSetupMenu.cs](../../../Assets/_Game/Editor/MartLightingSetupMenu.cs)). 로비 도구를 마트 규모(경계 안 52×75 m, 로비의 25배)와 평평한 씬 구조(경계 박스 15개 합집합)에 맞게 옮긴 것.
+  0. **Generate Lightmap UVs**: Synty FBX는 라이트맵 UV(UV2)가 없어(3,757개 중 3,712개) 1·2차 베이크가 아틀라스 UV0로 구워져 라이트맵이 거의 비어 있었다. FBX 임포터 383개 Generate Lightmap UVs 켜서 재임포트 + 분해 메시 에셋 89개 `Unwrapping.GenerateSecondaryUVSet`.
+  1. **Mark Static**: 경계 안 고정 소품 3,757개에 ContributeGI·ReflectionProbeStatic·OccludeeStatic(경계 밖 외부 지형 9,148개·움직이는 상품 7,109개 제외).
+  2. **Convert Lights**: 태양광 Mixed(부드러운 그림자), 팩 스팟 7·포인트 6은 Baked, 스팟 세기 5, 창고 구역(x < -40) 포인트 세기 절반.
+  2b. **Fixture Lights**: 마트는 지붕이 닫혀 환경광이 실내로 안 들어와 조명 14개로는 어두웠다(라이트맵 평균 0.08). 전등 소품(천장 바·스팟·벽등) 79개 자리에 Baked 포인트(범위 9 m, 세기 3.5, 난색) 자동 생성 → 조명 93개.
+  3. **Setup**: `MartLighting.lighting`(Progressive GPU, 8 texels/m, 최대 4096, Shadowmask, AO 0.5 m, 샘플 32/256/128, 바운스 2), 평면 환경광, 라이트 프로브 격자 3.5 m × 높이 0.4/1.6/3.2 m → 902개, 리플렉션 프로브 3×4 = 12개(Baked 128).
+  4. **Post-Process**: 로비 프로필 복제 `MartPostProcess.asset`(Neutral 톤매핑·블룸·비네트·색보정) → `Mart Post Volume`(global), Synty 데모 `Global Volume` 제거, Main Camera PP + SMAA Medium.
+  5/6. Bake / Clear, Report.
+- 결과: 라이트맵 2장(1024), 산출물 `Assets/_Game/Content/Scenes/Supermarket/`(약 22 MB, exr는 LFS). 매장 밝기 평균 45 → 71(계산대), 49 → 79(진열대). 창고는 갓등 몇 개만 남아 어둡게 유지(숨기기 유리 구역).
+  - `supermarket-lighting-bake-v1-checkout.png`, `-shelf.png`, `-warehouse.png`.
+- **재베이크 규칙**: 선반·벽·전등·고정 소품 이동/추가/삭제, Static 플래그 변경 뒤 5번 재실행. 들 수 있는 상품 7,101개는 동적(라이트 프로브로 조명)이라 배치를 바꿔도 재베이크 불필요. 새 고정 소품을 넣으면 0·1번을 먼저 다시 돌려 UV2·플래그를 채운다.
+- 남은 조정: 해상도 8 → 12 texels/m 검토(얼룩 보이면), 창고 밝기 미세 조정, 캐릭터 실시간 그림자(태양광 Mixed만) 확인, 드로우콜·WebGL 프레임 측정.
